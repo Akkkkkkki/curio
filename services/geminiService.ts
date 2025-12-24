@@ -1,13 +1,6 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { FieldDefinition } from "../types";
-
-const getClient = () => {
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) {
-    throw new Error("API Key not found");
-  }
-  return new GoogleGenAI({ apiKey });
-};
 
 // Map internal field types to Gemini Schema Types
 const mapFieldTypeToSchemaType = (type: string): Type => {
@@ -28,7 +21,8 @@ export const analyzeImage = async (
   fields: FieldDefinition[]
 ): Promise<{ title: string; data: Record<string, any>; notes: string }> => {
   try {
-    const ai = getClient();
+    // Always use new GoogleGenAI({apiKey: process.env.API_KEY}) as per guidelines
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
     // Construct dynamic schema based on fields
     const properties: Record<string, any> = {
@@ -40,7 +34,6 @@ export const analyzeImage = async (
       properties[field.id] = {
         type: mapFieldTypeToSchemaType(field.type),
         description: `Value for ${field.label}.`,
-        nullable: true,
       };
       if (field.type === 'select' && field.options) {
         properties[field.id].description += ` Must be one of: ${field.options.join(', ')}`;
@@ -48,7 +41,8 @@ export const analyzeImage = async (
     });
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      // Use gemini-3-flash-preview for general purpose vision-to-text metadata extraction
+      model: "gemini-3-flash-preview",
       contents: {
         parts: [
           { inlineData: { mimeType: "image/jpeg", data: base64Image } },
@@ -64,6 +58,7 @@ export const analyzeImage = async (
       }
     });
 
+    // Access .text property directly (not a method) as per guidelines
     if (!response.text) {
         throw new Error("No response from AI");
     }
@@ -81,7 +76,6 @@ export const analyzeImage = async (
 
   } catch (error) {
     console.error("AI Analysis Failed:", error);
-    // Fallback or rethrow
     throw error;
   }
 };

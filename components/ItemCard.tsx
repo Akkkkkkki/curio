@@ -1,6 +1,7 @@
 import React from 'react';
 import { CollectionItem, FieldDefinition } from '../types';
 import { Star } from 'lucide-react';
+import { ItemImage } from './ItemImage';
 
 interface ItemCardProps {
   item: CollectionItem;
@@ -13,7 +14,6 @@ interface ItemCardProps {
 
 export const ItemCard: React.FC<ItemCardProps> = ({ item, fields, displayFields, badgeFields, onClick, layout = 'grid' }) => {
   
-  // Helper to get formatted value
   const getValue = (fieldId: string) => {
     const val = item.data[fieldId];
     if (val === undefined || val === null) return null;
@@ -29,21 +29,13 @@ export const ItemCard: React.FC<ItemCardProps> = ({ item, fields, displayFields,
       onClick={onClick}
       className={`group bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden border border-stone-100 cursor-pointer flex flex-col ${layout === 'grid' ? 'h-full' : ''}`}
     >
-      {/* Image Aspect Ratio Container */}
       <div className={`${layout === 'grid' ? 'aspect-[4/3]' : ''} bg-stone-100 overflow-hidden relative`}>
-        {item.photoUrl ? (
-          <img 
-            src={item.photoUrl} 
+        <ItemImage 
+            itemId={item.id} 
             alt={item.title} 
-            className={`w-full object-cover group-hover:scale-105 transition-transform duration-500 ${layout === 'grid' ? 'h-full' : 'h-auto'}`}
-          />
-        ) : (
-          <div className={`w-full flex items-center justify-center text-stone-300 bg-stone-50 ${layout === 'grid' ? 'h-full' : 'aspect-[4/3]'}`}>
-            No Photo
-          </div>
-        )}
+            className={`w-full group-hover:scale-105 transition-transform duration-500 ${layout === 'grid' ? 'h-full' : 'h-auto'}`}
+        />
         
-        {/* Rating Overlay */}
         {item.rating > 0 && (
           <div className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm px-1.5 py-0.5 rounded-md flex items-center gap-1 shadow-sm">
             <Star size={10} className="fill-amber-400 text-amber-400" />
@@ -55,7 +47,6 @@ export const ItemCard: React.FC<ItemCardProps> = ({ item, fields, displayFields,
       <div className="p-4 flex flex-col flex-grow">
         <h4 className="font-bold text-stone-900 line-clamp-1 text-lg mb-1">{item.title}</h4>
         
-        {/* Primary Display Fields */}
         <div className="space-y-1 mb-3">
           {displayFields.map(fieldId => {
             const val = getValue(fieldId);

@@ -1,7 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { X, Printer, Share2, Download, Maximize2, Minimize2, ChevronUp, ChevronDown, Check } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Printer, Share2, Download, Maximize2, Minimize2, Check, Loader2, Camera } from 'lucide-react';
 import { CollectionItem, FieldDefinition } from '../types';
 import { Button } from './ui/Button';
+import { getAsset } from '../services/db';
 
 interface ExportModalProps {
   isOpen: boolean;
@@ -15,15 +16,42 @@ type AspectRatio = '1:1' | '3:4' | '9:16';
 type ImageFit = 'cover' | 'contain';
 
 export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item, fields }) => {
-  // Unified Config State
   const [style, setStyle] = useState<TemplateStyle>('minimal');
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('3:4');
   const [imageFit, setImageFit] = useState<ImageFit>('cover');
-  const [isExpanded, setIsExpanded] = useState(false); // Mobile sheet expansion
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [isLoadingImage, setIsLoadingImage] = useState(true);
+
+  // Fetch the high-res master image from the asset store
+  useEffect(() => {
+    if (!isOpen) return;
+
+    let objectUrl: string | null = null;
+    const loadMaster = async () => {
+      setIsLoadingImage(true);
+      try {
+        const blob = await getAsset(item.id);
+        if (blob) {
+          objectUrl = URL.createObjectURL(blob);
+          setImageUrl(objectUrl);
+        }
+      } catch (e) {
+        console.error("Export: Failed to load master image", e);
+      } finally {
+        setIsLoadingImage(false);
+      }
+    };
+
+    loadMaster();
+
+    return () => {
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [isOpen, item.id]);
 
   if (!isOpen) return null;
 
-  // Helper to get formatted value
   const getValue = (fieldId: string) => {
     const val = item.data[fieldId];
     if (val === undefined || val === null) return null;
@@ -52,7 +80,6 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
     }
   };
 
-  // Inline style for aspect ratio to guarantee it works (Tailwind JIT dynamic classes can be flaky in some CDNs)
   const getAspectRatioStyle = () => {
     const map: Record<AspectRatio, string> = {
         '1:1': '1 / 1',
@@ -62,13 +89,11 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
     return { aspectRatio: map[aspectRatio] };
   };
   
-  // Font scaling based on compactness
   const isCompact = aspectRatio === '1:1';
   const titleSize = isCompact ? 'text-xl' : 'text-3xl';
   const metaSize = isCompact ? 'text-[8px]' : 'text-[10px]';
 
   const renderCardPreview = () => {
-    // Dynamic Styles based on template
     const containerStyles = {
         minimal: "bg-white p-6 flex flex-col items-center text-center justify-between border-[12px] border-white",
         full: "bg-stone-900 text-white p-6 flex flex-col justify-end relative",
@@ -78,8 +103,6 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
     return (
       <div 
         id="card-preview"
-        // Key fix: Use h-full and w-auto to let aspect-ratio drive width within height constraints
-        // This prevents vertical clipping on mobile split screens
         className={`shadow-2xl transition-all duration-300 overflow-hidden relative group select-none h-full w-auto mx-auto print:h-auto print:w-[100mm]`}
         style={getAspectRatioStyle()}
       >
@@ -89,21 +112,24 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
             {style === 'minimal' && (
                 <>
                     <div className={`w-full overflow-hidden mb-4 ring-4 ring-stone-100 bg-stone-50 relative flex-1 rounded-xl min-h-0`}>
-                        {item.photoUrl && (
+                        {isLoadingImage ? (
+                            <div className="absolute inset-0 flex items-center justify-center"><Loader2 className="animate-spin text-stone-200" /></div>
+                        ) : imageUrl ? (
                             <>
                                 {imageFit === 'contain' && (
-                                    <img src={item.photoUrl} className="absolute inset-0 w-full h-full object-cover blur-xl opacity-40 scale-150" alt="" />
+                                    <img src={imageUrl} className="absolute inset-0 w-full h-full object-cover blur-xl opacity-40 scale-150" alt="" />
                                 )}
                                 <img 
-                                    src={item.photoUrl} 
+                                    src={imageUrl} 
                                     className={`w-full h-full relative z-10 ${imageFit === 'contain' ? 'object-contain' : 'object-cover'}`} 
                                     alt={item.title}
                                 />
                             </>
+                        ) : (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center text-stone-200"><Camera size={40} /><span className="text-xs">No Image</span></div>
                         )}
                     </div>
                     <div className="flex-shrink-0 w-full">
-                        {/* Swapped truncate for line-clamp-2 to allow 2 lines of title */}
                         <h3 className={`font-serif ${titleSize} font-bold text-stone-900 leading-tight mb-2 line-clamp-2`}>{item.title}</h3>
                         <div className="flex gap-1 justify-center text-amber-400 mb-3">
                              {[...Array(5)].map((_, i) => (
@@ -127,17 +153,16 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
             {/* FULL TEMPLATE */}
             {style === 'full' && (
                 <>
-                    {item.photoUrl && (
+                    {imageUrl && (
                         <div className="absolute inset-0">
                              {imageFit === 'contain' && (
-                                <img src={item.photoUrl} className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-60 scale-125" alt="" />
+                                <img src={imageUrl} className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-60 scale-125" alt="" />
                             )}
                             <img 
-                                src={item.photoUrl} 
+                                src={imageUrl} 
                                 className={`w-full h-full relative z-10 ${imageFit === 'contain' ? 'object-contain' : 'object-cover'} ${imageFit === 'contain' ? '' : 'opacity-80'}`} 
                                 alt={item.title}
                             />
-                            {/* Gradient Overlay */}
                             <div className="absolute inset-0 bg-gradient-to-t from-stone-900 via-stone-900/40 to-transparent z-20" />
                         </div>
                     )}
@@ -169,9 +194,9 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
             {style === 'retro' && (
                 <>
                     <div className="w-full flex-1 border-2 border-stone-800 mb-4 bg-stone-200 grayscale contrast-125 overflow-hidden relative min-h-0">
-                        {item.photoUrl && (
+                        {imageUrl && (
                             <img 
-                                src={item.photoUrl} 
+                                src={imageUrl} 
                                 className={`w-full h-full mix-blend-multiply ${imageFit === 'contain' ? 'object-contain' : 'object-cover'}`} 
                                 alt={item.title}
                             />
@@ -210,9 +235,6 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
   return (
     <div className="fixed inset-0 z-50 bg-stone-950/90 backdrop-blur-md animate-in fade-in duration-200 print:bg-white print:static print:block">
       
-      {/* 1. Preview Area - Always Visible */}
-      {/* Changed layout strategy: Use flexbox to center content and size by height (h-full) instead of fixed width */}
-      {/* This ensures the aspect ratio logic adjusts width, preventing vertical clipping on mobile */}
       <div 
         className="absolute inset-0 flex flex-col items-center justify-center pt-6 pb-[45vh] px-6 md:pb-6 md:pr-96 md:pt-6 overflow-hidden print:relative print:inset-auto print:p-0 print:overflow-visible print:block" 
         onClick={() => setIsExpanded(false)}
@@ -222,11 +244,9 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
          </div>
       </div>
 
-      {/* 2. Controls & Actions - Bottom Sheet (Mobile) / Sidebar (Desktop) */}
       <div 
         className={`absolute bottom-0 left-0 right-0 md:top-0 md:left-auto md:w-96 md:h-full bg-white rounded-t-3xl md:rounded-none shadow-2xl flex flex-col transition-all duration-300 ease-out z-10 ${isExpanded ? 'h-[85vh]' : 'h-[40vh]'} md:h-full print:hidden`}
       >
-        {/* Drag Handle (Mobile) */}
         <div 
             className="md:hidden w-full flex justify-center py-3 cursor-pointer active:opacity-70 touch-none"
             onClick={() => setIsExpanded(!isExpanded)}
@@ -234,7 +254,6 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
             <div className="w-12 h-1.5 bg-stone-200 rounded-full" />
         </div>
 
-        {/* Header */}
         <div className="px-6 pb-4 md:pt-6 border-b border-stone-100 flex justify-between items-center bg-white rounded-t-3xl md:rounded-none shrink-0">
             <div>
                 <h2 className="font-serif font-bold text-xl text-stone-900">Export Card</h2>
@@ -245,10 +264,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
             </button>
         </div>
 
-        {/* Scrollable Settings */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
-            
-            {/* Style Selector */}
             <div>
                 <label className="block text-xs font-bold text-stone-400 uppercase tracking-wider mb-3">Card Style</label>
                 <div className="grid grid-cols-1 gap-2">
@@ -279,7 +295,6 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
                 </div>
             </div>
 
-            {/* Layout Options */}
             <div className="grid grid-cols-2 gap-4">
                 <div>
                     <label className="block text-xs font-bold text-stone-400 uppercase tracking-wider mb-2">Aspect Ratio</label>
@@ -315,7 +330,6 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
             </div>
         </div>
 
-        {/* Footer Actions */}
         <div className="p-4 md:p-6 border-t border-stone-100 bg-stone-50 space-y-3 shrink-0">
             <Button className="w-full" size="lg" icon={<Download size={18} />}>
                 Save Image
