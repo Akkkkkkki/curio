@@ -1,6 +1,6 @@
 
-import { GoogleGenAI, Type } from "@google/genai";
-import { FieldDefinition } from "../types";
+import { GoogleGenAI, Type, Modality } from "@google/genai";
+import { FieldDefinition, UserCollection } from "../types";
 
 // Map internal field types to Gemini Schema Types
 const mapFieldTypeToSchemaType = (type: string): Type => {
@@ -21,10 +21,8 @@ export const analyzeImage = async (
   fields: FieldDefinition[]
 ): Promise<{ title: string; data: Record<string, any>; notes: string }> => {
   try {
-    // Always use new GoogleGenAI({apiKey: process.env.API_KEY}) as per guidelines
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
-    // Construct dynamic schema based on fields
     const properties: Record<string, any> = {
       title: { type: Type.STRING, description: "A short, descriptive title for the item." },
       notes: { type: Type.STRING, description: "A brief summary of visual observations about the item." },
@@ -41,12 +39,11 @@ export const analyzeImage = async (
     });
 
     const response = await ai.models.generateContent({
-      // Use gemini-3-flash-preview for general purpose vision-to-text metadata extraction
       model: "gemini-3-flash-preview",
       contents: {
         parts: [
           { inlineData: { mimeType: "image/jpeg", data: base64Image } },
-          { text: "Analyze this image of a collectible item. Extract metadata based on the provided schema. Be precise. If a field cannot be determined from the image, leave it null." }
+          { text: "Analyze this image of a collectible item. Extract metadata based on the provided schema. Be precise. If a field cannot be determined, leave it null." }
         ]
       },
       config: {
@@ -58,14 +55,11 @@ export const analyzeImage = async (
       }
     });
 
-    // Access .text property directly (not a method) as per guidelines
     if (!response.text) {
         throw new Error("No response from AI");
     }
 
     const result = JSON.parse(response.text);
-    
-    // Separate core fields from dynamic data
     const { title, notes, ...data } = result;
 
     return {
@@ -78,4 +72,43 @@ export const analyzeImage = async (
     console.error("AI Analysis Failed:", error);
     throw error;
   }
+};
+
+/**
+ * Connects to the Gemini Live API to provide a "Museum Guide" experience.
+ * It provides context about the current collection to the model.
+ */
+export const connectMuseumGuide = async (collection: UserCollection, callbacks: any) => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  
+  const itemsContext = collection.items.map(item => ({
+    title: item.title,
+    rating: item.rating,
+    notes: item.notes,
+    details: item.data
+  }));
+
+  const systemInstruction = `
+    You are the "Curio Museum Guide", a sophisticated and enthusiastic expert in ${collection.name}.
+    You are helping the user enjoy and explore their collection.
+    
+    Collection Context:
+    ${JSON.stringify(itemsContext, null, 2)}
+
+    Your tone: Elegant, knowledgeable, and slightly whimsical, like a high-end gallery curator.
+    Your goal: Help users appreciate their items. Suggest things to look at, talk about history, or just chat about the hobby.
+    Keep responses concise and conversational for audio.
+  `;
+
+  return ai.live.connect({
+    model: 'gemini-2.5-flash-native-audio-preview-09-2025',
+    callbacks,
+    config: {
+      responseModalities: [Modality.AUDIO],
+      speechConfig: {
+        voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } },
+      },
+      systemInstruction,
+    },
+  });
 };

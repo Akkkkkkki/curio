@@ -66,7 +66,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
       setStep('verify');
     } catch (e) {
       console.error(e);
-      setError("Could not analyze image. Please fill details manually.");
+      setError("Analysis failed. Please fill in the details manually.");
       setStep('verify');
       setFormData({ title: '', notes: '', data: {}, rating: 0 });
     }
@@ -87,9 +87,9 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
 
   // Render Functions
   const renderCollectionSelect = () => (
-    <div className="space-y-4">
-      <h3 className="text-xl font-serif font-bold text-center mb-6">What are we adding?</h3>
-      <div className="grid grid-cols-2 gap-3">
+    <div className="space-y-6">
+      <h3 className="text-2xl font-serif font-bold text-center mb-8">Choose Collection</h3>
+      <div className="grid grid-cols-2 gap-4">
         {collections.map(c => (
           <button
             key={c.id}
@@ -97,13 +97,13 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
               setSelectedCollectionId(c.id);
               setStep('upload');
             }}
-            className="p-4 rounded-xl border border-stone-200 hover:border-amber-400 hover:bg-amber-50 transition-all text-left group"
+            className="p-6 rounded-2xl border border-stone-100 bg-stone-50/50 hover:border-amber-400 hover:bg-amber-50 transition-all text-left group shadow-sm hover:shadow-md"
           >
-            <span className="block text-2xl mb-2 group-hover:scale-110 transition-transform origin-left">
-              {/* Need to get icon from template or stored */}
-              📦
+            <span className="block text-3xl mb-3 group-hover:scale-110 transition-transform origin-left">
+              {c.icon || '📦'}
             </span>
-            <span className="font-bold text-stone-800">{c.name}</span>
+            <span className="font-bold text-stone-800 block text-lg">{c.name}</span>
+            <span className="text-xs text-stone-400 font-medium uppercase tracking-wider">{c.items.length} items</span>
           </button>
         ))}
       </div>
@@ -111,163 +111,114 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
   );
 
   const renderUpload = () => (
-    <div className="text-center space-y-6">
-      <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto text-amber-600 mb-4">
-        <Camera size={32} />
-      </div>
-      <h3 className="text-xl font-serif font-bold">Snap a photo</h3>
-      <p className="text-stone-500 max-w-xs mx-auto">
-        We'll use AI to read the label and fill in the details for you.
-      </p>
-      
-      <div className="flex flex-col gap-3 max-w-xs mx-auto">
-        <Button onClick={() => fileInputRef.current?.click()} size="lg" icon={<Upload />}>
-           Upload Photo
-        </Button>
-        <input 
-            type="file" 
-            ref={fileInputRef} 
-            className="hidden" 
-            accept="image/*"
-            onChange={handleFileChange}
-        />
-        <button onClick={() => { setStep('verify'); setFormData({data:{}}); }} className="text-stone-400 text-sm hover:text-stone-600">
-          Skip photo & enter manually
-        </button>
-      </div>
+    <div className="text-center space-y-8 py-4">
+        <div className="flex justify-center">
+            <div className="relative">
+                <div className="w-40 h-40 rounded-full bg-stone-50 border-2 border-dashed border-stone-200 flex flex-col items-center justify-center text-stone-400 group hover:border-amber-400 hover:bg-amber-50 transition-all cursor-pointer overflow-hidden" onClick={() => fileInputRef.current?.click()}>
+                   {imagePreview ? (
+                       <img src={imagePreview} className="w-full h-full object-cover" alt="Preview" />
+                   ) : (
+                       <>
+                           <Camera size={32} className="mb-2" />
+                           <span className="text-xs font-bold uppercase tracking-wider">Take Photo</span>
+                       </>
+                   )}
+                </div>
+            </div>
+        </div>
+        <div>
+            <h3 className="text-2xl font-serif font-bold text-stone-900 mb-2">Upload Photo</h3>
+            <p className="text-stone-500 max-w-xs mx-auto">Gemini will automatically extract the title and details for you.</p>
+        </div>
+        <div className="flex flex-col gap-3">
+            <Button onClick={() => fileInputRef.current?.click()} size="lg" icon={<Upload size={18} />}>
+                {imagePreview ? 'Change Photo' : 'Upload Photo'}
+            </Button>
+            <button onClick={() => setStep('verify')} className="text-sm font-medium text-stone-400 hover:text-stone-600">Skip and add manually</button>
+        </div>
+        <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
     </div>
   );
 
   const renderAnalyzing = () => (
-    <div className="text-center py-12 space-y-4">
-        <div className="relative mx-auto w-16 h-16">
-            <div className="absolute inset-0 border-4 border-stone-100 rounded-full"></div>
-            <div className="absolute inset-0 border-4 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
-            <div className="absolute inset-0 flex items-center justify-center text-amber-500">
-                <Sparkles size={20} className="animate-pulse" />
+    <div className="text-center py-20 space-y-6">
+        <div className="relative inline-block">
+            <div className="absolute inset-0 bg-amber-200 rounded-full animate-ping opacity-20"></div>
+            <div className="relative bg-white p-6 rounded-full shadow-lg border border-stone-100">
+                <Sparkles size={40} className="text-amber-500 animate-pulse" />
             </div>
         </div>
-        <h3 className="text-lg font-medium text-stone-800 animate-pulse">Reading label...</h3>
+        <div>
+            <h3 className="text-2xl font-serif font-bold text-stone-900 mb-2">Analyzing photo...</h3>
+            <p className="text-stone-500 italic font-serif">Gemini is extracting details for your collection.</p>
+        </div>
     </div>
   );
 
-  const renderVerify = () => {
-      if (!currentCollection) return null;
-      
-      const updateField = (key: string, value: any) => {
-          setFormData({ ...formData, data: { ...formData.data, [key]: value } });
-      };
+  const renderVerify = () => (
+    <div className="space-y-6">
+       <div className="flex gap-6 items-start">
+            <div className="w-24 h-24 rounded-xl bg-stone-100 flex-shrink-0 overflow-hidden border border-stone-200">
+                {imagePreview ? <img src={imagePreview} className="w-full h-full object-cover" /> : <Camera className="w-full h-full p-6 text-stone-200" />}
+            </div>
+            <div className="flex-1">
+                <label className="block text-xs font-bold text-stone-400 uppercase tracking-wider mb-1">Title</label>
+                <input 
+                    type="text" 
+                    className="w-full text-xl font-bold bg-transparent border-b border-stone-200 focus:border-amber-500 outline-none pb-1 transition-colors"
+                    value={formData.title}
+                    onChange={e => setFormData({...formData, title: e.target.value})}
+                />
+            </div>
+       </div>
 
-      return (
-        <div className="space-y-6">
-            <div className="flex items-start gap-4 p-4 bg-stone-50 rounded-xl border border-stone-100">
-                {imagePreview && (
-                    <img src={imagePreview} alt="Preview" className="w-20 h-20 object-cover rounded-lg shadow-sm" />
-                )}
-                <div className="flex-1">
-                     <label className="block text-xs font-bold text-stone-400 uppercase tracking-wider mb-1">Title</label>
-                     <input 
-                        type="text" 
-                        value={formData.title} 
-                        onChange={e => setFormData({...formData, title: e.target.value})}
-                        className="w-full bg-transparent border-b border-stone-300 focus:border-amber-500 outline-none text-lg font-bold text-stone-900 placeholder-stone-300 pb-1"
-                        placeholder="Item Name"
-                     />
+       <div className="space-y-4 max-h-[40vh] overflow-y-auto px-1">
+            {currentCollection?.customFields.map(field => (
+                <div key={field.id}>
+                    <label className="block text-xs font-bold text-stone-400 uppercase tracking-wider mb-1">{field.label}</label>
+                    <input 
+                        className="w-full p-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm"
+                        value={formData.data?.[field.id] || ''}
+                        onChange={e => setFormData({
+                            ...formData, 
+                            data: { ...formData.data, [field.id]: e.target.value }
+                        })}
+                    />
+                </div>
+            ))}
+            <div>
+                <label className="block text-xs font-bold text-stone-400 uppercase tracking-wider mb-1">Rating</label>
+                <div className="flex gap-2">
+                    {[1,2,3,4,5].map(s => (
+                        <button 
+                            key={s} 
+                            onClick={() => setFormData({...formData, rating: s})}
+                            className={`w-10 h-10 rounded-lg border flex items-center justify-center transition-all ${formData.rating === s ? 'bg-amber-400 border-amber-500 text-white shadow-sm' : 'bg-white border-stone-200 text-stone-300'}`}
+                        >
+                            ★
+                        </button>
+                    ))}
                 </div>
             </div>
+       </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                 {/* Core: Rating */}
-                 <div className="md:col-span-2">
-                    <label className="block text-xs font-bold text-stone-500 mb-1">My Rating</label>
-                    <div className="flex gap-2">
-                        {[1,2,3,4,5].map(star => (
-                            <button 
-                                key={star}
-                                onClick={() => setFormData({...formData, rating: star})}
-                                className={`text-2xl transition-transform hover:scale-110 ${formData.rating >= star ? 'text-amber-400' : 'text-stone-200'}`}
-                            >
-                                ★
-                            </button>
-                        ))}
-                    </div>
-                 </div>
-
-                 {/* Dynamic Fields */}
-                 {currentCollection.customFields.map(field => (
-                     <div key={field.id} className={field.type === 'long_text' ? 'md:col-span-2' : ''}>
-                         <label className="block text-xs font-bold text-stone-500 mb-1 flex items-center gap-1">
-                             {field.label}
-                             {/* Highlight AI suggested fields if we tracked them, simple dot for now */}
-                             {formData.data[field.id] && <span className="w-1.5 h-1.5 rounded-full bg-blue-400" title="AI Suggested"></span>}
-                         </label>
-                         
-                         {field.type === 'select' ? (
-                             <select
-                                value={formData.data[field.id] || ''}
-                                onChange={e => updateField(field.id, e.target.value)}
-                                className="w-full p-2 bg-white border border-stone-200 rounded-lg text-sm focus:ring-2 focus:ring-amber-200 outline-none"
-                             >
-                                 <option value="">Select...</option>
-                                 {field.options?.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                             </select>
-                         ) : field.type === 'long_text' ? (
-                             <textarea
-                                value={formData.data[field.id] || ''}
-                                onChange={e => updateField(field.id, e.target.value)}
-                                className="w-full p-2 bg-white border border-stone-200 rounded-lg text-sm focus:ring-2 focus:ring-amber-200 outline-none min-h-[80px]"
-                             />
-                         ) : (
-                             <input 
-                                type={field.type === 'number' ? 'number' : 'text'}
-                                value={formData.data[field.id] || ''}
-                                onChange={e => updateField(field.id, e.target.value)}
-                                className="w-full p-2 bg-white border border-stone-200 rounded-lg text-sm focus:ring-2 focus:ring-amber-200 outline-none"
-                             />
-                         )}
-                     </div>
-                 ))}
-
-                 {/* Notes */}
-                 <div className="md:col-span-2">
-                     <label className="block text-xs font-bold text-stone-500 mb-1">Notes</label>
-                     <textarea
-                        value={formData.notes}
-                        onChange={e => setFormData({...formData, notes: e.target.value})}
-                        className="w-full p-2 bg-white border border-stone-200 rounded-lg text-sm focus:ring-2 focus:ring-amber-200 outline-none min-h-[80px]"
-                        placeholder="Personal thoughts..."
-                     />
-                 </div>
-            </div>
-
-            <div className="flex justify-end gap-3 pt-4 border-t border-stone-100">
-                <Button variant="ghost" onClick={onClose}>Cancel</Button>
-                <Button onClick={handleSave} icon={<Check size={16}/>}>Save to Collection</Button>
-            </div>
-        </div>
-      );
-  };
+       <Button className="w-full" size="lg" onClick={handleSave} icon={<Check size={18} />}>
+           Add to Collection
+       </Button>
+    </div>
+  );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/40 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
-        <div className="flex items-center justify-between p-4 border-b border-stone-100">
-            <h2 className="font-serif font-bold text-lg text-stone-800">
-                {step === 'select-type' ? 'Add Item' : 
-                 step === 'upload' ? 'Add Photo' : 
-                 step === 'analyzing' ? 'Analyzing...' : 'Review Details'}
-            </h2>
-            <button onClick={onClose} className="p-1 hover:bg-stone-100 rounded-full text-stone-400 hover:text-stone-800 transition-colors">
-                <X size={20} />
-            </button>
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col">
+        <div className="flex items-center justify-between p-6 border-b border-stone-100">
+          <h2 className="font-serif font-bold text-xl text-stone-800">Add New Item</h2>
+          <button onClick={onClose} className="p-2 hover:bg-stone-100 rounded-full text-stone-400 hover:text-stone-800 transition-colors">
+            <X size={20} />
+          </button>
         </div>
-        
-        <div className="p-6 overflow-y-auto">
-            {error && (
-                <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm mb-4">
-                    {error}
-                </div>
-            )}
+
+        <div className="p-8">
             {step === 'select-type' && renderCollectionSelect()}
             {step === 'upload' && renderUpload()}
             {step === 'analyzing' && renderAnalyzing()}

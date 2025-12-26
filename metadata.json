@@ -2,6 +2,7 @@
   "name": "Curio - Personal Museum",
   "description": "Capture, organise, and enjoy your physical collections with AI assistance.",
   "requestFramePermissions": [
-    "camera"
+    "camera",
+    "microphone"
   ]
 }

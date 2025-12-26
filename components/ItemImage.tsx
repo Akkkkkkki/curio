@@ -1,5 +1,6 @@
 
-import { useState, useEffect, useRef } from 'react';
+// Added React import to resolve 'Cannot find namespace React' error
+import React, { useState, useEffect, useRef } from 'react';
 import { getAsset } from '../services/db';
 import { Loader2, Camera, AlertCircle } from 'lucide-react';
 
@@ -26,8 +27,8 @@ export const ItemImage: React.FC<ItemImageProps> = ({ itemId, className = "", al
       setError(false);
       
       try {
-        // Try requested type, fallback to master if thumb missing
-        let blob = await getAsset(itemId, type);
+        // Cast type as 'master' | 'thumb' to fix string assignment error
+        let blob = await getAsset(itemId, type as 'master' | 'thumb');
         if (!blob && type === 'thumb') {
             blob = await getAsset(itemId, 'master');
         }

@@ -1,9 +1,10 @@
 
 /**
  * Processes an image into a high-res master and a small thumbnail.
+ * Can handle DataURLs or standard URLs/Paths.
  */
 export const processImage = async (
-  dataUrl: string, 
+  input: string, 
   masterMax: number = 1600, 
   thumbMax: number = 400
 ): Promise<{ master: Blob; thumb: Blob }> => {
@@ -55,6 +56,9 @@ export const processImage = async (
       }
     };
     img.onerror = () => reject(new Error('Image load failed'));
-    img.src = dataUrl;
+    
+    // If it's a relative path/standard URL, we don't need to do anything special.
+    // If it's a data URL, it works as is.
+    img.src = input;
   });
 };
