@@ -1,6 +1,6 @@
+
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-// Use process.env instead of import.meta.env to resolve TypeScript 'Property env does not exist on type ImportMeta' errors.
 const supabaseUrl = (process.env as any).VITE_SUPABASE_URL as string | undefined;
 const supabaseKey =
   ((process.env as any).VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY as string | undefined) ??
@@ -15,7 +15,7 @@ export const supabase: SupabaseClient | null = isSupabaseConfigured()
   : null;
 
 /**
- * Ensures the user is authenticated (anonymously) to satisfy Row Level Security (RLS) policies.
+ * Ensures a session exists (anonymous if necessary)
  */
 export const ensureAuth = async () => {
   if (!supabase) return null;
@@ -34,4 +34,23 @@ export const ensureAuth = async () => {
     console.warn('Auth check error:', e);
     return null;
   }
+};
+
+export const signUpWithEmail = async (email: string, pass: string) => {
+  if (!supabase) throw new Error("Supabase not configured");
+  const { data, error } = await supabase.auth.signUp({ email, password: pass });
+  if (error) throw error;
+  return data.user;
+};
+
+export const signInWithEmail = async (email: string, pass: string) => {
+  if (!supabase) throw new Error("Supabase not configured");
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
+  if (error) throw error;
+  return data.user;
+};
+
+export const signOutUser = async () => {
+  if (!supabase) return;
+  await supabase.auth.signOut();
 };

@@ -1,8 +1,10 @@
 
-import React from 'react';
-import { Home, Plus } from 'lucide-react';
+import React, { useState } from 'react';
+import { Home, Plus, User, LogOut } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from '../i18n';
+import { supabase, signOutUser } from '../services/supabase';
+import { AuthModal } from './AuthModal';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -14,6 +16,34 @@ export const Layout: React.FC<LayoutProps> = ({ children, onAddItem, headerExtra
   const { t } = useTranslation();
   const location = useLocation();
   const isHome = location.pathname === '/';
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  
+  // Track actual Supabase user
+  const [user, setUser] = React.useState<any>(null);
+
+  React.useEffect(() => {
+    if (supabase) {
+        supabase.auth.getUser().then(({ data: { user } }) => {
+            if (user && !user.is_anonymous) setUser(user);
+        });
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+            if (session?.user && !session.user.is_anonymous) {
+                setUser(session.user);
+            } else {
+                setUser(null);
+            }
+        });
+
+        return () => subscription.unsubscribe();
+    }
+  }, []);
+
+  const handleSignOut = async () => {
+    await signOutUser();
+    setIsProfileOpen(false);
+  };
 
   return (
     <div className="min-h-screen bg-stone-50 text-stone-800 font-sans selection:bg-amber-200">
@@ -28,6 +58,43 @@ export const Layout: React.FC<LayoutProps> = ({ children, onAddItem, headerExtra
           
           <nav className="flex items-center gap-2">
             {headerExtras}
+            
+            <div className="relative">
+                {user ? (
+                    <button 
+                        onClick={() => setIsProfileOpen(!isProfileOpen)}
+                        className="p-2 hover:bg-stone-100 rounded-full text-stone-500 hover:text-stone-900 transition-colors"
+                        title={user.email}
+                    >
+                        <User size={20} className="text-amber-600" />
+                    </button>
+                ) : (
+                    <button 
+                        onClick={() => setIsAuthModalOpen(true)}
+                        className="p-2 hover:bg-stone-100 rounded-full text-stone-500 hover:text-stone-900 transition-colors"
+                        title={t('login')}
+                    >
+                        <User size={20} />
+                    </button>
+                )}
+
+                {isProfileOpen && user && (
+                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-stone-100 p-2 animate-in slide-in-from-top-2 duration-200">
+                        <div className="px-3 py-2 border-b border-stone-50 mb-1">
+                            <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">{t('signedInAs')}</p>
+                            <p className="text-sm font-medium text-stone-800 truncate">{user.email}</p>
+                        </div>
+                        <button 
+                            onClick={handleSignOut}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-red-50 rounded-xl transition-colors font-medium"
+                        >
+                            <LogOut size={16} />
+                            {t('signOut')}
+                        </button>
+                    </div>
+                )}
+            </div>
+
             {!isHome && (
                 <Link to="/">
                     <button className="p-2 hover:bg-stone-100 rounded-full text-stone-500 hover:text-stone-900 transition-colors">
@@ -52,6 +119,8 @@ export const Layout: React.FC<LayoutProps> = ({ children, onAddItem, headerExtra
       </main>
 
       <footer className="fixed bottom-0 left-0 w-full bg-gradient-to-t from-stone-50 via-stone-50 to-transparent pointer-events-none h-12 z-10" />
+      
+      <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
     </div>
   );
 };
