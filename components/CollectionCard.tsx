@@ -3,6 +3,7 @@ import React from 'react';
 import { UserCollection } from '../types';
 import { ChevronRight } from 'lucide-react';
 import { TEMPLATES } from '../constants';
+import { useTranslation } from '../i18n';
 
 interface CollectionCardProps {
   collection: UserCollection;
@@ -10,14 +11,13 @@ interface CollectionCardProps {
 }
 
 export const CollectionCard: React.FC<CollectionCardProps> = ({ collection, onClick }) => {
+  const { t } = useTranslation();
   const template = TEMPLATES.find(t => t.id === collection.templateId) || TEMPLATES[0];
   const itemCount = collection.items.length;
   const isSample = collection.id.startsWith('sample');
   
-  // Use collection icon if available (custom), else template default
   const displayIcon = collection.icon || template.icon;
 
-  // Dynamic background classes based on template color
   const bgClasses: Record<string, string> = {
     orange: 'bg-orange-50 hover:bg-orange-100 border-orange-100',
     indigo: 'bg-indigo-50 hover:bg-indigo-100 border-indigo-100',
@@ -53,7 +53,7 @@ export const CollectionCard: React.FC<CollectionCardProps> = ({ collection, onCl
 
       <div className="flex items-center justify-between mt-4 relative z-10">
         <span className="inline-flex items-center px-4 py-1 rounded-full text-xs font-bold bg-white/60 text-stone-700 backdrop-blur-sm border border-white/40 shadow-sm">
-          {itemCount} {itemCount === 1 ? 'item' : 'items'}
+          {t(itemCount === 1 ? 'itemCount' : 'itemsCount', { n: itemCount })}
         </span>
         <div className="w-10 h-10 rounded-full bg-white/60 flex items-center justify-center text-stone-400 group-hover:text-stone-900 group-hover:bg-white transition-all shadow-sm group-hover:shadow-md">
           <ChevronRight size={18} />

@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Mic, MicOff, X, Sparkles, Volume2, Loader2 } from 'lucide-react';
 import { UserCollection } from '../types';
 import { connectMuseumGuide } from '../services/geminiService';
+import { useTranslation } from '../i18n';
 
 interface MuseumGuideProps {
   collection: UserCollection;
@@ -11,6 +12,7 @@ interface MuseumGuideProps {
 }
 
 export const MuseumGuide: React.FC<MuseumGuideProps> = ({ collection, isOpen, onClose }) => {
+  const { t, language } = useTranslation();
   const [status, setStatus] = useState<'idle' | 'connecting' | 'active' | 'error'>('idle');
   const [isMuted, setIsMuted] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -34,13 +36,10 @@ export const MuseumGuide: React.FC<MuseumGuideProps> = ({ collection, isOpen, on
     const binary = atob(base64);
     const bytes = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-    
     const dataInt16 = new Int16Array(bytes.buffer);
     const buffer = ctx.createBuffer(1, dataInt16.length, 24000);
     const channelData = buffer.getChannelData(0);
-    for (let i = 0; i < dataInt16.length; i++) {
-      channelData[i] = dataInt16[i] / 32768.0;
-    }
+    for (let i = 0; i < dataInt16.length; i++) channelData[i] = dataInt16[i] / 32768.0;
     return buffer;
   };
 
@@ -49,10 +48,20 @@ export const MuseumGuide: React.FC<MuseumGuideProps> = ({ collection, isOpen, on
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
-      
       const inputCtx = new AudioContext({ sampleRate: 16000 });
       const outputCtx = new AudioContext({ sampleRate: 24000 });
       audioContextRef.current = outputCtx;
+
+      const itemsContext = collection.items.map(item => ({
+        title: item.title,
+        rating: item.rating,
+        notes: item.notes,
+        details: item.data
+      }));
+
+      const systemInstruction = language === 'zh' 
+        ? `你是“珍藏博物馆向导”，一位关于 ${collection.name} 的资深且充满热情的专家。你的语气：优雅、博学、带有一丝艺术策展人的奇思妙想。你的目标：帮助用户欣赏和探索他们的藏品，可以谈论历史、文化或仅仅是聊聊这种爱好。请用中文交流。`
+        : `You are the "Curio Museum Guide", a sophisticated and enthusiastic expert in ${collection.name}. Your tone: Elegant, knowledgeable, and slightly whimsical, like a high-end gallery curator. Your goal: Help users appreciate their items. Suggest things to look at, talk about history, or just chat about the hobby. Use English.`;
 
       const sessionPromise = connectMuseumGuide(collection, {
         onopen: () => {
@@ -64,7 +73,6 @@ export const MuseumGuide: React.FC<MuseumGuideProps> = ({ collection, isOpen, on
             const inputData = e.inputBuffer.getChannelData(0);
             const int16 = new Int16Array(inputData.length);
             for (let i = 0; i < inputData.length; i++) int16[i] = inputData[i] * 32768;
-            
             const binary = String.fromCharCode(...new Uint8Array(int16.buffer));
             sessionPromise.then(session => {
               session.sendRealtimeInput({
@@ -83,11 +91,9 @@ export const MuseumGuide: React.FC<MuseumGuideProps> = ({ collection, isOpen, on
             const source = outputCtx.createBufferSource();
             source.buffer = buffer;
             source.connect(outputCtx.destination);
-            
             nextStartTimeRef.current = Math.max(nextStartTimeRef.current, outputCtx.currentTime);
             source.start(nextStartTimeRef.current);
             nextStartTimeRef.current += buffer.duration;
-            
             sourcesRef.current.add(source);
             source.onended = () => {
               sourcesRef.current.delete(source);
@@ -103,7 +109,7 @@ export const MuseumGuide: React.FC<MuseumGuideProps> = ({ collection, isOpen, on
         },
         onerror: () => setStatus('error'),
         onclose: () => setStatus('idle'),
-      });
+      }, systemInstruction);
 
       sessionRef.current = await sessionPromise;
     } catch (err) {
@@ -139,11 +145,10 @@ export const MuseumGuide: React.FC<MuseumGuideProps> = ({ collection, isOpen, on
           </div>
         </div>
 
-        <h2 className="text-3xl font-serif font-bold text-stone-900 mb-2">Museum Guide</h2>
+        <h2 className="text-3xl font-serif font-bold text-stone-900 mb-2">{t('guideTitle')}</h2>
         <p className="text-stone-500 mb-8 max-w-xs font-serif italic">
-          {status === 'connecting' ? 'Preparing the archive expert...' :
-           status === 'active' ? 'You can talk to the guide about your collection.' :
-           'Something went wrong. Please check your microphone.'}
+          {status === 'connecting' ? t('guideConnecting') :
+           status === 'active' ? t('guideActive') : t('guideError')}
         </p>
 
         {status === 'active' && (
@@ -168,7 +173,7 @@ export const MuseumGuide: React.FC<MuseumGuideProps> = ({ collection, isOpen, on
         )}
 
         {status === 'error' && (
-          <button onClick={startSession} className="text-amber-600 font-bold hover:underline">Try Again</button>
+          <button onClick={startSession} className="text-amber-600 font-bold hover:underline">{t('tryAgain')}</button>
         )}
       </div>
     </div>

@@ -8,7 +8,7 @@ import { AddItemModal } from './components/AddItemModal';
 import { CreateCollectionModal } from './components/CreateCollectionModal';
 import { UserCollection, CollectionItem } from './types';
 import { TEMPLATES } from './constants';
-import { Plus, SlidersHorizontal, ArrowLeft, Trash2, LayoutGrid, LayoutTemplate, Printer, Camera, Search, Download, Upload, Loader2, Sparkles, BookOpen, Mic, Play, Quote, Sparkle } from 'lucide-react';
+import { Plus, SlidersHorizontal, ArrowLeft, Trash2, LayoutGrid, LayoutTemplate, Printer, Camera, Search, Download, Upload, Loader2, Sparkles, BookOpen, Mic, Play, Quote, Sparkle, Globe } from 'lucide-react';
 import { Button } from './components/ui/Button';
 import { loadCollections, saveCollection, saveAllCollections, saveAsset, deleteAsset, requestPersistence } from './services/db';
 import { processImage } from './services/imageProcessor';
@@ -17,11 +17,10 @@ import { MuseumGuide } from './components/MuseumGuide';
 import { ExhibitionView } from './components/ExhibitionView';
 import { ExportModal } from './components/ExportModal';
 import { FilterModal } from './components/FilterModal';
+import { LanguageProvider, useTranslation, Language } from './i18n';
 
-// This manifest maps item IDs to local asset files stored in the repository
-const SAMPLE_ASSET_MANIFEST: Record<string, string> = {
-  'seed-vinyl-1': 'assets/sample-vinyl.jpg'
-};
+// The specific local asset path requested by the user
+const KIND_OF_BLUE_PATH = 'assets/sample-vinyl.jpg';
 
 const INITIAL_COLLECTIONS: UserCollection[] = [
   {
@@ -34,7 +33,7 @@ const INITIAL_COLLECTIONS: UserCollection[] = [
       {
         id: 'seed-vinyl-1',
         collectionId: 'sample-vinyl',
-        photoUrl: 'asset',
+        photoUrl: KIND_OF_BLUE_PATH,
         title: 'Kind of Blue',
         rating: 5,
         data: {
@@ -56,6 +55,7 @@ const INITIAL_COLLECTIONS: UserCollection[] = [
 ];
 
 const AppContent: React.FC = () => {
+  const { t, language, setLanguage } = useTranslation();
   const [collections, setCollections] = useState<UserCollection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -73,26 +73,12 @@ const AppContent: React.FC = () => {
         if (stored && stored.length > 0) {
           setCollections(stored);
         } else {
-          // Hydrate Sample Assets from local /assets/ folder
-          for (const [itemId, path] of Object.entries(SAMPLE_ASSET_MANIFEST)) {
-             try {
-               const response = await fetch(path);
-               if (response.ok) {
-                 const blob = await response.blob();
-                 const objectURL = URL.createObjectURL(blob);
-                 const { master, thumb } = await processImage(objectURL);
-                 await saveAsset(itemId, master, thumb);
-                 URL.revokeObjectURL(objectURL);
-               }
-             } catch (e) {
-               console.warn(`Could not hydrate sample asset: ${path}. Ensure the file exists in your assets/ folder.`);
-             }
-          }
-
+          // New user setup
           setCollections(INITIAL_COLLECTIONS);
           await saveAllCollections(INITIAL_COLLECTIONS);
         }
       } catch (e) {
+        console.error("Initialization failed:", e);
         setCollections([]);
       } finally {
         setIsLoading(false);
@@ -125,7 +111,7 @@ const AppContent: React.FC = () => {
     const newItem: CollectionItem = {
       ...itemData,
       id: itemId,
-      photoUrl: hasPhoto ? 'asset' : '', 
+      photoUrl: hasPhoto ? 'asset' : itemData.photoUrl, 
       createdAt: new Date().toISOString(),
     };
 
@@ -174,7 +160,7 @@ const AppContent: React.FC = () => {
   };
 
   const deleteItem = (collectionId: string, itemId: string) => {
-      if (confirm('Permanently remove this item?')) {
+      if (confirm(t('deleteConfirm'))) {
           setCollections(prev => prev.map(c => {
               if (c.id === collectionId) {
                   const newC = { ...c, items: c.items.filter(i => i.id !== itemId) };
@@ -194,11 +180,8 @@ const AppContent: React.FC = () => {
     const avgRating = totalItems > 0 
       ? (collections.reduce((acc, c) => acc + c.items.reduce((iacc, i) => iacc + i.rating, 0), 0) / totalItems).toFixed(1)
       : 0;
-    
-    // Get a "featured" item for the hero
     const allItems = collections.flatMap(c => c.items);
-    const featured = allItems.length > 0 ? allItems[Math.floor(Math.random() * allItems.length)] : null;
-
+    const featured = allItems.length > 0 ? allItems[0] : null;
     return { totalItems, avgRating, totalCollections: collections.length, featured };
   }, [collections]);
 
@@ -214,21 +197,24 @@ const AppContent: React.FC = () => {
     if (isLoading) return (
       <div className="flex flex-col items-center justify-center py-32">
         <div className="relative">
-           <div className="absolute inset-0 bg-amber-200 rounded-full blur-2xl animate-pulse opacity-30"></div>
-           <Loader2 className="text-amber-600 animate-spin mb-6 relative z-10" size={40} />
+           <div className="absolute inset-0 bg-stone-200 rounded-full blur-2xl animate-pulse opacity-30"></div>
+           <Loader2 className="text-stone-400 animate-spin mb-6 relative z-10" size={40} />
         </div>
-        <p className="text-stone-400 font-serif text-xl italic tracking-tight">Restoring the archives...</p>
+        <p className="text-stone-400 font-serif text-xl italic tracking-tight">{t('restoringArchives')}</p>
       </div>
     );
 
     return (
       <div className="space-y-16 animate-in fade-in duration-1000">
-        
-        {/* REFINED HERO SECTION */}
         <section className="relative overflow-hidden rounded-[3.5rem] bg-stone-950 text-white min-h-[480px] flex items-center group shadow-2xl border border-white/5">
             {stats.featured && (
                 <div className="absolute inset-0 opacity-30 group-hover:opacity-40 transition-opacity duration-[2s]">
-                    <ItemImage itemId={stats.featured.id} type="master" className="w-full h-full object-cover scale-[1.05] group-hover:scale-100 transition-transform duration-[15s] ease-out" />
+                    <ItemImage 
+                        itemId={stats.featured.id} 
+                        photoUrl={stats.featured.photoUrl} 
+                        type="master" 
+                        className="w-full h-full object-cover scale-[1.05] group-hover:scale-100 transition-transform duration-[15s] ease-out" 
+                    />
                 </div>
             )}
             <div className="absolute inset-0 bg-gradient-to-r from-stone-950 via-stone-950/70 to-transparent"></div>
@@ -236,27 +222,27 @@ const AppContent: React.FC = () => {
             <div className="relative z-10 p-12 md:p-20 max-w-2xl">
                 <div className="flex items-center gap-3 mb-6">
                    <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse shadow-[0_0_8px_rgba(245,158,11,0.8)]"></div>
-                   <span className="text-[10px] font-mono tracking-[0.4em] uppercase text-amber-500 font-bold">Featured Artifact</span>
+                   <span className="text-[10px] font-mono tracking-[0.4em] uppercase text-amber-500 font-bold">{t('featuredArtifact')}</span>
                 </div>
                 <h1 className="text-6xl md:text-8xl font-serif font-bold mb-8 tracking-tighter leading-[0.9]">
-                    Curio <span className="text-white/40 font-light italic block md:inline">Museum</span>
+                    {t('appTitle')} <span className="text-white/40 font-light italic block md:inline">{t('appSubtitle')}</span>
                 </h1>
                 <p className="text-stone-300 text-xl md:text-2xl font-light leading-relaxed mb-12 max-w-md font-serif italic">
-                    Where physical memories become eternal archives.
+                    {t('heroSubtitle')}
                 </p>
                 
                 <div className="flex flex-wrap gap-16 pt-10 border-t border-white/10">
                    <div className="space-y-1">
                       <p className="text-3xl font-serif font-bold text-white tracking-tighter">{stats.totalItems}</p>
-                      <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-stone-500 font-bold">Artifacts</p>
+                      <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-stone-500 font-bold">{t('artifacts')}</p>
                    </div>
                    <div className="space-y-1">
                       <p className="text-3xl font-serif font-bold text-white tracking-tighter">{stats.totalCollections}</p>
-                      <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-stone-500 font-bold">Archives</p>
+                      <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-stone-500 font-bold">{t('archives')}</p>
                    </div>
                    <div className="space-y-1">
                       <p className="text-3xl font-serif font-bold text-white tracking-tighter">{stats.avgRating}<span className="text-amber-500 text-lg ml-0.5">★</span></p>
-                      <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-stone-500 font-bold">Avg Quality</p>
+                      <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-stone-500 font-bold">{t('avgQuality')}</p>
                    </div>
                 </div>
             </div>
@@ -266,14 +252,13 @@ const AppContent: React.FC = () => {
             </div>
         </section>
 
-        {/* GLASSMORPHIC SEARCH */}
         <div className="relative max-w-2xl mx-auto -mt-24 z-20 px-4">
             <div className="absolute inset-0 bg-white/40 backdrop-blur-xl rounded-[2.5rem] shadow-2xl border border-white/40 -m-1"></div>
             <div className="relative">
                 <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-stone-400" size={24} />
                 <input 
                   type="text" 
-                  placeholder="Search your vast archives..." 
+                  placeholder={t('searchPlaceholder')}
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
                   className="w-full pl-16 pr-8 py-7 rounded-[2rem] bg-white border border-stone-100 focus:ring-8 focus:ring-amber-500/5 focus:border-amber-200 outline-none transition-all shadow-xl text-xl font-serif italic placeholder:text-stone-300"
@@ -281,7 +266,6 @@ const AppContent: React.FC = () => {
             </div>
         </div>
 
-        {/* COLLECTIONS GRID */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
           {filteredCollections.map(col => (
             <CollectionCard 
@@ -300,8 +284,8 @@ const AppContent: React.FC = () => {
                 <Plus size={40} strokeWidth={1.5} />
             </div>
             <div className="relative z-10 text-center">
-               <span className="font-serif text-3xl font-bold italic tracking-tight block mb-1">New Archive</span>
-               <span className="text-[10px] font-mono uppercase tracking-[0.3em] opacity-60 font-bold">Expand the curated space</span>
+               <span className="font-serif text-3xl font-bold italic tracking-tight block mb-1">{t('newArchive')}</span>
+               <span className="text-[10px] font-mono uppercase tracking-[0.3em] opacity-60 font-bold">{t('expandSpace')}</span>
             </div>
           </button>
         </div>
@@ -350,10 +334,9 @@ const AppContent: React.FC = () => {
                 <div>
                     <h1 className="text-6xl font-serif font-bold text-stone-900 tracking-tighter mb-2 leading-none">{collection.name}</h1>
                     <div className="flex items-center gap-4">
-                        <span className="text-stone-400 font-serif text-lg italic">{collection.items.length} artifacts cataloged</span>
-                        {collection.id.startsWith('sample') && (
-                            <span className="text-[10px] font-mono tracking-[0.3em] bg-amber-100 text-amber-900 px-3 py-1 rounded-full border border-amber-200 uppercase font-bold">Sample Record</span>
-                        )}
+                        <span className="text-stone-400 font-serif text-lg italic">
+                          {t('artifactsCataloged', { n: collection.items.length })}
+                        </span>
                     </div>
                 </div>
             </div>
@@ -365,7 +348,7 @@ const AppContent: React.FC = () => {
                    icon={<Play size={18} />}
                    className="shadow-2xl hover:shadow-amber-500/20 transition-all h-14 px-10 rounded-2xl bg-stone-900 text-white font-serif italic text-lg"
                  >
-                   Enter Exhibition
+                   {t('enterExhibition')}
                  </Button>
                  <Button 
                    variant="outline" 
@@ -374,7 +357,7 @@ const AppContent: React.FC = () => {
                    disabled={collection.items.length === 0}
                    icon={<Mic size={18} />}
                  >
-                   Vocal Guide
+                   {t('vocalGuide')}
                  </Button>
                  <div className="flex bg-stone-100/50 rounded-2xl p-1.5 border border-stone-200/40 backdrop-blur-sm">
                     <button onClick={() => setViewMode('grid')} className={`p-3 rounded-xl transition-all ${viewMode === 'grid' ? 'bg-white text-stone-900 shadow-md' : 'text-stone-400 hover:text-stone-600'}`}><LayoutGrid size={22} /></button>
@@ -382,7 +365,7 @@ const AppContent: React.FC = () => {
                  </div>
                  <div className="relative flex-grow flex gap-2">
                     <div className="relative flex-grow">
-                        <input type="text" placeholder="Search..." value={filter} onChange={e => setFilter(e.target.value)} className="pl-5 pr-5 h-14 rounded-2xl bg-white border border-stone-100 focus:ring-8 focus:ring-amber-500/5 outline-none text-base w-full lg:w-56 transition-all shadow-sm font-serif italic" />
+                        <input type="text" placeholder="..." value={filter} onChange={e => setFilter(e.target.value)} className="pl-5 pr-5 h-14 rounded-2xl bg-white border border-stone-100 focus:ring-8 focus:ring-amber-500/5 outline-none text-base w-full lg:w-56 transition-all shadow-sm font-serif italic" />
                     </div>
                     <Button variant={activeFilterCount > 0 ? 'primary' : 'outline'} className={`h-14 w-14 flex items-center justify-center p-0 rounded-2xl border-stone-100 ${activeFilterCount > 0 ? '' : 'bg-white'} shadow-sm`} onClick={() => setIsFilterModalOpen(true)}>
                         <SlidersHorizontal size={22} />
@@ -394,9 +377,9 @@ const AppContent: React.FC = () => {
         {filteredItems.length === 0 ? (
              <div className="text-center py-48 bg-white/50 rounded-[4rem] border border-stone-100 shadow-sm backdrop-blur-sm">
                  <div className="text-9xl mb-10 grayscale opacity-10 filter drop-shadow-2xl">🏛️</div>
-                 <h3 className="text-4xl font-serif font-bold text-stone-800 mb-4 italic tracking-tight">The gallery awaits.</h3>
-                 <p className="text-stone-400 mb-12 max-w-sm mx-auto leading-relaxed font-serif text-lg">A museum is defined by what it protects. Begin your archival journey today.</p>
-                 {!filter && activeFilterCount === 0 && <Button size="lg" className="px-16 h-16 text-xl rounded-3xl shadow-xl" onClick={() => setIsAddModalOpen(true)}>Catalog First Item</Button>}
+                 <h3 className="text-4xl font-serif font-bold text-stone-800 mb-4 italic tracking-tight">{t('galleryAwaits')}</h3>
+                 <p className="text-stone-400 mb-12 max-w-sm mx-auto leading-relaxed font-serif text-lg">{t('museumDefinition')}</p>
+                 {!filter && activeFilterCount === 0 && <Button size="lg" className="px-16 h-16 text-xl rounded-3xl shadow-xl" onClick={() => setIsAddModalOpen(true)}>{t('catalogFirst')}</Button>}
              </div>
         ) : (
             <div className={`${viewMode === 'grid' ? "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-10" : "columns-2 md:columns-3 lg:columns-4 gap-10"} w-full pb-24`}>
@@ -453,17 +436,32 @@ const AppContent: React.FC = () => {
         }
       };
 
+      const getLabel = (fieldId: string) => {
+        const fieldKey = `label_${fieldId}` as any;
+        const translated = t(fieldKey);
+        if (translated === fieldKey) {
+            return collection.customFields.find(f => f.id === fieldId)?.label || fieldId;
+        }
+        return translated;
+      };
+
       return (
           <div className="max-w-5xl mx-auto bg-white rounded-[4rem] shadow-2xl border border-stone-100 overflow-hidden animate-in zoom-in-[0.98] duration-700">
               <div className="relative aspect-[21/9] bg-stone-950 group overflow-hidden">
-                  <ItemImage itemId={item.id} alt={item.title} type="master" className="w-full h-full object-cover transition-transform duration-[8s] group-hover:scale-110 opacity-70" />
+                  <ItemImage 
+                    itemId={item.id} 
+                    photoUrl={item.photoUrl} 
+                    alt={item.title} 
+                    type="master" 
+                    className="w-full h-full object-cover transition-transform duration-[8s] group-hover:scale-110 opacity-70" 
+                  />
                   
                   <div className="absolute inset-0 bg-gradient-to-t from-stone-950 via-stone-950/20 to-transparent opacity-80"></div>
 
                   <div className={`absolute inset-0 flex items-center justify-center transition-opacity duration-500 opacity-0 group-hover:opacity-100`}>
                       <button disabled={isProcessing} onClick={() => fileInputRef.current?.click()} className="bg-white/95 hover:bg-white text-stone-900 px-10 py-4 rounded-full font-bold shadow-2xl backdrop-blur-xl transition-all hover:scale-110 flex items-center gap-4 pointer-events-auto disabled:opacity-50">
                         {isProcessing ? <Loader2 size={24} className="animate-spin" /> : <Camera size={24} />}
-                        Update Artifact Photo
+                        {t('updatePhoto')}
                       </button>
                   </div>
                   <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handlePhotoUpdate} />
@@ -471,7 +469,7 @@ const AppContent: React.FC = () => {
                   <button onClick={() => navigate(-1)} className="absolute top-10 left-10 w-16 h-16 bg-white/90 backdrop-blur-xl rounded-[1.5rem] flex items-center justify-center text-stone-800 shadow-2xl hover:bg-white transition-all hover:scale-110 z-10"><ArrowLeft size={32} /></button>
                   
                   <div className="absolute top-10 right-10 flex gap-5 z-10">
-                     <button onClick={() => setIsExportOpen(true)} className="w-16 h-16 bg-white/90 backdrop-blur-xl rounded-[1.5rem] flex items-center justify-center text-stone-800 shadow-2xl hover:bg-white transition-all hover:scale-110" title="Export card"><Printer size={30} /></button>
+                     <button onClick={() => setIsExportOpen(true)} className="w-16 h-16 bg-white/90 backdrop-blur-xl rounded-[1.5rem] flex items-center justify-center text-stone-800 shadow-2xl hover:bg-white transition-all hover:scale-110" title={t('exportCard')}><Printer size={30} /></button>
                   </div>
               </div>
 
@@ -483,7 +481,7 @@ const AppContent: React.FC = () => {
                             className="text-7xl font-serif font-bold text-stone-900 mb-8 w-full bg-transparent border-b-2 border-transparent focus:border-amber-100 outline-none transition-all placeholder:italic tracking-tighter leading-tight"
                             value={item.title}
                             onChange={(e) => updateItem(collection.id, item.id, { title: e.target.value })}
-                            placeholder="Untitled Artifact"
+                            placeholder="..."
                           />
                           <div className="flex items-center gap-4">
                               {[1,2,3,4,5].map((star) => (
@@ -491,7 +489,7 @@ const AppContent: React.FC = () => {
                                     <span className="text-5xl">{star <= item.rating ? <span className="text-amber-400 drop-shadow-md">★</span> : <span className="text-stone-100">★</span>}</span>
                                 </button>
                               ))}
-                              <span className="ml-6 text-[11px] font-mono tracking-[0.4em] text-stone-300 uppercase font-bold">Registry Quality Score</span>
+                              <span className="ml-6 text-[11px] font-mono tracking-[0.4em] text-stone-300 uppercase font-bold">{t('registryQuality')}</span>
                           </div>
                       </div>
                       <button onClick={handleDelete} className="text-stone-200 hover:text-red-500 transition-all p-5 rounded-[2rem] hover:bg-red-50 shrink-0 border border-transparent hover:border-red-100"><Trash2 size={32} /></button>
@@ -501,24 +499,25 @@ const AppContent: React.FC = () => {
                       <div className="lg:col-span-2 space-y-8">
                         <div className="flex items-center gap-4 text-amber-600">
                              <Quote size={32} fill="currentColor" className="opacity-10" />
-                             <dt className="text-xs font-bold text-stone-400 uppercase tracking-[0.4em] font-mono">Archive Narrative</dt>
+                             <dt className="text-xs font-bold text-stone-400 uppercase tracking-[0.4em] font-mono">{t('archiveNarrative')}</dt>
                         </div>
                         <textarea 
                             className="w-full bg-stone-50/30 p-10 rounded-[3.5rem] italic text-stone-800 border border-stone-100 font-serif text-3xl leading-relaxed min-h-[320px] focus:ring-[12px] focus:ring-amber-500/5 focus:border-amber-100 outline-none transition-all shadow-inner placeholder:text-stone-200"
                             value={item.notes}
                             onChange={(e) => updateItem(collection.id, item.id, { notes: e.target.value })}
-                            placeholder="Begin the provenance of this artifact..."
+                            placeholder={t('provenancePlaceholder')}
                         />
                       </div>
 
                       <div className="space-y-12">
-                          <dt className="text-xs font-bold text-stone-400 uppercase tracking-[0.4em] pb-6 border-b border-stone-100 font-mono">Technical Spec</dt>
+                          <dt className="text-xs font-bold text-stone-400 uppercase tracking-[0.4em] pb-6 border-b border-stone-100 font-mono">{t('technicalSpec')}</dt>
                           <div className="space-y-10">
                               {collection.customFields.map(field => {
                                   const val = item.data[field.id];
+                                  const label = getLabel(field.id);
                                   return (
                                       <div key={field.id} className="group">
-                                          <dt className="text-[11px] font-bold text-stone-300 uppercase tracking-[0.3em] mb-3 group-hover:text-amber-500 transition-colors font-mono">{field.label}</dt>
+                                          <dt className="text-[11px] font-bold text-stone-300 uppercase tracking-[0.3em] mb-3 group-hover:text-amber-500 transition-colors font-mono">{label}</dt>
                                           <input 
                                             className="text-stone-900 font-serif text-2xl w-full bg-transparent border-none p-0 outline-none focus:text-amber-900 focus:ring-0 transition-colors placeholder:text-stone-100 font-medium"
                                             value={val || ''}
@@ -541,7 +540,19 @@ const AppContent: React.FC = () => {
   };
 
   return (
-    <Layout onAddItem={() => setIsAddModalOpen(true)}>
+    <Layout 
+      onAddItem={() => setIsAddModalOpen(true)}
+      headerExtras={
+        <button 
+          onClick={() => setLanguage(language === 'en' ? 'zh' : 'en')}
+          className="p-2 hover:bg-stone-100 rounded-full text-stone-500 hover:text-stone-900 transition-colors flex items-center gap-1.5"
+          title="Switch Language"
+        >
+          <Globe size={18} />
+          <span className="text-[10px] font-bold uppercase tracking-widest">{language === 'en' ? 'ZH' : 'EN'}</span>
+        </button>
+      }
+    >
       <Routes>
         <Route path="/" element={<HomeScreen />} />
         <Route path="/collection/:id" element={<CollectionScreen />} />
@@ -562,8 +573,10 @@ const AppContent: React.FC = () => {
 
 export const App: React.FC = () => {
   return (
-    <HashRouter>
-      <AppContent />
-    </HashRouter>
+    <LanguageProvider>
+      <HashRouter>
+        <AppContent />
+      </HashRouter>
+    </LanguageProvider>
   );
 };

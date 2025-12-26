@@ -1,13 +1,17 @@
+
 import React from 'react';
-import { Home, Plus, Settings } from 'lucide-react';
+import { Home, Plus } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
+import { useTranslation } from '../i18n';
 
 interface LayoutProps {
   children: React.ReactNode;
   onAddItem: () => void;
+  headerExtras?: React.ReactNode;
 }
 
-export const Layout: React.FC<LayoutProps> = ({ children, onAddItem }) => {
+export const Layout: React.FC<LayoutProps> = ({ children, onAddItem, headerExtras }) => {
+  const { t } = useTranslation();
   const location = useLocation();
   const isHome = location.pathname === '/';
 
@@ -19,10 +23,11 @@ export const Layout: React.FC<LayoutProps> = ({ children, onAddItem }) => {
             <div className="w-8 h-8 bg-stone-900 rounded-lg flex items-center justify-center text-white font-serif font-bold text-xl group-hover:bg-amber-600 transition-colors">
               C
             </div>
-            <span className="font-serif text-xl font-bold tracking-tight text-stone-900">Curio</span>
+            <span className="font-serif text-xl font-bold tracking-tight text-stone-900">{t('appTitle')}</span>
           </Link>
           
           <nav className="flex items-center gap-2">
+            {headerExtras}
             {!isHome && (
                 <Link to="/">
                     <button className="p-2 hover:bg-stone-100 rounded-full text-stone-500 hover:text-stone-900 transition-colors">
@@ -35,8 +40,8 @@ export const Layout: React.FC<LayoutProps> = ({ children, onAddItem }) => {
                 className="bg-stone-900 hover:bg-amber-600 text-white rounded-full px-4 py-1.5 text-sm font-medium flex items-center gap-2 transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0"
             >
               <Plus size={16} />
-              <span className="hidden sm:inline">Add Item</span>
-              <span className="sm:hidden">Add</span>
+              <span className="hidden sm:inline">{t('addItem')}</span>
+              <span className="sm:hidden">{t('add')}</span>
             </button>
           </nav>
         </div>

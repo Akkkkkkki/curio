@@ -2,7 +2,6 @@
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { FieldDefinition, UserCollection } from "../types";
 
-// Map internal field types to Gemini Schema Types
 const mapFieldTypeToSchemaType = (type: string): Type => {
   switch (type) {
     case 'number': return Type.NUMBER;
@@ -74,11 +73,7 @@ export const analyzeImage = async (
   }
 };
 
-/**
- * Connects to the Gemini Live API to provide a "Museum Guide" experience.
- * It provides context about the current collection to the model.
- */
-export const connectMuseumGuide = async (collection: UserCollection, callbacks: any) => {
+export const connectMuseumGuide = async (collection: UserCollection, callbacks: any, customInstruction?: string) => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const itemsContext = collection.items.map(item => ({
@@ -88,7 +83,7 @@ export const connectMuseumGuide = async (collection: UserCollection, callbacks: 
     details: item.data
   }));
 
-  const systemInstruction = `
+  const systemInstruction = customInstruction || `
     You are the "Curio Museum Guide", a sophisticated and enthusiastic expert in ${collection.name}.
     You are helping the user enjoy and explore their collection.
     

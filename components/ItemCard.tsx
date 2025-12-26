@@ -1,7 +1,9 @@
+
 import React from 'react';
 import { CollectionItem, FieldDefinition } from '../types';
 import { Star } from 'lucide-react';
 import { ItemImage } from './ItemImage';
+import { useTranslation } from '../i18n';
 
 interface ItemCardProps {
   item: CollectionItem;
@@ -13,15 +15,26 @@ interface ItemCardProps {
 }
 
 export const ItemCard: React.FC<ItemCardProps> = ({ item, fields, displayFields, badgeFields, onClick, layout = 'grid' }) => {
+  const { t } = useTranslation();
   
   const getValue = (fieldId: string) => {
     const val = item.data[fieldId];
     if (val === undefined || val === null) return null;
     const def = fields.find(f => f.id === fieldId);
     
-    if (def?.type === 'boolean') return val ? 'Yes' : 'No';
+    if (def?.type === 'boolean') return val ? t('yes') : t('no');
     if (def?.type === 'number' && fieldId.includes('percent')) return `${val}%`;
     return val.toString();
+  };
+
+  const getLabel = (fieldId: string) => {
+    const fieldKey = `label_${fieldId}` as any;
+    const translated = t(fieldKey);
+    // If translation doesn't exist for this specific custom field, fallback to saved label
+    if (translated === fieldKey) {
+        return fields.find(f => f.id === fieldId)?.label || fieldId;
+    }
+    return translated;
   };
 
   return (
@@ -32,6 +45,7 @@ export const ItemCard: React.FC<ItemCardProps> = ({ item, fields, displayFields,
       <div className={`${layout === 'grid' ? 'aspect-[4/3]' : ''} bg-stone-100 overflow-hidden relative`}>
         <ItemImage 
             itemId={item.id} 
+            photoUrl={item.photoUrl}
             alt={item.title} 
             className={`w-full group-hover:scale-105 transition-transform duration-500 ${layout === 'grid' ? 'h-full' : 'h-auto'}`}
         />
@@ -50,7 +64,7 @@ export const ItemCard: React.FC<ItemCardProps> = ({ item, fields, displayFields,
         <div className="space-y-1 mb-3">
           {displayFields.map(fieldId => {
             const val = getValue(fieldId);
-            const label = fields.find(f => f.id === fieldId)?.label;
+            const label = getLabel(fieldId);
             if (!val) return null;
             return (
               <p key={fieldId} className="text-sm text-stone-600 line-clamp-1 flex items-center gap-1.5">

@@ -1,0 +1,237 @@
+
+import React, { createContext, useContext, useState, ReactNode } from 'react';
+
+export type Language = 'en' | 'zh';
+
+export const translations = {
+  en: {
+    appTitle: "Curio",
+    appSubtitle: "Museum",
+    heroTitle: "Curio Museum",
+    heroSubtitle: "Where physical memories become eternal archives.",
+    featuredArtifact: "Featured Artifact",
+    artifacts: "Artifacts",
+    archives: "Archives",
+    avgQuality: "Avg Quality",
+    searchPlaceholder: "Search your vast archives...",
+    newArchive: "New Archive",
+    expandSpace: "Expand the curated space",
+    catalogFirst: "Catalog First Item",
+    enterExhibition: "Enter Exhibition",
+    vocalGuide: "Vocal Guide",
+    galleryAwaits: "The gallery awaits.",
+    museumDefinition: "A museum is defined by what it protects. Begin your archival journey today.",
+    restoringArchives: "Restoring the archives...",
+    addItem: "Add Item",
+    add: "Add",
+    exhibitNo: "Exhibit No. {n} of {total}",
+    updatePhoto: "Update Artifact Photo",
+    exportCard: "Export Card",
+    archiveNarrative: "Archive Narrative",
+    technicalSpec: "Technical Spec",
+    provenancePlaceholder: "Begin the provenance of this artifact...",
+    registryQuality: "Registry Quality Score",
+    deleteConfirm: "Permanently remove this item from the collection?",
+    analyzingPhoto: "Analyzing photo...",
+    geminiExtracting: "Gemini is extracting details for your collection.",
+    takePhoto: "Take Photo",
+    uploadPhoto: "Upload Photo",
+    changePhoto: "Change Photo",
+    skipManual: "Skip and add manually",
+    addToCollection: "Add to Collection",
+    rating: "Rating",
+    title: "Title",
+    notes: "Notes",
+    anyRating: "Any Rating",
+    filterCollection: "Filter Collection",
+    clear: "Clear",
+    apply: "Apply",
+    cancel: "Cancel",
+    createCollection: "Create Collection",
+    dataPresets: "Data Presets",
+    presetDesc: "Determines which fields (e.g. Artist, Year) are available.",
+    icon: "Icon",
+    name: "Name",
+    guideTitle: "Museum Guide",
+    guideConnecting: "Preparing the archive expert...",
+    guideActive: "You can talk to the guide about your collection.",
+    guideError: "Something went wrong. Please check your microphone.",
+    tryAgain: "Try Again",
+    noPhoto: "No Photo",
+    loadError: "Load Error",
+    cardStyle: "Card Style",
+    aspectRatio: "Aspect Ratio",
+    imageFit: "Image Fit",
+    saveImage: "Save Image",
+    print: "Print",
+    share: "Share",
+    fit: "Fit",
+    fill: "Fill",
+    minimal: "Minimal",
+    full: "Full",
+    retro: "Retro",
+    minimalTag: "Clean & Airy",
+    fullTag: "Immersive",
+    retroTag: "Vintage",
+    archivalRecord: "Archival Record",
+    artifactsCataloged: "{n} artifacts cataloged",
+    itemCount: "{n} item",
+    itemsCount: "{n} items",
+    yes: "Yes",
+    no: "No",
+    // Field Labels
+    label_brand: "Brand",
+    label_category: "Category",
+    label_date: "Date Acquired",
+    label_location: "Location",
+    label_artist: "Artist",
+    label_label: "Label",
+    label_year: "Year",
+    label_genre: "Genre",
+    label_condition: "Condition",
+    label_house: "House",
+    label_concentration: "Concentration",
+    label_main_accords: "Main Accords",
+    label_nose: "Nose",
+    label_model: "Model",
+    label_colorway: "Colorway",
+    label_size: "Size",
+    label_style_code: "Style Code",
+    label_cocoa_percent: "Cocoa %",
+    label_origin: "Origin",
+    label_flavor_notes: "Flavor Notes",
+    label_type: "Type"
+  },
+  zh: {
+    appTitle: "珍藏",
+    appSubtitle: "博物馆",
+    heroTitle: "珍藏博物馆",
+    heroSubtitle: "让每一件物理记忆，都成为永恒的馆藏。",
+    featuredArtifact: "馆藏珍品",
+    artifacts: "珍品",
+    archives: "档案馆",
+    avgQuality: "平均品质",
+    searchPlaceholder: "在浩瀚的档案中搜索...",
+    newArchive: "新建档案馆",
+    expandSpace: "扩展策展空间",
+    catalogFirst: "开始首次编目",
+    enterExhibition: "进入展厅",
+    vocalGuide: "语音向导",
+    galleryAwaits: "展厅虚位以待。",
+    museumDefinition: "博物馆的价值，在于它所守护的一切。今天就开始你的馆藏之旅。",
+    restoringArchives: "正在恢复档案库...",
+    addItem: "添加珍品",
+    add: "添加",
+    exhibitNo: "展品 第 {n} 件 / 共 {total} 件",
+    updatePhoto: "更新珍品照片",
+    exportCard: "导出档案卡",
+    archiveNarrative: "馆藏叙述",
+    technicalSpec: "技术规格",
+    provenancePlaceholder: "记录这件珍品的流传与故事...",
+    registryQuality: "登记品质评分",
+    deleteConfirm: "确定要从馆藏中永久移除这件珍品吗？",
+    analyzingPhoto: "正在分析照片...",
+    geminiExtracting: "Gemini 正在为您提取馆藏细节。",
+    takePhoto: "拍摄照片",
+    uploadPhoto: "上传照片",
+    changePhoto: "更换照片",
+    skipManual: "跳过并手动添加",
+    addToCollection: "加入馆藏",
+    rating: "评分",
+    title: "标题",
+    notes: "备注",
+    anyRating: "不限评分",
+    filterCollection: "筛选馆藏",
+    clear: "清除",
+    apply: "应用",
+    cancel: "取消",
+    createCollection: "创建收藏",
+    dataPresets: "数据预设",
+    presetDesc: "决定了哪些字段（如：艺术家、年份）可用。",
+    icon: "图标",
+    name: "名称",
+    guideTitle: "馆藏向导",
+    guideConnecting: "正在请教档案专家...",
+    guideActive: "您可以向导向询问关于您馆藏的任何故事。",
+    guideError: "出错了。请检查您的麦克风设置。",
+    tryAgain: "重试",
+    noPhoto: "暂无照片",
+    loadError: "加载失败",
+    cardStyle: "卡片风格",
+    aspectRatio: "纵横比",
+    imageFit: "图片填充",
+    saveImage: "保存图片",
+    print: "打印",
+    share: "分享",
+    fit: "适应",
+    fill: "填满",
+    minimal: "极简",
+    full: "沉浸",
+    retro: "复古",
+    minimalTag: "纯净空灵",
+    fullTag: "身临其境",
+    retroTag: "怀旧经典",
+    archivalRecord: "馆藏档案记录",
+    artifactsCataloged: "已编目 {n} 件珍品",
+    itemCount: "{n} 件珍品",
+    itemsCount: "{n} 件珍品",
+    yes: "是",
+    no: "否",
+    // Field Labels
+    label_brand: "品牌",
+    label_category: "类别",
+    label_date: "获得日期",
+    label_location: "地点",
+    label_artist: "艺术家",
+    label_label: "发行商",
+    label_year: "年份",
+    label_genre: "流派",
+    label_condition: "品相",
+    label_house: "香水屋",
+    label_concentration: "浓度",
+    label_main_accords: "主要基调",
+    label_nose: "调香师",
+    label_model: "型号",
+    label_colorway: "配色",
+    label_size: "尺码",
+    label_style_code: "款式代码",
+    label_cocoa_percent: "可可含量 %",
+    label_origin: "产地",
+    label_flavor_notes: "风味笔记",
+    label_type: "类型"
+  }
+};
+
+interface LanguageContextType {
+  language: Language;
+  setLanguage: (lang: Language) => void;
+  t: (key: keyof typeof translations['en'], params?: Record<string, any>) => string;
+}
+
+const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
+
+export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const [language, setLanguage] = useState<Language>('en');
+
+  const t = (key: keyof typeof translations['en'], params?: Record<string, any>) => {
+    let text = (translations[language] as any)[key] || (translations['en'] as any)[key] || key;
+    if (params) {
+      Object.entries(params).forEach(([k, v]) => {
+        text = text.replace(`{${k}}`, String(v));
+      });
+    }
+    return text;
+  };
+
+  return React.createElement(
+    LanguageContext.Provider,
+    { value: { language, setLanguage, t } },
+    children
+  );
+};
+
+export const useTranslation = () => {
+  const context = useContext(LanguageContext);
+  if (!context) throw new Error("useTranslation must be used within LanguageProvider");
+  return context;
+};

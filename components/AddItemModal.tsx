@@ -1,8 +1,10 @@
+
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Upload, X, Loader2, Sparkles, Check, ChevronDown, ChevronUp } from 'lucide-react';
-import { UserCollection, FieldDefinition, CollectionItem } from '../types';
+import { Camera, Upload, X, Loader2, Sparkles, Check } from 'lucide-react';
+import { UserCollection, CollectionItem } from '../types';
 import { analyzeImage } from '../services/geminiService';
 import { Button } from './ui/Button';
+import { useTranslation } from '../i18n';
 
 interface AddItemModalProps {
   isOpen: boolean;
@@ -12,16 +14,15 @@ interface AddItemModalProps {
 }
 
 export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, collections, onSave }) => {
+  const { t } = useTranslation();
   const [step, setStep] = useState<'select-type' | 'upload' | 'analyzing' | 'verify'>('select-type');
   const [selectedCollectionId, setSelectedCollectionId] = useState<string>('');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [formData, setFormData] = useState<any>({});
   const [error, setError] = useState<string | null>(null);
   
-  // Refs
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Reset state on open
   useEffect(() => {
     if (isOpen) {
       setStep(collections.length === 1 ? 'upload' : 'select-type');
@@ -53,10 +54,8 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
     if (!currentCollection) return;
     setStep('analyzing');
     try {
-      // Remove header for API
       const base64Data = base64.split(',')[1];
       const result = await analyzeImage(base64Data, currentCollection.customFields);
-      
       setFormData({
         title: result.title,
         notes: result.notes,
@@ -85,10 +84,9 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
     onClose();
   };
 
-  // Render Functions
   const renderCollectionSelect = () => (
     <div className="space-y-6">
-      <h3 className="text-2xl font-serif font-bold text-center mb-8">Choose Collection</h3>
+      <h3 className="text-2xl font-serif font-bold text-center mb-8">{t('newArchive')}</h3>
       <div className="grid grid-cols-2 gap-4">
         {collections.map(c => (
           <button
@@ -103,7 +101,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
               {c.icon || '📦'}
             </span>
             <span className="font-bold text-stone-800 block text-lg">{c.name}</span>
-            <span className="text-xs text-stone-400 font-medium uppercase tracking-wider">{c.items.length} items</span>
+            <span className="text-xs text-stone-400 font-medium uppercase tracking-wider">{t('artifacts')}: {c.items.length}</span>
           </button>
         ))}
       </div>
@@ -120,21 +118,21 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
                    ) : (
                        <>
                            <Camera size={32} className="mb-2" />
-                           <span className="text-xs font-bold uppercase tracking-wider">Take Photo</span>
+                           <span className="text-xs font-bold uppercase tracking-wider">{t('takePhoto')}</span>
                        </>
                    )}
                 </div>
             </div>
         </div>
         <div>
-            <h3 className="text-2xl font-serif font-bold text-stone-900 mb-2">Upload Photo</h3>
-            <p className="text-stone-500 max-w-xs mx-auto">Gemini will automatically extract the title and details for you.</p>
+            <h3 className="text-2xl font-serif font-bold text-stone-900 mb-2">{t('uploadPhoto')}</h3>
+            <p className="text-stone-500 max-w-xs mx-auto">{t('geminiExtracting')}</p>
         </div>
         <div className="flex flex-col gap-3">
             <Button onClick={() => fileInputRef.current?.click()} size="lg" icon={<Upload size={18} />}>
-                {imagePreview ? 'Change Photo' : 'Upload Photo'}
+                {imagePreview ? t('changePhoto') : t('uploadPhoto')}
             </Button>
-            <button onClick={() => setStep('verify')} className="text-sm font-medium text-stone-400 hover:text-stone-600">Skip and add manually</button>
+            <button onClick={() => setStep('verify')} className="text-sm font-medium text-stone-400 hover:text-stone-600">{t('skipManual')}</button>
         </div>
         <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
     </div>
@@ -149,8 +147,8 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
             </div>
         </div>
         <div>
-            <h3 className="text-2xl font-serif font-bold text-stone-900 mb-2">Analyzing photo...</h3>
-            <p className="text-stone-500 italic font-serif">Gemini is extracting details for your collection.</p>
+            <h3 className="text-2xl font-serif font-bold text-stone-900 mb-2">{t('analyzingPhoto')}</h3>
+            <p className="text-stone-500 italic font-serif">{t('geminiExtracting')}</p>
         </div>
     </div>
   );
@@ -162,7 +160,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
                 {imagePreview ? <img src={imagePreview} className="w-full h-full object-cover" /> : <Camera className="w-full h-full p-6 text-stone-200" />}
             </div>
             <div className="flex-1">
-                <label className="block text-xs font-bold text-stone-400 uppercase tracking-wider mb-1">Title</label>
+                <label className="block text-xs font-bold text-stone-400 uppercase tracking-wider mb-1">{t('title')}</label>
                 <input 
                     type="text" 
                     className="w-full text-xl font-bold bg-transparent border-b border-stone-200 focus:border-amber-500 outline-none pb-1 transition-colors"
@@ -187,7 +185,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
                 </div>
             ))}
             <div>
-                <label className="block text-xs font-bold text-stone-400 uppercase tracking-wider mb-1">Rating</label>
+                <label className="block text-xs font-bold text-stone-400 uppercase tracking-wider mb-1">{t('rating')}</label>
                 <div className="flex gap-2">
                     {[1,2,3,4,5].map(s => (
                         <button 
@@ -203,7 +201,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
        </div>
 
        <Button className="w-full" size="lg" onClick={handleSave} icon={<Check size={18} />}>
-           Add to Collection
+           {t('addToCollection')}
        </Button>
     </div>
   );
@@ -212,7 +210,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/40 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col">
         <div className="flex items-center justify-between p-6 border-b border-stone-100">
-          <h2 className="font-serif font-bold text-xl text-stone-800">Add New Item</h2>
+          <h2 className="font-serif font-bold text-xl text-stone-800">{t('addItem')}</h2>
           <button onClick={onClose} className="p-2 hover:bg-stone-100 rounded-full text-stone-400 hover:text-stone-800 transition-colors">
             <X size={20} />
           </button>
