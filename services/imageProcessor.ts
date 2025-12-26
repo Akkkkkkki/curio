@@ -1,65 +1,60 @@
+
 /**
- * Industry standard image processing for mobile-first apps.
- * Optimized for "Master" storage: High enough for 300DPI prints,
- * but compressed enough for efficient mobile storage.
+ * Processes an image into a high-res master and a small thumbnail.
  */
-export const processImage = async (dataUrl: string, maxDimension: number = 2000): Promise<{ blob: Blob; previewUrl: string }> => {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
+export const processImage = async (
+  dataUrl: string, 
+  masterMax: number = 1600, 
+  thumbMax: number = 400
+): Promise<{ master: Blob; thumb: Blob }> => {
+  const createBlobFromImage = (img: HTMLImageElement, maxDim: number, quality: number): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
       let width = img.width;
       let height = img.height;
 
-      // Calculate new dimensions (High-res Master target)
       if (width > height) {
-        if (width > maxDimension) {
-          height *= maxDimension / width;
-          width = maxDimension;
+        if (width > maxDim) {
+          height *= maxDim / width;
+          width = maxDim;
         }
       } else {
-        if (height > maxDimension) {
-          width *= maxDimension / height;
-          height = maxDimension;
+        if (height > maxDim) {
+          width *= maxDim / height;
+          height = maxDim;
         }
       }
 
       const canvas = document.createElement('canvas');
       canvas.width = width;
       canvas.height = height;
+      const ctx = canvas.getContext('2d', { alpha: false });
+      if (!ctx) return reject(new Error('Canvas context failed'));
 
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        reject(new Error('Could not get canvas context'));
-        return;
-      }
-
-      // Use better image smoothing for the downscale
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
+      ctx.fillStyle = "#FFFFFF";
+      ctx.fillRect(0, 0, width, height);
       ctx.drawImage(img, 0, 0, width, height);
 
-      // Convert to compressed JPEG Blob
-      canvas.toBlob(
-        (blob) => {
-          if (blob) {
-            resolve({
-              blob,
-              previewUrl: canvas.toDataURL('image/jpeg', 0.9) // 90% is "High Quality" for printing
-            });
-          } else {
-            reject(new Error('Canvas toBlob failed'));
-          }
-        },
-        'image/jpeg',
-        0.9 // High quality sweet spot for export
-      );
+      canvas.toBlob(b => b ? resolve(b) : reject(new Error('toBlob failed')), 'image/jpeg', quality);
+    });
+  };
+
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = async () => {
+      try {
+        const [master, thumb] = await Promise.all([
+          createBlobFromImage(img, masterMax, 0.85),
+          createBlobFromImage(img, thumbMax, 0.7)
+        ]);
+        resolve({ master, thumb });
+      } catch (err) {
+        reject(err);
+      }
     };
     img.onerror = () => reject(new Error('Image load failed'));
     img.src = dataUrl;
   });
-};
-
-export const dataUrlToBlob = async (dataUrl: string): Promise<Blob> => {
-    const res = await fetch(dataUrl);
-    return await res.blob();
 };

@@ -1,40 +1,63 @@
-import React, { useState, useEffect } from 'react';
+
+import { useState, useEffect, useRef } from 'react';
 import { getAsset } from '../services/db';
-import { Loader2, Camera } from 'lucide-react';
+import { Loader2, Camera, AlertCircle } from 'lucide-react';
 
 interface ItemImageProps {
   itemId: string;
   className?: string;
   alt?: string;
+  type?: 'master' | 'thumb';
 }
 
-export const ItemImage: React.FC<ItemImageProps> = ({ itemId, className = "", alt = "" }) => {
+export const ItemImage: React.FC<ItemImageProps> = ({ itemId, className = "", alt = "", type = 'thumb' }) => {
   const [url, setUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const currentUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
-    let objectUrl: string | null = null;
+    let isMounted = true;
 
     const load = async () => {
+      if (!itemId) return;
+      
+      setLoading(true);
+      setError(false);
+      
       try {
-        const blob = await getAsset(itemId);
-        if (blob) {
-          objectUrl = URL.createObjectURL(blob);
+        // Try requested type, fallback to master if thumb missing
+        let blob = await getAsset(itemId, type);
+        if (!blob && type === 'thumb') {
+            blob = await getAsset(itemId, 'master');
+        }
+
+        if (blob && isMounted) {
+          const objectUrl = URL.createObjectURL(blob);
+          if (currentUrlRef.current) URL.revokeObjectURL(currentUrlRef.current);
+          currentUrlRef.current = objectUrl;
           setUrl(objectUrl);
+        } else if (isMounted) {
+          setError(true);
         }
       } catch (e) {
         console.error("Failed to load image asset", e);
+        if (isMounted) setError(true);
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     };
 
     load();
 
     return () => {
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      isMounted = false;
+      if (currentUrlRef.current) {
+        URL.revokeObjectURL(currentUrlRef.current);
+        currentUrlRef.current = null;
+      }
     };
-  }, [itemId]);
+  }, [itemId, type]);
 
   if (loading) {
     return (
@@ -44,14 +67,14 @@ export const ItemImage: React.FC<ItemImageProps> = ({ itemId, className = "", al
     );
   }
 
-  if (!url) {
+  if (error || !url) {
     return (
       <div className={`flex flex-col items-center justify-center bg-stone-100 text-stone-300 ${className}`}>
-        <Camera size={24} className="opacity-20 mb-1" />
-        <span className="text-[10px] font-medium opacity-50">No Photo</span>
+        {error ? <AlertCircle size={24} className="opacity-20 mb-1" /> : <Camera size={24} className="opacity-20 mb-1" />}
+        <span className="text-[10px] font-medium opacity-50">{error ? 'Load Error' : 'No Photo'}</span>
       </div>
     );
   }
 
-  return <img src={url} alt={alt} className={`object-cover ${className}`} />;
+  return <img src={url} alt={alt} className={`object-cover ${className}`} loading="lazy" />;
 };

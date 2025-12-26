@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { HashRouter, Routes, Route, useNavigate, useParams, Link } from 'react-router-dom';
 import { Layout } from './components/Layout';
@@ -11,7 +12,7 @@ import { UserCollection, CollectionItem } from './types';
 import { TEMPLATES } from './constants';
 import { Plus, SlidersHorizontal, ArrowLeft, Trash2, LayoutGrid, LayoutTemplate, Printer, Camera, Link as LinkIcon, Download, Upload, ShieldCheck, Database, Loader2 } from 'lucide-react';
 import { Button } from './components/ui/Button';
-import { loadCollections, saveCollection, saveAllCollections, saveAsset, getAsset, deleteAsset } from './services/db';
+import { loadCollections, saveCollection, saveAllCollections, saveAsset, getAsset, deleteAsset, requestPersistence } from './services/db';
 import { processImage } from './services/imageProcessor';
 import { ItemImage } from './components/ItemImage';
 
@@ -40,6 +41,7 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     const init = async () => {
       try {
+        await requestPersistence();
         const stored = await loadCollections();
         if (stored && stored.length > 0) {
           setCollections(stored);
@@ -71,8 +73,8 @@ const AppContent: React.FC = () => {
 
     if (itemData.photoUrl.startsWith('data:')) {
       try {
-        const { blob } = await processImage(itemData.photoUrl);
-        await saveAsset(itemId, blob);
+        const { master, thumb } = await processImage(itemData.photoUrl);
+        await saveAsset(itemId, master, thumb);
         hasPhoto = true;
       } catch (e) {
         console.warn("Image processing failed", e);
@@ -82,7 +84,7 @@ const AppContent: React.FC = () => {
     const newItem: CollectionItem = {
       ...itemData,
       id: itemId,
-      photoUrl: hasPhoto ? 'asset' : '', // We store a sentinel value; component fetches by ID
+      photoUrl: hasPhoto ? 'asset' : '', 
       createdAt: new Date().toISOString(),
     };
 
@@ -350,8 +352,8 @@ const AppContent: React.FC = () => {
             reader.onloadend = async () => {
                 const base64 = reader.result as string;
                 try {
-                    const { blob } = await processImage(base64);
-                    await saveAsset(item.id, blob);
+                    const { master, thumb } = await processImage(base64);
+                    await saveAsset(item.id, master, thumb);
                     updateItem(collection.id, item.id, { photoUrl: 'asset' });
                 } catch (err) {
                     console.error("Photo update failed", err);
@@ -366,7 +368,7 @@ const AppContent: React.FC = () => {
       return (
           <div className="max-w-2xl mx-auto bg-white rounded-3xl shadow-sm border border-stone-100 overflow-hidden animate-in zoom-in-95 duration-300">
               <div className="relative aspect-video bg-stone-100 group">
-                  <ItemImage itemId={item.id} alt={item.title} className="w-full h-full" />
+                  <ItemImage itemId={item.id} alt={item.title} type="master" className="w-full h-full" />
                   
                   <div className={`absolute inset-0 bg-black/5 flex items-center justify-center transition-opacity duration-200 opacity-0 group-hover:opacity-100`}>
                       <button disabled={isProcessing} onClick={() => fileInputRef.current?.click()} className="bg-white/90 hover:bg-white text-stone-800 px-4 py-2 rounded-full font-medium shadow-sm backdrop-blur-sm transition-transform hover:scale-105 flex items-center gap-2 text-sm pointer-events-auto disabled:opacity-50">
