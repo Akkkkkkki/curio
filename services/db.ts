@@ -1,8 +1,9 @@
-import { UserCollection } from '../types';
+import { UserCollection, CollectionItem } from '../types';
 import { supabase, isSupabaseConfigured } from './supabase';
+import { TEMPLATES } from '../constants';
 
 const DB_NAME = 'CurioDatabase';
-const DB_VERSION = 4; // Bumped for settings store
+const DB_VERSION = 4;
 const COLLECTIONS_STORE = 'collections';
 const ASSETS_STORE = 'assets';
 const THUMBNAILS_STORE = 'thumbnails';
@@ -32,19 +33,15 @@ export const initDB = (): Promise<IDBDatabase> => {
 
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
-      
       if (!db.objectStoreNames.contains(COLLECTIONS_STORE)) {
         db.createObjectStore(COLLECTIONS_STORE, { keyPath: 'id' });
       }
-      
       if (!db.objectStoreNames.contains(ASSETS_STORE)) {
         db.createObjectStore(ASSETS_STORE);
       }
-
       if (!db.objectStoreNames.contains(THUMBNAILS_STORE)) {
         db.createObjectStore(THUMBNAILS_STORE);
       }
-
       if (!db.objectStoreNames.contains(SETTINGS_STORE)) {
         db.createObjectStore(SETTINGS_STORE);
       }
@@ -74,7 +71,7 @@ export const setSeedVersion = async (version: number): Promise<void> => {
 export const saveCollection = async (collection: UserCollection): Promise<void> => {
   const db = await initDB();
   
-  // Save to Local DB (IndexedDB)
+  // 1. Local Persistence (IndexedDB)
   await new Promise<void>((resolve, reject) => {
     const transaction = db.transaction(COLLECTIONS_STORE, 'readwrite');
     const store = transaction.objectStore(COLLECTIONS_STORE);
@@ -83,18 +80,49 @@ export const saveCollection = async (collection: UserCollection): Promise<void> 
     transaction.onerror = () => reject(transaction.error);
   });
 
-  // Background sync to Supabase if configured and available
+  // 2. Cloud Sync (Supabase Normalized Mapping)
   if (isSupabaseConfigured() && supabase) {
     try {
-      await supabase
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Sync Collection Metadata
+      const { error: colError } = await supabase
         .from('collections')
-        .upsert({ 
-          id: collection.id, 
-          data: collection, 
-          updated_at: new Date().toISOString() 
+        .upsert({
+          id: collection.id,
+          user_id: user.id,
+          template_id: collection.templateId,
+          name: collection.name,
+          icon: collection.icon,
+          settings: collection.settings,
+          seed_key: collection.seedKey
         });
+
+      if (colError) console.warn('Supabase sync collection error:', colError);
+
+      // Sync Items
+      if (collection.items.length > 0) {
+        const itemsToSync = collection.items.map(item => ({
+          id: item.id,
+          user_id: user.id,
+          collection_id: collection.id,
+          title: item.title,
+          notes: item.notes,
+          rating: item.rating,
+          data: item.data,
+          photo_path: item.photoUrl,
+          seed_key: item.seedKey
+        }));
+
+        const { error: itemsError } = await supabase
+          .from('items')
+          .upsert(itemsToSync);
+
+        if (itemsError) console.warn('Supabase sync items error:', itemsError);
+      }
     } catch (e) {
-      console.warn('Supabase sync background error:', e);
+      console.error('Unexpected Supabase sync error:', e);
     }
   }
 };
@@ -142,15 +170,54 @@ export const loadCollections = async (): Promise<UserCollection[]> => {
     request.onerror = () => reject(request.error);
   });
 
-  // If local is empty and we have Supabase, try to fetch to populate the app
+  // If local is empty, attempt to hydrate from Supabase cloud
   if (localItems.length === 0 && isSupabaseConfigured() && supabase) {
     try {
-      const { data, error } = await supabase.from('collections').select('data');
-      if (!error && data) {
-        return data.map(d => d.data as UserCollection);
+      const { data: cols, error: colError } = await supabase
+        .from('collections')
+        .select('*');
+      
+      if (colError) throw colError;
+
+      const { data: items, error: itemError } = await supabase
+        .from('items')
+        .select('*');
+      
+      if (itemError) throw itemError;
+
+      if (cols) {
+        return cols.map(c => {
+          const colItems: CollectionItem[] = (items || [])
+            .filter(i => i.collection_id === c.id)
+            .map(i => ({
+              id: i.id,
+              collectionId: i.collection_id,
+              photoUrl: i.photo_path,
+              title: i.title,
+              rating: i.rating,
+              data: i.data,
+              createdAt: i.created_at || new Date().toISOString(),
+              notes: i.notes,
+              seedKey: i.seed_key
+            }));
+
+          // Reconstruct fields from known templates to ensure UI works as expected
+          const template = TEMPLATES.find(t => t.id === c.template_id);
+
+          return {
+            id: c.id,
+            templateId: c.template_id,
+            name: c.name,
+            icon: c.icon,
+            customFields: template ? template.fields : [],
+            items: colItems,
+            settings: c.settings || { displayFields: [], badgeFields: [] },
+            seedKey: c.seed_key
+          };
+        });
       }
     } catch (e) {
-      console.warn('Supabase fetch error:', e);
+      console.warn('Supabase cloud fetch failed or returned empty:', e);
     }
   }
 

@@ -16,11 +16,10 @@ const mapFieldTypeToSchemaType = (type: string): Type => {
 
 /**
  * Gemini Service Singleton
- * In production, this would proxy calls through a backend /api/gemini endpoint
- * to protect API keys.
  */
 class CurioGeminiService {
   private getClient() {
+    // Explicitly use process.env.API_KEY as per coding guidelines
     return new GoogleGenAI({ apiKey: process.env.API_KEY });
   }
 
@@ -63,11 +62,7 @@ class CurioGeminiService {
         }
       });
 
-      if (!response.text) {
-          throw new Error("No response from AI");
-      }
-
-      const result = JSON.parse(response.text);
+      const result = JSON.parse(response.text || '{}');
       const { title, notes, ...data } = result;
 
       return {
@@ -93,12 +88,8 @@ class CurioGeminiService {
     }));
 
     const systemInstruction = customInstruction || `
-      You are the "Curio Museum Guide", a sophisticated and enthusiastic expert in ${collection.name}.
-      
-      Collection Context:
-      ${JSON.stringify(itemsContext, null, 2)}
-
-      Tone: Elegant, knowledgeable, like a high-end gallery curator. Keep responses concise for audio.
+      You are the "Curio Museum Guide", a sophisticated expert in ${collection.name}.
+      Collection Context: ${JSON.stringify(itemsContext)}
     `;
 
     return ai.live.connect({
@@ -117,6 +108,5 @@ class CurioGeminiService {
 
 export const gemini = new CurioGeminiService();
 
-// Deprecated functional exports (for backward compatibility during refactor)
 export const analyzeImage = (b64: string, fields: any) => gemini.analyzeImage(b64, fields);
 export const connectMuseumGuide = (col: any, cb: any, inst: any) => gemini.connectMuseumGuide(col, cb, inst);

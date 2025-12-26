@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import { getAsset } from '../services/db';
 import { Loader2, Camera, AlertCircle } from 'lucide-react';
@@ -36,7 +37,8 @@ export const ItemImage: React.FC<ItemImageProps> = ({ itemId, photoUrl, classNam
         setLoading(true);
         setError(false);
         try {
-          let blob = await getAsset(itemId, type);
+          // Fix: Assert 'type' as the expected union literal to prevent widening to 'string'
+          let blob = await getAsset(itemId, type as 'master' | 'thumb');
           // Fallback to master if thumb is missing
           if ((!blob || blob.size === 0) && type === 'thumb') {
             blob = await getAsset(itemId, 'master');

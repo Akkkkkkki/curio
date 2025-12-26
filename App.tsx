@@ -17,9 +17,12 @@ import { ExhibitionView } from './components/ExhibitionView';
 import { ExportModal } from './components/ExportModal';
 import { FilterModal } from './components/FilterModal';
 import { LanguageProvider, useTranslation, Language } from './i18n';
+import { ensureAuth } from './services/supabase';
 
 const CURRENT_SEED_VERSION = 2;
-const SEED_IMAGE_PATH = 'assets/sample-vinyl.jpg';
+
+// Senior Dev Option A: Move static assets to public/ and reference via root path to avoid URL constructor issues.
+const SEED_IMAGE_PATH = '/assets/sample-vinyl.jpg';
 
 const INITIAL_COLLECTIONS: UserCollection[] = [
   {
@@ -68,19 +71,22 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     const init = async () => {
       try {
+        // 1. Storage & Auth Setup
         await requestPersistence();
+        await ensureAuth(); 
+        
+        // 2. Data Loading
         const localSeedVersion = await getSeedVersion();
         const existingCollections = await loadCollections();
         
         let workingCollections = [...existingCollections];
 
-        // Apply seeding logic if version is outdated
+        // 3. Versioned Seed Logic
         if (localSeedVersion < CURRENT_SEED_VERSION) {
           for (const seedCollection of INITIAL_COLLECTIONS) {
             const existingIndex = workingCollections.findIndex(c => c.seedKey === seedCollection.seedKey || c.id === seedCollection.id);
             
             if (existingIndex > -1) {
-              // Merge: Only add items that don't exist by seedKey
               const currentCollection = workingCollections[existingIndex];
               const newItems = seedCollection.items.filter(si => 
                 !currentCollection.items.some(ci => ci.seedKey === si.seedKey)
@@ -90,7 +96,6 @@ const AppContent: React.FC = () => {
                 items: [...newItems, ...currentCollection.items]
               };
             } else {
-              // Insert new seed collection
               workingCollections.push(seedCollection);
             }
           }
@@ -101,6 +106,7 @@ const AppContent: React.FC = () => {
         setCollections(workingCollections);
       } catch (e) {
         console.error("Initialization failed:", e);
+        // Fallback to empty to allow app to at least render
         setCollections([]);
       } finally {
         setIsLoading(false);
@@ -114,8 +120,8 @@ const AppContent: React.FC = () => {
       clearTimeout(saveTimeoutRef.current[collection.id]);
     }
     saveTimeoutRef.current[collection.id] = setTimeout(() => {
-      saveCollection(collection).catch(console.error);
-    }, 1000);
+      saveCollection(collection).catch(err => console.warn('Sync failed', err));
+    }, 1500);
   }, []);
 
   const handleAddItem = async (collectionId: string, itemData: Omit<CollectionItem, 'id' | 'createdAt'>) => {
@@ -127,7 +133,9 @@ const AppContent: React.FC = () => {
         const { master, thumb } = await processImage(itemData.photoUrl);
         await saveAsset(itemId, master, thumb);
         hasPhoto = true;
-      } catch (e) {}
+      } catch (e) {
+        console.error('Image processing failed', e);
+      }
     }
 
     const newItem: CollectionItem = {
@@ -141,7 +149,7 @@ const AppContent: React.FC = () => {
       return prev.map(c => {
         if (c.id === collectionId) {
           const newC = { ...c, items: [newItem, ...c.items] };
-          saveCollection(newC);
+          saveCollection(newC); // Immediate save for new items
           return newC;
         }
         return c;
@@ -425,8 +433,10 @@ const AppContent: React.FC = () => {
       if (!collection || !item) return <Navigate to={`/collection/${id}`} replace />;
 
       const handleDelete = () => {
-          if (deleteItem(collection.id, item.id)) {
-              navigate(`/collection/${collection.id}`);
+          if (confirm(t('deleteConfirm'))) {
+              if (deleteItem(collection.id, item.id)) {
+                  navigate(`/collection/${collection.id}`);
+              }
           }
       };
 
