@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { HashRouter, Routes, Route, useNavigate, useParams, Link, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
@@ -435,9 +436,11 @@ const AppContent: React.FC = () => {
         return translated;
       };
 
+      const hasPhoto = item.photoUrl && item.photoUrl !== '';
+
       return (
-          <div className="max-w-4xl mx-auto bg-white rounded-[4rem] shadow-2xl border border-stone-100 overflow-hidden animate-in zoom-in-95 duration-500 mb-20">
-              <div className="relative aspect-[21/9] bg-stone-950 group">
+          <div className="max-w-4xl mx-auto bg-white rounded-[2rem] sm:rounded-[4rem] shadow-2xl border border-stone-100 overflow-hidden animate-in zoom-in-95 duration-500 mb-20">
+              <div className={`relative ${hasPhoto ? 'aspect-[4/5] sm:aspect-[16/9] md:aspect-[21/9]' : 'h-32 sm:h-48'} bg-stone-950 group transition-all duration-700 ease-in-out`}>
                   <ItemImage 
                     itemId={item.id} 
                     photoUrl={item.photoUrl} 
@@ -448,27 +451,27 @@ const AppContent: React.FC = () => {
                   
                   <div className="absolute inset-0 bg-gradient-to-t from-stone-950/60 to-transparent"></div>
 
-                  <div className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 opacity-0 group-hover:opacity-100`}>
-                      <button disabled={isProcessing} onClick={() => fileInputRef.current?.click()} className="bg-white/90 hover:bg-white text-stone-900 px-8 py-3 rounded-full font-bold shadow-2xl backdrop-blur-md transition-all hover:scale-105 flex items-center gap-3 disabled:opacity-50">
-                        {isProcessing ? <Loader2 size={18} className="animate-spin" /> : <Camera size={18} />}
+                  <div className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${hasPhoto ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'}`}>
+                      <button disabled={isProcessing} onClick={() => fileInputRef.current?.click()} className="bg-white/90 hover:bg-white text-stone-900 px-6 sm:px-8 py-2 sm:py-3 rounded-full font-bold shadow-2xl backdrop-blur-md transition-all hover:scale-105 flex items-center gap-2 sm:gap-3 disabled:opacity-50 text-xs sm:text-sm">
+                        {isProcessing ? <Loader2 size={16} className="animate-spin" /> : <Camera size={16} />}
                         {t('updatePhoto')}
                       </button>
                   </div>
                   <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handlePhotoUpdate} />
                   
-                  <button onClick={() => navigate(-1)} className="absolute top-8 left-8 w-14 h-14 bg-white/80 backdrop-blur-md rounded-2xl flex items-center justify-center text-stone-800 shadow-xl hover:bg-white transition-all hover:scale-105 z-10"><ArrowLeft size={24} /></button>
+                  <button onClick={() => navigate(-1)} className="absolute top-4 left-4 sm:top-8 sm:left-8 w-10 h-10 sm:w-14 sm:h-14 bg-white/80 backdrop-blur-md rounded-xl sm:rounded-2xl flex items-center justify-center text-stone-800 shadow-xl hover:bg-white transition-all hover:scale-105 z-10"><ArrowLeft size={20} className="sm:w-6 sm:h-6" /></button>
                   
-                  <div className="absolute top-8 right-8 flex gap-4 z-10">
-                     <button onClick={() => setIsExportOpen(true)} className="w-14 h-14 bg-white/80 backdrop-blur-md rounded-2xl flex items-center justify-center text-stone-800 shadow-xl hover:bg-white transition-all hover:scale-105" title={t('exportCard')}><Printer size={24} /></button>
+                  <div className="absolute top-4 right-4 sm:top-8 sm:right-8 flex gap-2 sm:gap-4 z-10">
+                     <button onClick={() => setIsExportOpen(true)} className="w-10 h-10 sm:w-14 sm:h-14 bg-white/80 backdrop-blur-md rounded-xl sm:rounded-2xl flex items-center justify-center text-stone-800 shadow-xl hover:bg-white transition-all hover:scale-105" title={t('exportCard')}><Printer size={20} className="sm:w-6 sm:h-6" /></button>
                   </div>
               </div>
 
-              <div className="p-12 md:p-20 space-y-12">
-                  <div className="flex flex-col md:flex-row justify-between items-start gap-12">
+              <div className="p-8 sm:p-12 md:p-20 space-y-10 sm:space-y-12">
+                  <div className="flex flex-col md:flex-row justify-between items-start gap-8 sm:gap-12">
                       <div className="flex-1 w-full">
                           <input 
                             type="text" 
-                            className="text-5xl md:text-6xl font-serif font-bold text-stone-900 mb-6 w-full bg-transparent border-b-2 border-transparent focus:border-amber-100 outline-none transition-all placeholder:italic tracking-tight"
+                            className="text-3xl sm:text-5xl md:text-6xl font-serif font-bold text-stone-900 mb-4 sm:mb-6 w-full bg-transparent border-b-2 border-transparent focus:border-amber-100 outline-none transition-all placeholder:italic tracking-tight"
                             value={item.title}
                             onChange={(e) => updateItem(collection.id, item.id, { title: e.target.value })}
                             placeholder="..."
@@ -476,40 +479,40 @@ const AppContent: React.FC = () => {
                           <div className="flex items-center gap-2">
                               {[1,2,3,4,5].map((star) => (
                                 <button key={star} onClick={() => updateItem(collection.id, item.id, { rating: star })} className="transition-transform hover:scale-125">
-                                    <span className="text-4xl">{star <= item.rating ? <span className="text-amber-400">★</span> : <span className="text-stone-100">★</span>}</span>
+                                    <span className="text-2xl sm:text-4xl">{star <= item.rating ? <span className="text-amber-400">★</span> : <span className="text-stone-100">★</span>}</span>
                                 </button>
                               ))}
-                              <span className="ml-4 text-[10px] font-mono tracking-[0.3em] text-stone-300 uppercase font-bold">{t('registryQuality')}</span>
+                              <span className="ml-3 sm:ml-4 text-[8px] sm:text-[10px] font-mono tracking-[0.2em] sm:tracking-[0.3em] text-stone-300 uppercase font-bold">{t('registryQuality')}</span>
                           </div>
                       </div>
-                      <button onClick={handleDelete} className="text-stone-200 hover:text-red-400 transition-colors p-4 rounded-full hover:bg-red-50 shrink-0"><Trash2 size={24} /></button>
+                      <button onClick={handleDelete} className="text-stone-200 hover:text-red-400 transition-colors p-3 sm:p-4 rounded-full hover:bg-red-50 shrink-0"><Trash2 size={20} className="sm:w-6 sm:h-6" /></button>
                   </div>
 
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-16">
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 sm:gap-16">
                       <div className="lg:col-span-2 space-y-6">
                         <div className="flex items-center gap-3 text-amber-600">
-                             <Quote size={20} fill="currentColor" className="opacity-20" />
-                             <dt className="text-[10px] font-bold text-stone-400 uppercase tracking-[0.3em] font-mono">{t('archiveNarrative')}</dt>
+                             <Quote size={18} fill="currentColor" className="opacity-20 sm:w-5 sm:h-5" />
+                             <dt className="text-[9px] sm:text-[10px] font-bold text-stone-400 uppercase tracking-[0.2em] sm:tracking-[0.3em] font-mono">{t('archiveNarrative')}</dt>
                         </div>
                         <textarea 
-                            className="w-full bg-stone-50/50 p-8 rounded-[2.5rem] italic text-stone-800 border border-stone-100 font-serif text-2xl leading-relaxed min-h-[240px] focus:ring-8 focus:ring-amber-500/5 focus:border-amber-100 outline-none transition-all shadow-inner placeholder:text-stone-200"
+                            className="w-full bg-stone-50/50 p-6 sm:p-8 rounded-2xl sm:rounded-[2.5rem] italic text-stone-800 border border-stone-100 font-serif text-xl sm:text-2xl leading-relaxed min-h-[200px] sm:min-h-[240px] focus:ring-8 focus:ring-amber-500/5 focus:border-amber-100 outline-none transition-all shadow-inner placeholder:text-stone-200"
                             value={item.notes}
                             onChange={(e) => updateItem(collection.id, item.id, { notes: e.target.value })}
                             placeholder={t('provenancePlaceholder')}
                         />
                       </div>
 
-                      <div className="space-y-10">
-                          <dt className="text-[10px] font-bold text-stone-400 uppercase tracking-[0.3em] pb-4 border-b border-stone-100 font-mono">{t('technicalSpec')}</dt>
-                          <div className="space-y-8">
+                      <div className="space-y-8 sm:space-y-10">
+                          <dt className="text-[9px] sm:text-[10px] font-bold text-stone-400 uppercase tracking-[0.2em] sm:tracking-[0.3em] pb-3 sm:pb-4 border-b border-stone-100 font-mono">{t('technicalSpec')}</dt>
+                          <div className="grid grid-cols-2 lg:grid-cols-1 gap-6 sm:gap-8">
                               {collection.customFields.map(field => {
                                   const val = item.data[field.id];
                                   const label = getLabel(field.id);
                                   return (
                                       <div key={field.id} className="group">
-                                          <dt className="text-[10px] font-bold text-stone-300 uppercase tracking-[0.2em] mb-2 group-hover:text-amber-500 transition-colors font-mono">{label}</dt>
+                                          <dt className="text-[8px] sm:text-[10px] font-bold text-stone-300 uppercase tracking-[0.2em] mb-1 sm:mb-2 group-hover:text-amber-500 transition-colors font-mono">{label}</dt>
                                           <input 
-                                            className="text-stone-900 font-serif text-xl w-full bg-transparent border-none p-0 outline-none focus:text-amber-900 focus:ring-0 transition-colors placeholder:text-stone-100"
+                                            className="text-stone-900 font-serif text-lg sm:text-xl w-full bg-transparent border-none p-0 outline-none focus:text-amber-900 focus:ring-0 transition-colors placeholder:text-stone-100"
                                             value={val || ''}
                                             placeholder="—"
                                             onChange={(e) => {
