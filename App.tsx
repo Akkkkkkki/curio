@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { HashRouter, Routes, Route, useNavigate, useParams, Link, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
@@ -10,7 +9,7 @@ import { UserCollection, CollectionItem } from './types';
 import { TEMPLATES } from './constants';
 import { Plus, SlidersHorizontal, ArrowLeft, Trash2, LayoutGrid, LayoutTemplate, Printer, Camera, Search, Download, Upload, Loader2, Sparkles, BookOpen, Mic, Play, Quote, Sparkle, Globe } from 'lucide-react';
 import { Button } from './components/ui/Button';
-import { loadCollections, saveCollection, saveAllCollections, saveAsset, deleteAsset, requestPersistence } from './services/db';
+import { loadCollections, saveCollection, saveAllCollections, saveAsset, deleteAsset, requestPersistence, getSeedVersion, setSeedVersion } from './services/db';
 import { processImage } from './services/imageProcessor';
 import { ItemImage } from './components/ItemImage';
 import { MuseumGuide } from './components/MuseumGuide';
@@ -19,11 +18,13 @@ import { ExportModal } from './components/ExportModal';
 import { FilterModal } from './components/FilterModal';
 import { LanguageProvider, useTranslation, Language } from './i18n';
 
-const KIND_OF_BLUE_PATH = 'assets/sample-vinyl.jpg';
+const CURRENT_SEED_VERSION = 2;
+const SEED_IMAGE_PATH = 'assets/sample-vinyl.jpg';
 
 const INITIAL_COLLECTIONS: UserCollection[] = [
   {
     id: 'sample-vinyl',
+    seedKey: 'master_vinyl_seed',
     templateId: 'vinyl',
     name: 'The Vinyl Vault',
     icon: '🎷',
@@ -31,8 +32,9 @@ const INITIAL_COLLECTIONS: UserCollection[] = [
     items: [
       {
         id: 'seed-vinyl-1',
+        seedKey: 'kind_of_blue_seed',
         collectionId: 'sample-vinyl',
-        photoUrl: KIND_OF_BLUE_PATH,
+        photoUrl: SEED_IMAGE_PATH,
         title: 'Kind of Blue',
         rating: 5,
         data: {
@@ -67,14 +69,36 @@ const AppContent: React.FC = () => {
     const init = async () => {
       try {
         await requestPersistence();
-        const stored = await loadCollections();
+        const localSeedVersion = await getSeedVersion();
+        const existingCollections = await loadCollections();
         
-        if (stored && stored.length > 0) {
-          setCollections(stored);
-        } else {
-          setCollections(INITIAL_COLLECTIONS);
-          await saveAllCollections(INITIAL_COLLECTIONS);
+        let workingCollections = [...existingCollections];
+
+        // Apply seeding logic if version is outdated
+        if (localSeedVersion < CURRENT_SEED_VERSION) {
+          for (const seedCollection of INITIAL_COLLECTIONS) {
+            const existingIndex = workingCollections.findIndex(c => c.seedKey === seedCollection.seedKey || c.id === seedCollection.id);
+            
+            if (existingIndex > -1) {
+              // Merge: Only add items that don't exist by seedKey
+              const currentCollection = workingCollections[existingIndex];
+              const newItems = seedCollection.items.filter(si => 
+                !currentCollection.items.some(ci => ci.seedKey === si.seedKey)
+              );
+              workingCollections[existingIndex] = {
+                ...currentCollection,
+                items: [...newItems, ...currentCollection.items]
+              };
+            } else {
+              // Insert new seed collection
+              workingCollections.push(seedCollection);
+            }
+          }
+          await saveAllCollections(workingCollections);
+          await setSeedVersion(CURRENT_SEED_VERSION);
         }
+
+        setCollections(workingCollections);
       } catch (e) {
         console.error("Initialization failed:", e);
         setCollections([]);

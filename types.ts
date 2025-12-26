@@ -28,6 +28,7 @@ export interface CollectionItem {
   data: Record<string, any>; // Dynamic data keyed by FieldDefinition.id
   createdAt: string;
   notes: string;
+  seedKey?: string; // Stability for versioned seeding
 }
 
 export interface UserCollection {
@@ -41,6 +42,7 @@ export interface UserCollection {
     displayFields: string[];
     badgeFields: string[];
   };
+  seedKey?: string; // Stability for versioned seeding
 }
 
 export interface AIAnalysisResult {
