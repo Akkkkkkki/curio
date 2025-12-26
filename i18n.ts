@@ -90,6 +90,12 @@ export const translations = {
     hasAccount: "Already have an account? Log in",
     signOut: "Sign Out",
     signedInAs: "Signed in as",
+    localArchiveMode: "Local Archive Mode",
+    supabaseNotice: "Supabase cloud sync is not configured. Your profile and data will be stored safely in this browser only.",
+    // Insights
+    museumInsights: "Museum Insights",
+    collectionHealth: "Archive Health",
+    curationScore: "Curation Score",
     // Field Labels
     label_brand: "Brand",
     label_category: "Category",
@@ -111,7 +117,17 @@ export const translations = {
     label_cocoa_percent: "Cocoa %",
     label_origin: "Origin",
     label_flavor_notes: "Flavor Notes",
-    label_type: "Type"
+    label_type: "Type",
+    label_batch: "Batch",
+    label_speed: "Speed",
+    label_notes_top: "Top Notes",
+    label_notes_heart: "Heart Notes",
+    label_notes_base: "Base Notes",
+    label_season: "Season",
+    label_deadstock: "Deadstock",
+    label_age: "Age",
+    label_abv: "ABV %",
+    label_region: "Region"
   },
   zh: {
     appTitle: "珍藏",
@@ -199,6 +215,12 @@ export const translations = {
     hasAccount: "已有账号？去登录",
     signOut: "退出登录",
     signedInAs: "当前登录：",
+    localArchiveMode: "本地存档模式",
+    supabaseNotice: "Supabase 云同步未配置。您的个人资料和数据将安全地存储在此浏览器中。",
+    // Insights
+    museumInsights: "馆藏洞察",
+    collectionHealth: "档案健康度",
+    curationScore: "策展得分",
     // Field Labels
     label_brand: "品牌",
     label_category: "类别",
@@ -220,7 +242,17 @@ export const translations = {
     label_cocoa_percent: "可可含量 %",
     label_origin: "产地",
     label_flavor_notes: "风味笔记",
-    label_type: "类型"
+    label_type: "类型",
+    label_batch: "批次",
+    label_speed: "转速",
+    label_notes_top: "前调",
+    label_notes_heart: "中调",
+    label_notes_base: "后调",
+    label_season: "季节",
+    label_deadstock: "全新未使用",
+    label_age: "年份/年份",
+    label_abv: "酒精度 %",
+    label_region: "产区"
   }
 };
 

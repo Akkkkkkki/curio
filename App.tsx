@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { HashRouter, Routes, Route, useNavigate, useParams, Link, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
@@ -7,7 +8,7 @@ import { AddItemModal } from './components/AddItemModal';
 import { CreateCollectionModal } from './components/CreateCollectionModal';
 import { UserCollection, CollectionItem } from './types';
 import { TEMPLATES } from './constants';
-import { Plus, SlidersHorizontal, ArrowLeft, Trash2, LayoutGrid, LayoutTemplate, Printer, Camera, Search, Download, Upload, Loader2, Sparkles, BookOpen, Mic, Play, Quote, Sparkle, Globe } from 'lucide-react';
+import { Plus, SlidersHorizontal, ArrowLeft, Trash2, LayoutGrid, LayoutTemplate, Printer, Camera, Search, Download, Upload, Loader2, Sparkles, BookOpen, Mic, Play, Quote, Sparkle, Globe, PieChart, Activity, ShieldCheck } from 'lucide-react';
 import { Button } from './components/ui/Button';
 import { loadCollections, saveCollection, saveAllCollections, saveAsset, deleteAsset, requestPersistence, getSeedVersion, setSeedVersion } from './services/db';
 import { processImage } from './services/imageProcessor';
@@ -20,8 +21,6 @@ import { LanguageProvider, useTranslation, Language } from './i18n';
 import { ensureAuth } from './services/supabase';
 
 const CURRENT_SEED_VERSION = 2;
-
-// Senior Dev Option A: Move static assets to public/ and reference via root path to avoid URL constructor issues.
 const SEED_IMAGE_PATH = '/assets/sample-vinyl.jpg';
 
 const INITIAL_COLLECTIONS: UserCollection[] = [
@@ -71,17 +70,14 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     const init = async () => {
       try {
-        // 1. Storage & Auth Setup
         await requestPersistence();
         await ensureAuth(); 
         
-        // 2. Data Loading
         const localSeedVersion = await getSeedVersion();
         const existingCollections = await loadCollections();
         
         let workingCollections = [...existingCollections];
 
-        // 3. Versioned Seed Logic
         if (localSeedVersion < CURRENT_SEED_VERSION) {
           for (const seedCollection of INITIAL_COLLECTIONS) {
             const existingIndex = workingCollections.findIndex(c => c.seedKey === seedCollection.seedKey || c.id === seedCollection.id);
@@ -106,7 +102,6 @@ const AppContent: React.FC = () => {
         setCollections(workingCollections);
       } catch (e) {
         console.error("Initialization failed:", e);
-        // Fallback to empty to allow app to at least render
         setCollections([]);
       } finally {
         setIsLoading(false);
@@ -149,7 +144,7 @@ const AppContent: React.FC = () => {
       return prev.map(c => {
         if (c.id === collectionId) {
           const newC = { ...c, items: [newItem, ...c.items] };
-          saveCollection(newC); // Immediate save for new items
+          saveCollection(newC); 
           return newC;
         }
         return c;
@@ -289,6 +284,37 @@ const AppContent: React.FC = () => {
                   onChange={e => setSearchTerm(e.target.value)}
                   className="w-full pl-16 pr-8 py-6 rounded-[2rem] bg-white border border-stone-200 focus:ring-4 focus:ring-amber-500/5 focus:border-amber-200 outline-none transition-all shadow-xl text-lg font-serif italic placeholder:text-stone-300"
                 />
+            </div>
+        </div>
+
+        {/* Insights Section */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-white p-8 rounded-[2rem] border border-stone-100 shadow-sm flex items-center gap-6">
+                <div className="w-16 h-16 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-600 shadow-inner">
+                    <PieChart size={32} />
+                </div>
+                <div>
+                    <h4 className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-1">{t('museumInsights')}</h4>
+                    <p className="text-lg font-serif font-bold text-stone-900">{t('artifactsCount', { n: stats.totalItems })}</p>
+                </div>
+            </div>
+            <div className="bg-white p-8 rounded-[2rem] border border-stone-100 shadow-sm flex items-center gap-6">
+                <div className="w-16 h-16 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 shadow-inner">
+                    <Activity size={32} />
+                </div>
+                <div>
+                    <h4 className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-1">{t('collectionHealth')}</h4>
+                    <p className="text-lg font-serif font-bold text-stone-900">Optimal</p>
+                </div>
+            </div>
+            <div className="bg-white p-8 rounded-[2rem] border border-stone-100 shadow-sm flex items-center gap-6">
+                <div className="w-16 h-16 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-600 shadow-inner">
+                    <ShieldCheck size={32} />
+                </div>
+                <div>
+                    <h4 className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-1">{t('curationScore')}</h4>
+                    <p className="text-lg font-serif font-bold text-stone-900">A+ Gallery</p>
+                </div>
             </div>
         </div>
 
@@ -544,7 +570,7 @@ const AppContent: React.FC = () => {
                                   const label = getLabel(field.id);
                                   return (
                                       <div key={field.id} className="group">
-                                          <dt className="text-[8px] sm:text-[10px] font-bold text-stone-300 uppercase tracking-[0.2em] mb-1 sm:mb-2 group-hover:text-amber-500 transition-colors font-mono">{label}</dt>
+                                          <dt className="text-[8px] sm:text-[10px] font-bold text-stone-300 uppercase tracking-2.0 mb-1 sm:mb-2 group-hover:text-amber-500 transition-colors font-mono">{label}</dt>
                                           <input 
                                             className="text-stone-900 font-serif text-lg sm:text-xl w-full bg-transparent border-none p-0 outline-none focus:text-amber-900 focus:ring-0 transition-colors placeholder:text-stone-100"
                                             value={val || ''}
