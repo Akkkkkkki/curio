@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { UserCollection } from '../types';
 import { ChevronRight } from 'lucide-react';
@@ -38,25 +37,25 @@ export const CollectionCard: React.FC<CollectionCardProps> = ({ collection, onCl
       </div>
 
       <div className="relative z-10">
-        <div className="flex items-center gap-3 mb-1">
-          <h3 className="font-serif text-3xl font-bold text-stone-900 group-hover:text-black leading-tight">
+        <div className="flex items-center gap-2 mb-1">
+          <h3 className="font-serif text-2xl sm:text-3xl font-bold text-stone-900 group-hover:text-black leading-tight truncate max-w-[80%]">
             {collection.name}
           </h3>
           {isSample && (
             <span className="text-[8px] font-mono tracking-[0.2em] bg-white/40 text-stone-500 px-1.5 py-0.5 rounded border border-black/5 uppercase font-bold shrink-0">Sample</span>
           )}
         </div>
-        <p className="text-stone-500 text-sm mt-2 line-clamp-2 max-w-[85%] font-medium leading-relaxed">
+        <p className="text-stone-500 text-xs sm:text-sm mt-1 sm:mt-2 line-clamp-2 max-w-[90%] font-medium leading-relaxed">
           {template.description}
         </p>
       </div>
 
       <div className="flex items-center justify-between mt-4 relative z-10">
-        <span className="inline-flex items-center px-4 py-1 rounded-full text-xs font-bold bg-white/60 text-stone-700 backdrop-blur-sm border border-white/40 shadow-sm">
+        <span className="inline-flex items-center px-4 py-1.5 rounded-full text-xs font-bold bg-white/60 text-stone-700 backdrop-blur-sm border border-white/40 shadow-sm">
           {t(itemCount === 1 ? 'itemCount' : 'itemsCount', { n: itemCount })}
         </span>
         <div className="w-10 h-10 rounded-full bg-white/60 flex items-center justify-center text-stone-400 group-hover:text-stone-900 group-hover:bg-white transition-all shadow-sm group-hover:shadow-md">
-          <ChevronRight size={18} />
+          <ChevronRight size={20} />
         </div>
       </div>
     </div>

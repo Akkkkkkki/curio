@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { HashRouter, Routes, Route, useNavigate, useParams, Link } from 'react-router-dom';
+import { HashRouter, Routes, Route, useNavigate, useParams, Link, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { CollectionCard } from './components/CollectionCard';
 import { ItemCard } from './components/ItemCard';
@@ -19,7 +18,6 @@ import { ExportModal } from './components/ExportModal';
 import { FilterModal } from './components/FilterModal';
 import { LanguageProvider, useTranslation, Language } from './i18n';
 
-// The specific local asset path requested by the user
 const KIND_OF_BLUE_PATH = 'assets/sample-vinyl.jpg';
 
 const INITIAL_COLLECTIONS: UserCollection[] = [
@@ -73,7 +71,6 @@ const AppContent: React.FC = () => {
         if (stored && stored.length > 0) {
           setCollections(stored);
         } else {
-          // New user setup
           setCollections(INITIAL_COLLECTIONS);
           await saveAllCollections(INITIAL_COLLECTIONS);
         }
@@ -181,7 +178,7 @@ const AppContent: React.FC = () => {
       ? (collections.reduce((acc, c) => acc + c.items.reduce((iacc, i) => iacc + i.rating, 0), 0) / totalItems).toFixed(1)
       : 0;
     const allItems = collections.flatMap(c => c.items);
-    const featured = allItems.length > 0 ? allItems[0] : null;
+    const featured = allItems.length > 0 ? allItems[Math.floor(Math.random() * allItems.length)] : null;
     return { totalItems, avgRating, totalCollections: collections.length, featured };
   }, [collections]);
 
@@ -196,77 +193,73 @@ const AppContent: React.FC = () => {
 
     if (isLoading) return (
       <div className="flex flex-col items-center justify-center py-32">
-        <div className="relative">
-           <div className="absolute inset-0 bg-stone-200 rounded-full blur-2xl animate-pulse opacity-30"></div>
-           <Loader2 className="text-stone-400 animate-spin mb-6 relative z-10" size={40} />
-        </div>
-        <p className="text-stone-400 font-serif text-xl italic tracking-tight">{t('restoringArchives')}</p>
+        <Loader2 className="text-stone-300 animate-spin mb-4" size={32} />
+        <p className="text-stone-400 font-serif italic">{t('restoringArchives')}</p>
       </div>
     );
 
     return (
-      <div className="space-y-16 animate-in fade-in duration-1000">
-        <section className="relative overflow-hidden rounded-[3.5rem] bg-stone-950 text-white min-h-[480px] flex items-center group shadow-2xl border border-white/5">
+      <div className="space-y-12 animate-in fade-in duration-700">
+        <section className="relative overflow-hidden rounded-[3rem] bg-stone-900 text-white min-h-[480px] flex items-center shadow-2xl border border-white/5 group">
             {stats.featured && (
-                <div className="absolute inset-0 opacity-30 group-hover:opacity-40 transition-opacity duration-[2s]">
+                <div className="absolute inset-0 opacity-40 group-hover:opacity-30 transition-opacity duration-1000">
                     <ItemImage 
                         itemId={stats.featured.id} 
                         photoUrl={stats.featured.photoUrl} 
                         type="master" 
-                        className="w-full h-full object-cover scale-[1.05] group-hover:scale-100 transition-transform duration-[15s] ease-out" 
+                        className="w-full h-full object-cover scale-105 group-hover:scale-100 transition-transform duration-[20s] ease-out" 
                     />
                 </div>
             )}
-            <div className="absolute inset-0 bg-gradient-to-r from-stone-950 via-stone-950/70 to-transparent"></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-stone-950 via-stone-900/60 to-transparent"></div>
             
             <div className="relative z-10 p-12 md:p-20 max-w-2xl">
                 <div className="flex items-center gap-3 mb-6">
-                   <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse shadow-[0_0_8px_rgba(245,158,11,0.8)]"></div>
+                   <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div>
                    <span className="text-[10px] font-mono tracking-[0.4em] uppercase text-amber-500 font-bold">{t('featuredArtifact')}</span>
                 </div>
-                <h1 className="text-6xl md:text-8xl font-serif font-bold mb-8 tracking-tighter leading-[0.9]">
-                    {t('appTitle')} <span className="text-white/40 font-light italic block md:inline">{t('appSubtitle')}</span>
+                <h1 className="text-5xl md:text-7xl font-serif font-bold mb-6 tracking-tight leading-tight">
+                    {t('appTitle')} <span className="text-white/30 italic font-light">{t('appSubtitle')}</span>
                 </h1>
-                <p className="text-stone-300 text-xl md:text-2xl font-light leading-relaxed mb-12 max-w-md font-serif italic">
+                <p className="text-xl md:text-2xl font-light leading-relaxed mb-10 max-w-sm font-serif italic text-stone-300">
                     {t('heroSubtitle')}
                 </p>
                 
-                <div className="flex flex-wrap gap-16 pt-10 border-t border-white/10">
+                <div className="flex gap-12 pt-10 border-t border-white/10">
                    <div className="space-y-1">
-                      <p className="text-3xl font-serif font-bold text-white tracking-tighter">{stats.totalItems}</p>
-                      <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-stone-500 font-bold">{t('artifacts')}</p>
+                      <p className="text-3xl font-serif font-bold text-white">{stats.totalItems}</p>
+                      <p className="text-[10px] font-mono uppercase tracking-widest text-stone-500">{t('artifacts')}</p>
                    </div>
                    <div className="space-y-1">
-                      <p className="text-3xl font-serif font-bold text-white tracking-tighter">{stats.totalCollections}</p>
-                      <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-stone-500 font-bold">{t('archives')}</p>
+                      <p className="text-3xl font-serif font-bold text-white">{stats.totalCollections}</p>
+                      <p className="text-[10px] font-mono uppercase tracking-widest text-stone-500">{t('archives')}</p>
                    </div>
                    <div className="space-y-1">
-                      <p className="text-3xl font-serif font-bold text-white tracking-tighter">{stats.avgRating}<span className="text-amber-500 text-lg ml-0.5">★</span></p>
-                      <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-stone-500 font-bold">{t('avgQuality')}</p>
+                      <p className="text-3xl font-serif font-bold text-white">{stats.avgRating}<span className="text-amber-500 text-lg ml-1">★</span></p>
+                      <p className="text-[10px] font-mono uppercase tracking-widest text-stone-500">{t('avgQuality')}</p>
                    </div>
                 </div>
             </div>
             
-            <div className="absolute bottom-10 right-10 hidden lg:block opacity-20">
-               <Sparkle className="text-white animate-spin-slow" size={120} />
+            <div className="absolute bottom-12 right-12 hidden lg:block">
+               <Sparkle className="text-white/10 animate-spin-slow" size={120} />
             </div>
         </section>
 
-        <div className="relative max-w-2xl mx-auto -mt-24 z-20 px-4">
-            <div className="absolute inset-0 bg-white/40 backdrop-blur-xl rounded-[2.5rem] shadow-2xl border border-white/40 -m-1"></div>
+        <div className="relative max-w-xl mx-auto -mt-20 z-20 px-4">
             <div className="relative">
-                <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-stone-400" size={24} />
+                <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-stone-400" size={20} />
                 <input 
                   type="text" 
                   placeholder={t('searchPlaceholder')}
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
-                  className="w-full pl-16 pr-8 py-7 rounded-[2rem] bg-white border border-stone-100 focus:ring-8 focus:ring-amber-500/5 focus:border-amber-200 outline-none transition-all shadow-xl text-xl font-serif italic placeholder:text-stone-300"
+                  className="w-full pl-16 pr-8 py-6 rounded-[2rem] bg-white border border-stone-200 focus:ring-4 focus:ring-amber-500/5 focus:border-amber-200 outline-none transition-all shadow-xl text-lg font-serif italic placeholder:text-stone-300"
                 />
             </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {filteredCollections.map(col => (
             <CollectionCard 
               key={col.id} 
@@ -277,15 +270,14 @@ const AppContent: React.FC = () => {
           
           <button 
             onClick={() => setIsCreateCollectionOpen(true)}
-            className="group relative p-10 rounded-[3rem] border-2 border-dashed border-stone-200 hover:border-amber-400 bg-white/50 hover:bg-white transition-all duration-700 flex flex-col items-center justify-center h-72 gap-6 text-stone-400 hover:text-amber-800 shadow-sm hover:shadow-2xl overflow-hidden"
+            className="group relative p-10 rounded-[2.5rem] border-2 border-dashed border-stone-200 hover:border-amber-400 bg-white/50 hover:bg-white transition-all flex flex-col items-center justify-center min-h-[240px] gap-4 text-stone-400 hover:text-amber-800 shadow-sm hover:shadow-xl overflow-hidden"
           >
-            <div className="absolute inset-0 bg-gradient-to-br from-amber-50/0 to-amber-50/100 opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
-            <div className="relative z-10 w-20 h-20 rounded-full bg-stone-50 border border-stone-100 flex items-center justify-center shadow-inner group-hover:scale-110 group-hover:shadow-xl transition-all duration-700 group-hover:bg-white group-hover:border-amber-200">
-                <Plus size={40} strokeWidth={1.5} />
+            <div className="w-16 h-16 rounded-full bg-stone-50 flex items-center justify-center shadow-inner group-hover:scale-110 group-hover:shadow-lg transition-transform">
+                <Plus size={32} strokeWidth={1.5} />
             </div>
-            <div className="relative z-10 text-center">
-               <span className="font-serif text-3xl font-bold italic tracking-tight block mb-1">{t('newArchive')}</span>
-               <span className="text-[10px] font-mono uppercase tracking-[0.3em] opacity-60 font-bold">{t('expandSpace')}</span>
+            <div className="text-center">
+               <span className="font-serif text-2xl font-bold italic tracking-tight block mb-1">{t('newArchive')}</span>
+               <span className="text-[10px] font-mono uppercase tracking-[0.2em] opacity-60">{t('expandSpace')}</span>
             </div>
           </button>
         </div>
@@ -303,7 +295,7 @@ const AppContent: React.FC = () => {
     const [activeFilters, setActiveFilters] = useState<Record<string, string>>({});
     const [isExhibitionOpen, setIsExhibitionOpen] = useState(false);
 
-    if (!collection) return <div>Collection not found</div>;
+    if (!collection) return <Navigate to="/" replace />;
 
     const filteredItems = collection.items.filter(item => {
         const term = filter.toLowerCase();
@@ -325,14 +317,14 @@ const AppContent: React.FC = () => {
     const activeFilterCount = Object.values(activeFilters).filter(Boolean).length;
 
     return (
-      <div className="space-y-10 animate-in slide-in-from-bottom-6 duration-700">
+      <div className="space-y-10 animate-in slide-in-from-bottom-4 duration-500">
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8">
-            <div className="flex items-center gap-8">
-                <Link to="/" className="p-4 bg-white border border-stone-100 rounded-[1.5rem] text-stone-400 hover:text-stone-900 shadow-lg transition-all hover:scale-110 active:scale-95 group">
-                    <ArrowLeft size={28} className="group-hover:-translate-x-1 transition-transform" />
+            <div className="flex items-center gap-6">
+                <Link to="/" className="p-4 bg-white border border-stone-100 rounded-2xl text-stone-400 hover:text-stone-900 shadow-lg transition-all hover:scale-105 active:scale-95">
+                    <ArrowLeft size={24} />
                 </Link>
                 <div>
-                    <h1 className="text-6xl font-serif font-bold text-stone-900 tracking-tighter mb-2 leading-none">{collection.name}</h1>
+                    <h1 className="text-4xl md:text-5xl font-serif font-bold text-stone-900 tracking-tight mb-2">{collection.name}</h1>
                     <div className="flex items-center gap-4">
                         <span className="text-stone-400 font-serif text-lg italic">
                           {t('artifactsCataloged', { n: collection.items.length })}
@@ -340,51 +332,49 @@ const AppContent: React.FC = () => {
                     </div>
                 </div>
             </div>
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+            <div className="flex items-center gap-4 flex-wrap">
                  <Button 
                    variant="primary" 
                    onClick={() => setIsExhibitionOpen(true)} 
                    disabled={collection.items.length === 0}
-                   icon={<Play size={18} />}
-                   className="shadow-2xl hover:shadow-amber-500/20 transition-all h-14 px-10 rounded-2xl bg-stone-900 text-white font-serif italic text-lg"
+                   icon={<Play size={16} />}
+                   className="shadow-xl"
                  >
                    {t('enterExhibition')}
                  </Button>
                  <Button 
                    variant="outline" 
-                   className="bg-white h-14 px-8 rounded-2xl border-stone-200 text-stone-600 hover:text-stone-900 shadow-sm"
+                   className="bg-white"
                    onClick={() => { setActiveCollectionForGuide(collection); setIsGuideOpen(true); }}
                    disabled={collection.items.length === 0}
-                   icon={<Mic size={18} />}
+                   icon={<Mic size={16} />}
                  >
                    {t('vocalGuide')}
                  </Button>
-                 <div className="flex bg-stone-100/50 rounded-2xl p-1.5 border border-stone-200/40 backdrop-blur-sm">
-                    <button onClick={() => setViewMode('grid')} className={`p-3 rounded-xl transition-all ${viewMode === 'grid' ? 'bg-white text-stone-900 shadow-md' : 'text-stone-400 hover:text-stone-600'}`}><LayoutGrid size={22} /></button>
-                    <button onClick={() => setViewMode('waterfall')} className={`p-3 rounded-xl transition-all ${viewMode === 'waterfall' ? 'bg-white text-stone-900 shadow-md' : 'text-stone-400 hover:text-stone-600'}`}><LayoutTemplate size={22} className="rotate-180" /></button>
+                 <div className="flex bg-stone-200/50 rounded-xl p-1">
+                    <button onClick={() => setViewMode('grid')} className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}><LayoutGrid size={18} /></button>
+                    <button onClick={() => setViewMode('waterfall')} className={`p-2 rounded-lg transition-all ${viewMode === 'waterfall' ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}><LayoutTemplate size={18} className="rotate-180" /></button>
                  </div>
-                 <div className="relative flex-grow flex gap-2">
-                    <div className="relative flex-grow">
-                        <input type="text" placeholder="..." value={filter} onChange={e => setFilter(e.target.value)} className="pl-5 pr-5 h-14 rounded-2xl bg-white border border-stone-100 focus:ring-8 focus:ring-amber-500/5 outline-none text-base w-full lg:w-56 transition-all shadow-sm font-serif italic" />
-                    </div>
-                    <Button variant={activeFilterCount > 0 ? 'primary' : 'outline'} className={`h-14 w-14 flex items-center justify-center p-0 rounded-2xl border-stone-100 ${activeFilterCount > 0 ? '' : 'bg-white'} shadow-sm`} onClick={() => setIsFilterModalOpen(true)}>
-                        <SlidersHorizontal size={22} />
+                 <div className="relative flex gap-2">
+                    <input type="text" placeholder="..." value={filter} onChange={e => setFilter(e.target.value)} className="pl-4 pr-4 py-2 rounded-xl bg-white border border-stone-200 focus:ring-4 focus:ring-amber-500/5 outline-none text-sm w-48 transition-all shadow-sm font-serif italic" />
+                    <Button variant={activeFilterCount > 0 ? 'primary' : 'outline'} className={`w-10 h-10 flex items-center justify-center p-0 rounded-xl ${activeFilterCount > 0 ? '' : 'bg-white'}`} onClick={() => setIsFilterModalOpen(true)}>
+                        <SlidersHorizontal size={18} />
                     </Button>
                 </div>
             </div>
         </div>
 
         {filteredItems.length === 0 ? (
-             <div className="text-center py-48 bg-white/50 rounded-[4rem] border border-stone-100 shadow-sm backdrop-blur-sm">
-                 <div className="text-9xl mb-10 grayscale opacity-10 filter drop-shadow-2xl">🏛️</div>
-                 <h3 className="text-4xl font-serif font-bold text-stone-800 mb-4 italic tracking-tight">{t('galleryAwaits')}</h3>
-                 <p className="text-stone-400 mb-12 max-w-sm mx-auto leading-relaxed font-serif text-lg">{t('museumDefinition')}</p>
-                 {!filter && activeFilterCount === 0 && <Button size="lg" className="px-16 h-16 text-xl rounded-3xl shadow-xl" onClick={() => setIsAddModalOpen(true)}>{t('catalogFirst')}</Button>}
+             <div className="text-center py-32 bg-white/50 rounded-[3rem] border border-stone-100 shadow-sm">
+                 <div className="text-8xl mb-8 grayscale opacity-10">🏛️</div>
+                 <h3 className="text-3xl font-serif font-bold text-stone-800 mb-2 italic tracking-tight">{t('galleryAwaits')}</h3>
+                 <p className="text-stone-400 mb-10 max-w-sm mx-auto leading-relaxed font-serif text-lg">{t('museumDefinition')}</p>
+                 {!filter && activeFilterCount === 0 && <Button size="lg" className="px-12 py-4 text-lg rounded-2xl shadow-xl" onClick={() => setIsAddModalOpen(true)}>{t('catalogFirst')}</Button>}
              </div>
         ) : (
-            <div className={`${viewMode === 'grid' ? "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-10" : "columns-2 md:columns-3 lg:columns-4 gap-10"} w-full pb-24`}>
+            <div className={`${viewMode === 'grid' ? "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8" : "columns-2 md:columns-3 lg:columns-4 gap-8"} w-full`}>
                 {filteredItems.map(item => (
-                    <div key={item.id} className={`break-inside-avoid ${viewMode === 'waterfall' ? 'mb-10 inline-block w-full align-top' : 'h-full'}`}>
+                    <div key={item.id} className={`break-inside-avoid ${viewMode === 'waterfall' ? 'mb-8' : ''}`}>
                          <ItemCard item={item} fields={collection.customFields} displayFields={collection.settings.displayFields} badgeFields={collection.settings.badgeFields} onClick={() => navigate(`/collection/${collection.id}/item/${item.id}`)} layout={viewMode === 'grid' ? 'grid' : 'masonry'} />
                     </div>
                 ))}
@@ -407,7 +397,7 @@ const AppContent: React.FC = () => {
       const collection = collections.find(c => c.id === id);
       const item = collection?.items.find(i => i.id === itemId);
 
-      if (!collection || !item) return <div>Item not found</div>;
+      if (!collection || !item) return <Navigate to={`/collection/${id}`} replace />;
 
       const handleDelete = () => {
           if (deleteItem(collection.id, item.id)) {
@@ -446,80 +436,80 @@ const AppContent: React.FC = () => {
       };
 
       return (
-          <div className="max-w-5xl mx-auto bg-white rounded-[4rem] shadow-2xl border border-stone-100 overflow-hidden animate-in zoom-in-[0.98] duration-700">
-              <div className="relative aspect-[21/9] bg-stone-950 group overflow-hidden">
+          <div className="max-w-4xl mx-auto bg-white rounded-[4rem] shadow-2xl border border-stone-100 overflow-hidden animate-in zoom-in-95 duration-500 mb-20">
+              <div className="relative aspect-[21/9] bg-stone-950 group">
                   <ItemImage 
                     itemId={item.id} 
                     photoUrl={item.photoUrl} 
                     alt={item.title} 
                     type="master" 
-                    className="w-full h-full object-cover transition-transform duration-[8s] group-hover:scale-110 opacity-70" 
+                    className="w-full h-full object-cover transition-transform duration-[10s] group-hover:scale-110 opacity-80" 
                   />
                   
-                  <div className="absolute inset-0 bg-gradient-to-t from-stone-950 via-stone-950/20 to-transparent opacity-80"></div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-stone-950/60 to-transparent"></div>
 
-                  <div className={`absolute inset-0 flex items-center justify-center transition-opacity duration-500 opacity-0 group-hover:opacity-100`}>
-                      <button disabled={isProcessing} onClick={() => fileInputRef.current?.click()} className="bg-white/95 hover:bg-white text-stone-900 px-10 py-4 rounded-full font-bold shadow-2xl backdrop-blur-xl transition-all hover:scale-110 flex items-center gap-4 pointer-events-auto disabled:opacity-50">
-                        {isProcessing ? <Loader2 size={24} className="animate-spin" /> : <Camera size={24} />}
+                  <div className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 opacity-0 group-hover:opacity-100`}>
+                      <button disabled={isProcessing} onClick={() => fileInputRef.current?.click()} className="bg-white/90 hover:bg-white text-stone-900 px-8 py-3 rounded-full font-bold shadow-2xl backdrop-blur-md transition-all hover:scale-105 flex items-center gap-3 disabled:opacity-50">
+                        {isProcessing ? <Loader2 size={18} className="animate-spin" /> : <Camera size={18} />}
                         {t('updatePhoto')}
                       </button>
                   </div>
                   <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handlePhotoUpdate} />
                   
-                  <button onClick={() => navigate(-1)} className="absolute top-10 left-10 w-16 h-16 bg-white/90 backdrop-blur-xl rounded-[1.5rem] flex items-center justify-center text-stone-800 shadow-2xl hover:bg-white transition-all hover:scale-110 z-10"><ArrowLeft size={32} /></button>
+                  <button onClick={() => navigate(-1)} className="absolute top-8 left-8 w-14 h-14 bg-white/80 backdrop-blur-md rounded-2xl flex items-center justify-center text-stone-800 shadow-xl hover:bg-white transition-all hover:scale-105 z-10"><ArrowLeft size={24} /></button>
                   
-                  <div className="absolute top-10 right-10 flex gap-5 z-10">
-                     <button onClick={() => setIsExportOpen(true)} className="w-16 h-16 bg-white/90 backdrop-blur-xl rounded-[1.5rem] flex items-center justify-center text-stone-800 shadow-2xl hover:bg-white transition-all hover:scale-110" title={t('exportCard')}><Printer size={30} /></button>
+                  <div className="absolute top-8 right-8 flex gap-4 z-10">
+                     <button onClick={() => setIsExportOpen(true)} className="w-14 h-14 bg-white/80 backdrop-blur-md rounded-2xl flex items-center justify-center text-stone-800 shadow-xl hover:bg-white transition-all hover:scale-105" title={t('exportCard')}><Printer size={24} /></button>
                   </div>
               </div>
 
-              <div className="p-16 md:p-24 space-y-20">
+              <div className="p-12 md:p-20 space-y-12">
                   <div className="flex flex-col md:flex-row justify-between items-start gap-12">
                       <div className="flex-1 w-full">
                           <input 
                             type="text" 
-                            className="text-7xl font-serif font-bold text-stone-900 mb-8 w-full bg-transparent border-b-2 border-transparent focus:border-amber-100 outline-none transition-all placeholder:italic tracking-tighter leading-tight"
+                            className="text-5xl md:text-6xl font-serif font-bold text-stone-900 mb-6 w-full bg-transparent border-b-2 border-transparent focus:border-amber-100 outline-none transition-all placeholder:italic tracking-tight"
                             value={item.title}
                             onChange={(e) => updateItem(collection.id, item.id, { title: e.target.value })}
                             placeholder="..."
                           />
-                          <div className="flex items-center gap-4">
+                          <div className="flex items-center gap-2">
                               {[1,2,3,4,5].map((star) => (
-                                <button key={star} onClick={() => updateItem(collection.id, item.id, { rating: star })} className="transition-all hover:scale-[1.35] active:scale-90">
-                                    <span className="text-5xl">{star <= item.rating ? <span className="text-amber-400 drop-shadow-md">★</span> : <span className="text-stone-100">★</span>}</span>
+                                <button key={star} onClick={() => updateItem(collection.id, item.id, { rating: star })} className="transition-transform hover:scale-125">
+                                    <span className="text-4xl">{star <= item.rating ? <span className="text-amber-400">★</span> : <span className="text-stone-100">★</span>}</span>
                                 </button>
                               ))}
-                              <span className="ml-6 text-[11px] font-mono tracking-[0.4em] text-stone-300 uppercase font-bold">{t('registryQuality')}</span>
+                              <span className="ml-4 text-[10px] font-mono tracking-[0.3em] text-stone-300 uppercase font-bold">{t('registryQuality')}</span>
                           </div>
                       </div>
-                      <button onClick={handleDelete} className="text-stone-200 hover:text-red-500 transition-all p-5 rounded-[2rem] hover:bg-red-50 shrink-0 border border-transparent hover:border-red-100"><Trash2 size={32} /></button>
+                      <button onClick={handleDelete} className="text-stone-200 hover:text-red-400 transition-colors p-4 rounded-full hover:bg-red-50 shrink-0"><Trash2 size={24} /></button>
                   </div>
 
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-24">
-                      <div className="lg:col-span-2 space-y-8">
-                        <div className="flex items-center gap-4 text-amber-600">
-                             <Quote size={32} fill="currentColor" className="opacity-10" />
-                             <dt className="text-xs font-bold text-stone-400 uppercase tracking-[0.4em] font-mono">{t('archiveNarrative')}</dt>
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-16">
+                      <div className="lg:col-span-2 space-y-6">
+                        <div className="flex items-center gap-3 text-amber-600">
+                             <Quote size={20} fill="currentColor" className="opacity-20" />
+                             <dt className="text-[10px] font-bold text-stone-400 uppercase tracking-[0.3em] font-mono">{t('archiveNarrative')}</dt>
                         </div>
                         <textarea 
-                            className="w-full bg-stone-50/30 p-10 rounded-[3.5rem] italic text-stone-800 border border-stone-100 font-serif text-3xl leading-relaxed min-h-[320px] focus:ring-[12px] focus:ring-amber-500/5 focus:border-amber-100 outline-none transition-all shadow-inner placeholder:text-stone-200"
+                            className="w-full bg-stone-50/50 p-8 rounded-[2.5rem] italic text-stone-800 border border-stone-100 font-serif text-2xl leading-relaxed min-h-[240px] focus:ring-8 focus:ring-amber-500/5 focus:border-amber-100 outline-none transition-all shadow-inner placeholder:text-stone-200"
                             value={item.notes}
                             onChange={(e) => updateItem(collection.id, item.id, { notes: e.target.value })}
                             placeholder={t('provenancePlaceholder')}
                         />
                       </div>
 
-                      <div className="space-y-12">
-                          <dt className="text-xs font-bold text-stone-400 uppercase tracking-[0.4em] pb-6 border-b border-stone-100 font-mono">{t('technicalSpec')}</dt>
-                          <div className="space-y-10">
+                      <div className="space-y-10">
+                          <dt className="text-[10px] font-bold text-stone-400 uppercase tracking-[0.3em] pb-4 border-b border-stone-100 font-mono">{t('technicalSpec')}</dt>
+                          <div className="space-y-8">
                               {collection.customFields.map(field => {
                                   const val = item.data[field.id];
                                   const label = getLabel(field.id);
                                   return (
                                       <div key={field.id} className="group">
-                                          <dt className="text-[11px] font-bold text-stone-300 uppercase tracking-[0.3em] mb-3 group-hover:text-amber-500 transition-colors font-mono">{label}</dt>
+                                          <dt className="text-[10px] font-bold text-stone-300 uppercase tracking-[0.2em] mb-2 group-hover:text-amber-500 transition-colors font-mono">{label}</dt>
                                           <input 
-                                            className="text-stone-900 font-serif text-2xl w-full bg-transparent border-none p-0 outline-none focus:text-amber-900 focus:ring-0 transition-colors placeholder:text-stone-100 font-medium"
+                                            className="text-stone-900 font-serif text-xl w-full bg-transparent border-none p-0 outline-none focus:text-amber-900 focus:ring-0 transition-colors placeholder:text-stone-100"
                                             value={val || ''}
                                             placeholder="—"
                                             onChange={(e) => {
@@ -557,6 +547,7 @@ const AppContent: React.FC = () => {
         <Route path="/" element={<HomeScreen />} />
         <Route path="/collection/:id" element={<CollectionScreen />} />
         <Route path="/collection/:id/item/:itemId" element={<ItemDetailScreen />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <AddItemModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} collections={collections} onSave={handleAddItem} />
       <CreateCollectionModal isOpen={isCreateCollectionOpen} onClose={() => setIsCreateCollectionOpen(false)} onCreate={handleCreateCollection} />
