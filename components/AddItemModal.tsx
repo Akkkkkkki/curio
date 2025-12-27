@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 // Added Plus icon to the lucide-react imports
 import { Camera, Upload, X, Loader2, Sparkles, Check, Zap, ArrowRight, Trash2, Plus } from 'lucide-react';
 import { UserCollection, CollectionItem } from '../types';
-import { analyzeImage } from '../services/geminiService';
+import { analyzeImage, isAiEnabled } from '../services/geminiService';
 import { Button } from './ui/Button';
 import { useTranslation } from '../i18n';
 
@@ -11,7 +11,7 @@ interface AddItemModalProps {
   isOpen: boolean;
   onClose: () => void;
   collections: UserCollection[];
-  onSave: (collectionId: string, item: Omit<CollectionItem, 'id' | 'createdAt'>) => void;
+  onSave: (collectionId: string, item: Omit<CollectionItem, 'id' | 'createdAt' | 'updatedAt'>) => void;
 }
 
 export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, collections, onSave }) => {
@@ -74,6 +74,12 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
 
   const analyze = async (base64: string) => {
     if (!currentCollection) return;
+    if (!isAiEnabled()) {
+      setError("AI analysis is unavailable. Please fill in the details manually.");
+      setFormData({ title: '', notes: '', data: {}, rating: 0 });
+      setStep('verify');
+      return;
+    }
     setStep('analyzing');
     try {
       const base64Data = base64.split(',')[1];
@@ -240,6 +246,11 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
 
   const renderVerify = () => (
     <div className="space-y-4 sm:space-y-6">
+       {error && (
+         <div className="p-3 bg-amber-50 text-amber-700 text-xs rounded-xl border border-amber-100 font-medium">
+           {error}
+         </div>
+       )}
        <div className="flex gap-4 sm:gap-6 items-start">
             <div className="w-16 h-16 sm:w-24 sm:h-24 rounded-xl bg-stone-100 flex-shrink-0 overflow-hidden border border-stone-200">
                 {imagePreview ? <img src={imagePreview} className="w-full h-full object-cover" /> : <Camera className="w-full h-full p-4 sm:p-6 text-stone-200" />}

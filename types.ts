@@ -30,6 +30,7 @@ export interface CollectionItem {
   rating: number; // Core field (0-5)
   data: Record<string, any>; // Dynamic data keyed by FieldDefinition.id
   createdAt: string;
+  updatedAt?: string;
   notes: string;
   seedKey?: string; // Stability for versioned seeding
 }
@@ -42,6 +43,7 @@ export interface UserCollection {
   customFields: FieldDefinition[]; // Users can add more fields
   items: CollectionItem[];
   isLocked?: boolean; // Vault lock feature
+  updatedAt?: string;
   settings: {
     displayFields: string[];
     badgeFields: string[];
