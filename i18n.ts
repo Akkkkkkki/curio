@@ -79,7 +79,7 @@ export const translations = {
     itemsCount: "{n} items",
     yes: "Yes",
     no: "No",
-    // Auth
+    // Auth & Sync
     login: "Login",
     register: "Register",
     email: "Email Address",
@@ -92,6 +92,16 @@ export const translations = {
     signedInAs: "Signed in as",
     localArchiveMode: "Local Archive Mode",
     supabaseNotice: "Supabase cloud sync is not configured. Your profile and data will be stored safely in this browser only.",
+    syncStatus: "Sync Status",
+    syncModeLocal: "Local (Offline)",
+    syncModeGuest: "Guest (Cloud Active)",
+    syncModeMember: "Member (Cloud Active)",
+    syncDescLocal: "Data lives in your browser IndexedDB.",
+    syncDescGuest: "Anonymous cloud sync enabled.",
+    syncDescMember: "Cross-device sync active for {email}.",
+    guestLabel: "Guest Curator",
+    upgradeToCloud: "Upgrade to Cloud Mode",
+    upgradeDesc: "Create an account to access your collection from any device.",
     // Field Labels
     label_brand: "Brand",
     label_category: "Category",
@@ -200,7 +210,7 @@ export const translations = {
     itemsCount: "{n} 件珍品",
     yes: "是",
     no: "否",
-    // Auth
+    // Auth & Sync
     login: "登录",
     register: "注册",
     email: "电子邮箱",
@@ -213,6 +223,16 @@ export const translations = {
     signedInAs: "当前登录：",
     localArchiveMode: "本地存档模式",
     supabaseNotice: "Supabase 云同步未配置。您的个人资料和数据将安全地存储在此浏览器中。",
+    syncStatus: "同步状态",
+    syncModeLocal: "本地 (离线)",
+    syncModeGuest: "访客 (云同步已开启)",
+    syncModeMember: "成员 (云同步已开启)",
+    syncDescLocal: "数据保存在您的浏览器 IndexedDB 中。",
+    syncDescGuest: "已开启匿名云同步。",
+    syncDescMember: "已开启多设备同步，账号：{email}。",
+    guestLabel: "访客策展人",
+    upgradeToCloud: "切换到云端模式",
+    upgradeDesc: "创建一个账号，以便从任何设备访问您的收藏。",
     // Field Labels
     label_brand: "品牌",
     label_category: "类别",

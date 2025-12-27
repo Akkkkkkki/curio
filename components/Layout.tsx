@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Home, Plus, User, LogOut, Cloud, CloudOff } from 'lucide-react';
+import { Home, Plus, User, LogOut, Cloud, CloudOff, Database, ShieldCheck, Zap, ArrowUpRight } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from '../i18n';
 import { supabase, signOutUser, isSupabaseConfigured } from '../services/supabase';
@@ -21,20 +21,16 @@ export const Layout: React.FC<LayoutProps> = ({ children, onAddItem, headerExtra
   
   // Track actual Supabase user
   const [user, setUser] = React.useState<any>(null);
-  const isCloudActive = isSupabaseConfigured();
+  const isCloudAvailable = isSupabaseConfigured();
 
   React.useEffect(() => {
     if (supabase) {
         supabase.auth.getUser().then(({ data: { user } }) => {
-            if (user && !user.is_anonymous) setUser(user);
+            setUser(user);
         });
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-            if (session?.user && !session.user.is_anonymous) {
-                setUser(session.user);
-            } else {
-                setUser(null);
-            }
+            setUser(session?.user || null);
         });
 
         return () => subscription.unsubscribe();
@@ -45,6 +41,9 @@ export const Layout: React.FC<LayoutProps> = ({ children, onAddItem, headerExtra
     await signOutUser();
     setIsProfileOpen(false);
   };
+
+  const isAnonymous = user?.is_anonymous;
+  const isMember = user && !user.is_anonymous;
 
   return (
     <div className="min-h-screen bg-stone-50 text-stone-800 font-sans selection:bg-amber-200">
@@ -57,8 +56,14 @@ export const Layout: React.FC<LayoutProps> = ({ children, onAddItem, headerExtra
             <div className="flex flex-col -space-y-1">
               <span className="font-serif text-xl font-bold tracking-tight text-stone-900 leading-none">{t('appTitle')}</span>
               <div className="flex items-center gap-1 opacity-40">
-                {isCloudActive ? <Cloud size={10} className="text-emerald-600" /> : <CloudOff size={10} className="text-amber-600" />}
-                <span className="text-[8px] font-bold uppercase tracking-widest">{isCloudActive ? 'Cloud Sync' : 'Local Archive'}</span>
+                {isCloudAvailable ? (
+                    <Cloud size={10} className={isMember ? "text-emerald-600" : "text-amber-600 animate-pulse"} />
+                ) : (
+                    <CloudOff size={10} className="text-stone-400" />
+                )}
+                <span className="text-[8px] font-bold uppercase tracking-widest">
+                    {isCloudAvailable ? (isMember ? "Cloud Active" : "Guest Sync") : "Local Mode"}
+                </span>
               </div>
             </div>
           </Link>
@@ -67,37 +72,61 @@ export const Layout: React.FC<LayoutProps> = ({ children, onAddItem, headerExtra
             {headerExtras}
             
             <div className="relative">
-                {user ? (
-                    <button 
-                        onClick={() => setIsProfileOpen(!isProfileOpen)}
-                        className="p-2 hover:bg-stone-100 rounded-full text-stone-500 hover:text-stone-900 transition-colors"
-                        title={user.email}
-                    >
-                        <User size={20} className="text-amber-600" />
-                    </button>
-                ) : (
-                    <button 
-                        onClick={() => setIsAuthModalOpen(true)}
-                        className="p-2 hover:bg-stone-100 rounded-full text-stone-500 hover:text-stone-900 transition-colors"
-                        title={t('login')}
-                    >
-                        <User size={20} />
-                    </button>
-                )}
+                <button 
+                    onClick={() => setIsProfileOpen(!isProfileOpen)}
+                    className={`p-2 hover:bg-stone-100 rounded-full transition-colors ${isMember ? 'text-emerald-600' : isAnonymous ? 'text-amber-600' : 'text-stone-500'}`}
+                >
+                    <User size={20} />
+                </button>
 
-                {isProfileOpen && user && (
-                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-stone-100 p-2 animate-in slide-in-from-top-2 duration-200">
-                        <div className="px-3 py-2 border-b border-stone-50 mb-1">
-                            <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">{t('signedInAs')}</p>
-                            <p className="text-sm font-medium text-stone-800 truncate">{user.email}</p>
+                {isProfileOpen && (
+                    <div className="absolute right-0 mt-2 w-72 bg-white rounded-[1.5rem] shadow-2xl border border-stone-100 p-2 animate-in slide-in-from-top-2 duration-200 z-50">
+                        <div className="p-4 border-b border-stone-50 mb-1">
+                            <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-1">{t('syncStatus')}</p>
+                            
+                            <div className="flex items-start gap-3 mt-3">
+                                <div className={`p-2 rounded-xl ${isMember ? 'bg-emerald-50 text-emerald-600' : isAnonymous ? 'bg-amber-50 text-amber-600' : 'bg-stone-50 text-stone-400'}`}>
+                                    {isCloudAvailable ? <Cloud size={18} /> : <Database size={18} />}
+                                </div>
+                                <div className="flex-1 overflow-hidden">
+                                    <p className="text-sm font-bold text-stone-900">
+                                        {isMember ? t('syncModeMember') : isAnonymous ? t('syncModeGuest') : t('syncModeLocal')}
+                                    </p>
+                                    <p className="text-[11px] text-stone-500 leading-snug">
+                                        {isMember ? t('syncDescMember', { email: user.email }) : 
+                                         isAnonymous ? t('syncDescGuest') : t('syncDescLocal')}
+                                    </p>
+                                </div>
+                            </div>
                         </div>
-                        <button 
-                            onClick={handleSignOut}
-                            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-red-50 rounded-xl transition-colors font-medium"
-                        >
-                            <LogOut size={16} />
-                            {t('signOut')}
-                        </button>
+
+                        {isMember ? (
+                            <button 
+                                onClick={handleSignOut}
+                                className="w-full flex items-center gap-2 px-4 py-3 text-sm text-stone-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors font-medium"
+                            >
+                                <LogOut size={16} />
+                                {t('signOut')}
+                            </button>
+                        ) : (
+                            <div className="p-2">
+                                <button 
+                                    onClick={() => { setIsAuthModalOpen(true); setIsProfileOpen(false); }}
+                                    className={`w-full flex items-center justify-between px-4 py-3 text-sm rounded-xl transition-all font-bold ${isCloudAvailable ? 'bg-amber-600 text-white hover:bg-amber-700 shadow-lg shadow-amber-600/20' : 'bg-stone-900 text-white hover:bg-stone-800'}`}
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <Zap size={16} />
+                                        {isCloudAvailable ? t('upgradeToCloud') : t('login')}
+                                    </div>
+                                    <ArrowUpRight size={16} className="opacity-50" />
+                                </button>
+                                {!isCloudAvailable && (
+                                    <p className="text-[9px] text-stone-400 text-center mt-2 px-2">
+                                        * No cloud endpoint detected. Local mode active.
+                                    </p>
+                                )}
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
