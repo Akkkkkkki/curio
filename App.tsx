@@ -6,11 +6,12 @@ import { CollectionCard } from './components/CollectionCard';
 import { ItemCard } from './components/ItemCard';
 import { AddItemModal } from './components/AddItemModal';
 import { CreateCollectionModal } from './components/CreateCollectionModal';
+import { AuthModal } from './components/AuthModal';
 import { UserCollection, CollectionItem, AppTheme } from './types';
 import { TEMPLATES } from './constants';
 import { Plus, SlidersHorizontal, ArrowLeft, Trash2, LayoutGrid, LayoutTemplate, Printer, Camera, Search, Loader2, Sparkles, Mic, Play, Quote, Sparkle, Globe, Calendar, Lock, Paintbrush } from 'lucide-react';
 import { Button } from './components/ui/Button';
-import { loadCollections, saveCollection, saveAllCollections, saveAsset, deleteAsset, requestPersistence, getSeedVersion, setSeedVersion, initDB } from './services/db';
+import { fetchCloudCollections, getLocalCollections, hasLocalOnlyData, importLocalCollectionsToCloud, saveCollection, saveAllCollections, saveAsset, deleteAsset, requestPersistence, getSeedVersion, setSeedVersion, initDB } from './services/db';
 import { processImage } from './services/imageProcessor';
 import { ItemImage } from './components/ItemImage';
 import { MuseumGuide } from './components/MuseumGuide';
@@ -18,7 +19,7 @@ import { ExhibitionView } from './components/ExhibitionView';
 import { ExportModal } from './components/ExportModal';
 import { FilterModal } from './components/FilterModal';
 import { LanguageProvider, useTranslation } from './i18n';
-import { ensureAuth } from './services/supabase';
+import { supabase, isSupabaseConfigured, signOutUser } from './services/supabase';
 
 const ThemeContext = createContext<{ theme: AppTheme; setTheme: (t: AppTheme) => void }>({ theme: 'gallery', setTheme: () => {} });
 
@@ -49,9 +50,11 @@ const INITIAL_COLLECTIONS: UserCollection[] = [
           condition: 'Mint (M)'
         },
         createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
         notes: "The definitive masterpiece of modal jazz. This specific 180g pressing captures every breath of Miles' trumpet and the delicate touch of Bill Evans on piano. A cornerstone of any serious archive."
       }
     ],
+    updatedAt: new Date().toISOString(),
     settings: {
       displayFields: TEMPLATES.find(t => t.id === 'vinyl')!.displayFields,
       badgeFields: TEMPLATES.find(t => t.id === 'vinyl')!.badgeFields,
@@ -62,61 +65,132 @@ const INITIAL_COLLECTIONS: UserCollection[] = [
 const AppContent: React.FC = () => {
   const { t, language, setLanguage } = useTranslation();
   const { theme, setTheme } = useContext(ThemeContext);
+  const isVoiceGuideEnabled = import.meta.env.VITE_VOICE_GUIDE_ENABLED === 'true';
   const [collections, setCollections] = useState<UserCollection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState<any>(null);
+  const [authReady, setAuthReady] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [hasLocalImport, setHasLocalImport] = useState(false);
+  const [importState, setImportState] = useState<'idle' | 'running' | 'done' | 'error'>('idle');
+  const [importMessage, setImportMessage] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isCreateCollectionOpen, setIsCreateCollectionOpen] = useState(false);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [activeCollectionForGuide, setActiveCollectionForGuide] = useState<UserCollection | null>(null);
   const saveTimeoutRef = useRef<Record<string, any>>({});
+  const isSupabaseReady = isSupabaseConfigured();
 
   useEffect(() => {
-    const init = async () => {
-      try {
-        await requestPersistence();
-        await ensureAuth(); 
-        
-        const localSeedVersion = await getSeedVersion();
-        const existingCollections = await loadCollections();
-        
-        let workingCollections = [...existingCollections];
+    initDB().then(db => {
+      const tx = db.transaction('settings', 'readonly');
+      const themeReq = tx.objectStore('settings').get('app_theme');
+      themeReq.onsuccess = () => { if (themeReq.result) setTheme(themeReq.result); };
+    });
+  }, [setTheme]);
 
+  useEffect(() => {
+    if (!isSupabaseReady || !supabase) {
+      setUser(null);
+      setAuthReady(true);
+      return;
+    }
+
+    let unsubscribe: (() => void) | undefined;
+    const initAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        setUser(session?.user || null);
+      } catch (e) {
+        console.warn('Auth init failed:', e);
+        setUser(null);
+      } finally {
+        setAuthReady(true);
+      }
+
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        setUser(session?.user || null);
+      });
+      unsubscribe = () => subscription.unsubscribe();
+    };
+
+    initAuth();
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [isSupabaseReady]);
+
+  const refreshCollections = useCallback(async () => {
+    if (!user) return;
+    setIsLoading(true);
+    try {
+      await requestPersistence();
+
+      const localCollections = await getLocalCollections();
+      let cloudCollections: UserCollection[] = [];
+      try {
+        cloudCollections = await fetchCloudCollections();
+      } catch (e) {
+        console.warn('Supabase cloud fetch failed:', e);
+        setHasLocalImport(false);
+        setCollections(localCollections);
+        return;
+      }
+      const localOnly = hasLocalOnlyData(localCollections, cloudCollections);
+
+      setHasLocalImport(localOnly);
+
+      if (cloudCollections.length === 0 && localCollections.length === 0) {
+        const localSeedVersion = await getSeedVersion();
         if (localSeedVersion < CURRENT_SEED_VERSION) {
           for (const seedCollection of INITIAL_COLLECTIONS) {
-            const existingIndex = workingCollections.findIndex(c => c.seedKey === seedCollection.seedKey || c.id === seedCollection.id);
-            
-            if (existingIndex > -1) {
-              const currentCollection = workingCollections[existingIndex];
-              const newItems = seedCollection.items.filter(si => 
-                !currentCollection.items.some(ci => ci.seedKey === si.seedKey)
-              );
-              workingCollections[existingIndex] = {
-                ...currentCollection,
-                items: [...newItems, ...currentCollection.items]
-              };
-            } else {
-              workingCollections.push(seedCollection);
-            }
+            await saveCollection(seedCollection);
           }
-          await saveAllCollections(workingCollections);
           await setSeedVersion(CURRENT_SEED_VERSION);
+          cloudCollections = [...INITIAL_COLLECTIONS];
         }
-
-        setCollections(workingCollections);
-        
-        const db = await initDB();
-        const tx = db.transaction('settings', 'readonly');
-        const themeReq = tx.objectStore('settings').get('app_theme');
-        themeReq.onsuccess = () => { if (themeReq.result) setTheme(themeReq.result); };
-      } catch (e) {
-        console.error("Initialization failed:", e);
-        setCollections([]);
-      } finally {
-        setIsLoading(false);
       }
-    };
-    init();
-  }, [setTheme]);
+
+      if (!localOnly) {
+        await saveAllCollections(cloudCollections);
+      }
+
+      setCollections(cloudCollections);
+    } catch (e) {
+      console.error("Initialization failed:", e);
+      setCollections([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (!authReady) return;
+    if (!isSupabaseReady || !user) {
+      setCollections([]);
+      setIsLoading(false);
+      setHasLocalImport(false);
+      setImportState('idle');
+      setImportMessage(null);
+      return;
+    }
+    refreshCollections();
+  }, [authReady, isSupabaseReady, user, refreshCollections]);
+
+  const handleImportLocal = async () => {
+    setImportState('running');
+    setImportMessage(null);
+    try {
+      await importLocalCollectionsToCloud();
+      setImportState('done');
+      setImportMessage(t('importComplete'));
+      await refreshCollections();
+    } catch (e) {
+      console.error('Local import failed:', e);
+      setImportState('error');
+      setImportMessage(t('importFailed'));
+    }
+  };
 
   const debouncedSaveCollection = useCallback((collection: UserCollection) => {
     if (saveTimeoutRef.current[collection.id]) {
@@ -127,8 +201,9 @@ const AppContent: React.FC = () => {
     }, 1500);
   }, []);
 
-  const handleAddItem = async (collectionId: string, itemData: Omit<CollectionItem, 'id' | 'createdAt'>) => {
+  const handleAddItem = async (collectionId: string, itemData: Omit<CollectionItem, 'id' | 'createdAt' | 'updatedAt'>) => {
     const itemId = Math.random().toString(36).substr(2, 9);
+    const now = new Date().toISOString();
     let hasPhoto = false;
 
     if (itemData.photoUrl.startsWith('data:')) {
@@ -145,13 +220,14 @@ const AppContent: React.FC = () => {
       ...itemData,
       id: itemId,
       photoUrl: hasPhoto ? 'asset' : itemData.photoUrl, 
-      createdAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: now,
     };
 
     setCollections(prev => {
       return prev.map(c => {
         if (c.id === collectionId) {
-          const newC = { ...c, items: [newItem, ...c.items] };
+          const newC = { ...c, items: [newItem, ...c.items], updatedAt: now };
           saveCollection(newC); 
           return newC;
         }
@@ -161,11 +237,13 @@ const AppContent: React.FC = () => {
   };
 
   const updateItem = (collectionId: string, itemId: string, updates: Partial<CollectionItem>) => {
+    const now = new Date().toISOString();
     setCollections(prev => prev.map(c => {
       if (c.id === collectionId) {
         const newC = {
           ...c,
-          items: c.items.map(item => item.id === itemId ? { ...item, ...updates } : item)
+          updatedAt: now,
+          items: c.items.map(item => item.id === itemId ? { ...item, ...updates, updatedAt: now } : item)
         };
         debouncedSaveCollection(newC);
         return newC;
@@ -183,6 +261,7 @@ const AppContent: React.FC = () => {
           icon: icon || template.icon,
           customFields: template.fields,
           items: [],
+          updatedAt: new Date().toISOString(),
           settings: { displayFields: template.displayFields, badgeFields: template.badgeFields }
       };
       setCollections(prev => {
@@ -422,9 +501,10 @@ const AppContent: React.FC = () => {
                  <Button 
                    variant="outline" 
                    className={theme === 'vault' ? 'bg-stone-900 text-white border-white/10' : 'bg-white'}
-                   onClick={() => { setActiveCollectionForGuide(collection); setIsGuideOpen(true); }}
-                   disabled={collection.items.length === 0}
+                   onClick={() => { if (isVoiceGuideEnabled) { setActiveCollectionForGuide(collection); setIsGuideOpen(true); } }}
+                   disabled={!isVoiceGuideEnabled || collection.items.length === 0}
                    icon={<Mic size={16} />}
+                   title={isVoiceGuideEnabled ? undefined : 'Coming soon'}
                  >
                    {t('vocalGuide')}
                  </Button>
@@ -622,10 +702,58 @@ const AppContent: React.FC = () => {
     atelier: "bg-[#faf9f6]",
   };
 
+  const isAuthenticated = Boolean(user);
+  const showAccessGate = !authReady || !isSupabaseReady || !isAuthenticated;
+
+  const handleAddAction = () => {
+    if (!isAuthenticated) {
+      setIsAuthModalOpen(true);
+      return;
+    }
+    setIsAddModalOpen(true);
+  };
+
+  const handleSignOut = async () => {
+    await signOutUser();
+  };
+
+  const renderAccessGate = () => (
+    <div className="flex flex-col items-center justify-center py-24">
+      <div className="max-w-md w-full text-center bg-white/70 border border-stone-200 rounded-[2.5rem] p-10 shadow-xl">
+        <div className="w-14 h-14 rounded-2xl bg-stone-100 text-stone-500 flex items-center justify-center mx-auto mb-6">
+          {!authReady && isSupabaseReady ? <Loader2 size={24} className="animate-spin" /> : <Lock size={24} />}
+        </div>
+        <h2 className="font-serif text-2xl font-bold text-stone-900 mb-2">
+          {!authReady && isSupabaseReady ? t('authLoading') : (isSupabaseReady ? t('authRequiredTitle') : t('cloudRequiredTitle'))}
+        </h2>
+        <p className="text-sm text-stone-500 mb-6">
+          {!authReady && isSupabaseReady ? t('authLoadingDesc') : (isSupabaseReady ? t('authRequiredDesc') : t('cloudRequiredDesc'))}
+        </p>
+        {isSupabaseReady && authReady ? (
+          <Button onClick={() => setIsAuthModalOpen(true)} size="lg" className="w-full">
+            {t('authRequiredAction')}
+          </Button>
+        ) : !isSupabaseReady ? (
+          <div className="text-[10px] font-mono uppercase tracking-widest text-stone-400">
+            {t('cloudRequiredAction')}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+
   return (
     <div className={`min-h-screen transition-colors duration-1000 ${themeColors[theme]}`}>
         <Layout 
-        onAddItem={() => setIsAddModalOpen(true)}
+        onAddItem={handleAddAction}
+        onOpenAuth={() => setIsAuthModalOpen(true)}
+        onSignOut={handleSignOut}
+        user={user}
+        isSupabaseConfigured={isSupabaseReady}
+        hasLocalImport={hasLocalImport}
+        importState={importState}
+        importMessage={importMessage}
+        onImportLocal={handleImportLocal}
         headerExtras={
             <div className="flex items-center gap-1">
                 <button 
@@ -646,22 +774,29 @@ const AppContent: React.FC = () => {
             </div>
         }
         >
-        <Routes>
-            <Route path="/" element={<HomeScreen />} />
-            <Route path="/collection/:id" element={<CollectionScreen />} />
-            <Route path="/collection/:id/item/:itemId" element={<ItemDetailScreen />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-        <AddItemModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} collections={collections} onSave={handleAddItem} />
-        <CreateCollectionModal isOpen={isCreateCollectionOpen} onClose={() => setIsCreateCollectionOpen(false)} onCreate={handleCreateCollection} />
-        {activeCollectionForGuide && (
-            <MuseumGuide 
-            collection={activeCollectionForGuide} 
-            isOpen={isGuideOpen} 
-            onClose={() => setIsGuideOpen(false)} 
-            />
+        {showAccessGate ? (
+          renderAccessGate()
+        ) : (
+          <>
+            <Routes>
+                <Route path="/" element={<HomeScreen />} />
+                <Route path="/collection/:id" element={<CollectionScreen />} />
+                <Route path="/collection/:id/item/:itemId" element={<ItemDetailScreen />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+            <AddItemModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} collections={collections} onSave={handleAddItem} />
+            <CreateCollectionModal isOpen={isCreateCollectionOpen} onClose={() => setIsCreateCollectionOpen(false)} onCreate={handleCreateCollection} />
+            {isVoiceGuideEnabled && activeCollectionForGuide && (
+                <MuseumGuide 
+                collection={activeCollectionForGuide} 
+                isOpen={isGuideOpen} 
+                onClose={() => setIsGuideOpen(false)} 
+                />
+            )}
+          </>
         )}
         </Layout>
+        <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
     </div>
   );
 };

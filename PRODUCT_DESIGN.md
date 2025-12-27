@@ -21,17 +21,11 @@ Curio is a digital sanctuary for physical collectors. Unlike marketplace-driven 
 *   **Visual Layout**: "Bento Grid" home screen for a modern museum feel; Masonry grids for item browsing.
 *   **Theming**: Global theme selection replaces collection-specific accents for a unified aesthetic experience.
 
-## 4. Onboarding Tiers & Cloud Transition
-Curio follows a progressive disclosure model for data synchronization.
+## 4. Onboarding & Cloud Access
+Curio now requires an account before access. Collections live in the cloud by default, with a local cache for speed and offline resilience.
 
-### Tier 1: Local Curator (Offline Mode)
-*   **Experience**: No account required. Data strictly in IndexedDB.
-
-### Tier 2: Guest Curator (Anonymous Sync)
-*   **Experience**: Automatic anonymous backup. Amber indicators signal temporary cloud state.
-
-### Tier 3: Member Curator (Permanent Cloud)
-*   **Experience**: Full cross-device sync. Emerald status icons.
+### Manual Local Import
+Users with legacy local data can import it into their account from the profile menu.
 
 ## 5. Future Roadmap
 *   **Social Curation**: Generate cinematic video "portraits" of items for sharing.

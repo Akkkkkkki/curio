@@ -1,49 +1,45 @@
 
 import React, { useState } from 'react';
-import { Home, Plus, User, LogOut, Cloud, CloudOff, Database, ShieldCheck, Zap, ArrowUpRight } from 'lucide-react';
+import { Home, Plus, User, LogOut, Cloud, CloudOff, Zap, ArrowUpRight, Download } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from '../i18n';
-import { supabase, signOutUser, isSupabaseConfigured } from '../services/supabase';
-import { AuthModal } from './AuthModal';
 
 interface LayoutProps {
   children: React.ReactNode;
   onAddItem: () => void;
+  onOpenAuth: () => void;
+  onSignOut: () => void;
+  onImportLocal?: () => void;
+  hasLocalImport?: boolean;
+  importState?: 'idle' | 'running' | 'done' | 'error';
+  importMessage?: string | null;
+  user: any | null;
+  isSupabaseConfigured: boolean;
   headerExtras?: React.ReactNode;
 }
 
-export const Layout: React.FC<LayoutProps> = ({ children, onAddItem, headerExtras }) => {
+export const Layout: React.FC<LayoutProps> = ({ children, onAddItem, onOpenAuth, onSignOut, onImportLocal, hasLocalImport = false, importState = 'idle', importMessage = null, user, isSupabaseConfigured, headerExtras }) => {
   const { t } = useTranslation();
   const location = useLocation();
   const isHome = location.pathname === '/';
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  
-  // Track actual Supabase user
-  const [user, setUser] = React.useState<any>(null);
-  const isCloudAvailable = isSupabaseConfigured();
-
-  React.useEffect(() => {
-    if (supabase) {
-        supabase.auth.getUser().then(({ data: { user } }) => {
-            setUser(user);
-        });
-
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-            setUser(session?.user || null);
-        });
-
-        return () => subscription.unsubscribe();
-    }
-  }, []);
-
-  const handleSignOut = async () => {
-    await signOutUser();
-    setIsProfileOpen(false);
-  };
-
-  const isAnonymous = user?.is_anonymous;
-  const isMember = user && !user.is_anonymous;
+  const isAuthenticated = Boolean(user);
+  const statusLabel = !isSupabaseConfigured
+    ? t('cloudRequiredStatus')
+    : isAuthenticated
+      ? t('authStatusSignedIn')
+      : t('authStatusSignedOut');
+  const statusDesc = !isSupabaseConfigured
+    ? t('cloudRequiredDesc')
+    : isAuthenticated
+      ? t('authDescSignedIn', { email: user?.email })
+      : t('authDescSignedOut');
+  const statusIcon = !isSupabaseConfigured ? <CloudOff size={18} /> : <Cloud size={18} />;
+  const statusColor = !isSupabaseConfigured
+    ? 'text-stone-400'
+    : isAuthenticated
+      ? 'text-emerald-600'
+      : 'text-amber-600';
 
   return (
     <div className="min-h-screen bg-stone-50 text-stone-800 font-sans selection:bg-amber-200">
@@ -56,13 +52,13 @@ export const Layout: React.FC<LayoutProps> = ({ children, onAddItem, headerExtra
             <div className="flex flex-col -space-y-1">
               <span className="font-serif text-xl font-bold tracking-tight text-stone-900 leading-none">{t('appTitle')}</span>
               <div className="flex items-center gap-1 opacity-40">
-                {isCloudAvailable ? (
-                    <Cloud size={10} className={isMember ? "text-emerald-600" : "text-amber-600 animate-pulse"} />
-                ) : (
+                {!isSupabaseConfigured ? (
                     <CloudOff size={10} className="text-stone-400" />
+                ) : (
+                    <Cloud size={10} className={isAuthenticated ? "text-emerald-600" : "text-amber-600"} />
                 )}
                 <span className="text-[8px] font-bold uppercase tracking-widest">
-                    {isCloudAvailable ? (isMember ? "Cloud Active" : "Guest Sync") : "Local Mode"}
+                    {statusLabel}
                 </span>
               </div>
             </div>
@@ -74,7 +70,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, onAddItem, headerExtra
             <div className="relative">
                 <button 
                     onClick={() => setIsProfileOpen(!isProfileOpen)}
-                    className={`p-2 hover:bg-stone-100 rounded-full transition-colors ${isMember ? 'text-emerald-600' : isAnonymous ? 'text-amber-600' : 'text-stone-500'}`}
+                    className={`p-2 hover:bg-stone-100 rounded-full transition-colors ${statusColor}`}
                 >
                     <User size={20} />
                 </button>
@@ -82,27 +78,26 @@ export const Layout: React.FC<LayoutProps> = ({ children, onAddItem, headerExtra
                 {isProfileOpen && (
                     <div className="absolute right-0 mt-2 w-72 bg-white rounded-[1.5rem] shadow-2xl border border-stone-100 p-2 animate-in slide-in-from-top-2 duration-200 z-50">
                         <div className="p-4 border-b border-stone-50 mb-1">
-                            <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-1">{t('syncStatus')}</p>
+                            <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-1">{t('authStatus')}</p>
                             
                             <div className="flex items-start gap-3 mt-3">
-                                <div className={`p-2 rounded-xl ${isMember ? 'bg-emerald-50 text-emerald-600' : isAnonymous ? 'bg-amber-50 text-amber-600' : 'bg-stone-50 text-stone-400'}`}>
-                                    {isCloudAvailable ? <Cloud size={18} /> : <Database size={18} />}
+                                <div className={`p-2 rounded-xl ${isSupabaseConfigured ? (isAuthenticated ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600') : 'bg-stone-50 text-stone-400'}`}>
+                                    {statusIcon}
                                 </div>
                                 <div className="flex-1 overflow-hidden">
                                     <p className="text-sm font-bold text-stone-900">
-                                        {isMember ? t('syncModeMember') : isAnonymous ? t('syncModeGuest') : t('syncModeLocal')}
+                                        {statusLabel}
                                     </p>
                                     <p className="text-[11px] text-stone-500 leading-snug">
-                                        {isMember ? t('syncDescMember', { email: user.email }) : 
-                                         isAnonymous ? t('syncDescGuest') : t('syncDescLocal')}
+                                        {statusDesc}
                                     </p>
                                 </div>
                             </div>
                         </div>
 
-                        {isMember ? (
+                        {isAuthenticated ? (
                             <button 
-                                onClick={handleSignOut}
+                                onClick={() => { onSignOut(); setIsProfileOpen(false); }}
                                 className="w-full flex items-center gap-2 px-4 py-3 text-sm text-stone-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors font-medium"
                             >
                                 <LogOut size={16} />
@@ -111,20 +106,37 @@ export const Layout: React.FC<LayoutProps> = ({ children, onAddItem, headerExtra
                         ) : (
                             <div className="p-2">
                                 <button 
-                                    onClick={() => { setIsAuthModalOpen(true); setIsProfileOpen(false); }}
-                                    className={`w-full flex items-center justify-between px-4 py-3 text-sm rounded-xl transition-all font-bold ${isCloudAvailable ? 'bg-amber-600 text-white hover:bg-amber-700 shadow-lg shadow-amber-600/20' : 'bg-stone-900 text-white hover:bg-stone-800'}`}
+                                    onClick={() => { onOpenAuth(); setIsProfileOpen(false); }}
+                                    className="w-full flex items-center justify-between px-4 py-3 text-sm rounded-xl transition-all font-bold bg-stone-900 text-white hover:bg-stone-800"
                                 >
                                     <div className="flex items-center gap-2">
                                         <Zap size={16} />
-                                        {isCloudAvailable ? t('upgradeToCloud') : t('login')}
+                                        {t('login')}
                                     </div>
                                     <ArrowUpRight size={16} className="opacity-50" />
                                 </button>
-                                {!isCloudAvailable && (
-                                    <p className="text-[9px] text-stone-400 text-center mt-2 px-2">
-                                        * No cloud endpoint detected. Local mode active.
-                                    </p>
-                                )}
+                            </div>
+                        )}
+
+                        {hasLocalImport && isAuthenticated && onImportLocal && (
+                            <div className="p-2 border-t border-stone-50">
+                                <div className="p-3 rounded-xl border border-amber-100 bg-amber-50/60">
+                                    <p className="text-[10px] font-bold text-amber-900 uppercase tracking-widest mb-1">{t('importLocalTitle')}</p>
+                                    <p className="text-[11px] text-stone-600 leading-snug mb-3">{t('importLocalDesc')}</p>
+                                    <button
+                                        onClick={onImportLocal}
+                                        disabled={importState === 'running'}
+                                        className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-bold rounded-lg bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-60"
+                                    >
+                                        <Download size={14} />
+                                        {importState === 'running' ? t('importing') : t('importLocalAction')}
+                                    </button>
+                                    {importMessage && (
+                                        <p className={`text-[10px] mt-2 ${importState === 'error' ? 'text-red-500' : 'text-amber-700'}`}>
+                                            {importMessage}
+                                        </p>
+                                    )}
+                                </div>
                             </div>
                         )}
                     </div>
@@ -136,15 +148,15 @@ export const Layout: React.FC<LayoutProps> = ({ children, onAddItem, headerExtra
                     <button className="p-2 hover:bg-stone-100 rounded-full text-stone-500 hover:text-stone-900 transition-colors">
                         <Home size={20} />
                     </button>
-                </Link>
+            </Link>
             )}
             <button 
                 onClick={onAddItem}
                 className="bg-stone-900 hover:bg-amber-600 text-white rounded-full px-4 py-1.5 text-sm font-medium flex items-center gap-2 transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0"
             >
               <Plus size={16} />
-              <span className="hidden sm:inline">{t('addItem')}</span>
-              <span className="sm:hidden">{t('add')}</span>
+              <span className="hidden sm:inline">{isAuthenticated ? t('addItem') : t('login')}</span>
+              <span className="sm:hidden">{isAuthenticated ? t('add') : t('login')}</span>
             </button>
           </nav>
         </div>
@@ -155,8 +167,6 @@ export const Layout: React.FC<LayoutProps> = ({ children, onAddItem, headerExtra
       </main>
 
       <footer className="fixed bottom-0 left-0 w-full bg-gradient-to-t from-stone-50 via-stone-50 to-transparent pointer-events-none h-12 z-10" />
-      
-      <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
     </div>
   );
 };

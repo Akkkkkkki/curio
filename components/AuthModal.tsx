@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { X, Mail, Lock, Loader2, Info, Database, ShieldCheck, Zap, Cloud } from 'lucide-react';
+import { X, Mail, Lock, Loader2, Info, ShieldCheck, Zap, Cloud } from 'lucide-react';
 import { Button } from './ui/Button';
 import { signInWithEmail, signUpWithEmail, isSupabaseConfigured } from '../services/supabase';
 import { useTranslation } from '../i18n';
@@ -22,6 +22,34 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
   if (!isOpen) return null;
 
+  if (!supabaseActive) {
+    return (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-md animate-in fade-in duration-200">
+        <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md overflow-hidden flex flex-col border border-stone-200">
+          <div className="flex items-center justify-between p-8 border-b border-stone-100">
+            <div>
+              <h2 className="font-serif font-bold text-2xl text-stone-800">
+                {t('cloudRequiredTitle')}
+              </h2>
+              <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mt-1">
+                {t('cloudRequiredStatus')}
+              </p>
+            </div>
+            <button onClick={onClose} className="p-2 -mr-2 hover:bg-stone-100 rounded-full text-stone-400 hover:text-stone-800 transition-colors">
+              <X size={24} />
+            </button>
+          </div>
+          <div className="p-8 space-y-4">
+            <p className="text-sm text-stone-500">{t('cloudRequiredDesc')}</p>
+            <Button type="button" className="w-full h-12" onClick={onClose}>
+              {t('close')}
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -42,18 +70,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
         <div className="flex items-center justify-between p-8 border-b border-stone-100">
           <div>
             <h2 className="font-serif font-bold text-2xl text-stone-800">
-              {supabaseActive ? (mode === 'signup' ? t('upgradeToCloud') : t('loginTitle')) : (mode === 'signin' ? t('loginTitle') : t('registerTitle'))}
+              {mode === 'signin' ? t('loginTitle') : t('registerTitle')}
             </h2>
-            <p className="text-[10px] font-bold text-amber-600 uppercase tracking-widest mt-1 flex items-center gap-1">
-              {supabaseActive ? (
-                <>
-                  <Cloud size={10} className="animate-pulse" /> {t('syncModeGuest')}
-                </>
-              ) : (
-                <>
-                  <Database size={10} /> {t('localArchiveMode')}
-                </>
-              )}
+            <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest mt-1 flex items-center gap-1">
+              <Cloud size={10} /> {t('cloudSyncActive')}
             </p>
           </div>
           <button onClick={onClose} className="p-2 -mr-2 hover:bg-stone-100 rounded-full text-stone-400 hover:text-stone-800 transition-colors">
@@ -63,14 +83,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
         <form onSubmit={handleSubmit} className="p-8 pt-6 space-y-6">
           <div className="space-y-4">
-            <div className={`p-4 rounded-2xl border flex gap-3 ${supabaseActive ? 'bg-amber-50 border-amber-100' : 'bg-stone-50 border-stone-100'}`}>
-              <Info className={supabaseActive ? "text-amber-600 shrink-0 mt-0.5" : "text-stone-400 shrink-0 mt-0.5"} size={18} />
+            <div className="p-4 rounded-2xl border flex gap-3 bg-amber-50 border-amber-100">
+              <Info className="text-amber-600 shrink-0 mt-0.5" size={18} />
               <div className="space-y-1">
-                  <p className={`text-xs font-bold ${supabaseActive ? 'text-amber-900' : 'text-stone-800'}`}>
-                    {supabaseActive ? t('upgradeToCloud') : t('localArchiveMode')}
+                  <p className="text-xs font-bold text-amber-900">
+                    {t('cloudSyncTitle')}
                   </p>
                   <p className="text-[11px] text-stone-500 leading-relaxed">
-                      {supabaseActive ? t('upgradeDesc') : t('supabaseNotice')}
+                      {t('cloudSyncDesc')}
                   </p>
               </div>
             </div>
@@ -128,7 +148,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
           </div>
 
           <Button type="submit" className="w-full h-14 text-lg" disabled={loading}>
-            {loading ? <Loader2 className="animate-spin" size={20} /> : (mode === 'signin' ? t('login') : (supabaseActive ? t('upgradeToCloud') : t('register')))}
+            {loading ? <Loader2 className="animate-spin" size={20} /> : (mode === 'signin' ? t('login') : t('register'))}
           </Button>
 
           <div className="text-center pt-2">

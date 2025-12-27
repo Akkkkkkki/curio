@@ -1,11 +1,8 @@
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-// Access environment variables with a safe fallback to an empty object
-const env = (typeof process !== 'undefined' && process.env) ? process.env : {};
-
-const supabaseUrl = (env as any).VITE_SUPABASE_URL as string | undefined;
-const supabaseKey = (env as any).VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY || (env as any).VITE_SUPABASE_ANON_KEY as string | undefined;
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY as string | undefined;
 
 /**
  * Validates if the Supabase environment is correctly configured.
@@ -26,34 +23,27 @@ export const supabase: SupabaseClient | null = isSupabaseConfigured()
   : null;
 
 /**
- * Ensures a session exists. 
- * If Supabase is missing, it returns a placeholder for "Local Mode".
+ * Ensures we have an authenticated session (no anonymous fallback).
  */
 export const ensureAuth = async () => {
-  if (!supabase) return { id: 'local-user', is_anonymous: false, is_local: true };
+  if (!supabase) return null;
   
   try {
     const { data: { session } } = await supabase.auth.getSession();
-    if (session) return session.user;
-
-    // Default to anonymous sign-in if no session exists to support local-first sync
-    const { data, error } = await supabase.auth.signInAnonymously();
-    if (error) {
-      console.warn('Supabase anonymous sign-in failed:', error);
-      return { id: 'local-user', is_anonymous: false, is_local: true };
-    }
-    return data.user;
+    return session?.user || null;
   } catch (e) {
     console.warn('Auth check error:', e);
-    return { id: 'local-user', is_anonymous: false, is_local: true };
+    return null;
   }
 };
 
 export const signUpWithEmail = async (email: string, pass: string) => {
-  if (!supabase) {
-    console.info("Supabase not configured. Creating local profile.");
-    localStorage.setItem('curio_local_user', JSON.stringify({ email, registeredAt: new Date().toISOString() }));
-    return { id: 'local-user', email, is_local: true };
+  if (!supabase) throw new Error("Supabase is not configured.");
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user?.is_anonymous) {
+    const { data, error } = await supabase.auth.updateUser({ email, password: pass });
+    if (error) throw error;
+    return data.user || user;
   }
   const { data, error } = await supabase.auth.signUp({ email, password: pass });
   if (error) throw error;
@@ -61,24 +51,13 @@ export const signUpWithEmail = async (email: string, pass: string) => {
 };
 
 export const signInWithEmail = async (email: string, pass: string) => {
-  if (!supabase) {
-    const local = localStorage.getItem('curio_local_user');
-    if (local) {
-        const user = JSON.parse(local);
-        if (user.email === email) return { id: 'local-user', email: user.email, is_local: true };
-    }
-    throw new Error("Local profile not found. Please register first.");
-  }
+  if (!supabase) throw new Error("Supabase is not configured.");
   const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
   if (error) throw error;
   return data.user;
 };
 
 export const signOutUser = async () => {
-  if (!supabase) {
-    localStorage.removeItem('curio_local_user');
-    window.location.reload();
-    return;
-  }
+  if (!supabase) return;
   await supabase.auth.signOut();
 };
