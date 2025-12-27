@@ -1,4 +1,7 @@
+
 export type FieldType = 'text' | 'long_text' | 'number' | 'date' | 'boolean' | 'rating' | 'select';
+
+export type AppTheme = 'gallery' | 'vault' | 'atelier';
 
 export interface FieldDefinition {
   id: string;
@@ -38,6 +41,7 @@ export interface UserCollection {
   icon?: string; // Custom icon for the collection
   customFields: FieldDefinition[]; // Users can add more fields
   items: CollectionItem[];
+  isLocked?: boolean; // Vault lock feature
   settings: {
     displayFields: string[];
     badgeFields: string[];

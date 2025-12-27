@@ -1,5 +1,7 @@
+
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Upload, X, Loader2, Sparkles, Check } from 'lucide-react';
+// Added Plus icon to the lucide-react imports
+import { Camera, Upload, X, Loader2, Sparkles, Check, Zap, ArrowRight, Trash2, Plus } from 'lucide-react';
 import { UserCollection, CollectionItem } from '../types';
 import { analyzeImage } from '../services/geminiService';
 import { Button } from './ui/Button';
@@ -14,19 +16,22 @@ interface AddItemModalProps {
 
 export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, collections, onSave }) => {
   const { t } = useTranslation();
-  const [step, setStep] = useState<'select-type' | 'upload' | 'analyzing' | 'verify'>('select-type');
+  const [step, setStep] = useState<'select-type' | 'upload' | 'batch-verify' | 'analyzing' | 'verify'>('select-type');
   const [selectedCollectionId, setSelectedCollectionId] = useState<string>('');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [batchImages, setBatchImages] = useState<string[]>([]);
   const [formData, setFormData] = useState<any>({});
   const [error, setError] = useState<string | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const batchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isOpen) {
       setStep(collections.length === 1 ? 'upload' : 'select-type');
       if (collections.length === 1) setSelectedCollectionId(collections[0].id);
       setImagePreview(null);
+      setBatchImages([]);
       setFormData({});
       setError(null);
     }
@@ -46,6 +51,24 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
         analyze(base64);
       };
       reader.readAsDataURL(file);
+    }
+  };
+
+  const handleBatchFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) {
+        const newImages: string[] = [];
+        Array.from(files).forEach(file => {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                newImages.push(reader.result as string);
+                if (newImages.length === files.length) {
+                    setBatchImages(prev => [...prev, ...newImages]);
+                    setStep('batch-verify');
+                }
+            };
+            reader.readAsDataURL(file);
+        });
     }
   };
 
@@ -80,6 +103,38 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
       notes: formData.notes || '',
       data: formData.data || {},
     });
+    onClose();
+  };
+
+  const handleBatchSave = async () => {
+    if (!currentCollection) return;
+    setStep('analyzing');
+    // For batch mode, we do background analysis for each.
+    // In this MVP, we'll just save them with generated titles and let Gemini process later
+    // or quickly loop through. To keep it responsive, we'll save and close.
+    for (const img of batchImages) {
+        const base64Data = img.split(',')[1];
+        try {
+            const result = await analyzeImage(base64Data, currentCollection.customFields);
+            onSave(currentCollection.id, {
+                collectionId: currentCollection.id,
+                photoUrl: img,
+                title: result.title || 'Archived Item',
+                rating: 0,
+                notes: result.notes || '',
+                data: result.data || {},
+            });
+        } catch (e) {
+            onSave(currentCollection.id, {
+                collectionId: currentCollection.id,
+                photoUrl: img,
+                title: 'Archived Item',
+                rating: 0,
+                notes: '',
+                data: {},
+            });
+        }
+    }
     onClose();
   };
 
@@ -131,9 +186,40 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
             <Button onClick={() => fileInputRef.current?.click()} size="lg" icon={<Upload size={18} />}>
                 {imagePreview ? t('changePhoto') : t('uploadPhoto')}
             </Button>
+            <Button variant="secondary" onClick={() => batchInputRef.current?.click()} icon={<Zap size={18} />}>
+                {t('batchMode')}
+            </Button>
             <button onClick={() => setStep('verify')} className="text-xs sm:text-sm font-medium text-stone-400 hover:text-stone-600">{t('skipManual')}</button>
         </div>
         <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
+        <input type="file" ref={batchInputRef} className="hidden" accept="image/*" multiple onChange={handleBatchFileChange} />
+    </div>
+  );
+
+  const renderBatchVerify = () => (
+    <div className="space-y-6">
+        <div className="bg-amber-50 p-4 rounded-2xl flex gap-3 border border-amber-100">
+            <Zap className="text-amber-600 shrink-0" size={20} />
+            <div>
+                <h4 className="text-sm font-bold text-amber-900">{t('batchMode')}</h4>
+                <p className="text-[11px] text-amber-700">{t('batchModeDesc')}</p>
+            </div>
+        </div>
+        <div className="grid grid-cols-3 gap-3 max-h-[40vh] overflow-y-auto px-1">
+            {batchImages.map((img, i) => (
+                <div key={i} className="relative aspect-square rounded-xl overflow-hidden border-2 border-stone-100 group">
+                    <img src={img} className="w-full h-full object-cover" />
+                    <button onClick={() => setBatchImages(prev => prev.filter((_, idx) => idx !== i))} className="absolute top-1 right-1 bg-white/80 p-1 rounded-full text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={12}/></button>
+                </div>
+            ))}
+            <button onClick={() => batchInputRef.current?.click()} className="aspect-square rounded-xl border-2 border-dashed border-stone-200 flex flex-col items-center justify-center text-stone-300 hover:border-amber-200 hover:bg-stone-50 transition-all">
+                <Plus size={20} />
+                <span className="text-[8px] font-bold uppercase mt-1">Add More</span>
+            </button>
+        </div>
+        <Button className="w-full" size="lg" onClick={handleBatchSave} icon={<ArrowRight size={18} />}>
+            Archive {batchImages.length} Artifacts
+        </Button>
     </div>
   );
 
@@ -218,6 +304,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
         <div className="p-5 sm:p-8">
             {step === 'select-type' && renderCollectionSelect()}
             {step === 'upload' && renderUpload()}
+            {step === 'batch-verify' && renderBatchVerify()}
             {step === 'analyzing' && renderAnalyzing()}
             {step === 'verify' && renderVerify()}
         </div>

@@ -1,16 +1,16 @@
 
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, createContext, useContext } from 'react';
 import { HashRouter, Routes, Route, useNavigate, useParams, Link, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { CollectionCard } from './components/CollectionCard';
 import { ItemCard } from './components/ItemCard';
 import { AddItemModal } from './components/AddItemModal';
 import { CreateCollectionModal } from './components/CreateCollectionModal';
-import { UserCollection, CollectionItem } from './types';
+import { UserCollection, CollectionItem, AppTheme } from './types';
 import { TEMPLATES } from './constants';
-import { Plus, SlidersHorizontal, ArrowLeft, Trash2, LayoutGrid, LayoutTemplate, Printer, Camera, Search, Loader2, Sparkles, Mic, Play, Quote, Sparkle, Globe } from 'lucide-react';
+import { Plus, SlidersHorizontal, ArrowLeft, Trash2, LayoutGrid, LayoutTemplate, Printer, Camera, Search, Loader2, Sparkles, Mic, Play, Quote, Sparkle, Globe, Calendar, Lock, Paintbrush } from 'lucide-react';
 import { Button } from './components/ui/Button';
-import { loadCollections, saveCollection, saveAllCollections, saveAsset, deleteAsset, requestPersistence, getSeedVersion, setSeedVersion } from './services/db';
+import { loadCollections, saveCollection, saveAllCollections, saveAsset, deleteAsset, requestPersistence, getSeedVersion, setSeedVersion, initDB } from './services/db';
 import { processImage } from './services/imageProcessor';
 import { ItemImage } from './components/ItemImage';
 import { MuseumGuide } from './components/MuseumGuide';
@@ -20,7 +20,9 @@ import { FilterModal } from './components/FilterModal';
 import { LanguageProvider, useTranslation } from './i18n';
 import { ensureAuth } from './services/supabase';
 
-const CURRENT_SEED_VERSION = 2;
+const ThemeContext = createContext<{ theme: AppTheme; setTheme: (t: AppTheme) => void }>({ theme: 'gallery', setTheme: () => {} });
+
+const CURRENT_SEED_VERSION = 3;
 const SEED_IMAGE_PATH = '/assets/sample-vinyl.jpg';
 
 const INITIAL_COLLECTIONS: UserCollection[] = [
@@ -59,6 +61,7 @@ const INITIAL_COLLECTIONS: UserCollection[] = [
 
 const AppContent: React.FC = () => {
   const { t, language, setLanguage } = useTranslation();
+  const { theme, setTheme } = useContext(ThemeContext);
   const [collections, setCollections] = useState<UserCollection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -100,6 +103,11 @@ const AppContent: React.FC = () => {
         }
 
         setCollections(workingCollections);
+        
+        const db = await initDB();
+        const tx = db.transaction('settings', 'readonly');
+        const themeReq = tx.objectStore('settings').get('app_theme');
+        themeReq.onsuccess = () => { if (themeReq.result) setTheme(themeReq.result); };
       } catch (e) {
         console.error("Initialization failed:", e);
         setCollections([]);
@@ -108,7 +116,7 @@ const AppContent: React.FC = () => {
       }
     };
     init();
-  }, []);
+  }, [setTheme]);
 
   const debouncedSaveCollection = useCallback((collection: UserCollection) => {
     if (saveTimeoutRef.current[collection.id]) {
@@ -207,8 +215,25 @@ const AppContent: React.FC = () => {
       : 0;
     const allItems = collections.flatMap(c => c.items);
     const featured = allItems.length > 0 ? allItems[Math.floor(Math.random() * allItems.length)] : null;
-    return { totalItems, avgRating, totalCollections: collections.length, featured };
+    
+    // Archeology: Find item added on this day in past
+    const now = new Date();
+    const historyItem = allItems.find(i => {
+       const d = new Date(i.createdAt);
+       return d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() < now.getFullYear();
+    }) || allItems[0];
+
+    return { totalItems, avgRating, totalCollections: collections.length, featured, historyItem };
   }, [collections]);
+
+  const toggleTheme = () => {
+    const nextTheme: AppTheme = theme === 'gallery' ? 'vault' : theme === 'vault' ? 'atelier' : 'gallery';
+    setTheme(nextTheme);
+    initDB().then(db => {
+        const tx = db.transaction('settings', 'readwrite');
+        tx.objectStore('settings').put(nextTheme, 'app_theme');
+    });
+  };
 
   const HomeScreen = () => {
     const navigate = useNavigate();
@@ -226,55 +251,78 @@ const AppContent: React.FC = () => {
       </div>
     );
 
+    const themeBaseClasses = {
+        gallery: "bg-white text-stone-900 border-stone-100",
+        vault: "bg-stone-950 text-white border-white/5",
+        atelier: "bg-[#faf9f6] text-stone-800 border-[#e8e6e1] shadow-inner",
+    };
+
     return (
-      <div className="space-y-12 animate-in fade-in duration-700">
-        <section className="relative overflow-hidden rounded-[3rem] bg-stone-900 text-white min-h-[480px] flex items-center shadow-2xl border border-white/5 group">
-            {stats.featured && (
-                <div className="absolute inset-0 opacity-40 group-hover:opacity-30 transition-opacity duration-1000">
-                    <ItemImage 
-                        itemId={stats.featured.id} 
-                        photoUrl={stats.featured.photoUrl} 
-                        type="master" 
-                        className="w-full h-full object-cover scale-105 group-hover:scale-100 transition-transform duration-[20s] ease-out" 
-                    />
-                </div>
-            )}
-            <div className="absolute inset-0 bg-gradient-to-r from-stone-950 via-stone-900/60 to-transparent"></div>
-            
-            <div className="relative z-10 p-12 md:p-20 max-w-2xl">
-                <div className="flex items-center gap-3 mb-6">
-                   <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div>
-                   <span className="text-[10px] font-mono tracking-[0.4em] uppercase text-amber-500 font-bold">{t('featuredArtifact')}</span>
-                </div>
-                <h1 className="text-5xl md:text-7xl font-serif font-bold mb-6 tracking-tight leading-tight">
-                    {t('appTitle')} <span className="text-white/30 italic font-light">{t('appSubtitle')}</span>
-                </h1>
-                <p className="text-xl md:text-2xl font-light leading-relaxed mb-10 max-w-sm font-serif italic text-stone-300">
-                    {t('heroSubtitle')}
-                </p>
+      <div className={`space-y-12 animate-in fade-in duration-700`}>
+        {/* Bento Grid Hero */}
+        <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className={`md:col-span-2 relative overflow-hidden rounded-[3rem] min-h-[420px] flex items-center shadow-2xl border transition-all duration-700 ${themeBaseClasses[theme]} group`}>
+                {stats.featured && (
+                    <div className="absolute inset-0 opacity-40 group-hover:opacity-30 transition-opacity duration-1000">
+                        <ItemImage 
+                            itemId={stats.featured.id} 
+                            photoUrl={stats.featured.photoUrl} 
+                            type="master" 
+                            className="w-full h-full object-cover scale-105 group-hover:scale-100 transition-transform duration-[20s] ease-out" 
+                        />
+                    </div>
+                )}
+                <div className={`absolute inset-0 bg-gradient-to-r ${theme === 'vault' ? 'from-stone-950 via-stone-900/60' : theme === 'atelier' ? 'from-[#faf9f6] via-[#faf9f6]/70' : 'from-white via-white/70'} to-transparent`}></div>
                 
-                <div className="flex gap-12 pt-10 border-t border-white/10">
-                   <div className="space-y-1">
-                      <p className="text-3xl font-serif font-bold text-white">{stats.totalItems}</p>
-                      <p className="text-[10px] font-mono uppercase tracking-widest text-stone-500">{t('artifacts')}</p>
-                   </div>
-                   <div className="space-y-1">
-                      <p className="text-3xl font-serif font-bold text-white">{stats.totalCollections}</p>
-                      <p className="text-[10px] font-mono uppercase tracking-widest text-stone-500">{t('archives')}</p>
-                   </div>
-                   <div className="space-y-1">
-                      <p className="text-3xl font-serif font-bold text-white">{stats.avgRating}<span className="text-amber-500 text-lg ml-1">★</span></p>
-                      <p className="text-[10px] font-mono uppercase tracking-widest text-stone-500">{t('avgQuality')}</p>
-                   </div>
+                <div className="relative z-10 p-12 max-w-xl">
+                    <div className="flex items-center gap-3 mb-6">
+                       <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div>
+                       <span className="text-[10px] font-mono tracking-[0.4em] uppercase text-amber-500 font-bold">{t('featuredArtifact')}</span>
+                    </div>
+                    <h1 className="text-5xl md:text-6xl font-serif font-bold mb-6 tracking-tight leading-tight">
+                        {t('appTitle')} <span className="opacity-30 italic font-light">{t('appSubtitle')}</span>
+                    </h1>
+                    <p className="text-lg md:text-xl font-light leading-relaxed mb-10 max-w-sm font-serif italic opacity-70">
+                        {t('heroSubtitle')}
+                    </p>
+                    
+                    <div className="flex gap-10 pt-10 border-t border-black/5 dark:border-white/5">
+                        <div className="space-y-1">
+                            <p className="text-2xl font-serif font-bold">{stats.totalItems}</p>
+                            <p className="text-[9px] font-mono uppercase tracking-widest opacity-40">{t('artifacts')}</p>
+                        </div>
+                        <div className="space-y-1">
+                            <p className="text-2xl font-serif font-bold">{stats.totalCollections}</p>
+                            <p className="text-[9px] font-mono uppercase tracking-widest opacity-40">{t('archives')}</p>
+                        </div>
+                    </div>
                 </div>
             </div>
-            
-            <div className="absolute bottom-12 right-12 hidden lg:block">
-               <Sparkle className="text-white/10 animate-spin-slow" size={120} />
+
+            {/* Archeology Bento Card */}
+            <div className={`relative overflow-hidden rounded-[3rem] p-8 border flex flex-col justify-between transition-all duration-500 ${themeBaseClasses[theme]} shadow-xl`}>
+                <div className="flex items-center justify-between mb-4">
+                    <div className="p-2 bg-amber-50 rounded-xl text-amber-600"><Calendar size={18}/></div>
+                    <span className="text-[9px] font-bold uppercase tracking-widest text-stone-400">{t('onThisDay')}</span>
+                </div>
+                {stats.historyItem ? (
+                    <div className="space-y-4">
+                        <div className="aspect-square rounded-2xl overflow-hidden bg-stone-100 shadow-inner">
+                            <ItemImage itemId={stats.historyItem.id} photoUrl={stats.historyItem.photoUrl} className="w-full h-full object-cover" />
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-mono opacity-40 uppercase tracking-widest mb-1">{t('historyTitle')}</p>
+                            <h4 className="font-serif font-bold text-xl leading-tight truncate">{stats.historyItem.title}</h4>
+                        </div>
+                        <Button variant="ghost" size="sm" className="w-full" onClick={() => navigate(`/collection/${stats.historyItem?.collectionId}/item/${stats.historyItem?.id}`)}>{t('viewHistory') || "Relive Memory"}</Button>
+                    </div>
+                ) : (
+                    <div className="h-full flex items-center justify-center italic text-stone-300 font-serif">Awaiting history...</div>
+                )}
             </div>
         </section>
 
-        <div className="relative max-w-xl mx-auto -mt-20 z-20 px-4">
+        <div className="relative max-w-xl mx-auto -mt-10 z-20 px-4">
             <div className="relative">
                 <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-stone-400" size={20} />
                 <input 
@@ -282,7 +330,7 @@ const AppContent: React.FC = () => {
                   placeholder={t('searchPlaceholder')}
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
-                  className="w-full pl-16 pr-8 py-6 rounded-[2rem] bg-white border border-stone-200 focus:ring-4 focus:ring-amber-500/5 focus:border-amber-200 outline-none transition-all shadow-xl text-lg font-serif italic placeholder:text-stone-300"
+                  className={`w-full pl-16 pr-8 py-5 rounded-[2rem] border focus:ring-4 focus:ring-amber-500/5 outline-none transition-all shadow-xl text-lg font-serif italic placeholder:text-stone-300 ${theme === 'vault' ? 'bg-stone-900 border-white/10 text-white' : 'bg-white border-stone-200 text-stone-900'}`}
                 />
             </div>
         </div>
@@ -298,13 +346,13 @@ const AppContent: React.FC = () => {
           
           <button 
             onClick={() => setIsCreateCollectionOpen(true)}
-            className="group relative p-10 rounded-[2.5rem] border-2 border-dashed border-stone-200 hover:border-amber-400 bg-white/50 hover:bg-white transition-all flex flex-col items-center justify-center min-h-[240px] gap-4 text-stone-400 hover:text-amber-800 shadow-sm hover:shadow-xl overflow-hidden"
+            className={`group relative p-10 rounded-[2.5rem] border-2 border-dashed transition-all flex flex-col items-center justify-center min-h-[240px] gap-4 shadow-sm hover:shadow-xl overflow-hidden ${theme === 'vault' ? 'border-white/10 hover:border-amber-400 bg-white/5 text-stone-500' : 'border-stone-200 hover:border-amber-400 bg-white/50 text-stone-400'}`}
           >
-            <div className="w-16 h-16 rounded-full bg-stone-50 flex items-center justify-center shadow-inner group-hover:scale-110 group-hover:shadow-lg transition-transform">
+            <div className="w-16 h-16 rounded-full bg-stone-50 flex items-center justify-center shadow-inner group-hover:scale-110 group-hover:shadow-lg transition-transform text-stone-300">
                 <Plus size={32} strokeWidth={1.5} />
             </div>
             <div className="text-center">
-               <span className="font-serif text-2xl font-bold italic tracking-tight block mb-1">{t('newArchive')}</span>
+               <span className={`font-serif text-2xl font-bold italic tracking-tight block mb-1 ${theme === 'vault' ? 'text-white/60' : 'text-stone-400'}`}>{t('newArchive')}</span>
                <span className="text-[10px] font-mono uppercase tracking-[0.2em] opacity-60">{t('expandSpace')}</span>
             </div>
           </button>
@@ -348,15 +396,16 @@ const AppContent: React.FC = () => {
       <div className="space-y-10 animate-in slide-in-from-bottom-4 duration-500">
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8">
             <div className="flex items-center gap-6">
-                <Link to="/" className="p-4 bg-white border border-stone-100 rounded-2xl text-stone-400 hover:text-stone-900 shadow-lg transition-all hover:scale-105 active:scale-95">
+                <Link to="/" className={`p-4 border rounded-2xl shadow-lg transition-all hover:scale-105 active:scale-95 ${theme === 'vault' ? 'bg-stone-900 border-white/5 text-stone-400' : 'bg-white border-stone-100 text-stone-400'}`}>
                     <ArrowLeft size={24} />
                 </Link>
                 <div>
-                    <h1 className="text-4xl md:text-5xl font-serif font-bold text-stone-900 tracking-tight mb-2">{collection.name}</h1>
+                    <h1 className={`text-4xl md:text-5xl font-serif font-bold tracking-tight mb-2 ${theme === 'vault' ? 'text-white' : 'text-stone-900'}`}>{collection.name}</h1>
                     <div className="flex items-center gap-4">
                         <span className="text-stone-400 font-serif text-lg italic">
                           {t('artifactsCataloged', { n: collection.items.length })}
                         </span>
+                        {collection.isLocked && <Lock size={16} className="text-amber-500" />}
                     </div>
                 </div>
             </div>
@@ -372,20 +421,20 @@ const AppContent: React.FC = () => {
                  </Button>
                  <Button 
                    variant="outline" 
-                   className="bg-white"
+                   className={theme === 'vault' ? 'bg-stone-900 text-white border-white/10' : 'bg-white'}
                    onClick={() => { setActiveCollectionForGuide(collection); setIsGuideOpen(true); }}
                    disabled={collection.items.length === 0}
                    icon={<Mic size={16} />}
                  >
                    {t('vocalGuide')}
                  </Button>
-                 <div className="flex bg-stone-200/50 rounded-xl p-1">
+                 <div className={`flex rounded-xl p-1 ${theme === 'vault' ? 'bg-white/5' : 'bg-stone-200/50'}`}>
                     <button onClick={() => setViewMode('grid')} className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}><LayoutGrid size={18} /></button>
                     <button onClick={() => setViewMode('waterfall')} className={`p-2 rounded-lg transition-all ${viewMode === 'waterfall' ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}><LayoutTemplate size={18} className="rotate-180" /></button>
                  </div>
                  <div className="relative flex gap-2">
-                    <input type="text" placeholder="..." value={filter} onChange={e => setFilter(e.target.value)} className="pl-4 pr-4 py-2 rounded-xl bg-white border border-stone-200 focus:ring-4 focus:ring-amber-500/5 outline-none text-sm w-48 transition-all shadow-sm font-serif italic" />
-                    <Button variant={activeFilterCount > 0 ? 'primary' : 'outline'} className={`w-10 h-10 flex items-center justify-center p-0 rounded-xl ${activeFilterCount > 0 ? '' : 'bg-white'}`} onClick={() => setIsFilterModalOpen(true)}>
+                    <input type="text" placeholder="..." value={filter} onChange={e => setFilter(e.target.value)} className={`pl-4 pr-4 py-2 rounded-xl border focus:ring-4 focus:ring-amber-500/5 outline-none text-sm w-48 transition-all shadow-sm font-serif italic ${theme === 'vault' ? 'bg-stone-900 border-white/10 text-white' : 'bg-white border-stone-200 text-stone-900'}`} />
+                    <Button variant={activeFilterCount > 0 ? 'primary' : 'outline'} className={`w-10 h-10 flex items-center justify-center p-0 rounded-xl ${theme === 'vault' ? 'bg-stone-900 border-white/10' : (activeFilterCount > 0 ? '' : 'bg-white')}`} onClick={() => setIsFilterModalOpen(true)}>
                         <SlidersHorizontal size={18} />
                     </Button>
                 </div>
@@ -393,9 +442,9 @@ const AppContent: React.FC = () => {
         </div>
 
         {filteredItems.length === 0 ? (
-             <div className="text-center py-32 bg-white/50 rounded-[3rem] border border-stone-100 shadow-sm">
+             <div className={`text-center py-32 rounded-[3rem] border shadow-sm ${theme === 'vault' ? 'bg-white/5 border-white/5' : 'bg-white/50 border-stone-100'}`}>
                  <div className="text-8xl mb-8 grayscale opacity-10">🏛️</div>
-                 <h3 className="text-3xl font-serif font-bold text-stone-800 mb-2 italic tracking-tight">{t('galleryAwaits')}</h3>
+                 <h3 className={`text-3xl font-serif font-bold mb-2 italic tracking-tight ${theme === 'vault' ? 'text-white' : 'text-stone-800'}`}>{t('galleryAwaits')}</h3>
                  <p className="text-stone-400 mb-10 max-w-sm mx-auto leading-relaxed font-serif text-lg">{t('museumDefinition')}</p>
                  {!filter && activeFilterCount === 0 && <Button size="lg" className="px-12 py-4 text-lg rounded-2xl shadow-xl" onClick={() => setIsAddModalOpen(true)}>{t('catalogFirst')}</Button>}
              </div>
@@ -467,8 +516,14 @@ const AppContent: React.FC = () => {
 
       const hasPhoto = item.photoUrl && item.photoUrl !== '';
 
+      const detailBaseClasses = {
+        gallery: "bg-white text-stone-900 border-stone-100 shadow-2xl",
+        vault: "bg-stone-950 text-white border-white/5 shadow-black/50 shadow-2xl",
+        atelier: "bg-[#faf9f6] text-stone-800 border-[#e8e6e1] shadow-xl",
+      };
+
       return (
-          <div className="max-w-4xl mx-auto bg-white rounded-[2rem] sm:rounded-[4rem] shadow-2xl border border-stone-100 overflow-hidden animate-in zoom-in-95 duration-500 mb-20">
+          <div className={`max-w-4xl mx-auto rounded-[2rem] sm:rounded-[4rem] border overflow-hidden animate-in zoom-in-95 duration-500 mb-20 ${detailBaseClasses[theme]}`}>
               <div className={`relative ${hasPhoto ? 'aspect-[4/5] sm:aspect-[16/9] md:aspect-[21/9]' : 'h-32 sm:h-48'} bg-stone-950 group transition-all duration-700 ease-in-out`}>
                   <ItemImage 
                     itemId={item.id} 
@@ -488,10 +543,10 @@ const AppContent: React.FC = () => {
                   </div>
                   <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handlePhotoUpdate} />
                   
-                  <button onClick={() => navigate(-1)} className="absolute top-4 left-4 sm:top-8 sm:left-8 w-10 h-10 sm:w-14 sm:h-14 bg-white/80 backdrop-blur-md rounded-xl sm:rounded-2xl flex items-center justify-center text-stone-800 shadow-xl hover:bg-white transition-all hover:scale-105 z-10"><ArrowLeft size={20} className="sm:w-6 sm:h-6" /></button>
+                  <button onClick={() => navigate(-1)} className={`absolute top-4 left-4 sm:top-8 sm:left-8 w-10 h-10 sm:w-14 sm:h-14 backdrop-blur-md rounded-xl sm:rounded-2xl flex items-center justify-center shadow-xl transition-all hover:scale-105 z-10 ${theme === 'vault' ? 'bg-white/10 text-white' : 'bg-white/80 text-stone-800'}`}><ArrowLeft size={20} className="sm:w-6 sm:h-6" /></button>
                   
                   <div className="absolute top-4 right-4 sm:top-8 sm:right-8 flex gap-2 sm:gap-4 z-10">
-                     <button onClick={() => setIsExportOpen(true)} className="w-10 h-10 sm:w-14 sm:h-14 bg-white/80 backdrop-blur-md rounded-xl sm:rounded-2xl flex items-center justify-center text-stone-800 shadow-xl hover:bg-white transition-all hover:scale-105" title={t('exportCard')}><Printer size={20} className="sm:w-6 sm:h-6" /></button>
+                     <button onClick={() => setIsExportOpen(true)} className={`w-10 h-10 sm:w-14 sm:h-14 backdrop-blur-md rounded-xl sm:rounded-2xl flex items-center justify-center shadow-xl transition-all hover:scale-105 ${theme === 'vault' ? 'bg-white/10 text-white' : 'bg-white/80 text-stone-800'}`} title={t('exportCard')}><Printer size={20} className="sm:w-6 sm:h-6" /></button>
                   </div>
               </div>
 
@@ -500,7 +555,7 @@ const AppContent: React.FC = () => {
                       <div className="flex-1 w-full">
                           <input 
                             type="text" 
-                            className="text-3xl sm:text-5xl md:text-6xl font-serif font-bold text-stone-900 mb-4 sm:mb-6 w-full bg-transparent border-b-2 border-transparent focus:border-amber-100 outline-none transition-all placeholder:italic tracking-tight"
+                            className={`text-3xl sm:text-5xl md:text-6xl font-serif font-bold mb-4 sm:mb-6 w-full bg-transparent border-b-2 border-transparent focus:border-amber-100 outline-none transition-all placeholder:italic tracking-tight ${theme === 'vault' ? 'text-white' : 'text-stone-900'}`}
                             value={item.title}
                             onChange={(e) => updateItem(collection.id, item.id, { title: e.target.value })}
                             placeholder="..."
@@ -508,7 +563,7 @@ const AppContent: React.FC = () => {
                           <div className="flex items-center gap-2">
                               {[1,2,3,4,5].map((star) => (
                                 <button key={star} onClick={() => updateItem(collection.id, item.id, { rating: star })} className="transition-transform hover:scale-125">
-                                    <span className="text-2xl sm:text-4xl">{star <= item.rating ? <span className="text-amber-400">★</span> : <span className="text-stone-100">★</span>}</span>
+                                    <span className="text-2xl sm:text-4xl">{star <= item.rating ? <span className="text-amber-400">★</span> : <span className="text-stone-100/10">★</span>}</span>
                                 </button>
                               ))}
                               <span className="ml-3 sm:ml-4 text-[8px] sm:text-[10px] font-mono tracking-[0.2em] sm:tracking-[0.3em] text-stone-300 uppercase font-bold">{t('registryQuality')}</span>
@@ -524,7 +579,7 @@ const AppContent: React.FC = () => {
                              <dt className="text-[9px] sm:text-[10px] font-bold text-stone-400 uppercase tracking-[0.2em] sm:tracking-[0.3em] font-mono">{t('archiveNarrative')}</dt>
                         </div>
                         <textarea 
-                            className="w-full bg-stone-50/50 p-6 sm:p-8 rounded-2xl sm:rounded-[2.5rem] italic text-stone-800 border border-stone-100 font-serif text-xl sm:text-2xl leading-relaxed min-h-[200px] sm:min-h-[240px] focus:ring-8 focus:ring-amber-500/5 focus:border-amber-100 outline-none transition-all shadow-inner placeholder:text-stone-200"
+                            className={`w-full p-6 sm:p-8 rounded-2xl sm:rounded-[2.5rem] italic border font-serif text-xl sm:text-2xl leading-relaxed min-h-[200px] sm:min-h-[240px] focus:ring-8 focus:ring-amber-500/5 focus:border-amber-100 outline-none transition-all shadow-inner placeholder:text-stone-200 ${theme === 'vault' ? 'bg-white/5 border-white/5 text-white' : 'bg-stone-50/50 border-stone-100 text-stone-800'}`}
                             value={item.notes}
                             onChange={(e) => updateItem(collection.id, item.id, { notes: e.target.value })}
                             placeholder={t('provenancePlaceholder')}
@@ -532,7 +587,7 @@ const AppContent: React.FC = () => {
                       </div>
 
                       <div className="space-y-8 sm:space-y-10">
-                          <dt className="text-[9px] sm:text-[10px] font-bold text-stone-400 uppercase tracking-[0.2em] sm:tracking-[0.3em] pb-3 sm:pb-4 border-b border-stone-100 font-mono">{t('technicalSpec')}</dt>
+                          <dt className={`text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.2em] sm:tracking-[0.3em] pb-3 sm:pb-4 border-b font-mono ${theme === 'vault' ? 'text-stone-500 border-white/5' : 'text-stone-400 border-stone-100'}`}>{t('technicalSpec')}</dt>
                           <div className="grid grid-cols-2 lg:grid-cols-1 gap-6 sm:gap-8">
                               {collection.customFields.map(field => {
                                   const val = item.data[field.id];
@@ -541,7 +596,7 @@ const AppContent: React.FC = () => {
                                       <div key={field.id} className="group">
                                           <dt className="text-[8px] sm:text-[10px] font-bold text-stone-300 uppercase tracking-2.0 mb-1 sm:mb-2 group-hover:text-amber-500 transition-colors font-mono">{label}</dt>
                                           <input 
-                                            className="text-stone-900 font-serif text-lg sm:text-xl w-full bg-transparent border-none p-0 outline-none focus:text-amber-900 focus:ring-0 transition-colors placeholder:text-stone-100"
+                                            className={`font-serif text-lg sm:text-xl w-full bg-transparent border-none p-0 outline-none focus:text-amber-900 focus:ring-0 transition-colors placeholder:text-stone-100 ${theme === 'vault' ? 'text-white' : 'text-stone-900'}`}
                                             value={val || ''}
                                             placeholder="—"
                                             onChange={(e) => {
@@ -561,45 +616,65 @@ const AppContent: React.FC = () => {
       );
   };
 
+  const themeColors = {
+    gallery: "bg-stone-50",
+    vault: "bg-stone-950",
+    atelier: "bg-[#faf9f6]",
+  };
+
   return (
-    <Layout 
-      onAddItem={() => setIsAddModalOpen(true)}
-      headerExtras={
-        <button 
-          onClick={() => setLanguage(language === 'en' ? 'zh' : 'en')}
-          className="p-2 hover:bg-stone-100 rounded-full text-stone-500 hover:text-stone-900 transition-colors flex items-center gap-1.5"
-          title="Switch Language"
+    <div className={`min-h-screen transition-colors duration-1000 ${themeColors[theme]}`}>
+        <Layout 
+        onAddItem={() => setIsAddModalOpen(true)}
+        headerExtras={
+            <div className="flex items-center gap-1">
+                <button 
+                onClick={toggleTheme}
+                className="p-2 hover:bg-stone-100 dark:hover:bg-white/10 rounded-full text-stone-500 hover:text-stone-900 transition-colors"
+                title={t('themeSelection')}
+                >
+                <Paintbrush size={18} />
+                </button>
+                <button 
+                onClick={() => setLanguage(language === 'en' ? 'zh' : 'en')}
+                className="p-2 hover:bg-stone-100 dark:hover:bg-white/10 rounded-full text-stone-500 hover:text-stone-900 transition-colors flex items-center gap-1.5"
+                title="Switch Language"
+                >
+                <Globe size={18} />
+                <span className="text-[10px] font-bold uppercase tracking-widest">{language === 'en' ? 'ZH' : 'EN'}</span>
+                </button>
+            </div>
+        }
         >
-          <Globe size={18} />
-          <span className="text-[10px] font-bold uppercase tracking-widest">{language === 'en' ? 'ZH' : 'EN'}</span>
-        </button>
-      }
-    >
-      <Routes>
-        <Route path="/" element={<HomeScreen />} />
-        <Route path="/collection/:id" element={<CollectionScreen />} />
-        <Route path="/collection/:id/item/:itemId" element={<ItemDetailScreen />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-      <AddItemModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} collections={collections} onSave={handleAddItem} />
-      <CreateCollectionModal isOpen={isCreateCollectionOpen} onClose={() => setIsCreateCollectionOpen(false)} onCreate={handleCreateCollection} />
-      {activeCollectionForGuide && (
-        <MuseumGuide 
-          collection={activeCollectionForGuide} 
-          isOpen={isGuideOpen} 
-          onClose={() => setIsGuideOpen(false)} 
-        />
-      )}
-    </Layout>
+        <Routes>
+            <Route path="/" element={<HomeScreen />} />
+            <Route path="/collection/:id" element={<CollectionScreen />} />
+            <Route path="/collection/:id/item/:itemId" element={<ItemDetailScreen />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+        <AddItemModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} collections={collections} onSave={handleAddItem} />
+        <CreateCollectionModal isOpen={isCreateCollectionOpen} onClose={() => setIsCreateCollectionOpen(false)} onCreate={handleCreateCollection} />
+        {activeCollectionForGuide && (
+            <MuseumGuide 
+            collection={activeCollectionForGuide} 
+            isOpen={isGuideOpen} 
+            onClose={() => setIsGuideOpen(false)} 
+            />
+        )}
+        </Layout>
+    </div>
   );
 };
 
 export const App: React.FC = () => {
+  const [theme, setTheme] = useState<AppTheme>('gallery');
   return (
-    <LanguageProvider>
-      <HashRouter>
-        <AppContent />
-      </HashRouter>
-    </LanguageProvider>
+    <ThemeContext.Provider value={{ theme, setTheme }}>
+        <LanguageProvider>
+        <HashRouter>
+            <AppContent />
+        </HashRouter>
+        </LanguageProvider>
+    </ThemeContext.Provider>
   );
 };

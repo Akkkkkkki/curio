@@ -79,6 +79,20 @@ export const translations = {
     itemsCount: "{n} items",
     yes: "Yes",
     no: "No",
+    // New features
+    batchMode: "Rapid-Fire Mode",
+    batchModeDesc: "Process multiple items in a single session.",
+    vaultLock: "Vault Lock",
+    lockCollection: "Biometric Lock Collection",
+    onThisDay: "On This Day",
+    historyTitle: "Archive Archeology",
+    // Added viewHistory key to resolve App.tsx type error
+    viewHistory: "Relive Memory",
+    themeSelection: "App Aesthetic",
+    themeGallery: "The Gallery (Airy)",
+    themeVault: "The Vault (Moody)",
+    themeAtelier: "The Atelier (Organic)",
+    insightPairing: "Curator Insight",
     // Auth & Sync
     login: "Login",
     register: "Register",
@@ -210,6 +224,20 @@ export const translations = {
     itemsCount: "{n} 件珍品",
     yes: "是",
     no: "否",
+    // New Features ZH
+    batchMode: "连拍录入模式",
+    batchModeDesc: "在一次会话中处理多件珍品。",
+    vaultLock: "保险库锁定",
+    lockCollection: "生物识别锁定馆藏",
+    onThisDay: "档案考古",
+    historyTitle: "历史上的今天",
+    // Added viewHistory key to resolve App.tsx type error
+    viewHistory: "重温记忆",
+    themeSelection: "应用美学主题",
+    themeGallery: "画廊（通透白）",
+    themeVault: "保险库（深邃黑）",
+    themeAtelier: "工作室（原木色）",
+    insightPairing: "策展人见解",
     // Auth & Sync
     login: "登录",
     register: "注册",
