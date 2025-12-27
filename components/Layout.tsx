@@ -1,9 +1,9 @@
 
 import React, { useState } from 'react';
-import { Home, Plus, User, LogOut } from 'lucide-react';
+import { Home, Plus, User, LogOut, Cloud, CloudOff } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from '../i18n';
-import { supabase, signOutUser } from '../services/supabase';
+import { supabase, signOutUser, isSupabaseConfigured } from '../services/supabase';
 import { AuthModal } from './AuthModal';
 
 interface LayoutProps {
@@ -21,6 +21,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, onAddItem, headerExtra
   
   // Track actual Supabase user
   const [user, setUser] = React.useState<any>(null);
+  const isCloudActive = isSupabaseConfigured();
 
   React.useEffect(() => {
     if (supabase) {
@@ -53,7 +54,13 @@ export const Layout: React.FC<LayoutProps> = ({ children, onAddItem, headerExtra
             <div className="w-8 h-8 bg-stone-900 rounded-lg flex items-center justify-center text-white font-serif font-bold text-xl group-hover:bg-amber-600 transition-colors">
               C
             </div>
-            <span className="font-serif text-xl font-bold tracking-tight text-stone-900">{t('appTitle')}</span>
+            <div className="flex flex-col -space-y-1">
+              <span className="font-serif text-xl font-bold tracking-tight text-stone-900 leading-none">{t('appTitle')}</span>
+              <div className="flex items-center gap-1 opacity-40">
+                {isCloudActive ? <Cloud size={10} className="text-emerald-600" /> : <CloudOff size={10} className="text-amber-600" />}
+                <span className="text-[8px] font-bold uppercase tracking-widest">{isCloudActive ? 'Cloud Sync' : 'Local Archive'}</span>
+              </div>
+            </div>
           </Link>
           
           <nav className="flex items-center gap-2">

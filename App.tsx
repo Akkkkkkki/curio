@@ -8,7 +8,7 @@ import { AddItemModal } from './components/AddItemModal';
 import { CreateCollectionModal } from './components/CreateCollectionModal';
 import { UserCollection, CollectionItem } from './types';
 import { TEMPLATES } from './constants';
-import { Plus, SlidersHorizontal, ArrowLeft, Trash2, LayoutGrid, LayoutTemplate, Printer, Camera, Search, Download, Upload, Loader2, Sparkles, BookOpen, Mic, Play, Quote, Sparkle, Globe, PieChart, Activity, ShieldCheck } from 'lucide-react';
+import { Plus, SlidersHorizontal, ArrowLeft, Trash2, LayoutGrid, LayoutTemplate, Printer, Camera, Search, Loader2, Sparkles, Mic, Play, Quote, Sparkle, Globe } from 'lucide-react';
 import { Button } from './components/ui/Button';
 import { loadCollections, saveCollection, saveAllCollections, saveAsset, deleteAsset, requestPersistence, getSeedVersion, setSeedVersion } from './services/db';
 import { processImage } from './services/imageProcessor';
@@ -17,7 +17,7 @@ import { MuseumGuide } from './components/MuseumGuide';
 import { ExhibitionView } from './components/ExhibitionView';
 import { ExportModal } from './components/ExportModal';
 import { FilterModal } from './components/FilterModal';
-import { LanguageProvider, useTranslation, Language } from './i18n';
+import { LanguageProvider, useTranslation } from './i18n';
 import { ensureAuth } from './services/supabase';
 
 const CURRENT_SEED_VERSION = 2;
@@ -284,37 +284,6 @@ const AppContent: React.FC = () => {
                   onChange={e => setSearchTerm(e.target.value)}
                   className="w-full pl-16 pr-8 py-6 rounded-[2rem] bg-white border border-stone-200 focus:ring-4 focus:ring-amber-500/5 focus:border-amber-200 outline-none transition-all shadow-xl text-lg font-serif italic placeholder:text-stone-300"
                 />
-            </div>
-        </div>
-
-        {/* Insights Section */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white p-8 rounded-[2rem] border border-stone-100 shadow-sm flex items-center gap-6">
-                <div className="w-16 h-16 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-600 shadow-inner">
-                    <PieChart size={32} />
-                </div>
-                <div>
-                    <h4 className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-1">{t('museumInsights')}</h4>
-                    <p className="text-lg font-serif font-bold text-stone-900">{t('artifactsCount', { n: stats.totalItems })}</p>
-                </div>
-            </div>
-            <div className="bg-white p-8 rounded-[2rem] border border-stone-100 shadow-sm flex items-center gap-6">
-                <div className="w-16 h-16 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 shadow-inner">
-                    <Activity size={32} />
-                </div>
-                <div>
-                    <h4 className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-1">{t('collectionHealth')}</h4>
-                    <p className="text-lg font-serif font-bold text-stone-900">Optimal</p>
-                </div>
-            </div>
-            <div className="bg-white p-8 rounded-[2rem] border border-stone-100 shadow-sm flex items-center gap-6">
-                <div className="w-16 h-16 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-600 shadow-inner">
-                    <ShieldCheck size={32} />
-                </div>
-                <div>
-                    <h4 className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-1">{t('curationScore')}</h4>
-                    <p className="text-lg font-serif font-bold text-stone-900">A+ Gallery</p>
-                </div>
             </div>
         </div>
 

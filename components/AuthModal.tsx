@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { X, Mail, Lock, Loader2, Info, Database } from 'lucide-react';
+import { X, Mail, Lock, Loader2, Info, Database, ShieldCheck, Zap } from 'lucide-react';
 import { Button } from './ui/Button';
 import { signInWithEmail, signUpWithEmail, isSupabaseConfigured } from '../services/supabase';
 import { useTranslation } from '../i18n';
@@ -50,18 +50,36 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               </p>
             )}
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-stone-100 rounded-full text-stone-400 hover:text-stone-800 transition-colors">
+          <button onClick={onClose} className="p-2 -mr-2 hover:bg-stone-100 rounded-full text-stone-400 hover:text-stone-800 transition-colors">
             <X size={24} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-8 pt-6 space-y-6">
           {!supabaseActive && (
-            <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100 flex gap-3">
-              <Info className="text-amber-600 shrink-0" size={18} />
-              <p className="text-xs text-amber-900 leading-relaxed">
-                {t('supabaseNotice')}
-              </p>
+            <div className="space-y-4">
+              <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100 flex gap-3">
+                <Info className="text-amber-600 shrink-0 mt-0.5" size={18} />
+                <div className="space-y-1">
+                    <p className="text-xs font-bold text-amber-900">{t('localArchiveMode')}</p>
+                    <p className="text-[11px] text-amber-800/80 leading-relaxed">
+                        {t('supabaseNotice')}
+                    </p>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 bg-stone-50 rounded-xl border border-stone-100">
+                      <ShieldCheck size={14} className="text-stone-400 mb-1" />
+                      <p className="text-[10px] font-bold text-stone-600 uppercase tracking-tighter">Private</p>
+                      <p className="text-[9px] text-stone-400">Data never leaves this browser.</p>
+                  </div>
+                  <div className="p-3 bg-stone-50 rounded-xl border border-stone-100">
+                      <Zap size={14} className="text-stone-400 mb-1" />
+                      <p className="text-[10px] font-bold text-stone-600 uppercase tracking-tighter">Fast</p>
+                      <p className="text-[9px] text-stone-400">Instant offline access by default.</p>
+                  </div>
+              </div>
             </div>
           )}
 

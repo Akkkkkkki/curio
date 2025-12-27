@@ -92,10 +92,6 @@ export const translations = {
     signedInAs: "Signed in as",
     localArchiveMode: "Local Archive Mode",
     supabaseNotice: "Supabase cloud sync is not configured. Your profile and data will be stored safely in this browser only.",
-    // Insights
-    museumInsights: "Museum Insights",
-    collectionHealth: "Archive Health",
-    curationScore: "Curation Score",
     // Field Labels
     label_brand: "Brand",
     label_category: "Category",
@@ -217,10 +213,6 @@ export const translations = {
     signedInAs: "当前登录：",
     localArchiveMode: "本地存档模式",
     supabaseNotice: "Supabase 云同步未配置。您的个人资料和数据将安全地存储在此浏览器中。",
-    // Insights
-    museumInsights: "馆藏洞察",
-    collectionHealth: "档案健康度",
-    curationScore: "策展得分",
     // Field Labels
     label_brand: "品牌",
     label_category: "类别",

@@ -1,3 +1,4 @@
+
 import { UserCollection, CollectionItem } from '../types';
 import { supabase, isSupabaseConfigured } from './supabase';
 import { TEMPLATES } from '../constants';
@@ -129,40 +130,106 @@ export const saveCollection = async (collection: UserCollection): Promise<void> 
 
 export const saveAsset = async (id: string, master: Blob, thumb: Blob): Promise<void> => {
   const db = await initDB();
-  return new Promise((resolve, reject) => {
+  
+  // Save to Local
+  await new Promise<void>((resolve, reject) => {
     const transaction = db.transaction([ASSETS_STORE, THUMBNAILS_STORE], 'readwrite');
     transaction.objectStore(ASSETS_STORE).put(master, id);
     transaction.objectStore(THUMBNAILS_STORE).put(thumb, id);
     transaction.oncomplete = () => resolve();
     transaction.onerror = () => reject(transaction.error);
   });
+
+  // Save to Cloud if available
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const masterPath = `${user.id}/${id}_master.jpg`;
+      const thumbPath = `${user.id}/${id}_thumb.jpg`;
+
+      // Upload in parallel
+      await Promise.all([
+        supabase.storage.from('curio-assets').upload(masterPath, master, { upsert: true, contentType: 'image/jpeg' }),
+        supabase.storage.from('curio-assets').upload(thumbPath, thumb, { upsert: true, contentType: 'image/jpeg' })
+      ]);
+    } catch (e) {
+      console.warn('Cloud asset sync failed:', e);
+    }
+  }
 };
 
 export const getAsset = async (id: string, type: 'master' | 'thumb' = 'master'): Promise<Blob | null> => {
   const db = await initDB();
   const storeName = type === 'thumb' ? THUMBNAILS_STORE : ASSETS_STORE;
-  return new Promise((resolve, reject) => {
+  
+  // Try Local First
+  const localBlob = await new Promise<Blob | null>((resolve) => {
     const transaction = db.transaction(storeName, 'readonly');
     const store = transaction.objectStore(storeName);
     const request = store.get(id);
     request.onsuccess = () => resolve(request.result || null);
-    request.onerror = () => reject(transaction.error);
+    request.onerror = () => resolve(null);
   });
+
+  if (localBlob) return localBlob;
+
+  // Try Cloud if not local
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+
+      const path = `${user.id}/${id}_${type}.jpg`;
+      const { data, error } = await supabase.storage.from('curio-assets').download(path);
+      
+      if (data && !error) {
+        // Cache back to local for performance next time
+        const transaction = db.transaction(storeName, 'readwrite');
+        transaction.objectStore(storeName).put(data, id);
+        return data;
+      }
+    } catch (e) {
+      console.warn('Cloud asset download failed:', e);
+    }
+  }
+
+  return null;
 };
 
 export const deleteAsset = async (id: string): Promise<void> => {
     const db = await initDB();
-    return new Promise((resolve, reject) => {
+    
+    // Delete Local
+    await new Promise<void>((resolve) => {
       const transaction = db.transaction([ASSETS_STORE, THUMBNAILS_STORE], 'readwrite');
       transaction.objectStore(ASSETS_STORE).delete(id);
       transaction.objectStore(THUMBNAILS_STORE).delete(id);
       transaction.oncomplete = () => resolve();
     });
+
+    // Delete Cloud
+    if (isSupabaseConfigured() && supabase) {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                await supabase.storage.from('curio-assets').remove([
+                    `${user.id}/${id}_master.jpg`,
+                    `${user.id}/${id}_thumb.jpg`
+                ]);
+            }
+        } catch (e) {
+            console.warn('Cloud asset deletion failed:', e);
+        }
+    }
 };
 
 export const loadCollections = async (): Promise<UserCollection[]> => {
   const db = await initDB();
-  const localItems = await new Promise<UserCollection[]>((resolve, reject) => {
+  
+  // Load Local
+  const localCollections = await new Promise<UserCollection[]>((resolve, reject) => {
     const transaction = db.transaction(COLLECTIONS_STORE, 'readonly');
     const store = transaction.objectStore(COLLECTIONS_STORE);
     const request = store.getAll();
@@ -170,8 +237,8 @@ export const loadCollections = async (): Promise<UserCollection[]> => {
     request.onerror = () => reject(request.error);
   });
 
-  // If local is empty, attempt to hydrate from Supabase cloud
-  if (localItems.length === 0 && isSupabaseConfigured() && supabase) {
+  // If Supabase is configured, always attempt a background refresh or hydrate if local is empty
+  if (isSupabaseConfigured() && supabase) {
     try {
       const { data: cols, error: colError } = await supabase
         .from('collections')
@@ -186,7 +253,7 @@ export const loadCollections = async (): Promise<UserCollection[]> => {
       if (itemError) throw itemError;
 
       if (cols) {
-        return cols.map(c => {
+        const cloudCollections: UserCollection[] = cols.map(c => {
           const colItems: CollectionItem[] = (items || [])
             .filter(i => i.collection_id === c.id)
             .map(i => ({
@@ -201,7 +268,6 @@ export const loadCollections = async (): Promise<UserCollection[]> => {
               seedKey: i.seed_key
             }));
 
-          // Reconstruct fields from known templates to ensure UI works as expected
           const template = TEMPLATES.find(t => t.id === c.template_id);
 
           return {
@@ -215,13 +281,23 @@ export const loadCollections = async (): Promise<UserCollection[]> => {
             seedKey: c.seed_key
           };
         });
+
+        // Simple strategy: If local is empty or different, overwrite with cloud.
+        // In a real prod app, you'd do a more complex merge.
+        if (localCollections.length === 0 && cloudCollections.length > 0) {
+            await saveAllCollections(cloudCollections);
+            return cloudCollections;
+        }
+        
+        // Return local if it's already populated, assuming IndexedDB is the source of truth for the current session.
+        return localCollections.length > 0 ? localCollections : cloudCollections;
       }
     } catch (e) {
-      console.warn('Supabase cloud fetch failed or returned empty:', e);
+      console.warn('Supabase cloud fetch failed:', e);
     }
   }
 
-  return localItems;
+  return localCollections;
 };
 
 export const saveAllCollections = async (collections: UserCollection[]): Promise<void> => {

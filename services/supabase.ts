@@ -5,8 +5,6 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 const env = (typeof process !== 'undefined' && process.env) ? process.env : {};
 
 const supabaseUrl = (env as any).VITE_SUPABASE_URL as string | undefined;
-
-// Prioritize the new publishable key as requested, with the old anon key as a secondary fallback
 const supabaseKey = (env as any).VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY || (env as any).VITE_SUPABASE_ANON_KEY as string | undefined;
 
 /**
@@ -53,7 +51,6 @@ export const ensureAuth = async () => {
 
 export const signUpWithEmail = async (email: string, pass: string) => {
   if (!supabase) {
-    // Local Mode fallback
     console.info("Supabase not configured. Creating local profile.");
     localStorage.setItem('curio_local_user', JSON.stringify({ email, registeredAt: new Date().toISOString() }));
     return { id: 'local-user', email, is_local: true };

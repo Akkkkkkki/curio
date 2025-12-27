@@ -15,6 +15,23 @@ Curio is a digital companion for physical collectors. Unlike marketplace-driven 
 *   **Color**: `Stone-50` base, `Amber-600` accents, `Stone-900` ink.
 *   **Grid vs Waterfall**: Grid for technical comparison; Waterfall for "Art Gallery" aesthetic.
 
-## 4. Privacy Policy
-*   **Local-First**: Collections never touch a server owned by Curio.
-*   **User Ownership**: Easy JSON export/import for manual backups and data portability.
+## 4. Local Archive Mode & Cloud Sync Strategy
+Curio employs a **Local-First** architecture. This ensures high availability and privacy while allowing for seamless multi-device access when a cloud provider is connected.
+
+### Local Archive Mode (Default)
+When no cloud environment (Supabase) is detected via environment variables:
+- **Privacy**: All item data, personal notes, and photos are stored strictly within the user's browser using **IndexedDB**.
+- **Performance**: Zero-latency browsing and cataloging.
+- **Persistence**: Uses the browser's Persistent Storage API to prevent data loss during cache cleanups.
+- **Portability**: Users can export their entire archive as a structured file for manual backup.
+
+### Cloud Synchronization (Extended)
+When Supabase is fully configured:
+- **Automatic Sync**: Metadata is normalized and synced to a PostgreSQL backend.
+- **Asset Storage**: High-resolution photos are uploaded to Supabase Storage buckets, allowing for device roaming.
+- **Hydration**: When logging into a new device, Curio automatically pulls the cloud archive into the local IndexedDB for immediate offline use.
+- **State Conflict**: Local changes are pushed to the cloud with a "last-write-wins" debounce strategy to balance performance and consistency.
+
+## 5. Privacy Policy
+- **Local-First**: Collections never touch a server unless explicitly enabled by the user via cloud settings.
+- **User Ownership**: Easy JSON export/import for manual backups and data portability.
