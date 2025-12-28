@@ -14,12 +14,21 @@ interface AddItemModalProps {
   onSave: (collectionId: string, item: Omit<CollectionItem, 'id' | 'createdAt' | 'updatedAt'>) => void;
 }
 
+interface BatchItem {
+  id: string;
+  image: string;
+  title: string;
+  notes: string;
+  data: Record<string, any>;
+  rating: number;
+}
+
 export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, collections, onSave }) => {
   const { t } = useTranslation();
   const [step, setStep] = useState<'select-type' | 'upload' | 'batch-verify' | 'analyzing' | 'verify'>('select-type');
   const [selectedCollectionId, setSelectedCollectionId] = useState<string>('');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [batchImages, setBatchImages] = useState<string[]>([]);
+  const [batchItems, setBatchItems] = useState<BatchItem[]>([]);
   const [formData, setFormData] = useState<any>({});
   const [error, setError] = useState<string | null>(null);
   
@@ -31,7 +40,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
       setStep(collections.length === 1 ? 'upload' : 'select-type');
       if (collections.length === 1) setSelectedCollectionId(collections[0].id);
       setImagePreview(null);
-      setBatchImages([]);
+      setBatchItems([]);
       setFormData({});
       setError(null);
     }
@@ -56,20 +65,89 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
 
   const handleBatchFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (files) {
-        const newImages: string[] = [];
-        Array.from(files).forEach(file => {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                newImages.push(reader.result as string);
-                if (newImages.length === files.length) {
-                    setBatchImages(prev => [...prev, ...newImages]);
-                    setStep('batch-verify');
-                }
-            };
-            reader.readAsDataURL(file);
-        });
-    }
+    if (!files || !files.length || !currentCollection) return;
+    const collection = currentCollection;
+
+    const readFileAsDataUrl = (file: File) => new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (typeof reader.result === 'string') {
+          resolve(reader.result);
+        } else {
+          reject(new Error('File read failed'));
+        }
+      };
+      reader.onerror = () => reject(new Error('File read failed'));
+      reader.readAsDataURL(file);
+    });
+
+    const createBatchItem = (image: string, overrides: Partial<BatchItem> = {}): BatchItem => ({
+      id: Math.random().toString(36).slice(2, 10),
+      image,
+      title: '',
+      notes: '',
+      data: {},
+      rating: 0,
+      ...overrides,
+    });
+
+    const analyzeBatchImages = async (images: string[]) => {
+      if (!isAiEnabled()) {
+        setError("AI analysis is unavailable. Please fill in the details manually.");
+        return images.map(image => createBatchItem(image));
+      }
+      const analyzed: BatchItem[] = [];
+      for (const image of images) {
+        const base64Data = image.split(',')[1];
+        try {
+          const result = await analyzeImage(base64Data, collection.customFields);
+          analyzed.push(createBatchItem(image, {
+            title: result.title || '',
+            notes: result.notes || '',
+            data: result.data || {},
+          }));
+        } catch (err) {
+          console.error(err);
+          setError("Analysis failed. Please fill in the details manually.");
+          analyzed.push(createBatchItem(image));
+        }
+      }
+      return analyzed;
+    };
+
+    const loadBatch = async () => {
+      setError(null);
+      setStep('analyzing');
+      try {
+        const images = await Promise.all(Array.from(files).map(readFileAsDataUrl));
+        const newItems = await analyzeBatchImages(images);
+        setBatchItems(prev => [...prev, ...newItems]);
+        setStep('batch-verify');
+      } catch (err) {
+        console.error(err);
+        setError("Analysis failed. Please fill in the details manually.");
+        setStep('batch-verify');
+      } finally {
+        e.target.value = '';
+      }
+    };
+
+    void loadBatch();
+  };
+
+  const updateBatchItem = (id: string, updates: Partial<BatchItem>) => {
+    setBatchItems(prev => prev.map(item => item.id === id ? { ...item, ...updates } : item));
+  };
+
+  const updateBatchItemField = (id: string, fieldId: string, value: string) => {
+    setBatchItems(prev => prev.map(item => item.id === id ? {
+      ...item,
+      data: { ...item.data, [fieldId]: value }
+    } : item));
+  };
+
+  const removeBatchItem = (id: string) => {
+    setBatchItems(prev => prev.filter(item => item.id !== id));
   };
 
   const analyze = async (base64: string) => {
@@ -112,35 +190,18 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
     onClose();
   };
 
-  const handleBatchSave = async () => {
+  const handleBatchSave = () => {
     if (!currentCollection) return;
-    setStep('analyzing');
-    // For batch mode, we do background analysis for each.
-    // In this MVP, we'll just save them with generated titles and let Gemini process later
-    // or quickly loop through. To keep it responsive, we'll save and close.
-    for (const img of batchImages) {
-        const base64Data = img.split(',')[1];
-        try {
-            const result = await analyzeImage(base64Data, currentCollection.customFields);
-            onSave(currentCollection.id, {
-                collectionId: currentCollection.id,
-                photoUrl: img,
-                title: result.title || 'Archived Item',
-                rating: 0,
-                notes: result.notes || '',
-                data: result.data || {},
-            });
-        } catch (e) {
-            onSave(currentCollection.id, {
-                collectionId: currentCollection.id,
-                photoUrl: img,
-                title: 'Archived Item',
-                rating: 0,
-                notes: '',
-                data: {},
-            });
-        }
-    }
+    batchItems.forEach(item => {
+      onSave(currentCollection.id, {
+        collectionId: currentCollection.id,
+        photoUrl: item.image,
+        title: item.title || 'Untitled',
+        rating: item.rating || 0,
+        notes: item.notes || '',
+        data: item.data || {},
+      });
+    });
     onClose();
   };
 
@@ -211,20 +272,64 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
                 <p className="text-[11px] text-amber-700">{t('batchModeDesc')}</p>
             </div>
         </div>
-        <div className="grid grid-cols-3 gap-3 max-h-[40vh] overflow-y-auto px-1">
-            {batchImages.map((img, i) => (
-                <div key={i} className="relative aspect-square rounded-xl overflow-hidden border-2 border-stone-100 group">
-                    <img src={img} className="w-full h-full object-cover" />
-                    <button onClick={() => setBatchImages(prev => prev.filter((_, idx) => idx !== i))} className="absolute top-1 right-1 bg-white/80 p-1 rounded-full text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={12}/></button>
+        {error && (
+          <div className="p-3 bg-amber-50 text-amber-700 text-xs rounded-xl border border-amber-100 font-medium">
+            {error}
+          </div>
+        )}
+        <div className="space-y-4 max-h-[45vh] overflow-y-auto px-1">
+            {batchItems.map((item) => (
+                <div key={item.id} className="rounded-2xl border border-stone-100 bg-white p-3 shadow-sm">
+                    <div className="flex gap-3 items-start">
+                        <div className="group relative w-20 h-20 rounded-xl overflow-hidden border border-stone-200 shrink-0">
+                            <img src={item.image} className="w-full h-full object-cover" />
+                            <button onClick={() => removeBatchItem(item.id)} className="absolute top-1 right-1 bg-white/80 p-1 rounded-full text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={12}/></button>
+                        </div>
+                        <div className="flex-1 space-y-2">
+                            <div>
+                                <label className="block text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-0.5">{t('title')}</label>
+                                <input 
+                                    type="text" 
+                                    className="w-full text-sm font-semibold bg-transparent border-b border-stone-200 focus:border-amber-500 outline-none pb-1 transition-colors"
+                                    value={item.title}
+                                    onChange={e => updateBatchItem(item.id, { title: e.target.value })}
+                                />
+                            </div>
+                            {currentCollection?.customFields.map(field => (
+                                <div key={field.id}>
+                                    <label className="block text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-0.5">{field.label}</label>
+                                    <input 
+                                        className="w-full p-2 bg-stone-50 border border-stone-200 rounded-lg text-xs"
+                                        value={item.data?.[field.id] || ''}
+                                        onChange={e => updateBatchItemField(item.id, field.id, e.target.value)}
+                                    />
+                                </div>
+                            ))}
+                            <div>
+                                <label className="block text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-0.5">{t('rating')}</label>
+                                <div className="flex gap-1">
+                                    {[1,2,3,4,5].map(s => (
+                                        <button 
+                                            key={s} 
+                                            onClick={() => updateBatchItem(item.id, { rating: s })}
+                                            className={`w-7 h-7 rounded-md border flex items-center justify-center transition-all text-xs ${item.rating === s ? 'bg-amber-400 border-amber-500 text-white shadow-sm' : 'bg-white border-stone-200 text-stone-300'}`}
+                                        >
+                                            ★
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             ))}
-            <button onClick={() => batchInputRef.current?.click()} className="aspect-square rounded-xl border-2 border-dashed border-stone-200 flex flex-col items-center justify-center text-stone-300 hover:border-amber-200 hover:bg-stone-50 transition-all">
+            <button onClick={() => batchInputRef.current?.click()} className="w-full rounded-xl border-2 border-dashed border-stone-200 flex flex-col items-center justify-center text-stone-300 hover:border-amber-200 hover:bg-stone-50 transition-all py-6">
                 <Plus size={20} />
-                <span className="text-[8px] font-bold uppercase mt-1">Add More</span>
+                <span className="text-[9px] font-bold uppercase mt-2">Add More</span>
             </button>
         </div>
-        <Button className="w-full" size="lg" onClick={handleBatchSave} icon={<ArrowRight size={18} />}>
-            Archive {batchImages.length} Artifacts
+        <Button className="w-full" size="lg" onClick={handleBatchSave} icon={<ArrowRight size={18} />} disabled={batchItems.length === 0}>
+            Archive {batchItems.length} Artifacts
         </Button>
     </div>
   );
