@@ -31,6 +31,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({ isOpen, onClose, field
   const handleClear = () => {
     setLocalFilters({});
     onApply({});
+    onClose();
   };
 
   const activeCount = Object.values(localFilters).filter(Boolean).length;

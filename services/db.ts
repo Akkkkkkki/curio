@@ -168,6 +168,8 @@ const mapCloudCollections = (cols: any[], items: any[]): UserCollection[] => {
 
     return normalizeCollection({
       id: c.id,
+      ownerId: c.user_id,
+      isPublic: Boolean(c.is_public),
       templateId: c.template_id,
       name: c.name,
       icon: c.icon,
@@ -180,25 +182,40 @@ const mapCloudCollections = (cols: any[], items: any[]): UserCollection[] => {
   });
 };
 
-export const fetchCloudCollections = async (): Promise<UserCollection[]> => {
-  if (!isSupabaseConfigured() || !supabase) return [];
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return [];
+type FetchCollectionsOptions = {
+  userId?: string | null;
+  includePublic?: boolean;
+};
 
-  const { data: cols, error: colError } = await supabase
-    .from('collections')
-    .select('*')
-    .eq('user_id', user.id);
+export const fetchCloudCollections = async (options: FetchCollectionsOptions = {}): Promise<UserCollection[]> => {
+  if (!isSupabaseConfigured() || !supabase) return [];
+
+  const { userId = null, includePublic = true } = options;
+  const { data: { user } } = await supabase.auth.getUser();
+  const activeUserId = typeof userId === 'string' ? userId : user?.id || null;
+
+  const collectionQuery = supabase.from('collections').select('*');
+  if (activeUserId) {
+    collectionQuery.or(includePublic ? `user_id.eq.${activeUserId},is_public.eq.true` : `user_id.eq.${activeUserId}`);
+  } else if (includePublic) {
+    collectionQuery.eq('is_public', true);
+  } else {
+    return [];
+  }
+
+  const { data: cols, error: colError } = await collectionQuery;
 
   if (colError) throw colError;
 
+  if (!cols || cols.length === 0) return [];
+
+  const collectionIds = cols.map(col => col.id);
   const { data: items, error: itemError } = await supabase
     .from('items')
     .select('*')
-    .eq('user_id', user.id);
+    .in('collection_id', collectionIds);
 
   if (itemError) throw itemError;
-  if (!cols) return [];
 
   return mapCloudCollections(cols, items || []);
 };
@@ -239,12 +256,13 @@ export const saveCollection = async (collection: UserCollection): Promise<void> 
       // Sync Collection Metadata
       const collectionPayload: Record<string, any> = {
         id: collectionToSave.id,
-        user_id: user.id,
+        user_id: collectionToSave.ownerId || user.id,
         template_id: collectionToSave.templateId,
         name: collectionToSave.name,
         icon: collectionToSave.icon,
         settings: collectionToSave.settings,
-        seed_key: collectionToSave.seedKey
+        seed_key: collectionToSave.seedKey,
+        is_public: Boolean(collectionToSave.isPublic)
       };
       if (SUPABASE_SYNC_TIMESTAMPS && collectionToSave.updatedAt) {
         collectionPayload.updated_at = collectionToSave.updatedAt;

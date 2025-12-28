@@ -16,6 +16,7 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({ is
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>(TEMPLATES[0].id);
   const [name, setName] = useState('');
   const [icon, setIcon] = useState('✨');
+  const selectedTemplate = TEMPLATES.find(temp => temp.id === selectedTemplateId) || TEMPLATES[0];
 
   if (!isOpen) return null;
 
@@ -32,6 +33,12 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({ is
     setSelectedTemplateId(tId);
     const temp = TEMPLATES.find(temp => temp.id === tId);
     if (temp) setIcon(temp.icon);
+  };
+
+  const getFieldLabel = (fieldId: string, fallback: string) => {
+    const key = `label_${fieldId}` as any;
+    const translated = t(key);
+    return translated === key ? fallback : translated;
   };
 
   return (
@@ -90,6 +97,30 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({ is
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none">
                     <ChevronDown size={18} />
                 </div>
+            </div>
+          </div>
+
+          <div className="p-4 rounded-2xl border border-stone-100 bg-stone-50/60">
+            <div className="flex items-start gap-3 mb-3">
+              <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-xl shadow-inner">
+                {selectedTemplate.icon}
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-stone-800">{t('templatePreview')}</p>
+                <p className="text-xs text-stone-500 leading-snug">{selectedTemplate.description}</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {selectedTemplate.fields.map(field => (
+                <div key={field.id} className="flex items-center gap-2 px-2 py-1.5 bg-white rounded-lg border border-stone-100 shadow-inner">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-stone-500">{getFieldLabel(field.id, field.label)}</span>
+                  {field.type === 'select' && field.options?.length ? (
+                    <span className="text-[10px] text-stone-400 truncate">({field.options.slice(0, 2).join(', ')}{field.options.length > 2 ? '…' : ''})</span>
+                  ) : (
+                    <span className="text-[10px] text-stone-400 capitalize">{field.type}</span>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
 

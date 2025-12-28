@@ -9,7 +9,7 @@ import { CreateCollectionModal } from './components/CreateCollectionModal';
 import { AuthModal } from './components/AuthModal';
 import { UserCollection, CollectionItem, AppTheme } from './types';
 import { TEMPLATES } from './constants';
-import { Plus, SlidersHorizontal, ArrowLeft, Trash2, LayoutGrid, LayoutTemplate, Printer, Camera, Search, Loader2, Sparkles, Mic, Play, Quote, Sparkle, Globe, Calendar, Lock, Paintbrush } from 'lucide-react';
+import { Plus, SlidersHorizontal, ArrowLeft, Trash2, LayoutGrid, LayoutTemplate, Printer, Camera, Search, Loader2, Sparkles, Mic, Play, Quote, Sparkle, Globe, Calendar, Lock, Paintbrush, AlertCircle } from 'lucide-react';
 import { Button } from './components/ui/Button';
 import { fetchCloudCollections, getLocalCollections, hasLocalOnlyData, importLocalCollectionsToCloud, saveCollection, saveAllCollections, saveAsset, deleteAsset, requestPersistence, getSeedVersion, setSeedVersion, initDB } from './services/db';
 import { processImage } from './services/imageProcessor';
@@ -24,7 +24,8 @@ import { supabase, isSupabaseConfigured, signOutUser } from './services/supabase
 const ThemeContext = createContext<{ theme: AppTheme; setTheme: (t: AppTheme) => void }>({ theme: 'gallery', setTheme: () => {} });
 
 const CURRENT_SEED_VERSION = 3;
-const SEED_IMAGE_PATH = '/assets/sample-vinyl.jpg';
+const SEED_IMAGE_PATH = `${import.meta.env.BASE_URL}assets/sample-vinyl.jpg`;
+const SEED_TIMESTAMP = new Date().toISOString();
 
 const INITIAL_COLLECTIONS: UserCollection[] = [
   {
@@ -47,17 +48,94 @@ const INITIAL_COLLECTIONS: UserCollection[] = [
           label: 'Columbia',
           year: 1959,
           genre: 'Modal Jazz',
+          speed: '33 1/3 RPM',
           condition: 'Mint (M)'
         },
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        notes: "The definitive masterpiece of modal jazz. This specific 180g pressing captures every breath of Miles' trumpet and the delicate touch of Bill Evans on piano. A cornerstone of any serious archive."
+        createdAt: SEED_TIMESTAMP,
+        updatedAt: SEED_TIMESTAMP,
+        notes: "The definitive statement of modal jazz. This 180g pressing keeps the cymbals airy and the bass warm, with space around every phrase. A cornerstone of any serious archive."
+      },
+      {
+        id: 'seed-vinyl-2',
+        seedKey: 'a_love_supreme_seed',
+        collectionId: 'sample-vinyl',
+        photoUrl: SEED_IMAGE_PATH,
+        title: 'A Love Supreme',
+        rating: 5,
+        data: {
+          artist: 'John Coltrane',
+          label: 'Impulse!',
+          year: 1965,
+          genre: 'Spiritual Jazz',
+          speed: '33 1/3 RPM',
+          condition: 'Near Mint (NM)'
+        },
+        createdAt: SEED_TIMESTAMP,
+        updatedAt: SEED_TIMESTAMP,
+        notes: "Coltrane's four-part suite is both devotional and urgent. Keep it in a poly-lined sleeve; the quiet passages reward careful handling."
+      },
+      {
+        id: 'seed-vinyl-3',
+        seedKey: 'whats_going_on_seed',
+        collectionId: 'sample-vinyl',
+        photoUrl: SEED_IMAGE_PATH,
+        title: "What's Going On",
+        rating: 5,
+        data: {
+          artist: 'Marvin Gaye',
+          label: 'Tamla',
+          year: 1971,
+          genre: 'Soul',
+          speed: '33 1/3 RPM',
+          condition: 'Very Good Plus (VG+)'
+        },
+        createdAt: SEED_TIMESTAMP,
+        updatedAt: SEED_TIMESTAMP,
+        notes: "A lush, cinematic mix of protest and prayer. The original gatefold is worth preserving; its sequencing still feels like one continuous breath."
+      },
+      {
+        id: 'seed-vinyl-4',
+        seedKey: 'rumours_seed',
+        collectionId: 'sample-vinyl',
+        photoUrl: SEED_IMAGE_PATH,
+        title: 'Rumours',
+        rating: 4,
+        data: {
+          artist: 'Fleetwood Mac',
+          label: 'Warner Bros.',
+          year: 1977,
+          genre: 'Soft Rock',
+          speed: '33 1/3 RPM',
+          condition: 'Near Mint (NM)'
+        },
+        createdAt: SEED_TIMESTAMP,
+        updatedAt: SEED_TIMESTAMP,
+        notes: "An immaculate pop-rock masterclass with a wide, punchy stereo image. Seek the palm tree label for the warmest playback."
+      },
+      {
+        id: 'seed-vinyl-5',
+        seedKey: 'discovery_seed',
+        collectionId: 'sample-vinyl',
+        photoUrl: SEED_IMAGE_PATH,
+        title: 'Discovery',
+        rating: 4,
+        data: {
+          artist: 'Daft Punk',
+          label: 'Virgin',
+          year: 2001,
+          genre: 'French House',
+          speed: '33 1/3 RPM',
+          condition: 'Very Good Plus (VG+)'
+        },
+        createdAt: SEED_TIMESTAMP,
+        updatedAt: SEED_TIMESTAMP,
+        notes: "A shimmering, forward-looking press with crisp transients. A great reference for soundstage and stereo imaging."
       }
     ],
-    updatedAt: new Date().toISOString(),
+    updatedAt: SEED_TIMESTAMP,
     settings: {
-      displayFields: TEMPLATES.find(t => t.id === 'vinyl')!.displayFields,
-      badgeFields: TEMPLATES.find(t => t.id === 'vinyl')!.badgeFields,
+      displayFields: ['artist', 'label', 'year'],
+      badgeFields: ['genre', 'condition'],
     }
   }
 ];
@@ -68,9 +146,12 @@ const AppContent: React.FC = () => {
   const isVoiceGuideEnabled = import.meta.env.VITE_VOICE_GUIDE_ENABLED === 'true';
   const [collections, setCollections] = useState<UserCollection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [user, setUser] = useState<any>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [authReady, setAuthReady] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [allowPublicBrowse, setAllowPublicBrowse] = useState(false);
   const [hasLocalImport, setHasLocalImport] = useState(false);
   const [importState, setImportState] = useState<'idle' | 'running' | 'done' | 'error'>('idle');
   const [importMessage, setImportMessage] = useState<string | null>(null);
@@ -120,34 +201,94 @@ const AppContent: React.FC = () => {
     };
   }, [isSupabaseReady]);
 
-  const refreshCollections = useCallback(async () => {
-    if (!user) return;
-    setIsLoading(true);
-    try {
-      await requestPersistence();
+  useEffect(() => {
+    let isMounted = true;
+    if (!isSupabaseReady || !supabase || !user) {
+      setIsAdmin(false);
+      return () => { isMounted = false; };
+    }
 
-      const localCollections = await getLocalCollections();
+    const loadAdminStatus = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('is_admin')
+          .eq('id', user.id)
+          .single();
+        if (!isMounted) return;
+        if (error) {
+          console.warn('Admin status check failed:', error);
+          setIsAdmin(false);
+          return;
+        }
+        setIsAdmin(Boolean(data?.is_admin));
+      } catch (e) {
+        console.warn('Admin status check failed:', e);
+        if (isMounted) setIsAdmin(false);
+      }
+    };
+
+    loadAdminStatus();
+    return () => { isMounted = false; };
+  }, [isSupabaseReady, user]);
+
+  const withTimeout = useCallback(async <T,>(promise: Promise<T>, ms: number, message: string): Promise<T> => {
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    const timeoutPromise = new Promise<T>((_resolve, reject) => {
+      timeoutId = setTimeout(() => reject(new Error(message)), ms);
+    });
+    try {
+      return await Promise.race([promise, timeoutPromise]);
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId);
+    }
+  }, []);
+
+  const refreshCollections = useCallback(async () => {
+    if (!isSupabaseReady) {
+      setCollections([]);
+      setIsLoading(false);
+      return;
+    }
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      await withTimeout(requestPersistence(), 4000, 'Persistence request timed out');
+
+      const localCollections = await withTimeout(getLocalCollections(), 4000, 'Local cache load timed out');
       let cloudCollections: UserCollection[] = [];
       try {
-        cloudCollections = await fetchCloudCollections();
+        cloudCollections = await withTimeout(fetchCloudCollections({ userId: user?.id ?? null, includePublic: true }), 12000, 'Cloud fetch timed out');
       } catch (e) {
         console.warn('Supabase cloud fetch failed:', e);
         setHasLocalImport(false);
         setCollections(localCollections);
+        setLoadError('Unable to sync with Supabase. Check your connection and Supabase settings.');
         return;
       }
-      const localOnly = hasLocalOnlyData(localCollections, cloudCollections);
 
+      if (!user) {
+        setHasLocalImport(false);
+        setCollections(cloudCollections);
+        return;
+      }
+
+      const localOnly = hasLocalOnlyData(localCollections, cloudCollections);
       setHasLocalImport(localOnly);
 
-      if (cloudCollections.length === 0 && localCollections.length === 0) {
+      if (cloudCollections.length === 0 && localCollections.length === 0 && isAdmin) {
         const localSeedVersion = await getSeedVersion();
         if (localSeedVersion < CURRENT_SEED_VERSION) {
-          for (const seedCollection of INITIAL_COLLECTIONS) {
+          const seededCollections = INITIAL_COLLECTIONS.map(seed => ({
+            ...seed,
+            isPublic: true,
+            ownerId: user.id
+          }));
+          for (const seedCollection of seededCollections) {
             await saveCollection(seedCollection);
           }
           await setSeedVersion(CURRENT_SEED_VERSION);
-          cloudCollections = [...INITIAL_COLLECTIONS];
+          cloudCollections = [...seededCollections];
         }
       }
 
@@ -155,18 +296,18 @@ const AppContent: React.FC = () => {
         await saveAllCollections(cloudCollections);
       }
 
-      setCollections(cloudCollections);
+      setCollections(cloudCollections.length > 0 ? cloudCollections : localCollections);
     } catch (e) {
       console.error("Initialization failed:", e);
+      setLoadError('Failed to load collections. Please try again.');
       setCollections([]);
     } finally {
       setIsLoading(false);
     }
-  }, [user]);
+  }, [user, isAdmin, isSupabaseReady, withTimeout]);
 
   useEffect(() => {
-    if (!authReady) return;
-    if (!isSupabaseReady || !user) {
+    if (!isSupabaseReady) {
       setCollections([]);
       setIsLoading(false);
       setHasLocalImport(false);
@@ -175,7 +316,13 @@ const AppContent: React.FC = () => {
       return;
     }
     refreshCollections();
-  }, [authReady, isSupabaseReady, user, refreshCollections]);
+  }, [isSupabaseReady, user, refreshCollections]);
+
+  useEffect(() => {
+    if (!user && collections.some(c => c.isPublic)) {
+      setAllowPublicBrowse(true);
+    }
+  }, [collections, user]);
 
   const handleImportLocal = async () => {
     setImportState('running');
@@ -201,12 +348,21 @@ const AppContent: React.FC = () => {
     }, 1500);
   }, []);
 
+  const canEditCollection = useCallback((collectionId: string) => {
+    const target = collections.find(c => c.id === collectionId);
+    if (!target) return false;
+    return !target.isPublic || isAdmin;
+  }, [collections, isAdmin]);
+
   const handleAddItem = async (collectionId: string, itemData: Omit<CollectionItem, 'id' | 'createdAt' | 'updatedAt'>) => {
+    if (!canEditCollection(collectionId)) return;
     const itemId = Math.random().toString(36).substr(2, 9);
     const now = new Date().toISOString();
     let hasPhoto = false;
+    const targetCollection = collections.find(c => c.id === collectionId);
+    const isPublicCollection = Boolean(targetCollection?.isPublic);
 
-    if (itemData.photoUrl.startsWith('data:')) {
+    if (!isPublicCollection && itemData.photoUrl.startsWith('data:')) {
       try {
         const { master, thumb } = await processImage(itemData.photoUrl);
         await saveAsset(itemId, master, thumb);
@@ -237,6 +393,7 @@ const AppContent: React.FC = () => {
   };
 
   const updateItem = (collectionId: string, itemId: string, updates: Partial<CollectionItem>) => {
+    if (!canEditCollection(collectionId)) return;
     const now = new Date().toISOString();
     setCollections(prev => prev.map(c => {
       if (c.id === collectionId) {
@@ -261,6 +418,8 @@ const AppContent: React.FC = () => {
           icon: icon || template.icon,
           customFields: template.fields,
           items: [],
+          isPublic: false,
+          ownerId: user?.id,
           updatedAt: new Date().toISOString(),
           settings: { displayFields: template.displayFields, badgeFields: template.badgeFields }
       };
@@ -272,6 +431,7 @@ const AppContent: React.FC = () => {
   };
 
   const deleteItem = (collectionId: string, itemId: string) => {
+      if (!canEditCollection(collectionId)) return false;
       if (confirm(t('deleteConfirm'))) {
           setCollections(prev => prev.map(c => {
               if (c.id === collectionId) {
@@ -288,11 +448,12 @@ const AppContent: React.FC = () => {
   };
 
   const stats = useMemo(() => {
-    const totalItems = collections.reduce((acc, c) => acc + c.items.length, 0);
+    const statCollections = collections.filter(c => !c.isPublic);
+    const totalItems = statCollections.reduce((acc, c) => acc + c.items.length, 0);
     const avgRating = totalItems > 0 
-      ? (collections.reduce((acc, c) => acc + c.items.reduce((iacc, i) => iacc + i.rating, 0), 0) / totalItems).toFixed(1)
+      ? (statCollections.reduce((acc, c) => acc + c.items.reduce((iacc, i) => iacc + i.rating, 0), 0) / totalItems).toFixed(1)
       : 0;
-    const allItems = collections.flatMap(c => c.items);
+    const allItems = statCollections.flatMap(c => c.items);
     const featured = allItems.length > 0 ? allItems[Math.floor(Math.random() * allItems.length)] : null;
     
     // Archeology: Find item added on this day in past
@@ -302,7 +463,7 @@ const AppContent: React.FC = () => {
        return d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() < now.getFullYear();
     }) || allItems[0];
 
-    return { totalItems, avgRating, totalCollections: collections.length, featured, historyItem };
+    return { totalItems, avgRating, totalCollections: statCollections.length, featured, historyItem };
   }, [collections]);
 
   const toggleTheme = () => {
@@ -313,6 +474,10 @@ const AppContent: React.FC = () => {
         tx.objectStore('settings').put(nextTheme, 'app_theme');
     });
   };
+
+  const editableCollections = useMemo(() => {
+    return collections.filter(c => !c.isPublic || isAdmin);
+  }, [collections, isAdmin]);
 
   const HomeScreen = () => {
     const navigate = useNavigate();
@@ -327,6 +492,21 @@ const AppContent: React.FC = () => {
       <div className="flex flex-col items-center justify-center py-32">
         <Loader2 className="text-stone-300 animate-spin mb-4" size={32} />
         <p className="text-stone-400 font-serif italic">{t('restoringArchives')}</p>
+      </div>
+    );
+
+    if (loadError) return (
+      <div className="flex flex-col items-center justify-center py-24">
+        <div className="max-w-md w-full text-center bg-white/70 border border-stone-200 rounded-[2.5rem] p-10 shadow-xl">
+          <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto mb-6">
+            <AlertCircle size={24} />
+          </div>
+          <h2 className="font-serif text-2xl font-bold text-stone-900 mb-2">Sync paused</h2>
+          <p className="text-sm text-stone-500 mb-6">{loadError}</p>
+          <Button onClick={() => refreshCollections()} size="lg" className="w-full">
+            Retry
+          </Button>
+        </div>
       </div>
     );
 
@@ -451,6 +631,8 @@ const AppContent: React.FC = () => {
     const [isExhibitionOpen, setIsExhibitionOpen] = useState(false);
 
     if (!collection) return <Navigate to="/" replace />;
+    const isReadOnly = Boolean(collection.isPublic) && !isAdmin;
+    const isSample = Boolean(collection.isPublic) || collection.id.startsWith('sample');
 
     const filteredItems = collection.items.filter(item => {
         const term = filter.toLowerCase();
@@ -470,9 +652,41 @@ const AppContent: React.FC = () => {
     });
 
     const activeFilterCount = Object.values(activeFilters).filter(Boolean).length;
+    const activeFilterEntries = Object.entries(activeFilters).filter(([, value]) => value);
+
+    const getFieldLabel = (fieldId: string) => {
+      const fieldKey = `label_${fieldId}` as any;
+      const translated = t(fieldKey);
+      if (translated === fieldKey) {
+        return collection.customFields.find(f => f.id === fieldId)?.label || fieldId;
+      }
+      return translated;
+    };
+
+    const handleRemoveFilter = (key: string) => {
+      setActiveFilters(prev => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+    };
+
+    const handleClearFilters = () => setActiveFilters({});
 
     return (
       <div className="space-y-10 animate-in slide-in-from-bottom-4 duration-500">
+        {isReadOnly && (
+          <div className={`flex items-center gap-3 p-4 rounded-2xl border shadow-sm ${theme === 'vault' ? 'bg-white/5 border-white/10' : 'bg-white/80 border-stone-100'}`}>
+            <div className="p-2 rounded-xl bg-amber-50 text-amber-700 shadow-inner">
+              <Lock size={16} />
+            </div>
+            <div>
+              <p className={`text-sm font-semibold ${theme === 'vault' ? 'text-white' : 'text-stone-900'}`}>{t('readOnlyMode')}</p>
+              <p className="text-xs text-stone-500">{t('readOnlyCollectionDesc')}</p>
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8">
             <div className="flex items-center gap-6">
                 <Link to="/" className={`p-4 border rounded-2xl shadow-lg transition-all hover:scale-105 active:scale-95 ${theme === 'vault' ? 'bg-stone-900 border-white/5 text-stone-400' : 'bg-white border-stone-100 text-stone-400'}`}>
@@ -484,6 +698,11 @@ const AppContent: React.FC = () => {
                         <span className="text-stone-400 font-serif text-lg italic">
                           {t('artifactsCataloged', { n: collection.items.length })}
                         </span>
+                        {isSample && (
+                          <span className="text-[8px] font-mono tracking-[0.2em] bg-white/40 text-stone-500 px-1.5 py-0.5 rounded border border-black/5 uppercase font-bold">
+                            Sample
+                          </span>
+                        )}
                         {collection.isLocked && <Lock size={16} className="text-amber-500" />}
                     </div>
                 </div>
@@ -526,7 +745,11 @@ const AppContent: React.FC = () => {
                  <div className="text-8xl mb-8 grayscale opacity-10">🏛️</div>
                  <h3 className={`text-3xl font-serif font-bold mb-2 italic tracking-tight ${theme === 'vault' ? 'text-white' : 'text-stone-800'}`}>{t('galleryAwaits')}</h3>
                  <p className="text-stone-400 mb-10 max-w-sm mx-auto leading-relaxed font-serif text-lg">{t('museumDefinition')}</p>
-                 {!filter && activeFilterCount === 0 && <Button size="lg" className="px-12 py-4 text-lg rounded-2xl shadow-xl" onClick={() => setIsAddModalOpen(true)}>{t('catalogFirst')}</Button>}
+                 {!isReadOnly && !filter && activeFilterCount === 0 && (
+                   <Button size="lg" className="px-12 py-4 text-lg rounded-2xl shadow-xl" onClick={() => setIsAddModalOpen(true)}>
+                     {t('catalogFirst')}
+                   </Button>
+                 )}
              </div>
         ) : (
             <div className={`${viewMode === 'grid' ? "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8" : "columns-2 md:columns-3 lg:columns-4 gap-8"} w-full`}>
@@ -555,8 +778,10 @@ const AppContent: React.FC = () => {
       const item = collection?.items.find(i => i.id === itemId);
 
       if (!collection || !item) return <Navigate to={`/collection/${id}`} replace />;
+      const isReadOnly = Boolean(collection.isPublic) && !isAdmin;
 
       const handleDelete = () => {
+          if (isReadOnly) return;
           if (confirm(t('deleteConfirm'))) {
               if (deleteItem(collection.id, item.id)) {
                   navigate(`/collection/${collection.id}`);
@@ -565,6 +790,7 @@ const AppContent: React.FC = () => {
       };
 
       const handlePhotoUpdate = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (isReadOnly) return;
         const file = e.target.files?.[0];
         if (file) {
             setIsProcessing(true);
@@ -572,9 +798,13 @@ const AppContent: React.FC = () => {
             reader.onloadend = async () => {
                 const base64 = reader.result as string;
                 try {
-                    const { master, thumb } = await processImage(base64);
-                    await saveAsset(item.id, master, thumb);
-                    updateItem(collection.id, item.id, { photoUrl: 'asset' });
+                    if (collection.isPublic) {
+                        updateItem(collection.id, item.id, { photoUrl: base64 });
+                    } else {
+                        const { master, thumb } = await processImage(base64);
+                        await saveAsset(item.id, master, thumb);
+                        updateItem(collection.id, item.id, { photoUrl: 'asset' });
+                    }
                 } catch (err) {
                     console.error("Photo update failed", err);
                 } finally {
@@ -615,13 +845,17 @@ const AppContent: React.FC = () => {
                   
                   <div className="absolute inset-0 bg-gradient-to-t from-stone-950/60 to-transparent"></div>
 
-                  <div className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${hasPhoto ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'}`}>
-                      <button disabled={isProcessing} onClick={() => fileInputRef.current?.click()} className="bg-white/90 hover:bg-white text-stone-900 px-6 sm:px-8 py-2 sm:py-3 rounded-full font-bold shadow-2xl backdrop-blur-md transition-all hover:scale-105 flex items-center gap-2 sm:gap-3 disabled:opacity-50 text-xs sm:text-sm">
-                        {isProcessing ? <Loader2 size={16} className="animate-spin" /> : <Camera size={16} />}
-                        {t('updatePhoto')}
-                      </button>
-                  </div>
-                  <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handlePhotoUpdate} />
+                  {!isReadOnly && (
+                    <>
+                      <div className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${hasPhoto ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'}`}>
+                          <button disabled={isProcessing} onClick={() => fileInputRef.current?.click()} className="bg-white/90 hover:bg-white text-stone-900 px-6 sm:px-8 py-2 sm:py-3 rounded-full font-bold shadow-2xl backdrop-blur-md transition-all hover:scale-105 flex items-center gap-2 sm:gap-3 disabled:opacity-50 text-xs sm:text-sm">
+                            {isProcessing ? <Loader2 size={16} className="animate-spin" /> : <Camera size={16} />}
+                            {t('updatePhoto')}
+                          </button>
+                      </div>
+                      <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handlePhotoUpdate} />
+                    </>
+                  )}
                   
                   <button onClick={() => navigate(-1)} className={`absolute top-4 left-4 sm:top-8 sm:left-8 w-10 h-10 sm:w-14 sm:h-14 backdrop-blur-md rounded-xl sm:rounded-2xl flex items-center justify-center shadow-xl transition-all hover:scale-105 z-10 ${theme === 'vault' ? 'bg-white/10 text-white' : 'bg-white/80 text-stone-800'}`}><ArrowLeft size={20} className="sm:w-6 sm:h-6" /></button>
                   
@@ -631,25 +865,44 @@ const AppContent: React.FC = () => {
               </div>
 
               <div className="p-8 sm:p-12 md:p-20 space-y-10 sm:space-y-12">
+                  {isReadOnly && (
+                    <div className={`flex items-center gap-3 p-4 rounded-2xl border ${theme === 'vault' ? 'bg-white/5 border-white/10' : 'bg-stone-50 border-stone-100'}`}>
+                      <div className="p-2 rounded-xl bg-amber-50 text-amber-700 shadow-inner">
+                        <Lock size={16} />
+                      </div>
+                      <div>
+                        <p className={`text-sm font-semibold ${theme === 'vault' ? 'text-white' : 'text-stone-900'}`}>{t('readOnlyMode')}</p>
+                        <p className="text-xs text-stone-500">{t('readOnlyItemDesc')}</p>
+                      </div>
+                    </div>
+                  )}
                   <div className="flex flex-col md:flex-row justify-between items-start gap-8 sm:gap-12">
                       <div className="flex-1 w-full">
                           <input 
                             type="text" 
-                            className={`text-3xl sm:text-5xl md:text-6xl font-serif font-bold mb-4 sm:mb-6 w-full bg-transparent border-b-2 border-transparent focus:border-amber-100 outline-none transition-all placeholder:italic tracking-tight ${theme === 'vault' ? 'text-white' : 'text-stone-900'}`}
+                            className={`text-3xl sm:text-5xl md:text-6xl font-serif font-bold mb-4 sm:mb-6 w-full bg-transparent border-b-2 border-transparent focus:border-amber-100 outline-none transition-all placeholder:italic tracking-tight ${theme === 'vault' ? 'text-white' : 'text-stone-900'} ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
                             value={item.title}
                             onChange={(e) => updateItem(collection.id, item.id, { title: e.target.value })}
                             placeholder="..."
+                            disabled={isReadOnly}
                           />
                           <div className="flex items-center gap-2">
                               {[1,2,3,4,5].map((star) => (
-                                <button key={star} onClick={() => updateItem(collection.id, item.id, { rating: star })} className="transition-transform hover:scale-125">
+                                <button
+                                  key={star}
+                                  onClick={() => updateItem(collection.id, item.id, { rating: star })}
+                                  className={`transition-transform ${isReadOnly ? 'cursor-not-allowed opacity-70' : 'hover:scale-125'}`}
+                                  disabled={isReadOnly}
+                                >
                                     <span className="text-2xl sm:text-4xl">{star <= item.rating ? <span className="text-amber-400">★</span> : <span className="text-stone-100/10">★</span>}</span>
                                 </button>
                               ))}
                               <span className="ml-3 sm:ml-4 text-[8px] sm:text-[10px] font-mono tracking-[0.2em] sm:tracking-[0.3em] text-stone-300 uppercase font-bold">{t('registryQuality')}</span>
                           </div>
                       </div>
-                      <button onClick={handleDelete} className="text-stone-200 hover:text-red-400 transition-colors p-3 sm:p-4 rounded-full hover:bg-red-50 shrink-0"><Trash2 size={20} className="sm:w-6 sm:h-6" /></button>
+                      {!isReadOnly && (
+                        <button onClick={handleDelete} className="text-stone-200 hover:text-red-400 transition-colors p-3 sm:p-4 rounded-full hover:bg-red-50 shrink-0"><Trash2 size={20} className="sm:w-6 sm:h-6" /></button>
+                      )}
                   </div>
 
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 sm:gap-16">
@@ -659,10 +912,11 @@ const AppContent: React.FC = () => {
                              <dt className="text-[9px] sm:text-[10px] font-bold text-stone-400 uppercase tracking-[0.2em] sm:tracking-[0.3em] font-mono">{t('archiveNarrative')}</dt>
                         </div>
                         <textarea 
-                            className={`w-full p-6 sm:p-8 rounded-2xl sm:rounded-[2.5rem] italic border font-serif text-xl sm:text-2xl leading-relaxed min-h-[200px] sm:min-h-[240px] focus:ring-8 focus:ring-amber-500/5 focus:border-amber-100 outline-none transition-all shadow-inner placeholder:text-stone-200 ${theme === 'vault' ? 'bg-white/5 border-white/5 text-white' : 'bg-stone-50/50 border-stone-100 text-stone-800'}`}
+                            className={`w-full p-6 sm:p-8 rounded-2xl sm:rounded-[2.5rem] italic border font-serif text-xl sm:text-2xl leading-relaxed min-h-[200px] sm:min-h-[240px] focus:ring-8 focus:ring-amber-500/5 focus:border-amber-100 outline-none transition-all shadow-inner placeholder:text-stone-200 ${theme === 'vault' ? 'bg-white/5 border-white/5 text-white' : 'bg-stone-50/50 border-stone-100 text-stone-800'} ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
                             value={item.notes}
                             onChange={(e) => updateItem(collection.id, item.id, { notes: e.target.value })}
                             placeholder={t('provenancePlaceholder')}
+                            disabled={isReadOnly}
                         />
                       </div>
 
@@ -676,13 +930,14 @@ const AppContent: React.FC = () => {
                                       <div key={field.id} className="group">
                                           <dt className="text-[8px] sm:text-[10px] font-bold text-stone-300 uppercase tracking-2.0 mb-1 sm:mb-2 group-hover:text-amber-500 transition-colors font-mono">{label}</dt>
                                           <input 
-                                            className={`font-serif text-lg sm:text-xl w-full bg-transparent border-none p-0 outline-none focus:text-amber-900 focus:ring-0 transition-colors placeholder:text-stone-100 ${theme === 'vault' ? 'text-white' : 'text-stone-900'}`}
+                                            className={`font-serif text-lg sm:text-xl w-full bg-transparent border-none p-0 outline-none focus:text-amber-900 focus:ring-0 transition-colors placeholder:text-stone-100 ${theme === 'vault' ? 'text-white' : 'text-stone-900'} ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
                                             value={val || ''}
                                             placeholder="—"
                                             onChange={(e) => {
                                                 const newData = { ...item.data, [field.id]: e.target.value };
                                                 updateItem(collection.id, item.id, { data: newData });
                                             }}
+                                            disabled={isReadOnly}
                                           />
                                       </div>
                                   );
@@ -703,11 +958,23 @@ const AppContent: React.FC = () => {
   };
 
   const isAuthenticated = Boolean(user);
-  const showAccessGate = !authReady || !isSupabaseReady || !isAuthenticated;
+  const sampleCollection = useMemo(() => collections.find(c => c.isPublic), [collections]);
+  const showAccessGate = !isSupabaseReady || (!isAuthenticated && !allowPublicBrowse);
+
+  const handleExploreSamples = () => {
+    setAllowPublicBrowse(true);
+    if (isSupabaseReady) {
+      refreshCollections();
+    }
+  };
 
   const handleAddAction = () => {
     if (!isAuthenticated) {
       setIsAuthModalOpen(true);
+      return;
+    }
+    if (editableCollections.length === 0) {
+      setIsCreateCollectionOpen(true);
       return;
     }
     setIsAddModalOpen(true);
@@ -729,15 +996,22 @@ const AppContent: React.FC = () => {
         <p className="text-sm text-stone-500 mb-6">
           {!authReady && isSupabaseReady ? t('authLoadingDesc') : (isSupabaseReady ? t('authRequiredDesc') : t('cloudRequiredDesc'))}
         </p>
-        {isSupabaseReady && authReady ? (
-          <Button onClick={() => setIsAuthModalOpen(true)} size="lg" className="w-full">
-            {t('authRequiredAction')}
-          </Button>
-        ) : !isSupabaseReady ? (
-          <div className="text-[10px] font-mono uppercase tracking-widest text-stone-400">
-            {t('cloudRequiredAction')}
-          </div>
-        ) : null}
+        <div className="space-y-3">
+          {isSupabaseReady && (
+            <Button onClick={handleExploreSamples} size="lg" variant="secondary" className="w-full">
+              {t('exploreSample')}
+            </Button>
+          )}
+          {isSupabaseReady && authReady ? (
+            <Button onClick={() => setIsAuthModalOpen(true)} size="lg" className="w-full">
+              {t('authRequiredAction')}
+            </Button>
+          ) : !isSupabaseReady ? (
+            <div className="text-[10px] font-mono uppercase tracking-widest text-stone-400">
+              {t('cloudRequiredAction')}
+            </div>
+          ) : null}
+        </div>
       </div>
     </div>
   );
@@ -755,7 +1029,19 @@ const AppContent: React.FC = () => {
         importMessage={importMessage}
         onImportLocal={handleImportLocal}
         headerExtras={
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-2">
+                {sampleCollection && (
+                  <Link to={`/collection/${sampleCollection.id}`}>
+                    <Button 
+                      variant="secondary" 
+                      size="sm" 
+                      className="hidden sm:inline-flex" 
+                      icon={<Sparkles size={14} />}
+                    >
+                      {t('exploreSample')}
+                    </Button>
+                  </Link>
+                )}
                 <button 
                 onClick={toggleTheme}
                 className="p-2 hover:bg-stone-100 dark:hover:bg-white/10 rounded-full text-stone-500 hover:text-stone-900 transition-colors"
@@ -784,7 +1070,7 @@ const AppContent: React.FC = () => {
                 <Route path="/collection/:id/item/:itemId" element={<ItemDetailScreen />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
-            <AddItemModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} collections={collections} onSave={handleAddItem} />
+            <AddItemModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} collections={editableCollections} onSave={handleAddItem} />
             <CreateCollectionModal isOpen={isCreateCollectionOpen} onClose={() => setIsCreateCollectionOpen(false)} onCreate={handleCreateCollection} />
             {isVoiceGuideEnabled && activeCollectionForGuide && (
                 <MuseumGuide 

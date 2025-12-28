@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 // Added Plus icon to the lucide-react imports
 import { Camera, Upload, X, Loader2, Sparkles, Check, Zap, ArrowRight, Trash2, Plus } from 'lucide-react';
 import { UserCollection, CollectionItem } from '../types';
@@ -23,17 +23,30 @@ interface BatchItem {
   rating: number;
 }
 
+type FlowStep = 'select-type' | 'upload' | 'analyzing' | 'verify' | 'batch-verify';
+const createEmptyForm = () => ({ title: '', notes: '', data: {} as Record<string, any>, rating: 0 });
+
 export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, collections, onSave }) => {
   const { t } = useTranslation();
-  const [step, setStep] = useState<'select-type' | 'upload' | 'batch-verify' | 'analyzing' | 'verify'>('select-type');
+  const [step, setStep] = useState<FlowStep>('select-type');
   const [selectedCollectionId, setSelectedCollectionId] = useState<string>('');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [batchItems, setBatchItems] = useState<BatchItem[]>([]);
-  const [formData, setFormData] = useState<any>({});
+  const [formData, setFormData] = useState(createEmptyForm());
   const [error, setError] = useState<string | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const batchInputRef = useRef<HTMLInputElement>(null);
+  const analysisRunId = useRef(0);
+
+  const stepItems = useMemo<{ id: FlowStep; label: string; helper: string }[]>(() => ([
+    { id: 'select-type', label: t('stepChooseCollection'), helper: t('stepChooseCollectionDesc') },
+    { id: 'upload', label: t('stepCapture'), helper: t('stepCaptureDesc') },
+    { id: 'analyzing', label: t('stepAnalyze'), helper: t('stepAnalyzeDesc') },
+    { id: 'verify', label: t('stepVerify'), helper: t('stepVerifyDesc') },
+  ]), [t]);
+  const currentStepId: FlowStep = step === 'batch-verify' ? 'verify' : step;
+  const currentStepIndex = stepItems.findIndex(s => s.id === currentStepId);
 
   useEffect(() => {
     if (isOpen) {
@@ -41,8 +54,9 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
       if (collections.length === 1) setSelectedCollectionId(collections[0].id);
       setImagePreview(null);
       setBatchItems([]);
-      setFormData({});
+      setFormData(createEmptyForm());
       setError(null);
+      analysisRunId.current += 1;
     }
   }, [isOpen, collections]);
 
@@ -50,9 +64,18 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
 
   const currentCollection = collections.find(c => c.id === selectedCollectionId);
 
+  const switchToManual = () => {
+    analysisRunId.current += 1;
+    setError(null);
+    setFormData(createEmptyForm());
+    setStep('verify');
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setError(null);
+      setFormData(createEmptyForm());
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64 = reader.result as string;
@@ -93,7 +116,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
 
     const analyzeBatchImages = async (images: string[]) => {
       if (!isAiEnabled()) {
-        setError("AI analysis is unavailable. Please fill in the details manually.");
+        setError(t('aiUnavailableManual'));
         return images.map(image => createBatchItem(image));
       }
       const analyzed: BatchItem[] = [];
@@ -108,7 +131,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
           }));
         } catch (err) {
           console.error(err);
-          setError("Analysis failed. Please fill in the details manually.");
+          setError(t('analysisFallback'));
           analyzed.push(createBatchItem(image));
         }
       }
@@ -152,9 +175,11 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
 
   const analyze = async (base64: string) => {
     if (!currentCollection) return;
+    const runId = ++analysisRunId.current;
+    setError(null);
+    setFormData(createEmptyForm());
     if (!isAiEnabled()) {
-      setError("AI analysis is unavailable. Please fill in the details manually.");
-      setFormData({ title: '', notes: '', data: {}, rating: 0 });
+      setError(t('aiUnavailableManual'));
       setStep('verify');
       return;
     }
@@ -162,18 +187,20 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
     try {
       const base64Data = base64.split(',')[1];
       const result = await analyzeImage(base64Data, currentCollection.customFields);
+      if (analysisRunId.current !== runId) return;
       setFormData({
-        title: result.title,
-        notes: result.notes,
-        data: result.data,
+        title: result.title || '',
+        notes: result.notes || '',
+        data: result.data || {},
         rating: 0
       });
       setStep('verify');
     } catch (e) {
       console.error(e);
-      setError("Analysis failed. Please fill in the details manually.");
+      if (analysisRunId.current !== runId) return;
+      setError(t('analysisFallback'));
       setStep('verify');
-      setFormData({ title: '', notes: '', data: {}, rating: 0 });
+      setFormData(createEmptyForm());
     }
   };
 
@@ -204,6 +231,26 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
     });
     onClose();
   };
+
+  const renderStepper = () => (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+      {stepItems.map((s, idx) => {
+        const isComplete = idx < currentStepIndex;
+        const isActive = idx === currentStepIndex;
+        return (
+          <div key={s.id} className={`flex items-center gap-3 p-3 rounded-xl border ${isActive ? 'border-amber-200 bg-amber-50/70' : 'border-stone-100 bg-stone-50'}`}>
+            <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold ${isComplete || isActive ? 'bg-stone-900 text-white' : 'bg-white text-stone-400 border border-stone-200'}`}>
+              {isComplete ? <Check size={14} /> : idx + 1}
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-stone-800">{s.label}</p>
+              <p className="text-[10px] text-stone-500 leading-tight">{s.helper}</p>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
 
   const renderCollectionSelect = () => (
     <div className="space-y-4 sm:space-y-6">
@@ -256,7 +303,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
             <Button variant="secondary" onClick={() => batchInputRef.current?.click()} icon={<Zap size={18} />}>
                 {t('batchMode')}
             </Button>
-            <button onClick={() => setStep('verify')} className="text-xs sm:text-sm font-medium text-stone-400 hover:text-stone-600">{t('skipManual')}</button>
+            <button onClick={switchToManual} className="text-xs sm:text-sm font-medium text-stone-400 hover:text-stone-600">{t('skipManual')}</button>
         </div>
         <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
         <input type="file" ref={batchInputRef} className="hidden" accept="image/*" multiple onChange={handleBatchFileChange} />
@@ -346,14 +393,22 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
             <h3 className="text-xl sm:text-2xl font-serif font-bold text-stone-900 mb-1 sm:mb-2">{t('analyzingPhoto')}</h3>
             <p className="text-sm sm:text-base text-stone-500 italic font-serif">{t('geminiExtracting')}</p>
         </div>
+        <div className="flex justify-center">
+          <Button variant="ghost" size="sm" onClick={switchToManual}>
+            {t('enterManually')}
+          </Button>
+        </div>
     </div>
   );
 
   const renderVerify = () => (
     <div className="space-y-4 sm:space-y-6">
        {error && (
-         <div className="p-3 bg-amber-50 text-amber-700 text-xs rounded-xl border border-amber-100 font-medium">
-           {error}
+         <div className="p-3 bg-amber-50 text-amber-700 text-xs rounded-xl border border-amber-100 font-medium flex items-center justify-between gap-2">
+           <span>{error}</span>
+           <button onClick={switchToManual} className="text-amber-800 underline underline-offset-4 font-semibold">
+             {t('enterManually')}
+           </button>
          </div>
        )}
        <div className="flex gap-4 sm:gap-6 items-start">
@@ -417,7 +472,8 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
           </button>
         </div>
 
-        <div className="p-5 sm:p-8">
+        <div className="p-5 sm:p-8 space-y-6">
+            {renderStepper()}
             {step === 'select-type' && renderCollectionSelect()}
             {step === 'upload' && renderUpload()}
             {step === 'batch-verify' && renderBatchVerify()}
