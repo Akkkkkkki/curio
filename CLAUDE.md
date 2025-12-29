@@ -6,6 +6,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Curio is a personal collection management app with AI-powered image analysis and cloud synchronization. It uses a cloud-first architecture where Supabase is the source of truth and IndexedDB is a local cache.
 
+## Product Constraints (MVP: Value in 5 Minutes)
+When making UX/product changes, preserve these constraints:
+- **Delight before auth:** Users must be able to explore the **Public Sample Gallery** pre-login. Prompt for auth when the user attempts to save their own content.
+- **Single-path first run:** Present one primary CTA (**Add your first item**) and one secondary CTA (**Explore sample**). Avoid multiple competing actions on first launch.
+- **Recoverable AI:** AI analysis must never be a hard blocker. If analysis fails/slow, users should be able to complete item creation manually without losing progress.
+- **Read-only clarity:** Public/sample collections must be clearly labeled read-only for non-admins, and edit affordances must be disabled consistently.
+- **Explicit outcomes:** Surface clear feedback for “Saved”, “Synced”, and “Will sync / retrying” states so users trust the system.
+
 ## Commands
 
 ### Development
@@ -135,9 +143,10 @@ GEMINI_API_KEY=your_api_key_here
 - "Cloud Required" (gray)
 
 **Database Schema:**
-- `collections` table: id (text), user_id, template_id, name, icon, settings (JSON), seed_key, created_at, updated_at
+- `collections` table: id (text), user_id, template_id, name, icon, settings (JSON), seed_key, is_public, created_at, updated_at
 - `items` table: id (text), collection_id, user_id, title, rating, notes, data (JSON), photo_path, seed_key, created_at, updated_at
-- RLS enforces `user_id = auth.uid()` on all tables
+- `profiles` table: id, seed_version, is_admin, created_at
+- RLS enforces per-user access, plus public read on `is_public` collections/items and admin-only edits
 **Supabase Scripts:**
 - `supabase/0_reset.sql` (destructive reset)
 - `supabase/1_schema.sql`
@@ -168,7 +177,8 @@ Six predefined templates in `constants.ts`:
 **Data Persistence:**
 - IndexedDB is a cache; Supabase is the source of truth
 - Changes sync to Supabase after 1500ms debounce
-- Images normalized and uploaded to Supabase Storage bucket
+- Images normalized and uploaded to Supabase Storage bucket for private collections
+- Public sample collections use direct public URLs for images (no private storage dependency)
 
 ### Styling System
 

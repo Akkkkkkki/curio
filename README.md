@@ -8,6 +8,14 @@ This contains everything you need to run your app locally.
 
 View your app in AI Studio: https://ai.studio/apps/drive/1Yuc0O2t_PeURvxwx5ooQNqxIIcYfegJ1
 
+## MVP Product Behavior (5-minute time-to-value)
+Curio’s MVP is designed so a new user can get meaningful value within **5 minutes**:
+- **Delight before auth:** Users can explore the **Public Sample Gallery** *before signing in*.
+- **One clear first action:** The UI should present a primary CTA to **Add your first item** (and a secondary CTA to **Explore sample**).
+- **Capture reliability:** The add-item flow must show visible stages (Upload → Analyzing → Review → Save), and provide a manual fallback if AI fails/slow.
+- **Clear outcomes:** Users must see explicit **Saved** and **Synced / Will sync** feedback.
+- **Read-only clarity:** Public sample collections/items are read-only for non-admin users and must be visibly labeled as such.
+
 ## Run Locally
 
 **Prerequisites:**  Node.js
@@ -54,6 +62,20 @@ Supabase has been initialized with the scripts in:
 - `supabase/3_profiles.sql`
 
 If you previously created tables with UUID `id` columns for collections/items, drop or migrate them before running `supabase/1_schema.sql` so IDs can be stored as text.
+
+### Public Sample Collection
+
+Curated sample collections are stored in the same `collections`/`items` tables and marked with `is_public = true`. All users can read them, but only admin users can edit or delete them.
+
+To promote an admin account:
+
+```
+update public.profiles set is_admin = true where id = 'YOUR_USER_UUID';
+```
+
+Notes:
+- Public samples should use public image URLs (e.g., `public/assets/...`) rather than private storage paths.
+- The admin account can seed the public sample by signing in on a clean database and saving the sample collection.
 
 ## Notes
 
