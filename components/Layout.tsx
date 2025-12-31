@@ -66,7 +66,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, onAddItem, onOpenAuth,
   return (
     <div className={`min-h-screen font-sans selection:bg-amber-200 transition-colors ${shellClass}`}>
       <header className={`sticky top-0 z-20 backdrop-blur-md border-b ${headerSurface}`}>
-        <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
+        <div className="max-w-4xl mx-auto px-4 py-3 flex flex-wrap items-center gap-3 justify-between md:flex-nowrap md:gap-4">
           <Link to="/" className="flex items-center gap-2 group">
             <div className={`w-9 h-9 rounded-lg flex items-center justify-center font-serif font-bold text-xl transition-colors ${theme === 'vault' ? 'bg-white text-stone-900 group-hover:bg-amber-400' : 'bg-stone-900 text-white group-hover:bg-amber-600'}`}>
               C
@@ -74,12 +74,12 @@ export const Layout: React.FC<LayoutProps> = ({ children, onAddItem, onOpenAuth,
             <span className="font-serif text-xl font-bold tracking-tight leading-none">{t('appTitle')}</span>
           </Link>
           
-          <nav className="flex items-center gap-2">
-          {headerExtras}
-          
-          <div className="relative">
-              <button 
-                  onClick={() => setIsProfileOpen(!isProfileOpen)}
+          <nav className="flex items-center gap-2 flex-wrap justify-end md:flex-nowrap">
+            {headerExtras}
+            
+            <div className="relative">
+                <button 
+                    onClick={() => setIsProfileOpen(!isProfileOpen)}
                   className={`p-2 rounded-full transition-colors ${navGhost} ${statusColor}`}
               >
                   <User size={20} />
@@ -169,7 +169,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, onAddItem, onOpenAuth,
             )}
             <button 
                 onClick={onAddItem}
-                className={`${primaryCta} rounded-full px-4 py-1.5 text-sm font-medium flex items-center gap-2 transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0`}
+                className={`${primaryCta} rounded-full px-4 py-1.5 text-sm font-medium flex items-center gap-2 transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 flex-shrink-0`}
             >
               <Plus size={16} />
               <span className="hidden sm:inline">{isAuthenticated ? t('addItem') : t('login')}</span>

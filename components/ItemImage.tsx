@@ -16,10 +16,18 @@ export const ItemImage: React.FC<ItemImageProps> = ({ itemId, photoUrl, classNam
   const [dbUrl, setDbUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
+  const [fallbackSrc, setFallbackSrc] = useState<string | null>(null);
   const currentUrlRef = useRef<string | null>(null);
+  const defaultFallback = `${import.meta.env.BASE_URL}assets/sample-vinyl.jpg`;
 
   // If photoUrl is anything other than 'asset', it's a direct reference (URL or path)
   const isDirectSource = photoUrl && photoUrl !== 'asset' && photoUrl !== '';
+
+  useEffect(() => {
+    // Reset fallback/error when the source changes
+    setFallbackSrc(null);
+    setError(false);
+  }, [photoUrl]);
 
   useEffect(() => {
     // If it's a direct source, we don't look in IndexedDB
@@ -83,7 +91,7 @@ export const ItemImage: React.FC<ItemImageProps> = ({ itemId, photoUrl, classNam
     };
   }, []);
 
-  const finalSrc = isDirectSource ? photoUrl : dbUrl;
+  const finalSrc = fallbackSrc || (isDirectSource ? photoUrl : dbUrl);
 
   if (loading && !finalSrc) {
     return (
@@ -113,6 +121,11 @@ export const ItemImage: React.FC<ItemImageProps> = ({ itemId, photoUrl, classNam
       loading="lazy" 
       onError={() => {
         // Handle native browser load errors (e.g., 404 for relative paths)
+        if (!fallbackSrc && isDirectSource) {
+          setFallbackSrc(defaultFallback);
+          setError(false);
+          return;
+        }
         setError(true);
       }}
     />
