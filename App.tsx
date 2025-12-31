@@ -505,9 +505,9 @@ const AppContent: React.FC = () => {
     );
 
     if (loadError) return (
-      <div className="flex flex-col items-center justify-center py-24">
-        <div className="max-w-md w-full text-center bg-white/70 border border-stone-200 rounded-[2.5rem] p-10 shadow-xl">
-          <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto mb-6">
+      <div className="flex flex-col items-center justify-center px-4 py-16 sm:py-24">
+        <div className="max-w-md w-full text-center bg-white/70 border border-stone-200 rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-10 shadow-xl">
+          <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto mb-5 sm:mb-6">
             <AlertCircle size={24} />
           </div>
           <h2 className="font-serif text-2xl font-bold text-stone-900 mb-2">Sync paused</h2>
@@ -526,7 +526,7 @@ const AppContent: React.FC = () => {
     };
 
     return (
-      <div className={`space-y-12 animate-in fade-in duration-700`}>
+      <div className={`space-y-10 sm:space-y-12 animate-in fade-in duration-700`}>
         {editableCollections.length === 0 && (
           <div className={`rounded-[2rem] border p-5 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm motion-pop ${theme === 'vault' ? 'bg-white/5 border-white/10' : 'bg-white/80 border-stone-100'}`}>
             <div>
@@ -549,7 +549,7 @@ const AppContent: React.FC = () => {
         )}
         {/* Bento Grid Hero */}
         <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className={`md:col-span-2 relative overflow-hidden rounded-[2.25rem] min-h-[360px] flex items-center shadow-xl border transition-all duration-700 ${themeBaseClasses[theme]} group`}>
+            <div className={`md:col-span-2 relative overflow-hidden rounded-[2rem] sm:rounded-[2.25rem] min-h-[280px] sm:min-h-[360px] flex items-center shadow-xl border transition-all duration-700 ${themeBaseClasses[theme]} group`}>
                 {stats.featured && (
                     <div className="absolute inset-0 opacity-30 group-hover:opacity-25 transition-opacity duration-700">
                         <ItemImage 
@@ -562,19 +562,19 @@ const AppContent: React.FC = () => {
                 )}
                 <div className={`absolute inset-0 bg-gradient-to-r ${theme === 'vault' ? 'from-stone-950 via-stone-900/50' : theme === 'atelier' ? 'from-[#faf9f6] via-[#faf9f6]/60' : 'from-white via-white/60'} to-transparent`}></div>
                 
-                <div className="relative z-10 p-12 max-w-xl">
-                    <div className="flex items-center gap-2 mb-4">
+                <div className="relative z-10 p-6 sm:p-10 lg:p-12 max-w-xl">
+                    <div className="flex items-center gap-2 mb-3 sm:mb-4">
                        <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div>
                        <span className="text-[11px] font-mono tracking-[0.28em] uppercase text-amber-600 font-bold">{t('featuredArtifact')}</span>
                     </div>
-                    <h1 className="text-4xl md:text-5xl font-serif font-bold mb-4 tracking-tight leading-tight">
+                    <h1 className="text-3xl sm:text-4xl md:text-5xl font-serif font-bold mb-3 sm:mb-4 tracking-tight leading-tight">
                         {t('appTitle')} <span className="opacity-40 italic font-light">{t('appSubtitle')}</span>
                     </h1>
-                    <p className="text-base md:text-lg font-light leading-relaxed mb-8 max-w-sm font-serif italic opacity-80">
+                    <p className="text-sm sm:text-base md:text-lg font-light leading-relaxed mb-6 sm:mb-8 max-w-sm font-serif italic opacity-80">
                         {t('heroSubtitle')}
                     </p>
 
-                    <div className="flex gap-8 pt-8 border-t border-black/5 dark:border-white/5">
+                    <div className="flex gap-6 sm:gap-8 pt-6 sm:pt-8 border-t border-black/5 dark:border-white/5">
                         <div className="space-y-1">
                             <p className="text-xl font-serif font-bold">{stats.totalItems}</p>
                             <p className="text-[11px] font-mono uppercase tracking-[0.18em] opacity-40">{t('artifacts')}</p>
@@ -588,8 +588,8 @@ const AppContent: React.FC = () => {
             </div>
 
             {/* Archeology Bento Card */}
-            <div className={`relative overflow-hidden rounded-[2rem] p-7 border flex flex-col justify-between transition-all duration-500 ${themeBaseClasses[theme]} shadow-md`}>
-                <div className="flex items-center justify-between mb-4">
+            <div className={`relative overflow-hidden rounded-[2rem] p-6 sm:p-7 border flex flex-col justify-between transition-all duration-500 ${themeBaseClasses[theme]} shadow-md`}>
+                <div className="flex items-center justify-between mb-3 sm:mb-4">
                     <div className="p-2 bg-amber-50 rounded-xl text-amber-600"><Calendar size={18}/></div>
                     <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-stone-400">{t('onThisDay')}</span>
                 </div>
@@ -610,15 +610,15 @@ const AppContent: React.FC = () => {
             </div>
         </section>
 
-        <div className="relative max-w-xl mx-auto -mt-10 z-20 px-4">
+        <div className="relative max-w-xl mx-auto -mt-6 sm:-mt-10 z-20 px-4">
             <div className="relative">
-                <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-stone-400" size={20} />
+                <Search className="absolute left-5 sm:left-6 top-1/2 -translate-y-1/2 text-stone-400" size={20} />
                 <input 
                   type="text" 
                   placeholder={t('searchPlaceholder')}
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
-                  className={`w-full pl-14 pr-8 py-4 rounded-[1.75rem] border focus:ring-4 focus:ring-amber-500/5 outline-none transition-all shadow-lg text-base font-serif italic placeholder:text-stone-300 ${theme === 'vault' ? 'bg-stone-900 border-white/10 text-white' : 'bg-white border-stone-200 text-stone-900'}`}
+                  className={`w-full pl-12 sm:pl-14 pr-6 sm:pr-8 py-3.5 sm:py-4 rounded-[1.5rem] sm:rounded-[1.75rem] border focus:ring-4 focus:ring-amber-500/5 outline-none transition-all shadow-lg text-sm sm:text-base font-serif italic placeholder:text-stone-300 ${theme === 'vault' ? 'bg-stone-900 border-white/10 text-white' : 'bg-white border-stone-200 text-stone-900'}`}
                 />
             </div>
         </div>
@@ -717,12 +717,12 @@ const AppContent: React.FC = () => {
         )}
 
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8">
-            <div className="flex items-center gap-6">
-                <Link to="/" className={`p-4 border rounded-2xl shadow-lg transition-all hover:scale-105 active:scale-95 ${theme === 'vault' ? 'bg-stone-900 border-white/5 text-stone-400' : 'bg-white border-stone-100 text-stone-400'}`}>
-                    <ArrowLeft size={24} />
+            <div className="flex items-center gap-4 sm:gap-6">
+                <Link to="/" className={`p-3 sm:p-4 border rounded-2xl shadow-lg transition-all hover:scale-105 active:scale-95 ${theme === 'vault' ? 'bg-stone-900 border-white/5 text-stone-400' : 'bg-white border-stone-100 text-stone-400'}`}>
+                    <ArrowLeft size={20} className="sm:w-6 sm:h-6" />
                 </Link>
                 <div>
-                    <h1 className={`text-4xl md:text-5xl font-serif font-bold tracking-tight mb-2 ${theme === 'vault' ? 'text-white' : 'text-stone-900'}`}>{collection.name}</h1>
+                    <h1 className={`text-3xl sm:text-4xl md:text-5xl font-serif font-bold tracking-tight mb-2 ${theme === 'vault' ? 'text-white' : 'text-stone-900'}`}>{collection.name}</h1>
                     <div className="flex items-center gap-4">
                         <span className="text-stone-400 font-serif text-lg italic">
                           {t('artifactsCataloged', { n: collection.items.length })}
@@ -1044,9 +1044,9 @@ const AppContent: React.FC = () => {
   };
 
   const renderAccessGate = () => (
-    <div className="flex flex-col items-center justify-center py-24">
-      <div className="max-w-md w-full text-center bg-white/70 border border-stone-200 rounded-[2.5rem] p-10 shadow-xl">
-        <div className="w-14 h-14 rounded-2xl bg-stone-100 text-stone-500 flex items-center justify-center mx-auto mb-6">
+    <div className="flex flex-col items-center justify-center px-4 py-16 sm:py-24">
+      <div className="max-w-md w-full text-center bg-white/70 border border-stone-200 rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-10 shadow-xl">
+        <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-stone-100 text-stone-500 flex items-center justify-center mx-auto mb-5 sm:mb-6">
           {!authReady && isSupabaseReady ? <Loader2 size={24} className="animate-spin" /> : <Lock size={24} />}
         </div>
         <h2 className="font-serif text-2xl font-bold text-stone-900 mb-2">
@@ -1092,7 +1092,7 @@ const AppContent: React.FC = () => {
         importMessage={importMessage}
         onImportLocal={handleImportLocal}
         headerExtras={
-          <div className="flex items-center gap-3 flex-wrap justify-end">
+          <div className="flex w-full items-center gap-2 sm:gap-3 flex-wrap justify-between sm:w-auto sm:justify-end">
             <div className="hidden md:flex">
               <ThemePicker layout="inline" />
             </div>
@@ -1110,11 +1110,11 @@ const AppContent: React.FC = () => {
             )}
             <button 
               onClick={() => setLanguage(language === 'en' ? 'zh' : 'en')}
-              className="p-2 hover:bg-stone-100 dark:hover:bg-white/10 rounded-full text-stone-500 hover:text-stone-900 transition-colors flex items-center gap-1.5"
+              className="p-2 hover:bg-stone-100 dark:hover:bg-white/10 rounded-full text-stone-500 hover:text-stone-900 transition-colors flex items-center gap-1 sm:gap-1.5"
               title="Switch Language"
             >
               <Globe size={18} />
-              <span className="text-[11px] font-bold uppercase tracking-[0.14em]">{language === 'en' ? 'ZH' : 'EN'}</span>
+              <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.14em]">{language === 'en' ? 'ZH' : 'EN'}</span>
             </button>
           </div>
         }

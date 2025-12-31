@@ -66,7 +66,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, onAddItem, onOpenAuth,
   return (
     <div className={`min-h-screen font-sans selection:bg-amber-200 transition-colors ${shellClass}`}>
       <header className={`sticky top-0 z-20 backdrop-blur-md border-b ${headerSurface}`}>
-        <div className="max-w-4xl mx-auto px-4 py-3 flex flex-wrap items-center gap-3 justify-between md:flex-nowrap md:gap-4">
+        <div className="max-w-4xl mx-auto px-4 py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <Link to="/" className="flex items-center gap-2 group">
             <div className={`w-9 h-9 rounded-lg flex items-center justify-center font-serif font-bold text-xl transition-colors ${theme === 'vault' ? 'bg-white text-stone-900 group-hover:bg-amber-400' : 'bg-stone-900 text-white group-hover:bg-amber-600'}`}>
               C
@@ -74,7 +74,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, onAddItem, onOpenAuth,
             <span className="font-serif text-xl font-bold tracking-tight leading-none">{t('appTitle')}</span>
           </Link>
           
-          <nav className="flex items-center gap-2 flex-wrap justify-end md:flex-nowrap">
+          <nav className="flex w-full items-center gap-2 flex-wrap justify-between sm:w-auto sm:flex-nowrap sm:justify-end">
             {headerExtras}
             
             <div className="relative">
@@ -86,7 +86,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, onAddItem, onOpenAuth,
               </button>
 
               {isProfileOpen && (
-                    <div className={`absolute right-0 mt-2 w-72 ${dropdownSurface} rounded-[1.5rem] shadow-2xl border p-2 animate-in slide-in-from-top-2 duration-200 z-50`}>
+                    <div className={`absolute right-0 mt-2 w-72 max-w-[calc(100vw-2rem)] ${dropdownSurface} rounded-[1.5rem] shadow-2xl border p-2 animate-in slide-in-from-top-2 duration-200 z-50`}>
                         <div className={`p-4 border-b ${borderClass} mb-1`}>
                             <p className="text-[12px] font-bold uppercase tracking-[0.14em] opacity-70 mb-1">{t('authStatus')}</p>
                             
