@@ -69,6 +69,7 @@ create table if not exists public.collections (
   icon text not null default '',
   settings jsonb not null default '{"displayFields": [], "badgeFields": []}'::jsonb,
   seed_key text,
+  is_public boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -87,8 +88,16 @@ create table if not exists public.items (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  seed_version int not null default 0,
+  is_admin boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
 -- Backfill missing columns on existing tables
 alter table public.collections add column if not exists seed_key text;
+alter table public.collections add column if not exists is_public boolean not null default false;
 alter table public.collections add column if not exists created_at timestamptz default now();
 alter table public.collections add column if not exists updated_at timestamptz default now();
 alter table public.collections alter column settings set default '{"displayFields": [], "badgeFields": []}'::jsonb;
@@ -156,28 +165,75 @@ alter table public.items enable row level security;
 drop policy if exists "collections: select own" on public.collections;
 create policy "collections: select own"
 on public.collections for select
-using (auth.uid() = user_id);
+using (auth.uid() = user_id or is_public = true);
 
 drop policy if exists "collections: insert own" on public.collections;
 create policy "collections: insert own"
 on public.collections for insert
-with check (auth.uid() = user_id);
+with check (
+  auth.uid() = user_id
+  and (
+    is_public = false
+    or exists (
+      select 1 from public.profiles p
+      where p.id = auth.uid()
+        and p.is_admin = true
+    )
+  )
+);
 
 drop policy if exists "collections: update own" on public.collections;
 create policy "collections: update own"
 on public.collections for update
-using (auth.uid() = user_id)
-with check (auth.uid() = user_id);
+using (
+  auth.uid() = user_id
+  or (
+    is_public = true
+    and exists (
+      select 1 from public.profiles p
+      where p.id = auth.uid()
+        and p.is_admin = true
+    )
+  )
+)
+with check (
+  auth.uid() = user_id
+  or (
+    is_public = true
+    and exists (
+      select 1 from public.profiles p
+      where p.id = auth.uid()
+        and p.is_admin = true
+    )
+  )
+);
 
 drop policy if exists "collections: delete own" on public.collections;
 create policy "collections: delete own"
 on public.collections for delete
-using (auth.uid() = user_id);
+using (
+  auth.uid() = user_id
+  or (
+    is_public = true
+    and exists (
+      select 1 from public.profiles p
+      where p.id = auth.uid()
+        and p.is_admin = true
+    )
+  )
+);
 
 drop policy if exists "items: select own" on public.items;
 create policy "items: select own"
 on public.items for select
-using (auth.uid() = user_id);
+using (
+  auth.uid() = user_id
+  or exists (
+    select 1 from public.collections c
+    where c.id = collection_id
+      and c.is_public = true
+  )
+);
 
 drop policy if exists "items: insert own" on public.items;
 create policy "items: insert own"
@@ -186,17 +242,63 @@ with check (
   exists (
     select 1 from public.collections c
     where c.id = collection_id
-      and c.user_id = auth.uid()
+      and (
+        c.user_id = auth.uid()
+        or (
+          c.is_public = true
+          and exists (
+            select 1 from public.profiles p
+            where p.id = auth.uid()
+              and p.is_admin = true
+          )
+        )
+      )
   )
 );
 
 drop policy if exists "items: update own" on public.items;
 create policy "items: update own"
 on public.items for update
-using (auth.uid() = user_id)
-with check (auth.uid() = user_id);
+using (
+  auth.uid() = user_id
+  or exists (
+    select 1 from public.collections c
+    where c.id = collection_id
+      and c.is_public = true
+      and exists (
+        select 1 from public.profiles p
+        where p.id = auth.uid()
+          and p.is_admin = true
+      )
+  )
+)
+with check (
+  auth.uid() = user_id
+  or exists (
+    select 1 from public.collections c
+    where c.id = collection_id
+      and c.is_public = true
+      and exists (
+        select 1 from public.profiles p
+        where p.id = auth.uid()
+          and p.is_admin = true
+      )
+  )
+);
 
 drop policy if exists "items: delete own" on public.items;
 create policy "items: delete own"
 on public.items for delete
-using (auth.uid() = user_id);
+using (
+  auth.uid() = user_id
+  or exists (
+    select 1 from public.collections c
+    where c.id = collection_id
+      and c.is_public = true
+      and exists (
+        select 1 from public.profiles p
+        where p.id = auth.uid()
+          and p.is_admin = true
+      )
+  )
+);

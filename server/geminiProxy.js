@@ -1,5 +1,33 @@
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import express from 'express';
 import { GoogleGenAI, Type } from '@google/genai';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const ROOT_DIR = path.resolve(__dirname, '..');
+const ENV_FILES = ['.env.local', '.env'];
+
+const loadEnvFile = (filePath) => {
+  if (!fs.existsSync(filePath)) return;
+  const content = fs.readFileSync(filePath, 'utf8');
+  content.split(/\r?\n/).forEach((line) => {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) return;
+    const idx = trimmed.indexOf('=');
+    if (idx === -1) return;
+    const key = trimmed.slice(0, idx).trim();
+    if (!key || process.env[key] !== undefined) return;
+    let value = trimmed.slice(idx + 1).trim();
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+    process.env[key] = value;
+  });
+};
+
+// Load .env.local for the proxy since Node doesn't read Vite env files automatically.
+ENV_FILES.forEach((file) => loadEnvFile(path.join(ROOT_DIR, file)));
 
 const app = express();
 const port = process.env.PORT || 8787;

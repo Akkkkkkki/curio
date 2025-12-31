@@ -51,6 +51,61 @@
       .animate-in {
         animation-fill-mode: both;
       }
+      .fade-in {
+        animation: motionFade 280ms ease-out both;
+      }
+      .slide-in-from-bottom-4 {
+        animation: motionSlideUp 320ms ease-out both;
+      }
+      .zoom-in-95 {
+        animation: motionPanel 260ms ease-out both;
+      }
+      @keyframes motionPop {
+        0% { opacity: 0; transform: translateY(14px) scale(0.98); }
+        100% { opacity: 1; transform: translateY(0) scale(1); }
+      }
+      .motion-pop {
+        animation: motionPop 220ms ease-out;
+      }
+      @keyframes motionPanel {
+        0% { opacity: 0; transform: translateY(16px) scale(0.96); }
+        100% { opacity: 1; transform: translateY(0) scale(1); }
+      }
+      .motion-panel {
+        animation: motionPanel 220ms cubic-bezier(0.25, 0.9, 0.3, 1);
+      }
+      @keyframes motionFade {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      .motion-fade {
+        animation: motionFade 260ms ease-out;
+      }
+      .motion-overlay {
+        animation: motionFade 220ms ease-out;
+        backdrop-filter: blur(6px);
+      }
+      @keyframes motionSlideUp {
+        0% { opacity: 0; transform: translateY(18px); }
+        100% { opacity: 1; transform: translateY(0); }
+      }
+      .motion-slide-up {
+        animation: motionSlideUp 260ms ease-out;
+      }
+      @keyframes motionCard {
+        0% { opacity: 0; transform: translateY(12px); }
+        100% { opacity: 1; transform: translateY(0); }
+      }
+      .motion-card {
+        animation: motionCard 260ms ease-out;
+      }
+      @keyframes motionChip {
+        0% { opacity: 0; transform: translateY(6px); }
+        100% { opacity: 1; transform: translateY(0); }
+      }
+      .motion-chip {
+        animation: motionChip 200ms ease-out;
+      }
       
       @keyframes float {
         0%, 100% { transform: translateY(0); }

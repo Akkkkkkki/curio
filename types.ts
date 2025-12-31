@@ -43,6 +43,8 @@ export interface UserCollection {
   customFields: FieldDefinition[]; // Users can add more fields
   items: CollectionItem[];
   isLocked?: boolean; // Vault lock feature
+  isPublic?: boolean; // Public sample collection
+  ownerId?: string; // Supabase user_id for the owner
   updatedAt?: string;
   settings: {
     displayFields: string[];

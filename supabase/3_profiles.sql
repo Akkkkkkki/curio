@@ -5,8 +5,11 @@
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   seed_version int not null default 0,
+  is_admin boolean not null default false,
   created_at timestamptz not null default now()
 );
+
+alter table public.profiles add column if not exists is_admin boolean not null default false;
 
 alter table public.profiles enable row level security;
 
@@ -19,7 +22,14 @@ drop policy if exists "profiles: update own" on public.profiles;
 create policy "profiles: update own"
 on public.profiles for update to authenticated
 using (auth.uid() = id)
-with check (auth.uid() = id);
+with check (
+  auth.uid() = id
+  and is_admin = (
+    select p.is_admin
+    from public.profiles p
+    where p.id = auth.uid()
+  )
+);
 
 create or replace function public.handle_new_user()
 returns trigger

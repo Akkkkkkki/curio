@@ -6,6 +6,7 @@ import { UserCollection, CollectionItem } from '../types';
 import { analyzeImage, isAiEnabled } from '../services/geminiService';
 import { Button } from './ui/Button';
 import { useTranslation } from '../i18n';
+import { useTheme, panelSurfaceClasses, overlaySurfaceClasses, mutedTextClasses } from '../theme';
 
 interface AddItemModalProps {
   isOpen: boolean;
@@ -28,6 +29,7 @@ const createEmptyForm = () => ({ title: '', notes: '', data: {} as Record<string
 
 export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, collections, onSave }) => {
   const { t } = useTranslation();
+  const { theme } = useTheme();
   const [step, setStep] = useState<FlowStep>('select-type');
   const [selectedCollectionId, setSelectedCollectionId] = useState<string>('');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -39,6 +41,12 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
   const batchInputRef = useRef<HTMLInputElement>(null);
   const analysisRunId = useRef(0);
 
+  const surfaceClass = panelSurfaceClasses[theme];
+  const overlayClass = `${overlaySurfaceClasses[theme]} motion-overlay`;
+  const mutedText = mutedTextClasses[theme];
+  const borderClass = theme === 'vault' ? 'border-white/10' : 'border-stone-100';
+  const inputSurface = theme === 'vault' ? 'bg-white/5 border-white/10 text-white placeholder:text-stone-400' : 'bg-stone-50 border-stone-200 text-stone-900';
+
   const stepItems = useMemo<{ id: FlowStep; label: string; helper: string }[]>(() => ([
     { id: 'select-type', label: t('stepChooseCollection'), helper: t('stepChooseCollectionDesc') },
     { id: 'upload', label: t('stepCapture'), helper: t('stepCaptureDesc') },
@@ -47,6 +55,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
   ]), [t]);
   const currentStepId: FlowStep = step === 'batch-verify' ? 'verify' : step;
   const currentStepIndex = stepItems.findIndex(s => s.id === currentStepId);
+  const progressCopy = t('stepProgress', { current: currentStepIndex + 1, total: stepItems.length });
 
   useEffect(() => {
     if (isOpen) {
@@ -67,7 +76,6 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
   const switchToManual = () => {
     analysisRunId.current += 1;
     setError(null);
-    setFormData(createEmptyForm());
     setStep('verify');
   };
 
@@ -200,7 +208,6 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
       if (analysisRunId.current !== runId) return;
       setError(t('analysisFallback'));
       setStep('verify');
-      setFormData(createEmptyForm());
     }
   };
 
@@ -233,22 +240,35 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
   };
 
   const renderStepper = () => (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-      {stepItems.map((s, idx) => {
-        const isComplete = idx < currentStepIndex;
-        const isActive = idx === currentStepIndex;
-        return (
-          <div key={s.id} className={`flex items-center gap-3 p-3 rounded-xl border ${isActive ? 'border-amber-200 bg-amber-50/70' : 'border-stone-100 bg-stone-50'}`}>
-            <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold ${isComplete || isActive ? 'bg-stone-900 text-white' : 'bg-white text-stone-400 border border-stone-200'}`}>
-              {isComplete ? <Check size={14} /> : idx + 1}
+    <div className="space-y-2 mb-4">
+      <div className={`flex items-center justify-between text-[12px] ${mutedText}`}>
+        <span className="font-semibold">{progressCopy}</span>
+        <span className={`text-[12px] ${mutedText}`}>{stepItems[currentStepIndex]?.helper}</span>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {stepItems.map((s, idx) => {
+          const isComplete = idx < currentStepIndex;
+          const isActive = idx === currentStepIndex;
+          const stepSurface = isActive
+            ? (theme === 'vault' ? 'border-amber-300/60 bg-amber-50/10' : 'border-amber-200 bg-amber-50/70')
+            : (theme === 'vault' ? 'border-white/10 bg-white/5' : 'border-stone-100 bg-stone-50');
+          const badgeClass = isComplete || isActive
+            ? (theme === 'vault' ? 'bg-amber-400 text-stone-950' : 'bg-stone-900 text-white')
+            : (theme === 'vault' ? 'bg-white/5 text-stone-300 border border-white/10' : 'bg-white text-stone-400 border border-stone-200');
+
+          return (
+            <div key={s.id} className={`flex items-center gap-3 p-3 rounded-xl border ${stepSurface} motion-fade`}>
+              <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold ${badgeClass}`}>
+                {isComplete ? <Check size={14} /> : idx + 1}
+              </div>
+              <div>
+                <p className={`text-base font-semibold ${theme === 'vault' ? 'text-white' : 'text-stone-800'}`}>{s.label}</p>
+                <p className={`text-[12px] leading-tight ${mutedText}`}>{s.helper}</p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm font-semibold text-stone-800">{s.label}</p>
-              <p className="text-[10px] text-stone-500 leading-tight">{s.helper}</p>
-            </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 
@@ -294,7 +314,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
         </div>
         <div>
             <h3 className="text-xl sm:text-2xl font-serif font-bold text-stone-900 mb-1 sm:mb-2">{t('uploadPhoto')}</h3>
-            <p className="text-sm sm:text-base text-stone-500 max-w-xs mx-auto">{t('geminiExtracting')}</p>
+            <p className={`text-sm sm:text-base ${mutedText} max-w-xs mx-auto`}>{t('geminiExtracting')}</p>
         </div>
         <div className="flex flex-col gap-2 sm:gap-3">
             <Button onClick={() => fileInputRef.current?.click()} size="lg" icon={<Upload size={18} />}>
@@ -334,32 +354,36 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
                         </div>
                         <div className="flex-1 space-y-2">
                             <div>
-                                <label className="block text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-0.5">{t('title')}</label>
+                                <label className={`block text-[11px] font-semibold uppercase tracking-[0.12em] ${mutedText} mb-0.5`}>{t('title')}</label>
                                 <input 
                                     type="text" 
-                                    className="w-full text-sm font-semibold bg-transparent border-b border-stone-200 focus:border-amber-500 outline-none pb-1 transition-colors"
+                                    className={`w-full text-sm font-semibold bg-transparent border-b ${borderClass} focus:border-amber-500 outline-none pb-1 transition-colors ${theme === 'vault' ? 'text-white placeholder:text-stone-400' : 'text-stone-900'}`}
                                     value={item.title}
                                     onChange={e => updateBatchItem(item.id, { title: e.target.value })}
                                 />
                             </div>
                             {currentCollection?.customFields.map(field => (
                                 <div key={field.id}>
-                                    <label className="block text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-0.5">{field.label}</label>
+                                    <label className={`block text-[11px] font-semibold uppercase tracking-[0.12em] ${mutedText} mb-0.5`}>{field.label}</label>
                                     <input 
-                                        className="w-full p-2 bg-stone-50 border border-stone-200 rounded-lg text-xs"
+                                        className={`w-full p-2 rounded-lg text-xs ${inputSurface}`}
                                         value={item.data?.[field.id] || ''}
                                         onChange={e => updateBatchItemField(item.id, field.id, e.target.value)}
                                     />
                                 </div>
                             ))}
                             <div>
-                                <label className="block text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-0.5">{t('rating')}</label>
+                                <label className={`block text-[11px] font-semibold uppercase tracking-[0.12em] ${mutedText} mb-0.5`}>{t('rating')}</label>
                                 <div className="flex gap-1">
                                     {[1,2,3,4,5].map(s => (
                                         <button 
                                             key={s} 
                                             onClick={() => updateBatchItem(item.id, { rating: s })}
-                                            className={`w-7 h-7 rounded-md border flex items-center justify-center transition-all text-xs ${item.rating === s ? 'bg-amber-400 border-amber-500 text-white shadow-sm' : 'bg-white border-stone-200 text-stone-300'}`}
+                                            className={`w-7 h-7 rounded-md border flex items-center justify-center transition-all text-xs ${
+                                              item.rating === s 
+                                                ? 'bg-amber-400 border-amber-500 text-white shadow-sm' 
+                                                : (theme === 'vault' ? 'bg-white/5 border-white/10 text-white/60' : 'bg-white border-stone-200 text-stone-300')
+                                            }`}
                                         >
                                             ★
                                         </button>
@@ -416,10 +440,10 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
                 {imagePreview ? <img src={imagePreview} className="w-full h-full object-cover" /> : <Camera className="w-full h-full p-4 sm:p-6 text-stone-200" />}
             </div>
             <div className="flex-1">
-                <label className="block text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-0.5 sm:mb-1">{t('title')}</label>
+                <label className={`block text-[11px] font-semibold uppercase tracking-[0.12em] ${mutedText} mb-0.5 sm:mb-1`}>{t('title')}</label>
                 <input 
                     type="text" 
-                    className="w-full text-lg sm:text-xl font-bold bg-transparent border-b border-stone-200 focus:border-amber-500 outline-none pb-1 transition-colors"
+                    className={`w-full text-lg sm:text-xl font-bold bg-transparent border-b ${borderClass} focus:border-amber-500 outline-none pb-1 transition-colors ${theme === 'vault' ? 'text-white placeholder:text-stone-400' : 'text-stone-900'}`}
                     value={formData.title}
                     onChange={e => setFormData({...formData, title: e.target.value})}
                 />
@@ -429,9 +453,9 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
        <div className="space-y-3 sm:space-y-4 max-h-[35vh] sm:max-h-[40vh] overflow-y-auto px-1">
             {currentCollection?.customFields.map(field => (
                 <div key={field.id}>
-                    <label className="block text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-0.5 sm:mb-1">{field.label}</label>
+                    <label className={`block text-[11px] font-semibold uppercase tracking-[0.12em] ${mutedText} mb-0.5 sm:mb-1`}>{field.label}</label>
                     <input 
-                        className="w-full p-2 sm:p-2.5 bg-stone-50 border border-stone-200 rounded-lg sm:rounded-xl text-sm"
+                        className={`w-full p-2 sm:p-2.5 rounded-lg sm:rounded-xl text-sm ${inputSurface}`}
                         value={formData.data?.[field.id] || ''}
                         onChange={e => setFormData({
                             ...formData, 
@@ -441,13 +465,17 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
                 </div>
             ))}
             <div>
-                <label className="block text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-0.5 sm:mb-1">{t('rating')}</label>
+                <label className={`block text-[11px] font-semibold uppercase tracking-[0.12em] ${mutedText} mb-0.5 sm:mb-1`}>{t('rating')}</label>
                 <div className="flex gap-1 sm:gap-2">
                     {[1,2,3,4,5].map(s => (
                         <button 
                             key={s} 
                             onClick={() => setFormData({...formData, rating: s})}
-                            className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg border flex items-center justify-center transition-all text-sm ${formData.rating === s ? 'bg-amber-400 border-amber-500 text-white shadow-sm' : 'bg-white border-stone-200 text-stone-300'}`}
+                            className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg border flex items-center justify-center transition-all text-sm ${
+                              formData.rating === s 
+                                ? 'bg-amber-400 border-amber-500 text-white shadow-sm' 
+                                : (theme === 'vault' ? 'bg-white/5 border-white/10 text-white/60' : 'bg-white border-stone-200 text-stone-300')
+                            }`}
                         >
                             ★
                         </button>
@@ -463,11 +491,11 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/40 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col">
-        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-stone-100">
-          <h2 className="font-serif font-bold text-lg sm:text-xl text-stone-800">{t('addItem')}</h2>
-          <button onClick={onClose} className="p-2 hover:bg-stone-100 rounded-full text-stone-400 hover:text-stone-800 transition-colors">
+    <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${overlayClass} backdrop-blur-sm`}>
+      <div className={`${surfaceClass} rounded-2xl sm:rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col motion-panel`}>
+        <div className={`flex items-center justify-between p-4 sm:p-6 border-b ${borderClass}`}>
+          <h2 className={`font-serif font-bold text-lg sm:text-xl ${theme === 'vault' ? 'text-white' : 'text-stone-800'}`}>{t('addItem')}</h2>
+          <button onClick={onClose} className={`p-2 rounded-full transition-colors ${theme === 'vault' ? 'hover:bg-white/5 text-stone-300 hover:text-white' : 'hover:bg-stone-100 text-stone-400 hover:text-stone-800'}`}>
             <X size={20} />
           </button>
         </div>

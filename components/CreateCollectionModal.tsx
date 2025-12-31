@@ -4,6 +4,7 @@ import { X, Check, ChevronDown } from 'lucide-react';
 import { TEMPLATES } from '../constants';
 import { Button } from './ui/Button';
 import { useTranslation } from '../i18n';
+import { useTheme, panelSurfaceClasses, overlaySurfaceClasses, mutedTextClasses } from '../theme';
 
 interface CreateCollectionModalProps {
   isOpen: boolean;
@@ -13,10 +14,17 @@ interface CreateCollectionModalProps {
 
 export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({ isOpen, onClose, onCreate }) => {
   const { t } = useTranslation();
+  const { theme } = useTheme();
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>(TEMPLATES[0].id);
   const [name, setName] = useState('');
   const [icon, setIcon] = useState('✨');
   const selectedTemplate = TEMPLATES.find(temp => temp.id === selectedTemplateId) || TEMPLATES[0];
+
+  const surfaceClass = panelSurfaceClasses[theme];
+  const overlayClass = `${overlaySurfaceClasses[theme]} motion-overlay`;
+  const dividerBorder = theme === 'vault' ? 'border-white/10' : 'border-stone-100';
+  const mutedText = mutedTextClasses[theme];
+  const inputSurface = theme === 'vault' ? 'bg-white/5 border border-white/10 text-white placeholder:text-stone-400' : 'bg-stone-50 border border-stone-200 text-stone-800';
 
   if (!isOpen) return null;
 
@@ -42,11 +50,11 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({ is
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/40 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col">
-        <div className="flex items-center justify-between p-4 border-b border-stone-100">
-          <h2 className="font-serif font-bold text-lg text-stone-800">{t('newArchive')}</h2>
-          <button onClick={onClose} className="p-1 hover:bg-stone-100 rounded-full text-stone-400 hover:text-stone-800 transition-colors">
+    <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${overlayClass} backdrop-blur-sm`}>
+      <div className={`${surfaceClass} rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col motion-panel border`}>
+        <div className={`flex items-center justify-between p-4 border-b ${dividerBorder}`}>
+          <h2 className={`font-serif font-bold text-lg ${theme === 'vault' ? 'text-white' : 'text-stone-800'}`}>{t('newArchive')}</h2>
+          <button onClick={onClose} className={`p-1 rounded-full transition-colors ${theme === 'vault' ? 'hover:bg-white/5 text-stone-300 hover:text-white' : 'hover:bg-stone-100 text-stone-400 hover:text-stone-800'}`}>
             <X size={20} />
           </button>
         </div>
@@ -54,17 +62,17 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({ is
         <div className="p-6 space-y-6">
           <div className="flex gap-4">
               <div className="flex-shrink-0">
-                  <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">{t('icon')}</label>
+                  <label className={`block text-[12px] font-semibold uppercase tracking-[0.12em] ${mutedText} mb-2`}>{t('icon')}</label>
                   <input 
                     type="text" 
                     value={icon}
                     onChange={(e) => setIcon(e.target.value)}
-                    className="w-14 h-14 text-center text-3xl bg-stone-50 border border-stone-200 rounded-xl focus:ring-2 focus:ring-amber-200 outline-none"
+                    className={`w-14 h-14 text-center text-3xl rounded-xl focus:ring-2 focus:ring-amber-200 outline-none ${inputSurface}`}
                     maxLength={2}
                   />
               </div>
               <div className="flex-grow">
-                  <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">
+                  <label className={`block text-[12px] font-semibold uppercase tracking-[0.12em] ${mutedText} mb-2`}>
                     {t('name')}
                   </label>
                   <input
@@ -72,23 +80,23 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({ is
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="..."
-                    className="w-full p-3.5 bg-stone-50 border border-stone-200 rounded-xl focus:ring-2 focus:ring-amber-200 outline-none font-medium text-stone-800"
+                    className={`w-full p-3.5 rounded-xl focus:ring-2 focus:ring-amber-200 outline-none font-medium ${inputSurface}`}
                     autoFocus
                   />
               </div>
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">
+            <label className={`block text-[12px] font-semibold uppercase tracking-[0.12em] ${mutedText} mb-2`}>
               {t('dataPresets')}
             </label>
-            <p className="text-xs text-stone-400 mb-3">{t('presetDesc')}</p>
+            <p className={`text-[12px] ${mutedText} mb-3`}>{t('presetDesc')}</p>
             
             <div className="relative">
                 <select 
                     value={selectedTemplateId}
                     onChange={(e) => handleTemplateSelect(e.target.value)}
-                    className="w-full p-3 bg-stone-50 border border-stone-200 rounded-xl appearance-none outline-none focus:ring-2 focus:ring-amber-200 font-medium text-stone-800 pr-10"
+                    className={`w-full p-3 rounded-xl appearance-none outline-none focus:ring-2 focus:ring-amber-200 font-medium pr-10 ${inputSurface}`}
                 >
                     {TEMPLATES.map(temp => (
                         <option key={temp.id} value={temp.id}>{temp.name}</option>
@@ -100,31 +108,32 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({ is
             </div>
           </div>
 
-          <div className="p-4 rounded-2xl border border-stone-100 bg-stone-50/60">
+          <div className={`p-4 rounded-2xl border ${theme === 'vault' ? 'border-white/10 bg-white/5' : 'border-stone-100 bg-stone-50/60'}`}>
             <div className="flex items-start gap-3 mb-3">
-              <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-xl shadow-inner">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl shadow-inner ${theme === 'vault' ? 'bg-white/10' : 'bg-white'}`}>
                 {selectedTemplate.icon}
               </div>
               <div className="flex-1">
-                <p className="text-sm font-semibold text-stone-800">{t('templatePreview')}</p>
-                <p className="text-xs text-stone-500 leading-snug">{selectedTemplate.description}</p>
+                <p className={`text-sm font-semibold ${theme === 'vault' ? 'text-white' : 'text-stone-800'}`}>{t('templatePreview')}</p>
+                <p className={`text-[12px] ${mutedText} leading-snug`}>{selectedTemplate.description}</p>
               </div>
             </div>
+            <p className={`text-[12px] uppercase font-semibold ${mutedText} tracking-[0.12em] mb-2`}>{t('templateFields')}</p>
             <div className="grid grid-cols-2 gap-2">
               {selectedTemplate.fields.map(field => (
-                <div key={field.id} className="flex items-center gap-2 px-2 py-1.5 bg-white rounded-lg border border-stone-100 shadow-inner">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-stone-500">{getFieldLabel(field.id, field.label)}</span>
+                <div key={field.id} className={`flex items-center gap-2 px-2 py-1.5 rounded-lg border shadow-inner ${theme === 'vault' ? 'bg-white/5 border-white/10' : 'bg-white border-stone-100'}`}>
+                  <span className={`text-[11px] font-bold uppercase tracking-[0.12em] ${mutedText}`}>{getFieldLabel(field.id, field.label)}</span>
                   {field.type === 'select' && field.options?.length ? (
-                    <span className="text-[10px] text-stone-400 truncate">({field.options.slice(0, 2).join(', ')}{field.options.length > 2 ? '…' : ''})</span>
+                    <span className="text-[11px] text-stone-400 truncate">({field.options.slice(0, 2).join(', ')}{field.options.length > 2 ? '…' : ''})</span>
                   ) : (
-                    <span className="text-[10px] text-stone-400 capitalize">{field.type}</span>
+                    <span className="text-[11px] text-stone-400 capitalize">{field.type}</span>
                   )}
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-stone-50">
+          <div className={`flex justify-end gap-3 pt-4 border-t ${theme === 'vault' ? 'border-white/10' : 'border-stone-50'}`}>
              <Button variant="ghost" onClick={onClose}>{t('cancel')}</Button>
              <Button onClick={handleCreate} disabled={!name.trim()} icon={<Check size={16} />}>
                {t('createCollection')}

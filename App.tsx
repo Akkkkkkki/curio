@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef, useCallback, useMemo, createContext, useContext } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { HashRouter, Routes, Route, useNavigate, useParams, Link, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { CollectionCard } from './components/CollectionCard';
@@ -9,7 +9,7 @@ import { CreateCollectionModal } from './components/CreateCollectionModal';
 import { AuthModal } from './components/AuthModal';
 import { UserCollection, CollectionItem, AppTheme } from './types';
 import { TEMPLATES } from './constants';
-import { Plus, SlidersHorizontal, ArrowLeft, Trash2, LayoutGrid, LayoutTemplate, Printer, Camera, Search, Loader2, Sparkles, Mic, Play, Quote, Sparkle, Globe, Calendar, Lock, Paintbrush, AlertCircle } from 'lucide-react';
+import { Plus, SlidersHorizontal, ArrowLeft, Trash2, LayoutGrid, LayoutTemplate, Printer, Camera, Search, Loader2, Sparkles, Mic, Play, Quote, Sparkle, Globe, Calendar, Lock, AlertCircle, X } from 'lucide-react';
 import { Button } from './components/ui/Button';
 import { fetchCloudCollections, getLocalCollections, hasLocalOnlyData, importLocalCollectionsToCloud, saveCollection, saveAllCollections, saveAsset, deleteAsset, requestPersistence, getSeedVersion, setSeedVersion, initDB } from './services/db';
 import { processImage } from './services/imageProcessor';
@@ -20,8 +20,9 @@ import { ExportModal } from './components/ExportModal';
 import { FilterModal } from './components/FilterModal';
 import { LanguageProvider, useTranslation } from './i18n';
 import { supabase, isSupabaseConfigured, signOutUser } from './services/supabase';
-
-const ThemeContext = createContext<{ theme: AppTheme; setTheme: (t: AppTheme) => void }>({ theme: 'gallery', setTheme: () => {} });
+import { ThemeProvider, useTheme } from './theme';
+import { StatusToast, StatusTone } from './components/StatusToast';
+import { ThemePicker } from './components/ThemePicker';
 
 const CURRENT_SEED_VERSION = 3;
 const SEED_IMAGE_PATH = `${import.meta.env.BASE_URL}assets/sample-vinyl.jpg`;
@@ -142,7 +143,7 @@ const INITIAL_COLLECTIONS: UserCollection[] = [
 
 const AppContent: React.FC = () => {
   const { t, language, setLanguage } = useTranslation();
-  const { theme, setTheme } = useContext(ThemeContext);
+  const { theme, setTheme } = useTheme();
   const isVoiceGuideEnabled = import.meta.env.VITE_VOICE_GUIDE_ENABLED === 'true';
   const [collections, setCollections] = useState<UserCollection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -159,16 +160,24 @@ const AppContent: React.FC = () => {
   const [isCreateCollectionOpen, setIsCreateCollectionOpen] = useState(false);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [activeCollectionForGuide, setActiveCollectionForGuide] = useState<UserCollection | null>(null);
+  const [status, setStatus] = useState<{ message: string; tone: StatusTone } | null>(null);
   const saveTimeoutRef = useRef<Record<string, any>>({});
+  const statusTimeoutRef = useRef<number | null>(null);
   const isSupabaseReady = isSupabaseConfigured();
 
+  const showStatus = useCallback((message: string, tone: StatusTone = 'info') => {
+    if (statusTimeoutRef.current) {
+      clearTimeout(statusTimeoutRef.current);
+    }
+    setStatus({ message, tone });
+    statusTimeoutRef.current = window.setTimeout(() => setStatus(null), 2400);
+  }, []);
+
   useEffect(() => {
-    initDB().then(db => {
-      const tx = db.transaction('settings', 'readonly');
-      const themeReq = tx.objectStore('settings').get('app_theme');
-      themeReq.onsuccess = () => { if (themeReq.result) setTheme(themeReq.result); };
-    });
-  }, [setTheme]);
+    return () => {
+      if (statusTimeoutRef.current) clearTimeout(statusTimeoutRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (!isSupabaseReady || !supabase) {
@@ -264,6 +273,7 @@ const AppContent: React.FC = () => {
         setHasLocalImport(false);
         setCollections(localCollections);
         setLoadError('Unable to sync with Supabase. Check your connection and Supabase settings.');
+        showStatus(t('statusSyncPaused'), 'error');
         return;
       }
 
@@ -297,9 +307,13 @@ const AppContent: React.FC = () => {
       }
 
       setCollections(cloudCollections.length > 0 ? cloudCollections : localCollections);
+      if ((cloudCollections.length + localCollections.length) > 0) {
+        showStatus(t('statusSynced'), 'success');
+      }
     } catch (e) {
       console.error("Initialization failed:", e);
       setLoadError('Failed to load collections. Please try again.');
+      showStatus(t('statusSyncPaused'), 'error');
       setCollections([]);
     } finally {
       setIsLoading(false);
@@ -331,11 +345,13 @@ const AppContent: React.FC = () => {
       await importLocalCollectionsToCloud();
       setImportState('done');
       setImportMessage(t('importComplete'));
+      showStatus(t('statusImportComplete'), 'success');
       await refreshCollections();
     } catch (e) {
       console.error('Local import failed:', e);
       setImportState('error');
       setImportMessage(t('importFailed'));
+      showStatus(t('statusImportFailed'), 'error');
     }
   };
 
@@ -390,6 +406,7 @@ const AppContent: React.FC = () => {
         return c;
       });
     });
+    showStatus(t('statusSaved'), 'success');
   };
 
   const updateItem = (collectionId: string, itemId: string, updates: Partial<CollectionItem>) => {
@@ -428,6 +445,7 @@ const AppContent: React.FC = () => {
         saveCollection(newCol);
         return updated;
       });
+      showStatus(t('statusSaved'), 'success');
   };
 
   const deleteItem = (collectionId: string, itemId: string) => {
@@ -465,15 +483,6 @@ const AppContent: React.FC = () => {
 
     return { totalItems, avgRating, totalCollections: statCollections.length, featured, historyItem };
   }, [collections]);
-
-  const toggleTheme = () => {
-    const nextTheme: AppTheme = theme === 'gallery' ? 'vault' : theme === 'vault' ? 'atelier' : 'gallery';
-    setTheme(nextTheme);
-    initDB().then(db => {
-        const tx = db.transaction('settings', 'readwrite');
-        tx.objectStore('settings').put(nextTheme, 'app_theme');
-    });
-  };
 
   const editableCollections = useMemo(() => {
     return collections.filter(c => !c.isPublic || isAdmin);
@@ -518,11 +527,31 @@ const AppContent: React.FC = () => {
 
     return (
       <div className={`space-y-12 animate-in fade-in duration-700`}>
+        {editableCollections.length === 0 && (
+          <div className={`rounded-[2rem] border p-5 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm motion-pop ${theme === 'vault' ? 'bg-white/5 border-white/10' : 'bg-white/80 border-stone-100'}`}>
+            <div>
+              <p className={`text-sm font-semibold ${theme === 'vault' ? 'text-white' : 'text-stone-900'}`}>{t('ctaAddFirst')}</p>
+              <p className="text-[12px] text-stone-500 mt-1">{t('ctaPromise')}</p>
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              <Button onClick={handleAddAction} size="md" className="shadow-sm">
+                {t('addItem')}
+              </Button>
+              {sampleCollection && (
+                <Link to={`/collection/${sampleCollection.id}`}>
+                  <Button variant="secondary" size="md" icon={<Sparkles size={14} />}>
+                    {t('exploreSample')}
+                  </Button>
+                </Link>
+              )}
+            </div>
+          </div>
+        )}
         {/* Bento Grid Hero */}
         <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className={`md:col-span-2 relative overflow-hidden rounded-[3rem] min-h-[420px] flex items-center shadow-2xl border transition-all duration-700 ${themeBaseClasses[theme]} group`}>
+            <div className={`md:col-span-2 relative overflow-hidden rounded-[2.25rem] min-h-[360px] flex items-center shadow-xl border transition-all duration-700 ${themeBaseClasses[theme]} group`}>
                 {stats.featured && (
-                    <div className="absolute inset-0 opacity-40 group-hover:opacity-30 transition-opacity duration-1000">
+                    <div className="absolute inset-0 opacity-30 group-hover:opacity-25 transition-opacity duration-700">
                         <ItemImage 
                             itemId={stats.featured.id} 
                             photoUrl={stats.featured.photoUrl} 
@@ -531,38 +560,38 @@ const AppContent: React.FC = () => {
                         />
                     </div>
                 )}
-                <div className={`absolute inset-0 bg-gradient-to-r ${theme === 'vault' ? 'from-stone-950 via-stone-900/60' : theme === 'atelier' ? 'from-[#faf9f6] via-[#faf9f6]/70' : 'from-white via-white/70'} to-transparent`}></div>
+                <div className={`absolute inset-0 bg-gradient-to-r ${theme === 'vault' ? 'from-stone-950 via-stone-900/50' : theme === 'atelier' ? 'from-[#faf9f6] via-[#faf9f6]/60' : 'from-white via-white/60'} to-transparent`}></div>
                 
                 <div className="relative z-10 p-12 max-w-xl">
-                    <div className="flex items-center gap-3 mb-6">
+                    <div className="flex items-center gap-2 mb-4">
                        <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div>
-                       <span className="text-[10px] font-mono tracking-[0.4em] uppercase text-amber-500 font-bold">{t('featuredArtifact')}</span>
+                       <span className="text-[11px] font-mono tracking-[0.28em] uppercase text-amber-600 font-bold">{t('featuredArtifact')}</span>
                     </div>
-                    <h1 className="text-5xl md:text-6xl font-serif font-bold mb-6 tracking-tight leading-tight">
-                        {t('appTitle')} <span className="opacity-30 italic font-light">{t('appSubtitle')}</span>
+                    <h1 className="text-4xl md:text-5xl font-serif font-bold mb-4 tracking-tight leading-tight">
+                        {t('appTitle')} <span className="opacity-40 italic font-light">{t('appSubtitle')}</span>
                     </h1>
-                    <p className="text-lg md:text-xl font-light leading-relaxed mb-10 max-w-sm font-serif italic opacity-70">
+                    <p className="text-base md:text-lg font-light leading-relaxed mb-8 max-w-sm font-serif italic opacity-80">
                         {t('heroSubtitle')}
                     </p>
-                    
-                    <div className="flex gap-10 pt-10 border-t border-black/5 dark:border-white/5">
+
+                    <div className="flex gap-8 pt-8 border-t border-black/5 dark:border-white/5">
                         <div className="space-y-1">
-                            <p className="text-2xl font-serif font-bold">{stats.totalItems}</p>
-                            <p className="text-[9px] font-mono uppercase tracking-widest opacity-40">{t('artifacts')}</p>
+                            <p className="text-xl font-serif font-bold">{stats.totalItems}</p>
+                            <p className="text-[11px] font-mono uppercase tracking-[0.18em] opacity-40">{t('artifacts')}</p>
                         </div>
                         <div className="space-y-1">
-                            <p className="text-2xl font-serif font-bold">{stats.totalCollections}</p>
-                            <p className="text-[9px] font-mono uppercase tracking-widest opacity-40">{t('archives')}</p>
+                            <p className="text-xl font-serif font-bold">{stats.totalCollections}</p>
+                            <p className="text-[11px] font-mono uppercase tracking-[0.18em] opacity-40">{t('archives')}</p>
                         </div>
                     </div>
                 </div>
             </div>
 
             {/* Archeology Bento Card */}
-            <div className={`relative overflow-hidden rounded-[3rem] p-8 border flex flex-col justify-between transition-all duration-500 ${themeBaseClasses[theme]} shadow-xl`}>
+            <div className={`relative overflow-hidden rounded-[2rem] p-7 border flex flex-col justify-between transition-all duration-500 ${themeBaseClasses[theme]} shadow-md`}>
                 <div className="flex items-center justify-between mb-4">
                     <div className="p-2 bg-amber-50 rounded-xl text-amber-600"><Calendar size={18}/></div>
-                    <span className="text-[9px] font-bold uppercase tracking-widest text-stone-400">{t('onThisDay')}</span>
+                    <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-stone-400">{t('onThisDay')}</span>
                 </div>
                 {stats.historyItem ? (
                     <div className="space-y-4">
@@ -570,8 +599,8 @@ const AppContent: React.FC = () => {
                             <ItemImage itemId={stats.historyItem.id} photoUrl={stats.historyItem.photoUrl} className="w-full h-full object-cover" />
                         </div>
                         <div>
-                            <p className="text-[10px] font-mono opacity-40 uppercase tracking-widest mb-1">{t('historyTitle')}</p>
-                            <h4 className="font-serif font-bold text-xl leading-tight truncate">{stats.historyItem.title}</h4>
+                            <p className="text-[11px] font-mono opacity-40 uppercase tracking-[0.18em] mb-1">{t('historyTitle')}</p>
+                            <h4 className="font-serif font-bold text-lg leading-tight truncate">{stats.historyItem.title}</h4>
                         </div>
                         <Button variant="ghost" size="sm" className="w-full" onClick={() => navigate(`/collection/${stats.historyItem?.collectionId}/item/${stats.historyItem?.id}`)}>{t('viewHistory') || "Relive Memory"}</Button>
                     </div>
@@ -589,7 +618,7 @@ const AppContent: React.FC = () => {
                   placeholder={t('searchPlaceholder')}
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
-                  className={`w-full pl-16 pr-8 py-5 rounded-[2rem] border focus:ring-4 focus:ring-amber-500/5 outline-none transition-all shadow-xl text-lg font-serif italic placeholder:text-stone-300 ${theme === 'vault' ? 'bg-stone-900 border-white/10 text-white' : 'bg-white border-stone-200 text-stone-900'}`}
+                  className={`w-full pl-14 pr-8 py-4 rounded-[1.75rem] border focus:ring-4 focus:ring-amber-500/5 outline-none transition-all shadow-lg text-base font-serif italic placeholder:text-stone-300 ${theme === 'vault' ? 'bg-stone-900 border-white/10 text-white' : 'bg-white border-stone-200 text-stone-900'}`}
                 />
             </div>
         </div>
@@ -605,7 +634,7 @@ const AppContent: React.FC = () => {
           
           <button 
             onClick={() => setIsCreateCollectionOpen(true)}
-            className={`group relative p-10 rounded-[2.5rem] border-2 border-dashed transition-all flex flex-col items-center justify-center min-h-[240px] gap-4 shadow-sm hover:shadow-xl overflow-hidden ${theme === 'vault' ? 'border-white/10 hover:border-amber-400 bg-white/5 text-stone-500' : 'border-stone-200 hover:border-amber-400 bg-white/50 text-stone-400'}`}
+            className={`group relative p-8 rounded-[2rem] border-2 border-dashed transition-all flex flex-col items-center justify-center min-h-[220px] gap-4 shadow-sm hover:shadow-xl overflow-hidden ${theme === 'vault' ? 'border-white/10 hover:border-amber-400 bg-white/5 text-stone-500' : 'border-stone-200 hover:border-amber-400 bg-white/50 text-stone-400'}`}
           >
             <div className="w-16 h-16 rounded-full bg-stone-50 flex items-center justify-center shadow-inner group-hover:scale-110 group-hover:shadow-lg transition-transform text-stone-300">
                 <Plus size={32} strokeWidth={1.5} />
@@ -740,11 +769,37 @@ const AppContent: React.FC = () => {
             </div>
         </div>
 
+        {activeFilterEntries.length > 0 && (
+          <div className="flex items-center flex-wrap gap-2 mt-2 mb-1">
+            <span className={`text-sm font-semibold ${theme === 'vault' ? 'text-white/70' : 'text-stone-500'}`}>{t('activeFilters')}</span>
+            {activeFilterEntries.map(([key, value]) => (
+              <button
+                key={key}
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm bg-amber-50 text-amber-800 border border-amber-100 motion-chip"
+                onClick={() => handleRemoveFilter(key)}
+                title={t('clearFilter')}
+              >
+                <span className="font-semibold">{getFieldLabel(key)}</span>
+                <span className="text-amber-700/80">·</span>
+                <span className="font-medium">{value}</span>
+                <X size={14} className="text-amber-600" />
+              </button>
+            ))}
+            <button onClick={handleClearFilters} className="text-sm font-semibold text-stone-500 hover:text-stone-800 underline decoration-stone-300">
+              {t('clearAll')}
+            </button>
+          </div>
+        )}
+
+        {isReadOnly && (
+          <p className="text-sm text-amber-600 font-semibold">{t('readOnlyCollectionNote')}</p>
+        )}
+
         {filteredItems.length === 0 ? (
              <div className={`text-center py-32 rounded-[3rem] border shadow-sm ${theme === 'vault' ? 'bg-white/5 border-white/5' : 'bg-white/50 border-stone-100'}`}>
                  <div className="text-8xl mb-8 grayscale opacity-10">🏛️</div>
                  <h3 className={`text-3xl font-serif font-bold mb-2 italic tracking-tight ${theme === 'vault' ? 'text-white' : 'text-stone-800'}`}>{t('galleryAwaits')}</h3>
-                 <p className="text-stone-400 mb-10 max-w-sm mx-auto leading-relaxed font-serif text-lg">{t('museumDefinition')}</p>
+                 <p className={`${theme === 'vault' ? 'text-white/60' : 'text-stone-400'} mb-10 max-w-sm mx-auto leading-relaxed font-serif text-lg`}>{t('museumDefinition')}</p>
                  {!isReadOnly && !filter && activeFilterCount === 0 && (
                    <Button size="lg" className="px-12 py-4 text-lg rounded-2xl shadow-xl" onClick={() => setIsAddModalOpen(true)}>
                      {t('catalogFirst')}
@@ -897,7 +952,10 @@ const AppContent: React.FC = () => {
                                     <span className="text-2xl sm:text-4xl">{star <= item.rating ? <span className="text-amber-400">★</span> : <span className="text-stone-100/10">★</span>}</span>
                                 </button>
                               ))}
-                              <span className="ml-3 sm:ml-4 text-[8px] sm:text-[10px] font-mono tracking-[0.2em] sm:tracking-[0.3em] text-stone-300 uppercase font-bold">{t('registryQuality')}</span>
+                              <span className="ml-3 sm:ml-4 text-[11px] sm:text-[12px] font-mono tracking-[0.18em] sm:tracking-[0.2em] text-stone-300 uppercase font-bold">{t('registryQuality')}</span>
+                              {isReadOnly && (
+                                <span className="ml-2 text-[12px] text-amber-500 font-semibold">{t('readOnlyControls')}</span>
+                              )}
                           </div>
                       </div>
                       {!isReadOnly && (
@@ -959,7 +1017,8 @@ const AppContent: React.FC = () => {
 
   const isAuthenticated = Boolean(user);
   const sampleCollection = useMemo(() => collections.find(c => c.isPublic), [collections]);
-  const showAccessGate = !isSupabaseReady || (!isAuthenticated && !allowPublicBrowse);
+  const hasPublicCollections = useMemo(() => collections.some(c => c.isPublic), [collections]);
+  const showAccessGate = !isSupabaseReady || (!isAuthenticated && !allowPublicBrowse && !hasPublicCollections);
 
   const handleExploreSamples = () => {
     setAllowPublicBrowse(true);
@@ -996,22 +1055,26 @@ const AppContent: React.FC = () => {
         <p className="text-sm text-stone-500 mb-6">
           {!authReady && isSupabaseReady ? t('authLoadingDesc') : (isSupabaseReady ? t('authRequiredDesc') : t('cloudRequiredDesc'))}
         </p>
-        <div className="space-y-3">
+        <div className="space-y-2">
+          <Button onClick={handleAddAction} size="lg" className="w-full">
+            {t('ctaAddFirst')}
+          </Button>
           {isSupabaseReady && (
             <Button onClick={handleExploreSamples} size="lg" variant="secondary" className="w-full">
               {t('exploreSample')}
             </Button>
           )}
           {isSupabaseReady && authReady ? (
-            <Button onClick={() => setIsAuthModalOpen(true)} size="lg" className="w-full">
+            <button onClick={() => setIsAuthModalOpen(true)} className="w-full text-sm font-semibold text-stone-500 hover:text-stone-800 py-2">
               {t('authRequiredAction')}
-            </Button>
+            </button>
           ) : !isSupabaseReady ? (
-            <div className="text-[10px] font-mono uppercase tracking-widest text-stone-400">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-stone-400">
               {t('cloudRequiredAction')}
             </div>
           ) : null}
         </div>
+        <p className="text-[12px] text-stone-400 mt-5 leading-relaxed">{t('ctaPromise')}</p>
       </div>
     </div>
   );
@@ -1029,35 +1092,31 @@ const AppContent: React.FC = () => {
         importMessage={importMessage}
         onImportLocal={handleImportLocal}
         headerExtras={
-            <div className="flex items-center gap-2">
-                {sampleCollection && (
-                  <Link to={`/collection/${sampleCollection.id}`}>
-                    <Button 
-                      variant="secondary" 
-                      size="sm" 
-                      className="hidden sm:inline-flex" 
-                      icon={<Sparkles size={14} />}
-                    >
-                      {t('exploreSample')}
-                    </Button>
-                  </Link>
-                )}
-                <button 
-                onClick={toggleTheme}
-                className="p-2 hover:bg-stone-100 dark:hover:bg-white/10 rounded-full text-stone-500 hover:text-stone-900 transition-colors"
-                title={t('themeSelection')}
-                >
-                <Paintbrush size={18} />
-                </button>
-                <button 
-                onClick={() => setLanguage(language === 'en' ? 'zh' : 'en')}
-                className="p-2 hover:bg-stone-100 dark:hover:bg-white/10 rounded-full text-stone-500 hover:text-stone-900 transition-colors flex items-center gap-1.5"
-                title="Switch Language"
-                >
-                <Globe size={18} />
-                <span className="text-[10px] font-bold uppercase tracking-widest">{language === 'en' ? 'ZH' : 'EN'}</span>
-                </button>
+          <div className="flex items-center gap-3 flex-wrap justify-end">
+            <div className="hidden md:flex">
+              <ThemePicker layout="inline" />
             </div>
+            {sampleCollection && (
+              <Link to={`/collection/${sampleCollection.id}`}>
+                <Button 
+                  variant="secondary" 
+                  size="sm" 
+                  className="hidden sm:inline-flex motion-fade" 
+                  icon={<Sparkles size={14} />}
+                >
+                  {t('exploreSample')}
+                </Button>
+              </Link>
+            )}
+            <button 
+              onClick={() => setLanguage(language === 'en' ? 'zh' : 'en')}
+              className="p-2 hover:bg-stone-100 dark:hover:bg-white/10 rounded-full text-stone-500 hover:text-stone-900 transition-colors flex items-center gap-1.5"
+              title="Switch Language"
+            >
+              <Globe size={18} />
+              <span className="text-[11px] font-bold uppercase tracking-[0.14em]">{language === 'en' ? 'ZH' : 'EN'}</span>
+            </button>
+          </div>
         }
         >
         {showAccessGate ? (
@@ -1082,20 +1141,24 @@ const AppContent: React.FC = () => {
           </>
         )}
         </Layout>
+        {status && (
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
+            <StatusToast message={status.message} tone={status.tone} onDismiss={() => setStatus(null)} />
+          </div>
+        )}
         <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
     </div>
   );
 };
 
 export const App: React.FC = () => {
-  const [theme, setTheme] = useState<AppTheme>('gallery');
   return (
-    <ThemeContext.Provider value={{ theme, setTheme }}>
-        <LanguageProvider>
+    <ThemeProvider>
+      <LanguageProvider>
         <HashRouter>
-            <AppContent />
+          <AppContent />
         </HashRouter>
-        </LanguageProvider>
-    </ThemeContext.Provider>
+      </LanguageProvider>
+    </ThemeProvider>
   );
 };

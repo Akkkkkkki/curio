@@ -4,6 +4,7 @@ import { CollectionItem, FieldDefinition } from '../types';
 import { Star } from 'lucide-react';
 import { ItemImage } from './ItemImage';
 import { useTranslation } from '../i18n';
+import { useTheme, cardSurfaceClasses, mutedTextClasses } from '../theme';
 
 interface ItemCardProps {
   item: CollectionItem;
@@ -16,6 +17,14 @@ interface ItemCardProps {
 
 export const ItemCard: React.FC<ItemCardProps> = ({ item, fields, displayFields, badgeFields, onClick, layout = 'grid' }) => {
   const { t } = useTranslation();
+  const { theme } = useTheme();
+  const cardSurface = cardSurfaceClasses[theme];
+  const labelText = mutedTextClasses[theme];
+  const valueText = theme === 'vault' ? 'text-white' : 'text-stone-700';
+  const badgeSurface = theme === 'vault'
+    ? 'bg-white/10 text-white border border-white/10'
+    : 'bg-stone-100 text-stone-600';
+  const ratingSurface = theme === 'vault' ? 'bg-stone-900/80 text-white' : 'bg-white/90 text-stone-700';
   
   const getValue = (fieldId: string) => {
     const val = item.data[fieldId];
@@ -40,9 +49,9 @@ export const ItemCard: React.FC<ItemCardProps> = ({ item, fields, displayFields,
   return (
     <div 
       onClick={onClick}
-      className={`group bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden border border-stone-100 cursor-pointer flex flex-col ${layout === 'grid' ? 'h-full' : ''}`}
+      className={`group rounded-xl shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden border cursor-pointer flex flex-col ${layout === 'grid' ? 'h-full' : ''} motion-card ${cardSurface}`}
     >
-      <div className={`${layout === 'grid' ? 'aspect-[4/3]' : ''} bg-stone-100 overflow-hidden relative`}>
+      <div className={`${layout === 'grid' ? 'aspect-[4/3]' : ''} ${theme === 'vault' ? 'bg-stone-800' : 'bg-stone-100'} overflow-hidden relative`}>
         <ItemImage 
             itemId={item.id} 
             photoUrl={item.photoUrl}
@@ -51,15 +60,15 @@ export const ItemCard: React.FC<ItemCardProps> = ({ item, fields, displayFields,
         />
         
         {item.rating > 0 && (
-          <div className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm px-1.5 py-0.5 rounded-md flex items-center gap-1 shadow-sm">
+          <div className={`absolute top-2 right-2 backdrop-blur-sm px-1.5 py-0.5 rounded-md flex items-center gap-1 shadow-sm ${ratingSurface}`}>
             <Star size={10} className="fill-amber-400 text-amber-400" />
-            <span className="text-xs font-bold text-stone-700">{item.rating}</span>
+            <span className="text-xs font-bold">{item.rating}</span>
           </div>
         )}
       </div>
 
       <div className="p-4 flex flex-col flex-grow">
-        <h4 className="font-bold text-stone-900 line-clamp-1 text-lg mb-1">{item.title}</h4>
+        <h4 className="font-bold line-clamp-1 text-lg mb-1 tracking-tight">{item.title}</h4>
         
         <div className="space-y-1 mb-3">
           {displayFields.map(fieldId => {
@@ -67,20 +76,20 @@ export const ItemCard: React.FC<ItemCardProps> = ({ item, fields, displayFields,
             const label = getLabel(fieldId);
             if (!val) return null;
             return (
-              <p key={fieldId} className="text-sm text-stone-600 line-clamp-1 flex items-center gap-1.5">
-                <span className="text-stone-400 text-xs uppercase tracking-wider">{label}:</span>
-                <span className="font-medium text-stone-700">{val}</span>
+              <p key={fieldId} className={`text-sm line-clamp-1 flex items-center gap-1.5 ${valueText}`}>
+                <span className={`text-[12px] uppercase tracking-[0.1em] ${labelText}`}>{label}:</span>
+                <span className="font-medium">{val}</span>
               </p>
             );
           })}
         </div>
 
-        <div className="mt-auto flex flex-wrap gap-1.5 pt-2 border-t border-stone-50">
+        <div className={`mt-auto flex flex-wrap gap-1.5 pt-2 border-t ${theme === 'vault' ? 'border-white/10' : 'border-stone-50'}`}>
           {badgeFields.map(fieldId => {
             const val = getValue(fieldId);
             if (!val) return null;
             return (
-              <span key={fieldId} className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-stone-100 text-stone-600 uppercase tracking-wide">
+              <span key={fieldId} className={`inline-flex items-center px-2 py-0.5 rounded-md text-[12px] font-semibold uppercase tracking-[0.08em] ${badgeSurface}`}>
                 {val}
               </span>
             );

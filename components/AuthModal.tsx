@@ -4,6 +4,7 @@ import { X, Mail, Lock, Loader2, Info, ShieldCheck, Zap, Cloud } from 'lucide-re
 import { Button } from './ui/Button';
 import { signInWithEmail, signUpWithEmail, isSupabaseConfigured } from '../services/supabase';
 import { useTranslation } from '../i18n';
+import { useTheme, panelSurfaceClasses, overlaySurfaceClasses, mutedTextClasses } from '../theme';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -12,6 +13,7 @@ interface AuthModalProps {
 
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   const { t } = useTranslation();
+  const { theme } = useTheme();
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -19,28 +21,33 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   const [error, setError] = useState<string | null>(null);
 
   const supabaseActive = isSupabaseConfigured();
+  const surfaceClass = panelSurfaceClasses[theme];
+  const overlayClass = `${overlaySurfaceClasses[theme]} motion-overlay`;
+  const dividerBorder = theme === 'vault' ? 'border-white/10' : 'border-stone-100';
+  const mutedText = mutedTextClasses[theme];
+  const inputSurface = theme === 'vault' ? 'bg-white/5 border border-white/10 text-white placeholder:text-stone-400' : 'bg-stone-50 border border-stone-200 text-stone-900';
 
   if (!isOpen) return null;
 
   if (!supabaseActive) {
     return (
-      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-md animate-in fade-in duration-200">
-        <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md overflow-hidden flex flex-col border border-stone-200">
-          <div className="flex items-center justify-between p-8 border-b border-stone-100">
+      <div className={`fixed inset-0 z-[100] flex items-center justify-center p-4 ${overlayClass} backdrop-blur-md`}>
+        <div className={`${surfaceClass} rounded-[2.5rem] shadow-2xl w-full max-w-md overflow-hidden flex flex-col border motion-panel`}>
+          <div className={`flex items-center justify-between p-8 border-b ${dividerBorder}`}>
             <div>
-              <h2 className="font-serif font-bold text-2xl text-stone-800">
+              <h2 className={`font-serif font-bold text-2xl ${theme === 'vault' ? 'text-white' : 'text-stone-800'}`}>
                 {t('cloudRequiredTitle')}
               </h2>
-              <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mt-1">
+              <p className={`text-[11px] font-bold uppercase tracking-[0.14em] ${mutedText} mt-1`}>
                 {t('cloudRequiredStatus')}
               </p>
             </div>
-            <button onClick={onClose} className="p-2 -mr-2 hover:bg-stone-100 rounded-full text-stone-400 hover:text-stone-800 transition-colors">
+            <button onClick={onClose} className={`p-2 -mr-2 rounded-full transition-colors ${theme === 'vault' ? 'hover:bg-white/5 text-stone-300 hover:text-white' : 'hover:bg-stone-100 text-stone-400 hover:text-stone-800'}`}>
               <X size={24} />
             </button>
           </div>
           <div className="p-8 space-y-4">
-            <p className="text-sm text-stone-500">{t('cloudRequiredDesc')}</p>
+            <p className={`text-sm ${mutedText}`}>{t('cloudRequiredDesc')}</p>
             <Button type="button" className="w-full h-12" onClick={onClose}>
               {t('close')}
             </Button>
@@ -65,46 +72,46 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md overflow-hidden flex flex-col border border-stone-200">
-        <div className="flex items-center justify-between p-8 border-b border-stone-100">
+    <div className={`fixed inset-0 z-[100] flex items-center justify-center p-4 ${overlayClass} backdrop-blur-md`}>
+      <div className={`${surfaceClass} rounded-[2.5rem] shadow-2xl w-full max-w-md overflow-hidden flex flex-col border motion-panel`}>
+        <div className={`flex items-center justify-between p-8 border-b ${dividerBorder}`}>
           <div>
-            <h2 className="font-serif font-bold text-2xl text-stone-800">
+            <h2 className={`font-serif font-bold text-2xl ${theme === 'vault' ? 'text-white' : 'text-stone-800'}`}>
               {mode === 'signin' ? t('loginTitle') : t('registerTitle')}
             </h2>
-            <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest mt-1 flex items-center gap-1">
+            <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-[0.14em] mt-1 flex items-center gap-1">
               <Cloud size={10} /> {t('cloudSyncActive')}
             </p>
           </div>
-          <button onClick={onClose} className="p-2 -mr-2 hover:bg-stone-100 rounded-full text-stone-400 hover:text-stone-800 transition-colors">
+          <button onClick={onClose} className={`p-2 -mr-2 rounded-full transition-colors ${theme === 'vault' ? 'hover:bg-white/5 text-stone-300 hover:text-white' : 'hover:bg-stone-100 text-stone-400 hover:text-stone-800'}`}>
             <X size={24} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-8 pt-6 space-y-6">
           <div className="space-y-4">
-            <div className="p-4 rounded-2xl border flex gap-3 bg-amber-50 border-amber-100">
+            <div className={`p-4 rounded-2xl border flex gap-3 ${theme === 'vault' ? 'bg-white/5 border-white/10' : 'bg-amber-50 border-amber-100'}`}>
               <Info className="text-amber-600 shrink-0 mt-0.5" size={18} />
               <div className="space-y-1">
-                  <p className="text-xs font-bold text-amber-900">
+                  <p className="text-[12px] font-bold text-amber-900">
                     {t('cloudSyncTitle')}
                   </p>
-                  <p className="text-[11px] text-stone-500 leading-relaxed">
+                  <p className={`text-[11px] ${mutedText} leading-relaxed`}>
                       {t('cloudSyncDesc')}
                   </p>
               </div>
             </div>
             
             <div className="grid grid-cols-2 gap-3">
-                <div className="p-3 bg-stone-50 rounded-xl border border-stone-100">
-                    <ShieldCheck size={14} className="text-stone-400 mb-1" />
-                    <p className="text-[10px] font-bold text-stone-600 uppercase tracking-tighter">Private</p>
-                    <p className="text-[9px] text-stone-400">Your data is yours alone.</p>
+                <div className={`p-3 rounded-xl border ${theme === 'vault' ? 'bg-white/5 border-white/10 text-white' : 'bg-stone-50 border-stone-100'}`}>
+                    <ShieldCheck size={14} className={`${mutedText} mb-1`} />
+                    <p className={`text-[11px] font-bold uppercase tracking-tight ${theme === 'vault' ? 'text-white' : 'text-stone-700'}`}>Private</p>
+                    <p className={`text-[11px] ${mutedText}`}>Your data is yours alone.</p>
                 </div>
-                <div className="p-3 bg-stone-50 rounded-xl border border-stone-100">
-                    <Zap size={14} className="text-stone-400 mb-1" />
-                    <p className="text-[10px] font-bold text-stone-600 uppercase tracking-tighter">Fast</p>
-                    <p className="text-[9px] text-stone-400">Optimized for speed & offline.</p>
+                <div className={`p-3 rounded-xl border ${theme === 'vault' ? 'bg-white/5 border-white/10 text-white' : 'bg-stone-50 border-stone-100'}`}>
+                    <Zap size={14} className={`${mutedText} mb-1`} />
+                    <p className={`text-[11px] font-bold uppercase tracking-tight ${theme === 'vault' ? 'text-white' : 'text-stone-700'}`}>Fast</p>
+                    <p className={`text-[11px] ${mutedText}`}>Optimized for speed & offline.</p>
                 </div>
             </div>
           </div>
@@ -117,30 +124,30 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
           <div className="space-y-4">
             <div>
-              <label className="block text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-1.5">{t('email')}</label>
+              <label className={`block text-[11px] font-semibold uppercase tracking-[0.12em] ${mutedText} mb-1.5`}>{t('email')}</label>
               <div className="relative">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300" size={16} />
+                <Mail className={`absolute left-4 top-1/2 -translate-y-1/2 ${mutedText}`} size={16} />
                 <input
                   type="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-11 pr-4 py-3.5 bg-stone-50 border border-stone-200 rounded-2xl focus:ring-4 focus:ring-amber-500/5 focus:border-amber-200 outline-none font-medium transition-all"
+                  className={`w-full pl-11 pr-4 py-3.5 rounded-2xl focus:ring-4 focus:ring-amber-500/5 focus:border-amber-200 outline-none font-medium transition-all ${inputSurface}`}
                   placeholder="curator@museum.com"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-1.5">{t('password')}</label>
+              <label className={`block text-[11px] font-semibold uppercase tracking-[0.12em] ${mutedText} mb-1.5`}>{t('password')}</label>
               <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300" size={16} />
+                <Lock className={`absolute left-4 top-1/2 -translate-y-1/2 ${mutedText}`} size={16} />
                 <input
                   type="password"
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-11 pr-4 py-3.5 bg-stone-50 border border-stone-200 rounded-2xl focus:ring-4 focus:ring-amber-500/5 focus:border-amber-200 outline-none font-medium transition-all"
+                  className={`w-full pl-11 pr-4 py-3.5 rounded-2xl focus:ring-4 focus:ring-amber-500/5 focus:border-amber-200 outline-none font-medium transition-all ${inputSurface}`}
                   placeholder="••••••••"
                 />
               </div>
@@ -155,7 +162,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
             <button
               type="button"
               onClick={() => setMode(mode === 'signin' ? 'signup' : 'signin')}
-              className="text-sm font-semibold text-stone-500 hover:text-amber-600 transition-colors"
+              className={`text-sm font-semibold transition-colors ${theme === 'vault' ? 'text-white/70 hover:text-amber-300' : 'text-stone-500 hover:text-amber-600'}`}
             >
               {mode === 'signin' ? t('noAccount') : t('hasAccount')}
             </button>

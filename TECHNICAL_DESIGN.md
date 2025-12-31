@@ -76,3 +76,7 @@ Supabase scripts live in:
 Key columns added for the public sample flow:
 - `collections.is_public` (boolean)
 - `profiles.is_admin` (boolean)
+
+## 7. UI Utilities
+- **Theming:** `theme.tsx` exposes a `ThemeProvider` / `useTheme` hook that persists the selected theme (Gallery, Vault, Atelier) in IndexedDB and is consumed by modals (`AddItemModal`, `AuthModal`, `CreateCollectionModal`, `FilterModal`) for consistent surfaces.
+- **Feedback:** A lightweight `StatusToast` component in `App.tsx` surfaces save/sync/import success and error states so users see clear outcomes even during transient network issues.

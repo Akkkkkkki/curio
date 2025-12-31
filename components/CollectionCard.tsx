@@ -3,6 +3,7 @@ import { UserCollection } from '../types';
 import { ChevronRight } from 'lucide-react';
 import { TEMPLATES } from '../constants';
 import { useTranslation } from '../i18n';
+import { useTheme, cardSurfaceClasses, mutedTextClasses } from '../theme';
 
 interface CollectionCardProps {
   collection: UserCollection;
@@ -11,26 +12,29 @@ interface CollectionCardProps {
 
 export const CollectionCard: React.FC<CollectionCardProps> = ({ collection, onClick }) => {
   const { t } = useTranslation();
+  const { theme } = useTheme();
   const template = TEMPLATES.find(t => t.id === collection.templateId) || TEMPLATES[0];
   const itemCount = collection.items.length;
-  const isSample = collection.id.startsWith('sample');
+  const isSample = Boolean(collection.isPublic) || collection.id.startsWith('sample');
+  const baseSurface = cardSurfaceClasses[theme];
+  const mutedText = mutedTextClasses[theme];
+  const accentBorder: Record<string, string> = {
+    orange: 'border-orange-100/80',
+    indigo: 'border-indigo-100/70',
+    rose: 'border-rose-100/70',
+    emerald: 'border-emerald-100/70',
+    stone: 'border-stone-200',
+  };
+  const badgeSurface = theme === 'vault'
+    ? 'bg-white/10 text-white border border-white/10'
+    : 'bg-white/80 text-stone-700 border border-white/60';
   
   const displayIcon = collection.icon || template.icon;
-
-  const bgClasses: Record<string, string> = {
-    orange: 'bg-orange-50 hover:bg-orange-100 border-orange-100',
-    indigo: 'bg-indigo-50 hover:bg-indigo-100 border-indigo-100',
-    rose: 'bg-rose-50 hover:bg-rose-100 border-rose-100',
-    emerald: 'bg-emerald-50 hover:bg-emerald-100 border-emerald-100',
-    stone: 'bg-stone-100 hover:bg-stone-200 border-stone-200',
-  };
-
-  const bgClass = bgClasses[template.accentColor] || bgClasses['stone'];
 
   return (
     <div 
       onClick={onClick}
-      className={`group relative p-8 rounded-[2.5rem] border ${bgClass} transition-all duration-500 cursor-pointer shadow-sm hover:shadow-xl flex flex-col justify-between h-52 overflow-hidden`}
+      className={`group relative p-8 rounded-[2.5rem] border ${baseSurface} ${accentBorder[template.accentColor] || accentBorder['stone']} transition-all duration-500 cursor-pointer shadow-sm hover:shadow-xl flex flex-col justify-between h-52 overflow-hidden motion-card`}
     >
       <div className="absolute top-0 right-0 p-8 opacity-10 text-7xl select-none group-hover:scale-110 group-hover:rotate-12 transition-transform duration-700 pointer-events-none">
         {displayIcon}
@@ -38,23 +42,25 @@ export const CollectionCard: React.FC<CollectionCardProps> = ({ collection, onCl
 
       <div className="relative z-10">
         <div className="flex items-center gap-2 mb-1">
-          <h3 className="font-serif text-2xl sm:text-3xl font-bold text-stone-900 group-hover:text-black leading-tight truncate max-w-[80%]">
+          <h3 className="font-serif text-2xl sm:text-3xl font-bold group-hover:text-amber-600 leading-tight truncate max-w-[80%]">
             {collection.name}
           </h3>
           {isSample && (
-            <span className="text-[8px] font-mono tracking-[0.2em] bg-white/40 text-stone-500 px-1.5 py-0.5 rounded border border-black/5 uppercase font-bold shrink-0">Sample</span>
+            <span className="text-[12px] font-mono tracking-[0.1em] px-2 py-0.5 rounded border uppercase font-bold shrink-0 bg-amber-50 text-amber-700 border-amber-100">
+              {t('readOnlyMode')}
+            </span>
           )}
         </div>
-        <p className="text-stone-500 text-xs sm:text-sm mt-1 sm:mt-2 line-clamp-2 max-w-[90%] font-medium leading-relaxed">
+        <p className={`${mutedText} text-sm mt-1 sm:mt-2 line-clamp-2 max-w-[90%] font-medium leading-relaxed`}>
           {template.description}
         </p>
       </div>
 
       <div className="flex items-center justify-between mt-4 relative z-10">
-        <span className="inline-flex items-center px-4 py-1.5 rounded-full text-xs font-bold bg-white/60 text-stone-700 backdrop-blur-sm border border-white/40 shadow-sm">
+        <span className={`inline-flex items-center px-4 py-1.5 rounded-full text-sm font-semibold backdrop-blur-sm shadow-sm ${badgeSurface}`}>
           {t(itemCount === 1 ? 'itemCount' : 'itemsCount', { n: itemCount })}
         </span>
-        <div className="w-10 h-10 rounded-full bg-white/60 flex items-center justify-center text-stone-400 group-hover:text-stone-900 group-hover:bg-white transition-all shadow-sm group-hover:shadow-md">
+        <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-sm group-hover:shadow-md ${theme === 'vault' ? 'bg-white/10 text-white group-hover:bg-white/20' : 'bg-white text-stone-400 group-hover:text-stone-900 group-hover:bg-white'}`}>
           <ChevronRight size={20} />
         </div>
       </div>

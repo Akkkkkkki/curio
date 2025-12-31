@@ -81,4 +81,7 @@ Notes:
 
 - AI requests are routed through `server/geminiProxy.js` to avoid exposing API keys in the client bundle.
 - Supabase is required; IndexedDB is used as a local cache/back-up.
-- Users must sign in before accessing collections.
+- Anyone can browse the public sample gallery before signing in; creating or saving your own collections still requires auth.
+- Theme selection (Gallery, Vault, Atelier) is stored in IndexedDB, surfaced via the header theme picker, and applied across modals and cards.
+- Save/sync/import outcomes surface via a shared toast so users always see a clear result.
+- Active filters display as chips with one-tap clear, and public/sample collections show a persistent read-only badge for clarity.
