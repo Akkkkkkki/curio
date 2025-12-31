@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Home, Plus, User, LogOut, Cloud, CloudOff, Zap, ArrowUpRight, Download } from 'lucide-react';
+import { Home, User, LogOut, Cloud, CloudOff, Zap, ArrowUpRight, Download } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from '../i18n';
 import { ThemePicker } from './ThemePicker';
@@ -8,7 +8,6 @@ import { useTheme, cardSurfaceClasses } from '../theme';
 
 interface LayoutProps {
   children: React.ReactNode;
-  onAddItem: () => void;
   onOpenAuth: () => void;
   onSignOut: () => void;
   onImportLocal?: () => void;
@@ -20,7 +19,7 @@ interface LayoutProps {
   headerExtras?: React.ReactNode;
 }
 
-export const Layout: React.FC<LayoutProps> = ({ children, onAddItem, onOpenAuth, onSignOut, onImportLocal, hasLocalImport = false, importState = 'idle', importMessage = null, user, isSupabaseConfigured, headerExtras }) => {
+export const Layout: React.FC<LayoutProps> = ({ children, onOpenAuth, onSignOut, onImportLocal, hasLocalImport = false, importState = 'idle', importMessage = null, user, isSupabaseConfigured, headerExtras }) => {
   const { t } = useTranslation();
   const { theme } = useTheme();
   const location = useLocation();
@@ -54,9 +53,6 @@ export const Layout: React.FC<LayoutProps> = ({ children, onAddItem, onOpenAuth,
     : 'hover:bg-stone-100 text-stone-500 hover:text-stone-900';
   const dropdownSurface = cardSurfaceClasses[theme];
   const borderClass = theme === 'vault' ? 'border-white/10' : 'border-stone-100';
-  const primaryCta = theme === 'vault'
-    ? 'bg-amber-500 hover:bg-amber-400 text-stone-950'
-    : 'bg-stone-900 hover:bg-amber-600 text-white';
   const footerGradient = theme === 'vault'
     ? 'from-stone-950 via-stone-950 to-transparent'
     : theme === 'atelier'
@@ -74,7 +70,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, onAddItem, onOpenAuth,
             <span className="font-serif text-xl font-bold tracking-tight leading-none">{t('appTitle')}</span>
           </Link>
           
-          <nav className="flex w-full items-center gap-2 flex-wrap justify-between sm:w-auto sm:flex-nowrap sm:justify-end">
+          <nav className="flex items-center gap-2 flex-wrap justify-end">
             {headerExtras}
             
             <div className="relative">
@@ -167,14 +163,6 @@ export const Layout: React.FC<LayoutProps> = ({ children, onAddItem, onOpenAuth,
                     </button>
             </Link>
             )}
-            <button 
-                onClick={onAddItem}
-                className={`${primaryCta} rounded-full px-4 py-1.5 text-sm font-medium flex items-center gap-2 transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 flex-shrink-0`}
-            >
-              <Plus size={16} />
-              <span className="hidden sm:inline">{isAuthenticated ? t('addItem') : t('login')}</span>
-              <span className="sm:hidden">{isAuthenticated ? t('add') : t('login')}</span>
-            </button>
           </nav>
         </div>
       </header>

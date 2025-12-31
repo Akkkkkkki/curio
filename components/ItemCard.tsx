@@ -25,6 +25,9 @@ export const ItemCard: React.FC<ItemCardProps> = ({ item, fields, displayFields,
     ? 'bg-white/10 text-white border border-white/10'
     : 'bg-stone-100 text-stone-600';
   const ratingSurface = theme === 'vault' ? 'bg-stone-900/80 text-white' : 'bg-white/90 text-stone-700';
+  const cardShadow = theme === 'vault'
+    ? 'shadow-[0_20px_50px_rgba(0,0,0,0.45)] hover:shadow-[0_24px_60px_rgba(0,0,0,0.55)]'
+    : 'shadow-[0_18px_40px_rgba(15,23,42,0.08)] hover:shadow-[0_24px_50px_rgba(15,23,42,0.12)]';
   
   const getValue = (fieldId: string) => {
     const val = item.data[fieldId];
@@ -49,7 +52,7 @@ export const ItemCard: React.FC<ItemCardProps> = ({ item, fields, displayFields,
   return (
     <div 
       onClick={onClick}
-      className={`group rounded-xl shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden border cursor-pointer flex flex-col ${layout === 'grid' ? 'h-full' : ''} motion-card ${cardSurface}`}
+      className={`group rounded-2xl transition-all duration-300 overflow-hidden border cursor-pointer flex flex-col ${layout === 'grid' ? 'h-full' : ''} motion-card ${cardSurface} ${cardShadow}`}
     >
       <div className={`${layout === 'grid' ? 'aspect-[4/3]' : ''} ${theme === 'vault' ? 'bg-stone-800' : 'bg-stone-100'} overflow-hidden relative`}>
         <ItemImage 

@@ -1,6 +1,6 @@
 
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { getAsset } from '../services/db';
 import { Loader2, Camera, AlertCircle } from 'lucide-react';
 
@@ -19,9 +19,21 @@ export const ItemImage: React.FC<ItemImageProps> = ({ itemId, photoUrl, classNam
   const [fallbackSrc, setFallbackSrc] = useState<string | null>(null);
   const currentUrlRef = useRef<string | null>(null);
   const defaultFallback = `${import.meta.env.BASE_URL}assets/sample-vinyl.jpg`;
+  const resolvedPhotoUrl = useMemo(() => {
+    if (!photoUrl) return photoUrl;
+    if (
+      photoUrl.startsWith('http') ||
+      photoUrl.startsWith('data:') ||
+      photoUrl.startsWith('blob:') ||
+      photoUrl.startsWith('/')
+    ) {
+      return photoUrl;
+    }
+    return `${import.meta.env.BASE_URL}${photoUrl}`;
+  }, [photoUrl]);
 
   // If photoUrl is anything other than 'asset', it's a direct reference (URL or path)
-  const isDirectSource = photoUrl && photoUrl !== 'asset' && photoUrl !== '';
+  const isDirectSource = resolvedPhotoUrl && resolvedPhotoUrl !== 'asset' && resolvedPhotoUrl !== '';
 
   useEffect(() => {
     // Reset fallback/error when the source changes
@@ -91,7 +103,7 @@ export const ItemImage: React.FC<ItemImageProps> = ({ itemId, photoUrl, classNam
     };
   }, []);
 
-  const finalSrc = fallbackSrc || (isDirectSource ? photoUrl : dbUrl);
+  const finalSrc = fallbackSrc || (isDirectSource ? resolvedPhotoUrl : dbUrl);
 
   if (loading && !finalSrc) {
     return (
