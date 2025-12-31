@@ -22,10 +22,17 @@ import { LanguageProvider, useTranslation } from './i18n';
 import { supabase, isSupabaseConfigured, signOutUser } from './services/supabase';
 import { ThemeProvider, useTheme } from './theme';
 import { StatusToast, StatusTone } from './components/StatusToast';
-import { ThemePicker } from './components/ThemePicker';
 
 const CURRENT_SEED_VERSION = 3;
-const SEED_IMAGE_PATH = `${import.meta.env.BASE_URL}assets/sample-vinyl.jpg`;
+const SEED_IMAGE_PATH = (() => {
+  if (supabase) {
+    const { data } = supabase.storage.from('curio-assets').getPublicUrl('sample-vinyl.jpg');
+    if (data?.publicUrl) {
+      return data.publicUrl;
+    }
+  }
+  return `${import.meta.env.BASE_URL}assets/sample-vinyl.jpg`;
+})();
 const SEED_TIMESTAMP = new Date().toISOString();
 
 const INITIAL_COLLECTIONS: UserCollection[] = [
@@ -662,6 +669,7 @@ const AppContent: React.FC = () => {
     if (!collection) return <Navigate to="/" replace />;
     const isReadOnly = Boolean(collection.isPublic) && !isAdmin;
     const isSample = Boolean(collection.isPublic) || collection.id.startsWith('sample');
+    const canAddItems = !isReadOnly;
 
     const filteredItems = collection.items.filter(item => {
         const term = filter.toLowerCase();
@@ -737,6 +745,16 @@ const AppContent: React.FC = () => {
                 </div>
             </div>
             <div className="flex items-center gap-4 flex-wrap">
+                 {canAddItems && (
+                   <Button 
+                     variant="primary"
+                     onClick={() => setIsAddModalOpen(true)} 
+                     icon={<Plus size={16} />}
+                     className="shadow-xl"
+                   >
+                     {t('addItem')}
+                   </Button>
+                 )}
                  <Button 
                    variant="primary" 
                    onClick={() => setIsExhibitionOpen(true)} 
@@ -1082,7 +1100,6 @@ const AppContent: React.FC = () => {
   return (
     <div className={`min-h-screen transition-colors duration-1000 ${themeColors[theme]}`}>
         <Layout 
-        onAddItem={handleAddAction}
         onOpenAuth={() => setIsAuthModalOpen(true)}
         onSignOut={handleSignOut}
         user={user}
@@ -1092,10 +1109,7 @@ const AppContent: React.FC = () => {
         importMessage={importMessage}
         onImportLocal={handleImportLocal}
         headerExtras={
-          <div className="flex w-full items-center gap-2 sm:gap-3 flex-wrap justify-between sm:w-auto sm:justify-end">
-            <div className="hidden md:flex">
-              <ThemePicker layout="inline" />
-            </div>
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
             {sampleCollection && (
               <Link to={`/collection/${sampleCollection.id}`}>
                 <Button 
