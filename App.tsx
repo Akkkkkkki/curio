@@ -807,6 +807,7 @@ const AppContent: React.FC = () => {
       };
 
       const hasPhoto = item.photoUrl && item.photoUrl !== '';
+      const showMobileUpdateRow = !isReadOnly && hasPhoto;
 
       const detailBaseClasses = {
         gallery: "bg-white text-stone-900 border-stone-100 shadow-2xl",
@@ -829,7 +830,11 @@ const AppContent: React.FC = () => {
 
                   {!isReadOnly && (
                     <>
-                      <div className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${hasPhoto ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'}`}>
+                      <div
+                        className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${
+                          hasPhoto ? 'opacity-0 sm:opacity-0 sm:group-hover:opacity-100' : 'opacity-100'
+                        }`}
+                      >
                           <button disabled={isProcessing} onClick={() => fileInputRef.current?.click()} className="bg-white/90 hover:bg-white text-stone-900 px-6 sm:px-8 py-2 sm:py-3 rounded-full font-bold shadow-2xl backdrop-blur-md transition-all hover:scale-105 flex items-center gap-2 sm:gap-3 disabled:opacity-50 text-xs sm:text-sm">
                             {isProcessing ? <Loader2 size={16} className="animate-spin" /> : <Camera size={16} />}
                             {t('updatePhoto')}
@@ -845,6 +850,18 @@ const AppContent: React.FC = () => {
                      <button onClick={() => setIsExportOpen(true)} className={`w-10 h-10 sm:w-14 sm:h-14 backdrop-blur-md rounded-xl sm:rounded-2xl flex items-center justify-center shadow-xl transition-all hover:scale-105 ${theme === 'vault' ? 'bg-white/10 text-white' : 'bg-white/80 text-stone-800'}`} title={t('exportCard')}><Printer size={20} className="sm:w-6 sm:h-6" /></button>
                   </div>
               </div>
+              {showMobileUpdateRow && (
+                <div className="flex sm:hidden items-center justify-center gap-3 px-6 pt-4">
+                  <button
+                    disabled={isProcessing}
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full bg-white/90 hover:bg-white text-stone-900 py-3 rounded-full font-bold shadow-lg backdrop-blur-md transition-all disabled:opacity-50 text-sm flex items-center justify-center gap-2"
+                  >
+                    {isProcessing ? <Loader2 size={16} className="animate-spin" /> : <Camera size={16} />}
+                    {t('updatePhoto')}
+                  </button>
+                </div>
+              )}
 
               <div className="p-8 sm:p-12 md:p-20 space-y-10 sm:space-y-12">
                   {isReadOnly && (
