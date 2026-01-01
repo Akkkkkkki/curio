@@ -124,6 +124,8 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
     );
   };
 
+  const sheetHeight = isExpanded ? '85dvh' : '55dvh';
+
   return (
     <div
       className={`fixed inset-0 z-50 bg-stone-950/90 backdrop-blur-md animate-in fade-in duration-200 print:bg-white print:static print:block flex flex-col md:block md:[--sheet-height:0px] ${isExpanded ? '[--sheet-height:85dvh]' : '[--sheet-height:55dvh]'}`}
