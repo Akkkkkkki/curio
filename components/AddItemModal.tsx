@@ -346,7 +346,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
             {error}
           </div>
         )}
-        <div className="space-y-4 max-h-[45vh] overflow-y-auto px-1">
+        <div className="space-y-4 px-1">
             {batchItems.map((item) => (
                 <div key={item.id} className="rounded-2xl border border-stone-100 bg-white p-3 shadow-sm">
                     <div className="flex gap-3 items-start">
@@ -452,7 +452,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
             </div>
        </div>
 
-       <div className="space-y-3 sm:space-y-4 max-h-[35vh] sm:max-h-[40vh] overflow-y-auto px-1">
+       <div className="space-y-3 sm:space-y-4 px-1">
             {currentCollection?.customFields.map(field => (
                 <div key={field.id}>
                     <label className={`block text-[11px] font-semibold uppercase tracking-[0.12em] ${mutedText} mb-0.5 sm:mb-1`}>{field.label}</label>
@@ -494,7 +494,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
 
   return (
     <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${overlayClass} backdrop-blur-sm`}>
-      <div className={`${surfaceClass} rounded-2xl sm:rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col motion-panel`}>
+      <div className={`${surfaceClass} rounded-2xl sm:rounded-3xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col motion-panel`}>
         <div className={`flex items-center justify-between p-4 sm:p-6 border-b ${borderClass}`}>
           <h2 className={`font-serif font-bold text-lg sm:text-xl ${theme === 'vault' ? 'text-white' : 'text-stone-800'}`}>{t('addItem')}</h2>
           <button onClick={onClose} className={`p-2 rounded-full transition-colors ${theme === 'vault' ? 'hover:bg-white/5 text-stone-300 hover:text-white' : 'hover:bg-stone-100 text-stone-400 hover:text-stone-800'}`}>
@@ -502,7 +502,10 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
           </button>
         </div>
 
-        <div className="p-5 sm:p-8 space-y-6">
+        <div
+          className="flex-1 min-h-0 overflow-y-auto p-5 sm:p-8 space-y-6"
+          style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 1.25rem)' }}
+        >
             {renderStepper()}
             {step === 'select-type' && renderCollectionSelect()}
             {step === 'upload' && renderUpload()}
