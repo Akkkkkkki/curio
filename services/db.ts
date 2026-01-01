@@ -442,6 +442,27 @@ export const deleteAsset = async (id: string): Promise<void> => {
     }
 };
 
+export const deleteCloudItem = async (collectionId: string, itemId: string): Promise<void> => {
+  if (!isSupabaseConfigured() || !supabase) return;
+
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { error } = await supabase
+      .from('items')
+      .delete()
+      .eq('id', itemId)
+      .eq('collection_id', collectionId);
+
+    if (error) {
+      console.warn('Cloud item deletion failed:', error);
+    }
+  } catch (e) {
+    console.warn('Cloud item deletion failed:', e);
+  }
+};
+
 export const loadCollections = async (): Promise<UserCollection[]> => {
   const localCollections = await loadLocalCollections();
 
