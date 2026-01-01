@@ -21,6 +21,7 @@ export const ItemImage: React.FC<ItemImageProps> = ({ itemId, photoUrl, classNam
   const defaultFallback = `${import.meta.env.BASE_URL}assets/sample-vinyl.jpg`;
   const remoteAssetPath = useMemo(() => {
     if (!photoUrl) return null;
+    if (photoUrl === 'asset') return null;
     if (photoUrl.startsWith('http') || photoUrl.startsWith('data:') || photoUrl.startsWith('blob:') || photoUrl.startsWith('/')) {
       return null;
     }
@@ -30,7 +31,7 @@ export const ItemImage: React.FC<ItemImageProps> = ({ itemId, photoUrl, classNam
     return null;
   }, [photoUrl]);
   const resolvedPhotoUrl = useMemo(() => {
-    if (!photoUrl || remoteAssetPath) return null;
+    if (!photoUrl || photoUrl === 'asset' || remoteAssetPath) return null;
     if (
       photoUrl.startsWith('http') ||
       photoUrl.startsWith('data:') ||
