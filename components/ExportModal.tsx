@@ -58,12 +58,14 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
     };
     const titleSize = aspectRatio === '1:1' ? 'text-xl' : 'text-3xl';
     const metaSize = aspectRatio === '1:1' ? 'text-[8px]' : 'text-[10px]';
+    const [ratioW, ratioH] = aspectRatio.split(':').map(Number);
+    const previewWidth = `min(80vw, 520px, calc(70vh * ${ratioW} / ${ratioH}))`;
 
     return (
       <div 
         id="card-preview"
-        className={`shadow-2xl transition-all duration-300 overflow-hidden relative group select-none h-full w-auto mx-auto print:h-auto print:w-[100mm]`}
-        style={{ aspectRatio: aspectRatio.replace(':', ' / ') }}
+        className={`shadow-2xl transition-all duration-300 overflow-hidden relative group select-none h-auto mx-auto print:h-auto print:!w-[100mm]`}
+        style={{ aspectRatio: `${ratioW} / ${ratioH}`, width: previewWidth }}
       >
         <div className={`w-full h-full ${containerStyles[style]} transition-all duration-300`}>
             {style === 'minimal' && (
