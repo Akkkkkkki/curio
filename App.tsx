@@ -728,8 +728,8 @@ const AppContent: React.FC = () => {
             <div
               className={`${
                 viewMode === 'grid'
-                  ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8'
-                  : 'columns-2 md:columns-3 lg:columns-4 [column-gap:2rem]'
+                  ? 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 sm:gap-8'
+                  : 'columns-1 sm:columns-2 md:columns-3 lg:columns-4 [column-gap:1.5rem] sm:[column-gap:2rem]'
               } w-full`}
             >
                 {filteredItems.map(item => (
