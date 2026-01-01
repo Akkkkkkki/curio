@@ -702,9 +702,18 @@ const AppContent: React.FC = () => {
                  )}
              </div>
         ) : (
-            <div className={`${viewMode === 'grid' ? "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8" : "columns-2 md:columns-3 lg:columns-4 gap-8"} w-full`}>
+            <div
+              className={`${
+                viewMode === 'grid'
+                  ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8'
+                  : 'columns-2 md:columns-3 lg:columns-4 [column-gap:2rem]'
+              } w-full`}
+            >
                 {filteredItems.map(item => (
-                    <div key={item.id} className={`break-inside-avoid ${viewMode === 'waterfall' ? 'mb-8' : ''}`}>
+                    <div
+                      key={item.id}
+                      className={`break-inside-avoid ${viewMode === 'waterfall' ? 'mb-8 inline-block w-full align-top' : ''}`}
+                    >
                          <ItemCard item={item} fields={collection.customFields} displayFields={collection.settings.displayFields} badgeFields={collection.settings.badgeFields} onClick={() => navigate(`/collection/${collection.id}/item/${item.id}`)} layout={viewMode === 'grid' ? 'grid' : 'masonry'} />
                     </div>
                 ))}
