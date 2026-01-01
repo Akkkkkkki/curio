@@ -44,9 +44,18 @@ const AppContent: React.FC = () => {
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [activeCollectionForGuide, setActiveCollectionForGuide] = useState<UserCollection | null>(null);
   const [status, setStatus] = useState<{ message: string; tone: StatusTone } | null>(null);
+  const [pendingAuthAction, setPendingAuthAction] = useState<'add-item' | 'create-collection' | null>(null);
+  const [authActionQueue, setAuthActionQueue] = useState<'add-item' | 'create-collection' | null>(null);
   const saveTimeoutRef = useRef<Record<string, any>>({});
   const statusTimeoutRef = useRef<number | null>(null);
   const isSupabaseReady = isSupabaseConfigured();
+  const fallbackSampleCollections = useMemo(() => (
+    INITIAL_COLLECTIONS.map(collection => ({
+      ...collection,
+      isPublic: true,
+      ownerId: collection.ownerId || null,
+    }))
+  ), []);
 
   const showStatus = useCallback((message: string, tone: StatusTone = 'info') => {
     if (statusTimeoutRef.current) {
@@ -162,7 +171,11 @@ const AppContent: React.FC = () => {
 
       if (!user) {
         setHasLocalImport(false);
-        setCollections(cloudCollections);
+        if (cloudCollections.length === 0 && localCollections.length === 0) {
+          setCollections(fallbackSampleCollections);
+        } else {
+          setCollections(cloudCollections);
+        }
         return;
       }
 
@@ -189,7 +202,11 @@ const AppContent: React.FC = () => {
         await saveAllCollections(cloudCollections);
       }
 
-      setCollections(cloudCollections.length > 0 ? cloudCollections : localCollections);
+      if (cloudCollections.length === 0 && localCollections.length === 0) {
+        setCollections(fallbackSampleCollections);
+      } else {
+        setCollections(cloudCollections.length > 0 ? cloudCollections : localCollections);
+      }
       if ((cloudCollections.length + localCollections.length) > 0) {
         showStatus(t('statusSynced'), 'success');
       }
@@ -201,7 +218,7 @@ const AppContent: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [user, isAdmin, isSupabaseReady, withTimeout]);
+  }, [user, isAdmin, isSupabaseReady, withTimeout, fallbackSampleCollections, t, showStatus]);
 
   useEffect(() => {
     if (!isSupabaseReady) {
@@ -310,6 +327,12 @@ const AppContent: React.FC = () => {
   };
 
   const handleCreateCollection = (templateId: string, name: string, icon: string) => {
+      if (!isAuthenticated) {
+        setPendingAuthAction('create-collection');
+        setIsAuthModalOpen(true);
+        setIsCreateCollectionOpen(false);
+        return;
+      }
       const template = TEMPLATES.find(t => t.id === templateId) || TEMPLATES[0];
       const newCol: UserCollection = {
           id: Math.random().toString(36).substr(2, 9),
@@ -517,7 +540,7 @@ const AppContent: React.FC = () => {
           ))}
           
           <button 
-            onClick={() => setIsCreateCollectionOpen(true)}
+            onClick={handleCreateCollectionAction}
             className={`group relative p-8 rounded-[2rem] border-2 border-dashed transition-all flex flex-col items-center justify-center min-h-[220px] gap-4 shadow-sm hover:shadow-xl overflow-hidden ${theme === 'vault' ? 'border-white/10 hover:border-amber-400 bg-white/5 text-stone-500' : 'border-stone-200 hover:border-amber-400 bg-white/50 text-stone-400'}`}
           >
             <div className="w-16 h-16 rounded-full bg-stone-50 flex items-center justify-center shadow-inner group-hover:scale-110 group-hover:shadow-lg transition-transform text-stone-300">
@@ -933,6 +956,7 @@ const AppContent: React.FC = () => {
 
   const handleAddAction = () => {
     if (!isAuthenticated) {
+      setPendingAuthAction('add-item');
       setIsAuthModalOpen(true);
       return;
     }
@@ -943,9 +967,40 @@ const AppContent: React.FC = () => {
     setIsAddModalOpen(true);
   };
 
+  const handleCreateCollectionAction = () => {
+    if (!isAuthenticated) {
+      setPendingAuthAction('create-collection');
+      setIsAuthModalOpen(true);
+      return;
+    }
+    setIsCreateCollectionOpen(true);
+  };
+
   const handleSignOut = async () => {
     await signOutUser();
   };
+
+  const handleAuthClose = () => {
+    setIsAuthModalOpen(false);
+    setPendingAuthAction(null);
+  };
+
+  const handleAuthSuccess = () => {
+    if (pendingAuthAction) {
+      setAuthActionQueue(pendingAuthAction);
+      setPendingAuthAction(null);
+    }
+  };
+
+  useEffect(() => {
+    if (!isAuthenticated || !authActionQueue) return;
+    if (authActionQueue === 'add-item') {
+      handleAddAction();
+    } else if (authActionQueue === 'create-collection') {
+      setIsCreateCollectionOpen(true);
+    }
+    setAuthActionQueue(null);
+  }, [isAuthenticated, authActionQueue, handleAddAction]);
 
   const renderAccessGate = () => (
     <div className="flex flex-col items-center justify-center px-4 py-16 sm:py-24">
@@ -1046,7 +1101,11 @@ const AppContent: React.FC = () => {
             <StatusToast message={status.message} tone={status.tone} onDismiss={() => setStatus(null)} />
           </div>
         )}
-        <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
+        <AuthModal 
+          isOpen={isAuthModalOpen} 
+          onClose={handleAuthClose} 
+          onAuthSuccess={handleAuthSuccess}
+        />
     </div>
   );
 };
