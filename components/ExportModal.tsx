@@ -128,8 +128,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-stone-950/90 backdrop-blur-md animate-in fade-in duration-200 print:bg-white print:static print:block flex flex-col md:block md:[--sheet-height:0px]"
-      style={{ ['--sheet-height' as any]: sheetHeight }}
+      className={`fixed inset-0 z-50 bg-stone-950/90 backdrop-blur-md animate-in fade-in duration-200 print:bg-white print:static print:block flex flex-col md:block md:[--sheet-height:0px] ${isExpanded ? '[--sheet-height:85dvh]' : '[--sheet-height:55dvh]'}`}
     >
       <div className="flex-1 min-h-0 flex flex-col items-center justify-center px-6 pt-6 pb-6 md:absolute md:inset-0 md:pb-6 md:pr-96 md:pt-6 overflow-hidden print:static">
          <div className="h-full w-full flex items-center justify-center print:block">{renderCardPreview()}</div>
