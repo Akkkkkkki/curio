@@ -277,6 +277,9 @@ export const saveCollection = async (collection: UserCollection): Promise<void> 
       // Sync Items
       if (collectionToSave.items.length > 0) {
         const itemsToSync = collectionToSave.items.map(item => {
+          const photoPath = item.photoUrl === 'asset'
+            ? `${user.id}/${item.id}_master.jpg`
+            : item.photoUrl;
           const payload: Record<string, any> = {
             id: item.id,
             user_id: user.id,
@@ -285,7 +288,7 @@ export const saveCollection = async (collection: UserCollection): Promise<void> 
             notes: item.notes,
             rating: item.rating,
             data: item.data,
-            photo_path: item.photoUrl,
+            photo_path: photoPath,
             seed_key: item.seedKey
           };
           if (SUPABASE_SYNC_TIMESTAMPS) {
@@ -339,7 +342,7 @@ export const saveAsset = async (id: string, master: Blob, thumb: Blob): Promise<
   }
 };
 
-export const getAsset = async (id: string, type: 'master' | 'thumb' = 'master'): Promise<Blob | null> => {
+export const getAsset = async (id: string, type: 'master' | 'thumb' = 'master', remotePath?: string): Promise<Blob | null> => {
   const db = await initDB();
   const storeName = type === 'thumb' ? THUMBNAILS_STORE : ASSETS_STORE;
   
@@ -358,9 +361,14 @@ export const getAsset = async (id: string, type: 'master' | 'thumb' = 'master'):
   if (isSupabaseConfigured() && supabase) {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return null;
+      if (!user && !remotePath) return null;
 
-      const path = `${user.id}/${id}_${type}.jpg`;
+      const normalizedRemotePath = remotePath
+        ? (type === 'thumb'
+          ? remotePath.replace(/_master(\.[^/.]+)$/, '_thumb$1')
+          : remotePath)
+        : null;
+      const path = normalizedRemotePath || `${user!.id}/${id}_${type}.jpg`;
       const { data, error } = await supabase.storage.from('curio-assets').download(path);
       
       if (data && !error) {

@@ -19,8 +19,19 @@ export const ItemImage: React.FC<ItemImageProps> = ({ itemId, photoUrl, classNam
   const [fallbackSrc, setFallbackSrc] = useState<string | null>(null);
   const currentUrlRef = useRef<string | null>(null);
   const defaultFallback = `${import.meta.env.BASE_URL}assets/sample-vinyl.jpg`;
+  const remoteAssetPath = useMemo(() => {
+    if (!photoUrl) return null;
+    if (photoUrl === 'asset') return null;
+    if (photoUrl.startsWith('http') || photoUrl.startsWith('data:') || photoUrl.startsWith('blob:') || photoUrl.startsWith('/')) {
+      return null;
+    }
+    if (photoUrl.endsWith('.jpg') || photoUrl.endsWith('.jpeg') || photoUrl.endsWith('.png') || photoUrl.endsWith('.webp')) {
+      return photoUrl;
+    }
+    return null;
+  }, [photoUrl]);
   const resolvedPhotoUrl = useMemo(() => {
-    if (!photoUrl) return photoUrl;
+    if (!photoUrl || photoUrl === 'asset' || remoteAssetPath) return null;
     if (
       photoUrl.startsWith('http') ||
       photoUrl.startsWith('data:') ||
@@ -51,17 +62,17 @@ export const ItemImage: React.FC<ItemImageProps> = ({ itemId, photoUrl, classNam
     }
 
     // If it's the 'asset' keyword, we fetch from IndexedDB
-    if (itemId && photoUrl === 'asset') {
+    if (itemId && (photoUrl === 'asset' || remoteAssetPath)) {
       let isMounted = true;
       const loadFromDB = async () => {
         setLoading(true);
         setError(false);
         try {
           // Fix: Assert 'type' as the expected union literal to prevent widening to 'string'
-          let blob = await getAsset(itemId, type as 'master' | 'thumb');
+          let blob = await getAsset(itemId, type as 'master' | 'thumb', remoteAssetPath || undefined);
           // Fallback to master if thumb is missing
           if ((!blob || blob.size === 0) && type === 'thumb') {
-            blob = await getAsset(itemId, 'master');
+            blob = await getAsset(itemId, 'master', remoteAssetPath || undefined);
           }
 
           if (blob && blob.size > 0 && isMounted) {
@@ -91,7 +102,7 @@ export const ItemImage: React.FC<ItemImageProps> = ({ itemId, photoUrl, classNam
       setLoading(false);
       setError(false);
     }
-  }, [itemId, photoUrl, type, isDirectSource]);
+  }, [itemId, photoUrl, type, isDirectSource, remoteAssetPath]);
 
   // Cleanup on unmount
   useEffect(() => {

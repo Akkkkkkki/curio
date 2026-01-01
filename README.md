@@ -74,8 +74,28 @@ update public.profiles set is_admin = true where id = 'YOUR_USER_UUID';
 ```
 
 Notes:
-- Public samples should use public image URLs (e.g., `public/assets/...`) rather than private storage paths.
+- Public samples should use local image assets (e.g., `public/assets/...`) rather than private storage paths.
 - The admin account can seed the public sample by signing in on a clean database and saving the sample collection.
+
+### Seed Data Structure (Sample Content)
+
+Seed data is the default sample content every new user sees. In this project it is defined in
+`services/seedCollections.ts` and used by `App.tsx` to populate the sample collection when the database
+is empty and the current user is an admin.
+
+Why this structure:
+- Keeps sample content in a single, predictable file (easier to maintain than inline data in `App.tsx`).
+- Keeps sample images local so they load without Supabase storage policies or public buckets.
+
+#### Rules for Sample Assets
+- Store sample images in `public/assets/`.
+- Use stable, descriptive filenames (e.g., `sample-vinyl.jpg`, `sample-camera.jpg`).
+- Prefer `.jpg` for consistent compression and load performance.
+- Reference paths as `assets/<filename>` in seed data (`photoUrl` fields).
+
+To add new sample items:
+1. Add the image file to `public/assets/`.
+2. Add or update the item entry in `services/seedCollections.ts` with `photoUrl: 'assets/<filename>'`.
 
 ## Notes
 
