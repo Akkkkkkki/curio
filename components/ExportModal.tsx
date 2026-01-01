@@ -58,12 +58,14 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
     };
     const titleSize = aspectRatio === '1:1' ? 'text-xl' : 'text-3xl';
     const metaSize = aspectRatio === '1:1' ? 'text-[8px]' : 'text-[10px]';
+    const [ratioW, ratioH] = aspectRatio.split(':').map(Number);
+    const previewWidth = `min(80vw, 520px, calc((100dvh - var(--sheet-height)) * ${ratioW} / ${ratioH}))`;
 
     return (
       <div 
         id="card-preview"
-        className={`shadow-2xl transition-all duration-300 overflow-hidden relative group select-none h-full w-auto mx-auto print:h-auto print:w-[100mm]`}
-        style={{ aspectRatio: aspectRatio.replace(':', ' / ') }}
+        className={`shadow-2xl transition-all duration-300 overflow-hidden relative group select-none h-auto mx-auto print:h-auto print:!w-[100mm]`}
+        style={{ aspectRatio: `${ratioW} / ${ratioH}`, width: previewWidth }}
       >
         <div className={`w-full h-full ${containerStyles[style]} transition-all duration-300`}>
             {style === 'minimal' && (
@@ -122,12 +124,17 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
     );
   };
 
+  const sheetHeight = isExpanded ? '85dvh' : '55dvh';
+
   return (
-    <div className="fixed inset-0 z-50 bg-stone-950/90 backdrop-blur-md animate-in fade-in duration-200 print:bg-white print:static print:block">
-      <div className="absolute inset-0 flex flex-col items-center justify-center pt-6 pb-[45vh] px-6 md:pb-6 md:pr-96 md:pt-6 overflow-hidden print:static">
+    <div
+      className="fixed inset-0 z-50 bg-stone-950/90 backdrop-blur-md animate-in fade-in duration-200 print:bg-white print:static print:block flex flex-col md:block md:[--sheet-height:0px]"
+      style={{ ['--sheet-height' as any]: sheetHeight }}
+    >
+      <div className="flex-1 min-h-0 flex flex-col items-center justify-center px-6 pt-6 pb-6 md:absolute md:inset-0 md:pb-6 md:pr-96 md:pt-6 overflow-hidden print:static">
          <div className="h-full w-full flex items-center justify-center print:block">{renderCardPreview()}</div>
       </div>
-      <div className={`absolute bottom-0 left-0 right-0 md:top-0 md:left-auto md:w-96 md:h-full bg-white rounded-t-3xl md:rounded-none shadow-2xl flex flex-col transition-all duration-300 ease-out z-10 ${isExpanded ? 'h-[85vh]' : 'h-[40vh]'} md:h-full print:hidden`}>
+      <div className={`relative bottom-0 left-0 right-0 md:absolute md:top-0 md:left-auto md:w-96 md:h-full bg-white rounded-t-3xl md:rounded-none shadow-2xl flex flex-col transition-all duration-300 ease-out z-10 h-[var(--sheet-height)] md:h-full print:hidden`}>
         <div className="md:hidden w-full flex justify-center py-3 cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}><div className="w-12 h-1.5 bg-stone-200 rounded-full" /></div>
         <div className="px-6 pb-4 md:pt-6 border-b border-stone-100 flex justify-between items-center shrink-0">
             <div><h2 className="font-serif font-bold text-xl text-stone-900">{t('exportCard')}</h2></div>
