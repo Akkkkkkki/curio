@@ -892,9 +892,9 @@ const AppContent: React.FC = () => {
 
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 sm:gap-16">
                       <div className="lg:col-span-2 space-y-6">
-                        <div className="flex items-center gap-3 text-amber-600">
+                        <div className="flex flex-wrap items-center gap-3 text-amber-600">
                              <Quote size={18} fill="currentColor" className="opacity-20 sm:w-5 sm:h-5" />
-                             <dt className="text-[9px] sm:text-[10px] font-bold text-stone-400 uppercase tracking-[0.2em] sm:tracking-[0.3em] font-mono">{t('archiveNarrative')}</dt>
+                             <dt className="min-w-0 text-[11px] sm:text-[12px] font-bold text-stone-400 uppercase tracking-[0.2em] sm:tracking-[0.3em] font-mono break-words">{t('archiveNarrative')}</dt>
                         </div>
                         <textarea 
                             className={`w-full p-6 sm:p-8 rounded-2xl sm:rounded-[2.5rem] italic border font-serif text-xl sm:text-2xl leading-relaxed min-h-[200px] sm:min-h-[240px] focus:ring-8 focus:ring-amber-500/5 focus:border-amber-100 outline-none transition-all shadow-inner placeholder:text-stone-200 ${theme === 'vault' ? 'bg-white/5 border-white/5 text-white' : 'bg-stone-50/50 border-stone-100 text-stone-800'} ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
@@ -906,14 +906,14 @@ const AppContent: React.FC = () => {
                       </div>
 
                       <div className="space-y-8 sm:space-y-10">
-                          <dt className={`text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.2em] sm:tracking-[0.3em] pb-3 sm:pb-4 border-b font-mono ${theme === 'vault' ? 'text-stone-500 border-white/5' : 'text-stone-400 border-stone-100'}`}>{t('technicalSpec')}</dt>
+                          <dt className={`text-[11px] sm:text-[12px] font-bold uppercase tracking-[0.2em] sm:tracking-[0.3em] pb-3 sm:pb-4 border-b font-mono break-words leading-tight ${theme === 'vault' ? 'text-stone-500 border-white/5' : 'text-stone-400 border-stone-100'}`}>{t('technicalSpec')}</dt>
                           <div className="grid grid-cols-2 lg:grid-cols-1 gap-6 sm:gap-8">
                               {collection.customFields.map(field => {
                                   const val = item.data[field.id];
                                   const label = getLabel(field.id);
                                   return (
                                       <div key={field.id} className="group">
-                                          <dt className="text-[8px] sm:text-[10px] font-bold text-stone-300 uppercase tracking-2.0 mb-1 sm:mb-2 group-hover:text-amber-500 transition-colors font-mono">{label}</dt>
+                                          <dt className="text-[11px] sm:text-[12px] font-bold text-stone-300 uppercase tracking-2.0 mb-1 sm:mb-2 group-hover:text-amber-500 transition-colors font-mono break-words leading-tight">{label}</dt>
                                           <input 
                                             className={`font-serif text-lg sm:text-xl w-full bg-transparent border-none p-0 outline-none focus:text-amber-900 focus:ring-0 transition-colors placeholder:text-stone-100 ${theme === 'vault' ? 'text-white' : 'text-stone-900'} ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
                                             value={val || ''}
