@@ -41,6 +41,7 @@ VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY=...
 VITE_AI_ENABLED=true
 VITE_API_BASE_URL=http://localhost:8787
 VITE_VOICE_GUIDE_ENABLED=false
+VITE_LOCAL_IMPORT_ENABLED=false
 
 # Timestamp-based conflict resolution (requires columns in supabase/1_schema.sql)
 VITE_SUPABASE_SYNC_TIMESTAMPS=true

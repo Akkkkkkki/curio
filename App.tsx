@@ -28,6 +28,7 @@ const AppContent: React.FC = () => {
   const { t, language, setLanguage } = useTranslation();
   const { theme, setTheme } = useTheme();
   const isVoiceGuideEnabled = import.meta.env.VITE_VOICE_GUIDE_ENABLED === 'true';
+  const isLocalImportEnabled = import.meta.env.VITE_LOCAL_IMPORT_ENABLED === 'true';
   const [collections, setCollections] = useState<UserCollection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -167,7 +168,11 @@ const AppContent: React.FC = () => {
       }
 
       const localOnly = hasLocalOnlyData(localCollections, cloudCollections);
-      setHasLocalImport(localOnly);
+      if (isLocalImportEnabled) {
+        setHasLocalImport(localOnly);
+      } else {
+        setHasLocalImport(false);
+      }
 
       if (cloudCollections.length === 0 && localCollections.length === 0 && isAdmin) {
         const localSeedVersion = await getSeedVersion();
@@ -201,7 +206,7 @@ const AppContent: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [user, isAdmin, isSupabaseReady, withTimeout]);
+  }, [user, isAdmin, isSupabaseReady, isLocalImportEnabled, withTimeout]);
 
   useEffect(() => {
     if (!isSupabaseReady) {
@@ -993,7 +998,7 @@ const AppContent: React.FC = () => {
         hasLocalImport={hasLocalImport}
         importState={importState}
         importMessage={importMessage}
-        onImportLocal={handleImportLocal}
+        onImportLocal={isLocalImportEnabled ? handleImportLocal : undefined}
         headerExtras={
           <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
             {sampleCollection && (
