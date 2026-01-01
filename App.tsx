@@ -11,7 +11,7 @@ import { UserCollection, CollectionItem, AppTheme } from './types';
 import { TEMPLATES } from './constants';
 import { Plus, SlidersHorizontal, ArrowLeft, Trash2, LayoutGrid, LayoutTemplate, Printer, Camera, Search, Loader2, Sparkles, Mic, Play, Quote, Sparkle, Globe, Calendar, Lock, AlertCircle, X } from 'lucide-react';
 import { Button } from './components/ui/Button';
-import { fetchCloudCollections, getLocalCollections, hasLocalOnlyData, importLocalCollectionsToCloud, saveCollection, saveAllCollections, saveAsset, deleteAsset, requestPersistence, getSeedVersion, setSeedVersion, initDB } from './services/db';
+import { fetchCloudCollections, getLocalCollections, hasLocalOnlyData, importLocalCollectionsToCloud, saveCollection, saveAllCollections, saveAsset, deleteAsset, deleteCloudItem, requestPersistence, getSeedVersion, setSeedVersion, initDB } from './services/db';
 import { processImage } from './services/imageProcessor';
 import { ItemImage } from './components/ItemImage';
 import { MuseumGuide } from './components/MuseumGuide';
@@ -339,6 +339,7 @@ const AppContent: React.FC = () => {
                   const newC = { ...c, items: c.items.filter(i => i.id !== itemId) };
                   saveCollection(newC);
                   deleteAsset(itemId);
+                  void deleteCloudItem(collectionId, itemId);
                   return newC;
               }
               return c;
@@ -602,7 +603,7 @@ const AppContent: React.FC = () => {
 
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8">
             <div className="flex items-center gap-4 sm:gap-6">
-                <Link to="/" className={`p-3 sm:p-4 border rounded-2xl shadow-lg transition-all hover:scale-105 active:scale-95 ${theme === 'vault' ? 'bg-stone-900 border-white/5 text-stone-400' : 'bg-white border-stone-100 text-stone-400'}`}>
+                <Link to="/" className={`p-3 sm:p-4 border rounded-2xl shadow-md transition-all hover:scale-105 active:scale-95 ${theme === 'vault' ? 'bg-stone-900 border-white/5 text-stone-400' : 'bg-white border-stone-100 text-stone-400'}`}>
                     <ArrowLeft size={20} className="sm:w-6 sm:h-6" />
                 </Link>
                 <div>
@@ -626,7 +627,7 @@ const AppContent: React.FC = () => {
                      variant="primary"
                      onClick={() => setIsAddModalOpen(true)} 
                      icon={<Plus size={16} />}
-                     className="shadow-xl"
+                     className="shadow-md"
                    >
                      {t('addItem')}
                    </Button>
@@ -636,7 +637,7 @@ const AppContent: React.FC = () => {
                    onClick={() => setIsExhibitionOpen(true)} 
                    disabled={collection.items.length === 0}
                    icon={<Play size={16} />}
-                   className="shadow-xl"
+                   className="shadow-md"
                  >
                    {t('enterExhibition')}
                  </Button>
@@ -701,9 +702,18 @@ const AppContent: React.FC = () => {
                  )}
              </div>
         ) : (
-            <div className={`${viewMode === 'grid' ? "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8" : "columns-2 md:columns-3 lg:columns-4 gap-8"} w-full`}>
+            <div
+              className={`${
+                viewMode === 'grid'
+                  ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8'
+                  : 'columns-2 md:columns-3 lg:columns-4 [column-gap:2rem]'
+              } w-full`}
+            >
                 {filteredItems.map(item => (
-                    <div key={item.id} className={`break-inside-avoid ${viewMode === 'waterfall' ? 'mb-8' : ''}`}>
+                    <div
+                      key={item.id}
+                      className={`break-inside-avoid ${viewMode === 'waterfall' ? 'mb-8 inline-block w-full align-top' : ''}`}
+                    >
                          <ItemCard item={item} fields={collection.customFields} displayFields={collection.settings.displayFields} badgeFields={collection.settings.badgeFields} onClick={() => navigate(`/collection/${collection.id}/item/${item.id}`)} layout={viewMode === 'grid' ? 'grid' : 'masonry'} />
                     </div>
                 ))}

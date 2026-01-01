@@ -26,8 +26,8 @@ export const ItemCard: React.FC<ItemCardProps> = ({ item, fields, displayFields,
     : 'bg-stone-100 text-stone-600';
   const ratingSurface = theme === 'vault' ? 'bg-stone-900/80 text-white' : 'bg-white/90 text-stone-700';
   const cardShadow = theme === 'vault'
-    ? 'shadow-[0_20px_50px_rgba(0,0,0,0.45)] hover:shadow-[0_24px_60px_rgba(0,0,0,0.55)]'
-    : 'shadow-[0_18px_40px_rgba(15,23,42,0.08)] hover:shadow-[0_24px_50px_rgba(15,23,42,0.12)]';
+    ? 'shadow-[0_10px_30px_rgba(0,0,0,0.35)] hover:shadow-[0_16px_40px_rgba(0,0,0,0.45)]'
+    : 'shadow-sm hover:shadow-md';
   
   const getValue = (fieldId: string) => {
     const val = item.data[fieldId];
