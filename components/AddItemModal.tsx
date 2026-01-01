@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 // Added Plus icon to the lucide-react imports
 import { Camera, Upload, X, Loader2, Sparkles, Check, Zap, ArrowRight, Trash2, Plus } from 'lucide-react';
 import { UserCollection, CollectionItem } from '../types';
-import { analyzeImage, isAiEnabled } from '../services/geminiService';
+import { analyzeImage, refreshAiEnabled } from '../services/geminiService';
 import { Button } from './ui/Button';
 import { useTranslation } from '../i18n';
 import { useTheme, panelSurfaceClasses, overlaySurfaceClasses, mutedTextClasses } from '../theme';
@@ -123,7 +123,8 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
     });
 
     const analyzeBatchImages = async (images: string[]) => {
-      if (!isAiEnabled()) {
+      const aiEnabled = await refreshAiEnabled();
+      if (!aiEnabled) {
         setError(t('aiUnavailableManual'));
         return images.map(image => createBatchItem(image));
       }
@@ -186,7 +187,8 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
     const runId = ++analysisRunId.current;
     setError(null);
     setFormData(createEmptyForm());
-    if (!isAiEnabled()) {
+    const aiEnabled = await refreshAiEnabled();
+    if (!aiEnabled) {
       setError(t('aiUnavailableManual'));
       setStep('verify');
       return;
