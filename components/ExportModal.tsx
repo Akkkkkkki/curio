@@ -62,7 +62,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
     return (
       <div 
         id="card-preview"
-        className={`shadow-2xl transition-all duration-300 overflow-hidden relative group select-none h-full w-auto mx-auto print:h-auto print:w-[100mm]`}
+        className={`shadow-2xl transition-all duration-300 overflow-hidden relative group select-none w-full max-w-[420px] sm:max-w-[520px] h-auto mx-auto print:h-auto print:w-[100mm]`}
         style={{ aspectRatio: aspectRatio.replace(':', ' / ') }}
       >
         <div className={`w-full h-full ${containerStyles[style]} transition-all duration-300`}>
