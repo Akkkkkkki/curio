@@ -9,9 +9,10 @@ import { useTheme, panelSurfaceClasses, overlaySurfaceClasses, mutedTextClasses 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onAuthSuccess?: () => void;
 }
 
-export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
+export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuccess }) => {
   const { t } = useTranslation();
   const { theme } = useTheme();
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
@@ -63,6 +64,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     setError(null);
     try {
       await (mode === 'signin' ? signInWithEmail(email, password) : signUpWithEmail(email, password));
+      onAuthSuccess?.();
       onClose();
     } catch (err: any) {
       setError(err.message || "Authentication failed");
