@@ -61,7 +61,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, onOpenAuth, onSignOut,
 
   return (
     <div className={`min-h-screen font-sans selection:bg-amber-200 transition-colors ${shellClass}`}>
-      <header className={`sticky top-0 z-20 backdrop-blur-md border-b ${headerSurface}`}>
+      <header className={`sticky top-0 z-20 backdrop-blur-md border-b pt-[env(safe-area-inset-top,0px)] ${headerSurface}`}>
         <div className="max-w-4xl mx-auto px-4 py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <Link to="/" className="flex items-center gap-2 group">
             <div className={`w-9 h-9 rounded-lg flex items-center justify-center font-serif font-bold text-xl transition-colors ${theme === 'vault' ? 'bg-white text-stone-900 group-hover:bg-amber-400' : 'bg-stone-900 text-white group-hover:bg-amber-600'}`}>
@@ -167,7 +167,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, onOpenAuth, onSignOut,
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 py-8 pb-24">
+      <main className="max-w-4xl mx-auto px-4 py-8 pb-[calc(6rem+env(safe-area-inset-bottom,0px))]">
         {children}
       </main>
 
