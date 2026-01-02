@@ -46,8 +46,13 @@ export const FilterModal: React.FC<FilterModalProps> = ({ isOpen, onClose, field
   const activeCount = Object.values(localFilters).filter(Boolean).length;
 
   return (
-    <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${overlayClass} backdrop-blur-sm`}>
-      <div className={`${surfaceClass} rounded-[1.75rem] shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[85vh] motion-panel border`}>
+    <div className={`fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 ${overlayClass} backdrop-blur-sm`}>
+      <div
+        className={`${surfaceClass} rounded-t-[1.75rem] rounded-b-none sm:rounded-[1.75rem] shadow-2xl w-full max-w-lg h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[85vh] overflow-hidden flex flex-col motion-panel border pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] sm:pt-0 sm:pb-0`}
+      >
+        <div className="sm:hidden flex items-center justify-center pt-2">
+          <span className={`${theme === 'vault' ? 'bg-white/20' : 'bg-stone-200'} h-1.5 w-12 rounded-full`} />
+        </div>
         <div className={`flex items-center justify-between px-6 py-5 border-b ${borderClass}`}>
           <div className="flex items-center gap-2">
               <div className={`p-1.5 rounded-lg ${theme === 'vault' ? 'bg-white/5 text-white' : 'bg-stone-100 text-stone-600'}`}><Filter size={18} /></div>
@@ -55,7 +60,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({ isOpen, onClose, field
           </div>
           <button onClick={onClose} className={`p-1 rounded-full transition-colors ${theme === 'vault' ? 'hover:bg-white/5 text-stone-300 hover:text-white' : 'hover:bg-stone-100 text-stone-400 hover:text-stone-800'}`}><X size={20} /></button>
         </div>
-        <div className="px-6 py-5 space-y-5 overflow-y-auto flex-1">
+        <div className="px-6 py-5 pb-24 sm:pb-5 space-y-5 overflow-y-auto flex-1">
             <div className="space-y-2">
                  <label className={`block text-[11px] font-semibold uppercase tracking-[0.18em] ${mutedText}`}>{t('rating')}</label>
                  <div className="relative">

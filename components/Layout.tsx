@@ -184,7 +184,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, onOpenAuth, onSignOut,
         {children}
       </main>
 
-      <nav className={`fixed bottom-0 left-0 right-0 z-20 border-t ${bottomNavSurface} sm:hidden`}
+      <nav className={`fixed bottom-0 left-0 right-0 z-[60] border-t ${bottomNavSurface} sm:hidden`}
         aria-label="Primary"
       >
         <div className="mx-auto max-w-4xl px-6 pb-[env(safe-area-inset-bottom,0px)] pt-2">

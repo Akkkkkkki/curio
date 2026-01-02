@@ -32,8 +32,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
 
   if (!supabaseActive) {
     return (
-      <div className={`fixed inset-0 z-[100] flex items-center justify-center p-4 ${overlayClass} backdrop-blur-md`}>
-        <div className={`${surfaceClass} rounded-[2.5rem] shadow-2xl w-full max-w-md overflow-hidden flex flex-col border motion-panel`}>
+      <div className={`fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 ${overlayClass} backdrop-blur-md`}>
+        <div
+          className={`${surfaceClass} rounded-t-[2.5rem] rounded-b-none sm:rounded-[2.5rem] shadow-2xl w-full max-w-md h-[100dvh] sm:h-auto max-h-[100dvh] overflow-hidden flex flex-col border motion-panel pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] sm:pt-0 sm:pb-0`}
+        >
+          <div className="sm:hidden flex items-center justify-center pt-2">
+            <span className={`${theme === 'vault' ? 'bg-white/20' : 'bg-stone-200'} h-1.5 w-12 rounded-full`} />
+          </div>
           <div className={`flex items-center justify-between p-8 border-b ${dividerBorder}`}>
             <div>
               <h2 className={`font-serif font-bold text-2xl ${theme === 'vault' ? 'text-white' : 'text-stone-800'}`}>
@@ -47,7 +52,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
               <X size={24} />
             </button>
           </div>
-          <div className="p-8 space-y-4">
+          <div className="flex-1 min-h-0 overflow-y-auto p-8 pb-24 sm:pb-8 space-y-4">
             <p className={`text-sm ${mutedText}`}>{t('cloudRequiredDesc')}</p>
             <Button type="button" className="w-full h-12" onClick={onClose}>
               {t('close')}
@@ -74,8 +79,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
   };
 
   return (
-    <div className={`fixed inset-0 z-[100] flex items-center justify-center p-4 ${overlayClass} backdrop-blur-md`}>
-      <div className={`${surfaceClass} rounded-[2.5rem] shadow-2xl w-full max-w-md overflow-hidden flex flex-col border motion-panel`}>
+    <div className={`fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 ${overlayClass} backdrop-blur-md`}>
+      <div
+        className={`${surfaceClass} rounded-t-[2.5rem] rounded-b-none sm:rounded-[2.5rem] shadow-2xl w-full max-w-md h-[100dvh] sm:h-auto max-h-[100dvh] overflow-hidden flex flex-col border motion-panel pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] sm:pt-0 sm:pb-0`}
+      >
+        <div className="sm:hidden flex items-center justify-center pt-2">
+          <span className={`${theme === 'vault' ? 'bg-white/20' : 'bg-stone-200'} h-1.5 w-12 rounded-full`} />
+        </div>
         <div className={`flex items-center justify-between p-8 border-b ${dividerBorder}`}>
           <div>
             <h2 className={`font-serif font-bold text-2xl ${theme === 'vault' ? 'text-white' : 'text-stone-800'}`}>
@@ -90,7 +100,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-8 pt-6 space-y-6">
+        <form onSubmit={handleSubmit} className="flex-1 min-h-0 overflow-y-auto px-8 pb-24 pt-6 sm:pb-8 space-y-6">
           <div className="space-y-4">
             <div className={`p-4 rounded-2xl border flex gap-3 ${theme === 'vault' ? 'bg-white/5 border-white/10' : 'bg-amber-50 border-amber-100'}`}>
               <Info className="text-amber-600 shrink-0 mt-0.5" size={18} />
