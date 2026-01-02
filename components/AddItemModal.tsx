@@ -496,8 +496,13 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
   );
 
   return (
-    <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 pt-[calc(1rem+env(safe-area-inset-top,0px))] pb-[calc(1rem+env(safe-area-inset-bottom,0px))] pl-[calc(1rem+env(safe-area-inset-left,0px))] pr-[calc(1rem+env(safe-area-inset-right,0px))] ${overlayClass} backdrop-blur-sm`}>
-      <div className={`${surfaceClass} rounded-2xl sm:rounded-3xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col motion-panel`}>
+    <div className={`fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 ${overlayClass} backdrop-blur-sm`}>
+      <div
+        className={`${surfaceClass} rounded-t-3xl rounded-b-none sm:rounded-3xl shadow-2xl w-full max-w-lg h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[90vh] overflow-hidden flex flex-col motion-panel pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] sm:pt-0 sm:pb-0`}
+      >
+        <div className="sm:hidden flex items-center justify-center pt-2">
+          <span className={`${theme === 'vault' ? 'bg-white/20' : 'bg-stone-200'} h-1.5 w-12 rounded-full`} />
+        </div>
         <div className={`flex items-center justify-between p-4 sm:p-6 border-b ${borderClass}`}>
           <h2 className={`font-serif font-bold text-lg sm:text-xl ${theme === 'vault' ? 'text-white' : 'text-stone-800'}`}>{t('addItem')}</h2>
           <button onClick={onClose} className={`p-2 rounded-full transition-colors ${theme === 'vault' ? 'hover:bg-white/5 text-stone-300 hover:text-white' : 'hover:bg-stone-100 text-stone-400 hover:text-stone-800'}`}>
@@ -505,10 +510,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
           </button>
         </div>
 
-        <div
-          className="flex-1 min-h-0 overflow-y-auto p-5 sm:p-8 space-y-6"
-          style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 1.25rem)' }}
-        >
+        <div className="flex-1 min-h-0 overflow-y-auto p-5 pb-24 sm:p-8 space-y-6">
             {renderStepper()}
             {step === 'select-type' && renderCollectionSelect()}
             {step === 'upload' && renderUpload()}

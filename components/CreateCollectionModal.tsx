@@ -50,8 +50,13 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({ is
   };
 
   return (
-    <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 pt-[calc(1rem+env(safe-area-inset-top,0px))] pb-[calc(1rem+env(safe-area-inset-bottom,0px))] pl-[calc(1rem+env(safe-area-inset-left,0px))] pr-[calc(1rem+env(safe-area-inset-right,0px))] ${overlayClass} backdrop-blur-sm`}>
-      <div className={`${surfaceClass} rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col motion-panel border`}>
+    <div className={`fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 ${overlayClass} backdrop-blur-sm`}>
+      <div
+        className={`${surfaceClass} rounded-t-3xl rounded-b-none sm:rounded-2xl shadow-xl w-full max-w-md h-[100dvh] sm:h-auto max-h-[100dvh] overflow-hidden flex flex-col motion-panel border pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] sm:pt-0 sm:pb-0`}
+      >
+        <div className="sm:hidden flex items-center justify-center pt-2">
+          <span className={`${theme === 'vault' ? 'bg-white/20' : 'bg-stone-200'} h-1.5 w-12 rounded-full`} />
+        </div>
         <div className={`flex items-center justify-between p-4 border-b ${dividerBorder}`}>
           <h2 className={`font-serif font-bold text-lg ${theme === 'vault' ? 'text-white' : 'text-stone-800'}`}>{t('newArchive')}</h2>
           <button onClick={onClose} className={`p-1 rounded-full transition-colors ${theme === 'vault' ? 'hover:bg-white/5 text-stone-300 hover:text-white' : 'hover:bg-stone-100 text-stone-400 hover:text-stone-800'}`}>
@@ -59,7 +64,7 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({ is
           </button>
         </div>
 
-        <div className="p-6 space-y-6">
+        <div className="flex-1 min-h-0 overflow-y-auto p-6 pb-24 sm:pb-6 space-y-6">
           <div className="flex gap-4">
               <div className="flex-shrink-0">
                   <label className={`block text-[12px] font-semibold uppercase tracking-[0.12em] ${mutedText} mb-2`}>{t('icon')}</label>
