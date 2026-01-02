@@ -496,7 +496,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
   );
 
   return (
-    <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${overlayClass} backdrop-blur-sm`}>
+    <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 pt-[calc(1rem+env(safe-area-inset-top,0px))] pb-[calc(1rem+env(safe-area-inset-bottom,0px))] pl-[calc(1rem+env(safe-area-inset-left,0px))] pr-[calc(1rem+env(safe-area-inset-right,0px))] ${overlayClass} backdrop-blur-sm`}>
       <div className={`${surfaceClass} rounded-2xl sm:rounded-3xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col motion-panel`}>
         <div className={`flex items-center justify-between p-4 sm:p-6 border-b ${borderClass}`}>
           <h2 className={`font-serif font-bold text-lg sm:text-xl ${theme === 'vault' ? 'text-white' : 'text-stone-800'}`}>{t('addItem')}</h2>

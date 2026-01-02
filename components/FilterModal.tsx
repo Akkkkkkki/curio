@@ -46,7 +46,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({ isOpen, onClose, field
   const activeCount = Object.values(localFilters).filter(Boolean).length;
 
   return (
-    <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${overlayClass} backdrop-blur-sm`}>
+    <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 pt-[calc(1rem+env(safe-area-inset-top,0px))] pb-[calc(1rem+env(safe-area-inset-bottom,0px))] pl-[calc(1rem+env(safe-area-inset-left,0px))] pr-[calc(1rem+env(safe-area-inset-right,0px))] ${overlayClass} backdrop-blur-sm`}>
       <div className={`${surfaceClass} rounded-[1.75rem] shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[85vh] motion-panel border`}>
         <div className={`flex items-center justify-between px-6 py-5 border-b ${borderClass}`}>
           <div className="flex items-center gap-2">
