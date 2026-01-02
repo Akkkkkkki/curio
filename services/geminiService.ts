@@ -31,7 +31,7 @@ const postJson = async <T>(path: string, body: unknown): Promise<T> => {
 
 const fetchAiHealth = async (): Promise<boolean> => {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/health`);
+    const response = await fetch(`${API_BASE_URL}/health`);
     if (!response.ok) return false;
     const payload = await response.json().catch(() => ({}));
     return Boolean(payload?.geminiConfigured);
@@ -64,7 +64,7 @@ export const analyzeImage = async (
   if (!(await refreshAiEnabled())) {
     throw new Error('AI is disabled');
   }
-  return postJson('/api/gemini/analyze', { imageBase64: base64Image, fields });
+  return postJson('/gemini/analyze', { imageBase64: base64Image, fields });
 };
 
 export const connectMuseumGuide = async (_col: UserCollection, _cb: any, _inst?: string) => {
