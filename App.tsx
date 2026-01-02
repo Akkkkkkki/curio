@@ -829,7 +829,7 @@ const AppContent: React.FC = () => {
 
                   {!isReadOnly && (
                     <>
-                      <div className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${hasPhoto ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'}`}>
+                      <div className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${hasPhoto ? 'opacity-100 sm:opacity-0 sm:group-hover:opacity-100' : 'opacity-100'}`}>
                           <button disabled={isProcessing} onClick={() => fileInputRef.current?.click()} className="bg-white/90 hover:bg-white text-stone-900 px-6 sm:px-8 py-2 sm:py-3 rounded-full font-bold shadow-2xl backdrop-blur-md transition-all hover:scale-105 flex items-center gap-2 sm:gap-3 disabled:opacity-50 text-xs sm:text-sm">
                             {isProcessing ? <Loader2 size={16} className="animate-spin" /> : <Camera size={16} />}
                             {t('updatePhoto')}

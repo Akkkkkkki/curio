@@ -60,7 +60,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, onOpenAuth, onSignOut,
       : 'from-stone-50 via-stone-50 to-transparent';
 
   return (
-    <div className={`min-h-screen font-sans selection:bg-amber-200 transition-colors ${shellClass}`}>
+    <div className={`min-h-screen min-h-[100dvh] font-sans selection:bg-amber-200 transition-colors ${shellClass}`}>
       <header className={`sticky top-0 z-20 backdrop-blur-md border-b pt-[env(safe-area-inset-top,0px)] ${headerSurface}`}>
         <div className="max-w-4xl mx-auto px-4 py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <Link to="/" className="flex items-center gap-2 group">
