@@ -66,7 +66,7 @@ export const ItemCard: React.FC<ItemCardProps> = ({ item, fields, displayFields,
         {item.rating > 0 && (
           <div className={`absolute top-2 right-2 backdrop-blur-sm px-1.5 py-0.5 rounded-md flex items-center gap-1 shadow-sm ${ratingSurface}`}>
             <Star size={10} className="fill-amber-400 text-amber-400" />
-            <span className="text-xs font-bold">{item.rating}</span>
+            <span className="text-[13px] sm:text-xs font-bold">{item.rating}</span>
           </div>
         )}
       </div>
@@ -81,7 +81,7 @@ export const ItemCard: React.FC<ItemCardProps> = ({ item, fields, displayFields,
             if (!val) return null;
             return (
               <p key={fieldId} className={`text-sm line-clamp-1 flex items-center gap-1.5 ${valueText}`}>
-                <span className={`text-[12px] uppercase tracking-[0.1em] ${labelText}`}>{label}:</span>
+                <span className={`text-[13px] sm:text-[12px] uppercase tracking-[0.1em] ${labelText}`}>{label}:</span>
                 <span className="font-medium">{val}</span>
               </p>
             );
@@ -93,7 +93,7 @@ export const ItemCard: React.FC<ItemCardProps> = ({ item, fields, displayFields,
             const val = getValue(fieldId);
             if (!val) return null;
             return (
-              <span key={fieldId} className={`inline-flex items-center px-2 py-0.5 rounded-md text-[12px] font-semibold uppercase tracking-[0.08em] ${badgeSurface}`}>
+              <span key={fieldId} className={`inline-flex items-center px-2 py-0.5 rounded-md text-[13px] sm:text-[12px] font-semibold uppercase tracking-[0.08em] ${badgeSurface}`}>
                 {val}
               </span>
             );

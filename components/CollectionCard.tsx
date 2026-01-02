@@ -50,7 +50,7 @@ export const CollectionCard: React.FC<CollectionCardProps> = ({ collection, onCl
             {collection.name}
           </h3>
           {isSample && (
-            <span className="text-[12px] font-mono tracking-[0.1em] px-2 py-0.5 rounded border uppercase font-bold shrink-0 bg-amber-50 text-amber-700 border-amber-100">
+            <span className="text-[13px] sm:text-[12px] font-mono tracking-[0.1em] px-2 py-0.5 rounded border uppercase font-bold shrink-0 bg-amber-50 text-amber-700 border-amber-100">
               {t('readOnlyMode')}
             </span>
           )}

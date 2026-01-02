@@ -626,7 +626,7 @@ const AppContent: React.FC = () => {
 
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8">
             <div className="flex items-center gap-4 sm:gap-6">
-                <Link to="/" className={`p-3 sm:p-4 border rounded-2xl shadow-md transition-all hover:scale-105 active:scale-95 ${theme === 'vault' ? 'bg-stone-900 border-white/5 text-stone-400' : 'bg-white border-stone-100 text-stone-400'}`}>
+                <Link to="/" className={`w-11 h-11 sm:w-12 sm:h-12 flex items-center justify-center border rounded-2xl shadow-md transition-all hover:scale-105 active:scale-95 ${theme === 'vault' ? 'bg-stone-900 border-white/5 text-stone-400' : 'bg-white border-stone-100 text-stone-400'}`}>
                     <ArrowLeft size={20} className="sm:w-6 sm:h-6" />
                 </Link>
                 <div>
@@ -636,7 +636,7 @@ const AppContent: React.FC = () => {
                           {t('artifactsCataloged', { n: collection.items.length })}
                         </span>
                         {isSample && (
-                          <span className="text-[8px] font-mono tracking-[0.2em] bg-white/40 text-stone-500 px-1.5 py-0.5 rounded border border-black/5 uppercase font-bold">
+                          <span className="text-[12px] sm:text-[11px] font-mono tracking-[0.2em] bg-white/40 text-stone-500 px-1.5 py-0.5 rounded border border-black/5 uppercase font-bold">
                             Sample
                           </span>
                         )}
@@ -675,12 +675,12 @@ const AppContent: React.FC = () => {
                    {t('vocalGuide')}
                  </Button>
                  <div className={`flex rounded-xl p-1 ${theme === 'vault' ? 'bg-white/5' : 'bg-stone-200/50'}`}>
-                    <button onClick={() => setViewMode('grid')} className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}><LayoutGrid size={18} /></button>
-                    <button onClick={() => setViewMode('waterfall')} className={`p-2 rounded-lg transition-all ${viewMode === 'waterfall' ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}><LayoutTemplate size={18} className="rotate-180" /></button>
+                    <button onClick={() => setViewMode('grid')} className={`w-11 h-11 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}><LayoutGrid size={18} /></button>
+                    <button onClick={() => setViewMode('waterfall')} className={`w-11 h-11 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg transition-all ${viewMode === 'waterfall' ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}><LayoutTemplate size={18} className="rotate-180" /></button>
                  </div>
                  <div className="relative flex gap-2">
                     <input type="text" placeholder="..." value={filter} onChange={e => setFilter(e.target.value)} className={`pl-4 pr-4 py-2 rounded-xl border focus:ring-4 focus:ring-amber-500/5 outline-none text-sm w-48 transition-all shadow-sm font-serif italic ${theme === 'vault' ? 'bg-stone-900 border-white/10 text-white' : 'bg-white border-stone-200 text-stone-900'}`} />
-                    <Button variant={activeFilterCount > 0 ? 'primary' : 'outline'} className={`w-10 h-10 flex items-center justify-center p-0 rounded-xl ${theme === 'vault' ? 'bg-stone-900 border-white/10' : (activeFilterCount > 0 ? '' : 'bg-white')}`} onClick={() => setIsFilterModalOpen(true)}>
+                    <Button variant={activeFilterCount > 0 ? 'primary' : 'outline'} className={`w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center p-0 rounded-xl ${theme === 'vault' ? 'bg-stone-900 border-white/10' : (activeFilterCount > 0 ? '' : 'bg-white')}`} onClick={() => setIsFilterModalOpen(true)}>
                         <SlidersHorizontal size={18} />
                     </Button>
                 </div>
