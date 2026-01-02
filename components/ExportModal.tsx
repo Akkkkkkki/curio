@@ -29,17 +29,21 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
   useEffect(() => {
     if (!isOpen) return;
     let objectUrl: string | null = null;
-    const loadMaster = async () => {
+    const loadOriginal = async () => {
       setIsLoadingImage(true);
       try {
-        const blob = await getAsset(item.id);
+        const blob = await getAsset(
+          item.id,
+          'original',
+          item.photoUrl && item.photoUrl !== 'asset' ? item.photoUrl : undefined
+        );
         if (blob) {
           objectUrl = URL.createObjectURL(blob);
           setImageUrl(objectUrl);
         }
       } catch (e) { console.error(e); } finally { setIsLoadingImage(false); }
     };
-    loadMaster();
+    loadOriginal();
     return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
   }, [isOpen, item.id]);
 

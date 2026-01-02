@@ -9,10 +9,10 @@ interface ItemImageProps {
   photoUrl?: string; // Can be a direct URL (relative/absolute/data) or the keyword 'asset'
   className?: string;
   alt?: string;
-  type?: 'master' | 'thumb';
+  type?: 'display' | 'original';
 }
 
-export const ItemImage: React.FC<ItemImageProps> = ({ itemId, photoUrl, className = "", alt = "", type = 'thumb' }) => {
+export const ItemImage: React.FC<ItemImageProps> = ({ itemId, photoUrl, className = "", alt = "", type = 'display' }) => {
   const [dbUrl, setDbUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
@@ -69,11 +69,7 @@ export const ItemImage: React.FC<ItemImageProps> = ({ itemId, photoUrl, classNam
         setError(false);
         try {
           // Fix: Assert 'type' as the expected union literal to prevent widening to 'string'
-          let blob = await getAsset(itemId, type as 'master' | 'thumb', remoteAssetPath || undefined);
-          // Fallback to master if thumb is missing
-          if ((!blob || blob.size === 0) && type === 'thumb') {
-            blob = await getAsset(itemId, 'master', remoteAssetPath || undefined);
-          }
+          const blob = await getAsset(itemId, type as 'display' | 'original', remoteAssetPath || undefined);
 
           if (blob && blob.size > 0 && isMounted) {
             const objectUrl = URL.createObjectURL(blob);

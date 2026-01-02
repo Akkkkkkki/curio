@@ -1,14 +1,14 @@
 
 /**
- * Processes an image into a high-res master and a small thumbnail.
+ * Processes an image into a high-res display asset.
  * Can handle DataURLs or standard URLs/Paths.
  */
 export const processImage = async (
-  input: string, 
-  masterMax: number = 1600, 
-  thumbMax: number = 400
-): Promise<{ master: Blob; thumb: Blob }> => {
-  const createBlobFromImage = (img: HTMLImageElement, maxDim: number, quality: number): Promise<Blob> => {
+  input: string,
+  displayMax: number = 1800,
+  quality: number = 0.92
+): Promise<{ display: Blob }> => {
+  const createBlobFromImage = (img: HTMLImageElement, maxDim: number, qualityValue: number): Promise<Blob> => {
     return new Promise((resolve, reject) => {
       let width = img.width;
       let height = img.height;
@@ -37,7 +37,7 @@ export const processImage = async (
       ctx.fillRect(0, 0, width, height);
       ctx.drawImage(img, 0, 0, width, height);
 
-      canvas.toBlob(b => b ? resolve(b) : reject(new Error('toBlob failed')), 'image/jpeg', quality);
+      canvas.toBlob(b => b ? resolve(b) : reject(new Error('toBlob failed')), 'image/jpeg', qualityValue);
     });
   };
 
@@ -46,11 +46,8 @@ export const processImage = async (
     img.crossOrigin = "anonymous";
     img.onload = async () => {
       try {
-        const [master, thumb] = await Promise.all([
-          createBlobFromImage(img, masterMax, 0.85),
-          createBlobFromImage(img, thumbMax, 0.7)
-        ]);
-        resolve({ master, thumb });
+        const display = await createBlobFromImage(img, displayMax, quality);
+        resolve({ display });
       } catch (err) {
         reject(err);
       }
