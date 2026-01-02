@@ -26,8 +26,11 @@ const loadEnvFile = (filePath) => {
   });
 };
 
-// Load .env.local for the proxy since Node doesn't read Vite env files automatically.
-ENV_FILES.forEach((file) => loadEnvFile(path.join(ROOT_DIR, file)));
+const shouldLoadEnvFiles = process.env.NODE_ENV !== 'production';
+if (shouldLoadEnvFiles) {
+  // Load .env.local for the proxy since Node doesn't read Vite env files automatically.
+  ENV_FILES.forEach((file) => loadEnvFile(path.join(ROOT_DIR, file)));
+}
 
 const app = express();
 const port = process.env.PORT || 8787;
@@ -119,6 +122,11 @@ app.post('/api/gemini/analyze', async (req, res) => {
   }
 });
 
-app.listen(port, () => {
-  console.log(`Gemini proxy listening on :${port}`);
-});
+const isDirectRun = process.argv[1] === fileURLToPath(import.meta.url);
+if (isDirectRun) {
+  app.listen(port, () => {
+    console.log(`Gemini proxy listening on :${port}`);
+  });
+}
+
+export default app;
