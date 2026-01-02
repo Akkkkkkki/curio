@@ -26,8 +26,9 @@ export const ItemCard: React.FC<ItemCardProps> = ({ item, fields, displayFields,
     : 'bg-stone-100 text-stone-600';
   const ratingSurface = theme === 'vault' ? 'bg-stone-900/80 text-white' : 'bg-white/90 text-stone-700';
   const cardShadow = theme === 'vault'
-    ? 'shadow-[0_10px_30px_rgba(0,0,0,0.35)] hover:shadow-[0_16px_40px_rgba(0,0,0,0.45)]'
-    : 'shadow-sm hover:shadow-md';
+    ? 'shadow-[0_12px_30px_rgba(0,0,0,0.35)] hover:shadow-[0_16px_40px_rgba(0,0,0,0.45)]'
+    : 'shadow-[0_6px_18px_rgba(15,23,42,0.08)] hover:shadow-[0_10px_24px_rgba(15,23,42,0.12)]';
+  const tapRing = theme === 'vault' ? 'ring-1 ring-white/10' : 'ring-1 ring-black/5';
   
   const getValue = (fieldId: string) => {
     const val = item.data[fieldId];
@@ -52,7 +53,7 @@ export const ItemCard: React.FC<ItemCardProps> = ({ item, fields, displayFields,
   return (
     <div 
       onClick={onClick}
-      className={`group rounded-2xl transition-all duration-300 overflow-hidden border cursor-pointer flex flex-col ${layout === 'grid' ? 'h-full' : ''} motion-card ${cardSurface} ${cardShadow}`}
+      className={`group rounded-2xl transition-all duration-300 overflow-hidden border cursor-pointer flex flex-col ${layout === 'grid' ? 'h-full' : ''} motion-card ${cardSurface} ${cardShadow} ${tapRing}`}
     >
       <div className={`${layout === 'grid' ? 'aspect-[4/3]' : ''} ${theme === 'vault' ? 'bg-stone-800' : 'bg-stone-100'} overflow-hidden relative`}>
         <ItemImage 
