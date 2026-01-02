@@ -238,7 +238,8 @@ const mapCloudCollections = (cols: any[], items: any[]): UserCollection[] => {
     const colItems: CollectionItem[] = (items || [])
       .filter(i => i.collection_id === c.id)
       .map(i => {
-        const photoPath = i.photo_display_path || i.photo_original_path || i.photo_path || '';
+        // Prefer new explicit columns; avoid relying on legacy `photo_path`.
+        const photoPath = i.photo_display_path || i.photo_original_path || '';
         return {
         id: i.id,
         collectionId: i.collection_id,

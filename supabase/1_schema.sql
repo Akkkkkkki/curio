@@ -83,6 +83,8 @@ create table if not exists public.items (
   rating int not null default 0 check (rating >= 0 and rating <= 5),
   data jsonb not null default '{}'::jsonb,
   photo_path text,
+  photo_original_path text,
+  photo_display_path text,
   seed_key text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -106,6 +108,8 @@ alter table public.items add column if not exists seed_key text;
 alter table public.items add column if not exists created_at timestamptz default now();
 alter table public.items add column if not exists updated_at timestamptz default now();
 alter table public.items alter column data set default '{}'::jsonb;
+alter table public.items add column if not exists photo_original_path text;
+alter table public.items add column if not exists photo_display_path text;
 
 create index if not exists collections_user_id_idx on public.collections(user_id, created_at desc);
 create index if not exists items_collection_id_idx on public.items(collection_id, created_at desc);
