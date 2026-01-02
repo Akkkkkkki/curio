@@ -1,27 +1,51 @@
 
 /**
- * Processes an image into a high-res display asset.
- * Can handle DataURLs or standard URLs/Paths.
+ * Processes an image into:
+ * - **original**: preserved if input is already JPEG data-url; otherwise transcoded to JPEG (no resize) at high quality.
+ * - **display**: one downsampled JPEG for UI display (good quality).
+ *
+ * NOTE: This is intentionally minimal: original + one display size (no tiny thumb).
  */
 export const processImage = async (
   input: string,
-  displayMax: number = 1800,
-  quality: number = 0.92
-): Promise<{ display: Blob }> => {
-  const createBlobFromImage = (img: HTMLImageElement, maxDim: number, qualityValue: number): Promise<Blob> => {
+  displayMax: number = 2000
+): Promise<{ original: Blob; display: Blob }> => {
+  const dataUrlToBlob = async (dataUrl: string): Promise<Blob> => {
+    const res = await fetch(dataUrl);
+    return await res.blob();
+  };
+
+  const loadImageFromBlob = async (blob: Blob): Promise<HTMLImageElement> => {
+    const url = URL.createObjectURL(blob);
+    try {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error('Image load failed'));
+        img.src = url;
+      });
+      return img;
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  };
+
+  const jpegFromImage = (
+    img: HTMLImageElement,
+    opts: { maxDim?: number; quality: number }
+  ): Promise<Blob> => {
     return new Promise((resolve, reject) => {
+      const { maxDim, quality } = opts;
       let width = img.width;
       let height = img.height;
 
-      if (width > height) {
-        if (width > maxDim) {
-          height *= maxDim / width;
-          width = maxDim;
-        }
-      } else {
-        if (height > maxDim) {
-          width *= maxDim / height;
-          height = maxDim;
+      if (typeof maxDim === 'number' && maxDim > 0) {
+        const largest = Math.max(width, height);
+        if (largest > maxDim) {
+          const scale = maxDim / largest;
+          width = Math.max(1, Math.round(width * scale));
+          height = Math.max(1, Math.round(height * scale));
         }
       }
 
@@ -33,29 +57,30 @@ export const processImage = async (
 
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
-      ctx.fillStyle = "#FFFFFF";
+      ctx.fillStyle = '#FFFFFF';
       ctx.fillRect(0, 0, width, height);
       ctx.drawImage(img, 0, 0, width, height);
 
-      canvas.toBlob(b => b ? resolve(b) : reject(new Error('toBlob failed')), 'image/jpeg', qualityValue);
+      canvas.toBlob(
+        b => (b ? resolve(b) : reject(new Error('toBlob failed'))),
+        'image/jpeg',
+        quality
+      );
     });
   };
 
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = async () => {
-      try {
-        const display = await createBlobFromImage(img, displayMax, quality);
-        resolve({ display });
-      } catch (err) {
-        reject(err);
-      }
-    };
-    img.onerror = () => reject(new Error('Image load failed'));
-    
-    // If it's a relative path/standard URL, we don't need to do anything special.
-    // If it's a data URL, it works as is.
-    img.src = input;
-  });
+  const inputBlob = input.startsWith('data:')
+    ? await dataUrlToBlob(input)
+    : await (await fetch(input)).blob();
+
+  const img = await loadImageFromBlob(inputBlob);
+
+  const original =
+    inputBlob.type === 'image/jpeg'
+      ? inputBlob
+      : await jpegFromImage(img, { quality: 0.95 });
+
+  const display = await jpegFromImage(img, { maxDim: displayMax, quality: 0.92 });
+
+  return { original, display };
 };

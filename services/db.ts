@@ -74,6 +74,23 @@ const mergeCollections = (localCollections: UserCollection[], cloudCollections: 
   return merged;
 };
 
+export const extractCurioAssetPath = (value: string): string | null => {
+  if (!value) return null;
+  // Supports:
+  // - .../storage/v1/object/curio-assets/<path>
+  // - .../storage/v1/object/public/curio-assets/<path>
+  // - .../storage/v1/object/sign/curio-assets/<path>?token=...
+  const match = value.match(
+    /^https?:\/\/[^/]+\.supabase\.co\/storage\/v1\/object\/(?:public\/|sign\/)?curio-assets\/(.+?)(?:\?.*)?$/
+  );
+  if (!match) return null;
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return match[1];
+  }
+};
+
 export const requestPersistence = async () => {
   if (navigator.storage && navigator.storage.persist) {
     const isPersisted = await navigator.storage.persist();
@@ -149,18 +166,32 @@ export const getLocalCollections = async (): Promise<UserCollection[]> => {
 
 const normalizePhotoPaths = (photoUrl: string) => {
   if (!photoUrl) {
-    return { originalPath: null, displayPath: null };
+    return { originalPath: '', displayPath: '' };
   }
 
-  const hasDisplay = /(?:\/display\.[^/.]+|_display\.[^/.]+)$/i.test(photoUrl);
-  const hasOriginal = /(?:\/original\.[^/.]+|_original\.[^/.]+)$/i.test(photoUrl);
-  const hasThumb = /(?:\/thumb\.[^/.]+|_thumb\.[^/.]+)$/i.test(photoUrl);
-  const hasMaster = /(?:\/master\.[^/.]+|_master\.[^/.]+)$/i.test(photoUrl);
+  const extracted = extractCurioAssetPath(photoUrl);
+  const normalizedUrl = extracted || photoUrl;
+
+  // External URLs / local absolute paths: can't derive variants.
+  // Note: Supabase Storage object URLs are extracted above and become bucket-relative paths.
+  if (
+    normalizedUrl.startsWith('http') ||
+    normalizedUrl.startsWith('data:') ||
+    normalizedUrl.startsWith('blob:') ||
+    normalizedUrl.startsWith('/')
+  ) {
+    return { originalPath: normalizedUrl, displayPath: normalizedUrl };
+  }
+
+  const hasDisplay = /(?:\/display\.[^/.]+|_display\.[^/.]+)$/i.test(normalizedUrl);
+  const hasOriginal = /(?:\/original\.[^/.]+|_original\.[^/.]+)$/i.test(normalizedUrl);
+  const hasThumb = /(?:\/thumb\.[^/.]+|_thumb\.[^/.]+)$/i.test(normalizedUrl);
+  const hasMaster = /(?:\/master\.[^/.]+|_master\.[^/.]+)$/i.test(normalizedUrl);
 
   if (hasDisplay) {
     return {
-      displayPath: photoUrl,
-      originalPath: photoUrl
+      displayPath: normalizedUrl,
+      originalPath: normalizedUrl
         .replace(/\/display(\.[^/.]+)$/i, '/original$1')
         .replace(/_display(\.[^/.]+)$/i, '_original$1'),
     };
@@ -168,19 +199,20 @@ const normalizePhotoPaths = (photoUrl: string) => {
 
   if (hasOriginal) {
     return {
-      originalPath: photoUrl,
-      displayPath: photoUrl
+      originalPath: normalizedUrl,
+      displayPath: normalizedUrl
         .replace(/\/original(\.[^/.]+)$/i, '/display$1')
         .replace(/_original(\.[^/.]+)$/i, '_display$1'),
     };
   }
 
+  // Legacy naming: thumb/master in path/filename
   if (hasThumb) {
     return {
-      originalPath: photoUrl
+      originalPath: normalizedUrl
         .replace(/\/thumb(\.[^/.]+)$/i, '/original$1')
         .replace(/_thumb(\.[^/.]+)$/i, '_original$1'),
-      displayPath: photoUrl
+      displayPath: normalizedUrl
         .replace(/\/thumb(\.[^/.]+)$/i, '/display$1')
         .replace(/_thumb(\.[^/.]+)$/i, '_display$1'),
     };
@@ -188,16 +220,17 @@ const normalizePhotoPaths = (photoUrl: string) => {
 
   if (hasMaster) {
     return {
-      originalPath: photoUrl
+      originalPath: normalizedUrl
         .replace(/\/master(\.[^/.]+)$/i, '/original$1')
         .replace(/_master(\.[^/.]+)$/i, '_original$1'),
-      displayPath: photoUrl
+      displayPath: normalizedUrl
         .replace(/\/master(\.[^/.]+)$/i, '/display$1')
         .replace(/_master(\.[^/.]+)$/i, '_display$1'),
     };
   }
 
-  return { originalPath: photoUrl, displayPath: photoUrl };
+  // Our current canonical layout uses /original.jpg and /display.jpg; for unknown shapes, treat it as a single path.
+  return { originalPath: normalizedUrl, displayPath: normalizedUrl };
 };
 
 const mapCloudCollections = (cols: any[], items: any[]): UserCollection[] => {
@@ -396,8 +429,12 @@ export const saveAsset = async (collectionId: string, id: string, original: Blob
 
       // Upload in parallel
       await Promise.all([
-        supabase.storage.from('curio-assets').upload(originalPath, original, { upsert: true, contentType: 'image/jpeg' }),
-        supabase.storage.from('curio-assets').upload(displayPath, display, { upsert: true, contentType: 'image/jpeg' })
+        supabase.storage
+          .from('curio-assets')
+          .upload(originalPath, original, { upsert: true, contentType: original.type || 'image/jpeg' }),
+        supabase.storage
+          .from('curio-assets')
+          .upload(displayPath, display, { upsert: true, contentType: display.type || 'image/jpeg' })
       ]);
     } catch (e) {
       console.warn('Cloud asset sync failed:', e);
@@ -407,7 +444,7 @@ export const saveAsset = async (collectionId: string, id: string, original: Blob
 
 export const getAsset = async (
   id: string,
-  type: 'original' | 'display' = 'original',
+  type: 'original' | 'display' = 'display',
   remotePath?: string,
   collectionId?: string
 ): Promise<Blob | null> => {
@@ -431,18 +468,13 @@ export const getAsset = async (
       const { data: { user } } = await supabase.auth.getUser();
       if (!user && !remotePath) return null;
 
-      const normalizedRemotePath = remotePath
-        ? (type === 'display'
-          ? remotePath
-            .replace(/\/original(\.[^/.]+)$/i, '/display$1')
-            .replace(/_original(\.[^/.]+)$/i, '_display$1')
-          : remotePath
-            .replace(/\/display(\.[^/.]+)$/i, '/original$1')
-            .replace(/_display(\.[^/.]+)$/i, '_original$1'))
-        : null;
+      const normalizedRemotePath = remotePath ? (type === 'display'
+        ? normalizePhotoPaths(remotePath).displayPath
+        : normalizePhotoPaths(remotePath).originalPath) : null;
       const fallbackPath = collectionId
         ? `${user!.id}/collections/${collectionId}/${id}/${type === 'display' ? 'display.jpg' : 'original.jpg'}`
-        : `${user!.id}/${id}_${type}.jpg`;
+        // Legacy pre-folder layout fallback
+        : `${user!.id}/${id}_${type === 'display' ? 'thumb' : 'master'}.jpg`;
       const path = normalizedRemotePath || fallbackPath;
       const { data, error } = await supabase.storage.from('curio-assets').download(path);
       
@@ -509,7 +541,10 @@ export const deleteAsset = async (collectionId: string, id: string): Promise<voi
                 const basePath = `${user.id}/collections/${collectionId}/${id}`;
                 await supabase.storage.from('curio-assets').remove([
                     `${basePath}/original.jpg`,
-                    `${basePath}/display.jpg`
+                    `${basePath}/display.jpg`,
+                    // Legacy paths (safe cleanup; ignore if missing)
+                    `${user.id}/${id}_master.jpg`,
+                    `${user.id}/${id}_thumb.jpg`
                 ]);
             }
         } catch (e) {

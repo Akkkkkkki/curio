@@ -1,9 +1,9 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { X, Printer, Share2, Download, Maximize2, Minimize2, Check, Loader2, Camera } from 'lucide-react';
 import { CollectionItem, FieldDefinition } from '../types';
 import { Button } from './ui/Button';
-import { getAsset } from '../services/db';
+import { extractCurioAssetPath, getAsset } from '../services/db';
 import { useTranslation } from '../i18n';
 
 interface ExportModalProps {
@@ -25,6 +25,23 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
   const [isExpanded, setIsExpanded] = useState(false);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [isLoadingImage, setIsLoadingImage] = useState(true);
+  const remoteAssetPath = useMemo(() => {
+    if (!item.photoUrl || item.photoUrl === 'asset') return null;
+    const extracted = extractCurioAssetPath(item.photoUrl);
+    if (extracted) return extracted;
+    if (
+      item.photoUrl.startsWith('http') ||
+      item.photoUrl.startsWith('data:') ||
+      item.photoUrl.startsWith('blob:') ||
+      item.photoUrl.startsWith('/')
+    ) {
+      return null;
+    }
+    if (item.photoUrl.endsWith('.jpg') || item.photoUrl.endsWith('.jpeg') || item.photoUrl.endsWith('.png') || item.photoUrl.endsWith('.webp')) {
+      return item.photoUrl;
+    }
+    return null;
+  }, [item.photoUrl]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -32,12 +49,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
     const loadOriginal = async () => {
       setIsLoadingImage(true);
       try {
-        const blob = await getAsset(
-          item.id,
-          'original',
-          item.photoUrl && item.photoUrl !== 'asset' ? item.photoUrl : undefined,
-          item.collectionId
-        );
+        const blob = await getAsset(item.id, 'original', remoteAssetPath || undefined, item.collectionId);
         if (blob) {
           objectUrl = URL.createObjectURL(blob);
           setImageUrl(objectUrl);
@@ -46,7 +58,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
     };
     loadOriginal();
     return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
-  }, [isOpen, item.id]);
+  }, [isOpen, item.id, item.collectionId, remoteAssetPath]);
 
   if (!isOpen) return null;
 

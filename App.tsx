@@ -280,8 +280,7 @@ const AppContent: React.FC = () => {
 
     if (!isPublicCollection && itemData.photoUrl.startsWith('data:')) {
       try {
-        const original = await fetch(itemData.photoUrl).then(response => response.blob());
-        const { display } = await processImage(itemData.photoUrl);
+        const { original, display } = await processImage(itemData.photoUrl);
         await saveAsset(collectionId, itemId, original, display);
         hasPhoto = true;
       } catch (e) {
@@ -462,8 +461,8 @@ const AppContent: React.FC = () => {
                     <div className="absolute inset-0 opacity-30 group-hover:opacity-25 transition-opacity duration-700">
                         <ItemImage 
                             itemId={stats.featured.id} 
-                            photoUrl={stats.featured.photoUrl} 
                             collectionId={stats.featured.collectionId}
+                            photoUrl={stats.featured.photoUrl} 
                             type="display" 
                             className="w-full h-full object-cover scale-105 group-hover:scale-100 transition-transform duration-[20s] ease-out" 
                         />
@@ -505,12 +504,7 @@ const AppContent: React.FC = () => {
                 {stats.historyItem ? (
                     <div className="space-y-4">
                         <div className="aspect-square rounded-2xl overflow-hidden bg-stone-100 shadow-inner">
-                            <ItemImage
-                              itemId={stats.historyItem.id}
-                              photoUrl={stats.historyItem.photoUrl}
-                              collectionId={stats.historyItem.collectionId}
-                              className="w-full h-full object-cover"
-                            />
+                            <ItemImage itemId={stats.historyItem.id} collectionId={stats.historyItem.collectionId} photoUrl={stats.historyItem.photoUrl} className="w-full h-full object-cover" />
                         </div>
                         <div>
                             <p className="text-[11px] font-mono opacity-40 uppercase tracking-[0.18em] mb-1">{t('historyTitle')}</p>
@@ -790,8 +784,7 @@ const AppContent: React.FC = () => {
                     if (collection.isPublic) {
                         updateItem(collection.id, item.id, { photoUrl: base64 });
                     } else {
-                        const original = await fetch(base64).then(response => response.blob());
-                        const { display } = await processImage(base64);
+                        const { original, display } = await processImage(base64);
                         await saveAsset(collection.id, item.id, original, display);
                         updateItem(collection.id, item.id, { photoUrl: 'asset' });
                     }
@@ -827,10 +820,10 @@ const AppContent: React.FC = () => {
               <div className={`relative ${hasPhoto ? 'aspect-[4/5] sm:aspect-[16/9] md:aspect-[21/9]' : 'h-32 sm:h-48'} bg-stone-950 group transition-all duration-700 ease-in-out`}>
                   <ItemImage 
                     itemId={item.id} 
+                    collectionId={collection.id}
                     photoUrl={item.photoUrl} 
-                    collectionId={item.collectionId}
                     alt={item.title} 
-                    type="display" 
+                    type="original" 
                     className="w-full h-full object-cover transition-transform duration-[10s] group-hover:scale-110 opacity-80" 
                   />
                   

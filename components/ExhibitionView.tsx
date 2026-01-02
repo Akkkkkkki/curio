@@ -42,6 +42,7 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({ collection, init
           <div className="aspect-[3/4] sm:aspect-[3/4] rounded-2xl sm:rounded-[3rem] overflow-hidden shadow-2xl border border-white/10 group relative max-h-[40vh] sm:max-h-none">
              <ItemImage 
                 itemId={item.id} 
+                collectionId={collection.id}
                 photoUrl={item.photoUrl}
                 collectionId={item.collectionId}
                 type="display" 
