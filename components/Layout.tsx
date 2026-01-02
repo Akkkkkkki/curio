@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Home, User, LogOut, Cloud, CloudOff, Zap, ArrowUpRight, Download } from 'lucide-react';
+import { Home, User, LogOut, Cloud, CloudOff, Zap, ArrowUpRight, Download, Compass, Plus } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from '../i18n';
 import { ThemePicker } from './ThemePicker';
@@ -10,6 +10,9 @@ interface LayoutProps {
   children: React.ReactNode;
   onOpenAuth: () => void;
   onSignOut: () => void;
+  onAddItem?: () => void;
+  onExploreSamples?: () => void;
+  sampleCollectionId?: string | null;
   onImportLocal?: () => void;
   hasLocalImport?: boolean;
   importState?: 'idle' | 'running' | 'done' | 'error';
@@ -19,7 +22,7 @@ interface LayoutProps {
   headerExtras?: React.ReactNode;
 }
 
-export const Layout: React.FC<LayoutProps> = ({ children, onOpenAuth, onSignOut, onImportLocal, hasLocalImport = false, importState = 'idle', importMessage = null, user, isSupabaseConfigured, headerExtras }) => {
+export const Layout: React.FC<LayoutProps> = ({ children, onOpenAuth, onSignOut, onAddItem, onExploreSamples, sampleCollectionId = null, onImportLocal, hasLocalImport = false, importState = 'idle', importMessage = null, user, isSupabaseConfigured, headerExtras }) => {
   const { t } = useTranslation();
   const { theme } = useTheme();
   const location = useLocation();
@@ -58,6 +61,16 @@ export const Layout: React.FC<LayoutProps> = ({ children, onOpenAuth, onSignOut,
     : theme === 'atelier'
       ? 'from-[#f8f6f1] via-[#f8f6f1] to-transparent'
       : 'from-stone-50 via-stone-50 to-transparent';
+  const bottomNavSurface = theme === 'vault'
+    ? 'bg-stone-900/95 border-white/10'
+    : theme === 'atelier'
+      ? 'bg-[#f8f6f1]/95 border-[#e6e1d5]'
+      : 'bg-white/95 border-stone-200/70';
+  const bottomNavMuted = theme === 'vault' ? 'text-white/60' : 'text-stone-400';
+  const isExploreActive = sampleCollectionId ? location.pathname.startsWith(`/collection/${sampleCollectionId}`) : false;
+  const handleAddItem = onAddItem ?? (() => {});
+  const handleExploreSamples = onExploreSamples ?? (() => {});
+  const addLabelClass = theme === 'vault' ? 'text-white' : 'text-stone-900';
 
   return (
     <div className={`min-h-screen min-h-[100dvh] font-sans selection:bg-amber-200 transition-colors ${shellClass}`}>
@@ -167,9 +180,65 @@ export const Layout: React.FC<LayoutProps> = ({ children, onOpenAuth, onSignOut,
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 py-8 pb-[calc(6rem+env(safe-area-inset-bottom,0px))]">
+      <main className="max-w-4xl mx-auto px-4 py-8 pb-[calc(7rem+env(safe-area-inset-bottom,0px))]">
         {children}
       </main>
+
+      <nav className={`fixed bottom-0 left-0 right-0 z-20 border-t ${bottomNavSurface} sm:hidden`}
+        aria-label="Primary"
+      >
+        <div className="mx-auto max-w-4xl px-6 pb-[env(safe-area-inset-bottom,0px)] pt-2">
+          <div className="grid grid-cols-4 items-end">
+            <Link
+              to="/"
+              className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition-colors ${location.pathname === '/' ? 'text-amber-500' : bottomNavMuted}`}
+            >
+              <Home size={18} />
+              {t('navHome')}
+            </Link>
+
+            {sampleCollectionId ? (
+              <Link
+                to={`/collection/${sampleCollectionId}`}
+                onClick={handleExploreSamples}
+                className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition-colors ${isExploreActive ? 'text-amber-500' : bottomNavMuted}`}
+              >
+                <Compass size={18} />
+                {t('exploreSample')}
+              </Link>
+            ) : (
+              <button
+                type="button"
+                onClick={handleExploreSamples}
+                className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition-colors ${bottomNavMuted}`}
+              >
+                <Compass size={18} />
+                {t('exploreSample')}
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={handleAddItem}
+              className={`flex flex-col items-center gap-1 text-[11px] font-semibold ${addLabelClass}`}
+            >
+              <span className="-mt-4 flex h-12 w-12 items-center justify-center rounded-full bg-amber-500 text-stone-900 shadow-lg shadow-amber-500/30">
+                <Plus size={20} />
+              </span>
+              {t('addItem')}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsProfileOpen(!isProfileOpen)}
+              className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition-colors ${isProfileOpen ? 'text-amber-500' : bottomNavMuted}`}
+            >
+              <User size={18} />
+              {t('profile')}
+            </button>
+          </div>
+        </div>
+      </nav>
 
       <footer className={`fixed bottom-0 left-0 w-full bg-gradient-to-t ${footerGradient} pointer-events-none h-12 z-10`} />
     </div>

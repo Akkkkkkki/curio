@@ -946,6 +946,7 @@ const AppContent: React.FC = () => {
   const sampleCollection = useMemo(() => collections.find(c => c.isPublic), [collections]);
   const hasPublicCollections = useMemo(() => collections.some(c => c.isPublic), [collections]);
   const showAccessGate = !isSupabaseReady || (!isAuthenticated && !allowPublicBrowse && !hasPublicCollections);
+  const sampleCollectionId = sampleCollection?.id ?? null;
 
   const handleExploreSamples = () => {
     setAllowPublicBrowse(true);
@@ -1043,6 +1044,9 @@ const AppContent: React.FC = () => {
         <Layout 
         onOpenAuth={() => setIsAuthModalOpen(true)}
         onSignOut={handleSignOut}
+        onAddItem={handleAddAction}
+        onExploreSamples={handleExploreSamples}
+        sampleCollectionId={sampleCollectionId}
         user={user}
         isSupabaseConfigured={isSupabaseReady}
         hasLocalImport={hasLocalImport}
