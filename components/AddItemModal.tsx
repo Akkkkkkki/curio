@@ -319,6 +319,9 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
             <p className={`text-sm sm:text-base ${mutedText} max-w-xs mx-auto`}>{t('geminiExtracting')}</p>
         </div>
         <div className="flex flex-col gap-2 sm:gap-3">
+            <Button variant="secondary" onClick={() => fileInputRef.current?.click()} size="lg" icon={<Camera size={18} />}>
+                {t('takePhoto')}
+            </Button>
             <Button onClick={() => fileInputRef.current?.click()} size="lg" icon={<Upload size={18} />}>
                 {imagePreview ? t('changePhoto') : t('uploadPhoto')}
             </Button>
@@ -327,7 +330,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ isOpen, onClose, col
             </Button>
             <button onClick={switchToManual} className="text-xs sm:text-sm font-medium text-stone-400 hover:text-stone-600">{t('skipManual')}</button>
         </div>
-        <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
+        <input type="file" ref={fileInputRef} className="hidden" accept="image/*" capture="environment" onChange={handleFileChange} />
         <input type="file" ref={batchInputRef} className="hidden" accept="image/*" multiple onChange={handleBatchFileChange} />
     </div>
   );
