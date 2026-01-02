@@ -58,11 +58,11 @@ export const FilterModal: React.FC<FilterModalProps> = ({ isOpen, onClose, field
               <div className={`p-1.5 rounded-lg ${theme === 'vault' ? 'bg-white/5 text-white' : 'bg-stone-100 text-stone-600'}`}><Filter size={18} /></div>
               <h2 className={`font-serif font-bold text-lg ${theme === 'vault' ? 'text-white' : 'text-stone-800'}`}>{t('filterCollection')}</h2>
           </div>
-          <button onClick={onClose} className={`p-1 rounded-full transition-colors ${theme === 'vault' ? 'hover:bg-white/5 text-stone-300 hover:text-white' : 'hover:bg-stone-100 text-stone-400 hover:text-stone-800'}`}><X size={20} /></button>
+          <button onClick={onClose} className={`w-11 h-11 sm:w-9 sm:h-9 flex items-center justify-center rounded-full transition-colors ${theme === 'vault' ? 'hover:bg-white/5 text-stone-300 hover:text-white' : 'hover:bg-stone-100 text-stone-400 hover:text-stone-800'}`}><X size={20} /></button>
         </div>
         <div className="px-6 py-5 pb-24 sm:pb-5 space-y-5 overflow-y-auto flex-1">
             <div className="space-y-2">
-                 <label className={`block text-[11px] font-semibold uppercase tracking-[0.18em] ${mutedText}`}>{t('rating')}</label>
+                 <label className={`block text-[12px] sm:text-[11px] font-semibold uppercase tracking-[0.18em] ${mutedText}`}>{t('rating')}</label>
                  <div className="relative">
                    <select
                      value={localFilters['rating'] || ''}
@@ -79,7 +79,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({ isOpen, onClose, field
             </div>
             {fields.map(field => (
                 <div key={field.id} className="space-y-2">
-                    <label className={`block text-[11px] font-semibold uppercase tracking-[0.18em] ${mutedText}`}>{field.label}</label>
+                    <label className={`block text-[12px] sm:text-[11px] font-semibold uppercase tracking-[0.18em] ${mutedText}`}>{field.label}</label>
                     <input 
                       type="text" 
                       value={localFilters[field.id] || ''} 

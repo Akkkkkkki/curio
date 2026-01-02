@@ -128,7 +128,7 @@ export const MuseumGuide: React.FC<MuseumGuideProps> = ({ collection, isOpen, on
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-stone-950/80 backdrop-blur-xl animate-in fade-in duration-300">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 pt-[calc(1.5rem+env(safe-area-inset-top,0px))] pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] pl-[calc(1.5rem+env(safe-area-inset-left,0px))] pr-[calc(1.5rem+env(safe-area-inset-right,0px))] bg-stone-950/80 backdrop-blur-xl animate-in fade-in duration-300">
       <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-md overflow-hidden flex flex-col items-center p-12 text-center relative">
         <button onClick={onClose} className="absolute top-8 right-8 p-2 hover:bg-stone-100 rounded-full text-stone-400 transition-colors">
           <X size={24} />
