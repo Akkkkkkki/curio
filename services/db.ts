@@ -154,7 +154,7 @@ const mapCloudCollections = (cols: any[], items: any[]): UserCollection[] => {
       .map(i => ({
         id: i.id,
         collectionId: i.collection_id,
-        photoUrl: i.photo_path,
+        photoUrl: i.photo_display_path,
         title: i.title,
         rating: i.rating,
         data: i.data,
@@ -288,7 +288,8 @@ export const saveCollection = async (collection: UserCollection): Promise<void> 
             notes: item.notes,
             rating: item.rating,
             data: item.data,
-            photo_path: photoPath,
+            photo_display_path: photoPath,
+            photo_original_path: item.photoUrl === 'asset' ? photoPath : null,
             seed_key: item.seedKey
           };
           if (SUPABASE_SYNC_TIMESTAMPS) {
