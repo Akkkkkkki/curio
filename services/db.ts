@@ -147,14 +147,69 @@ export const getLocalCollections = async (): Promise<UserCollection[]> => {
   return loadLocalCollections();
 };
 
+const normalizePhotoPaths = (photoUrl: string) => {
+  if (!photoUrl) {
+    return { originalPath: null, displayPath: null };
+  }
+
+  const hasDisplay = /(?:\/display\.[^/.]+|_display\.[^/.]+)$/i.test(photoUrl);
+  const hasOriginal = /(?:\/original\.[^/.]+|_original\.[^/.]+)$/i.test(photoUrl);
+  const hasThumb = /(?:\/thumb\.[^/.]+|_thumb\.[^/.]+)$/i.test(photoUrl);
+  const hasMaster = /(?:\/master\.[^/.]+|_master\.[^/.]+)$/i.test(photoUrl);
+
+  if (hasDisplay) {
+    return {
+      displayPath: photoUrl,
+      originalPath: photoUrl
+        .replace(/\/display(\.[^/.]+)$/i, '/original$1')
+        .replace(/_display(\.[^/.]+)$/i, '_original$1'),
+    };
+  }
+
+  if (hasOriginal) {
+    return {
+      originalPath: photoUrl,
+      displayPath: photoUrl
+        .replace(/\/original(\.[^/.]+)$/i, '/display$1')
+        .replace(/_original(\.[^/.]+)$/i, '_display$1'),
+    };
+  }
+
+  if (hasThumb) {
+    return {
+      originalPath: photoUrl
+        .replace(/\/thumb(\.[^/.]+)$/i, '/original$1')
+        .replace(/_thumb(\.[^/.]+)$/i, '_original$1'),
+      displayPath: photoUrl
+        .replace(/\/thumb(\.[^/.]+)$/i, '/display$1')
+        .replace(/_thumb(\.[^/.]+)$/i, '_display$1'),
+    };
+  }
+
+  if (hasMaster) {
+    return {
+      originalPath: photoUrl
+        .replace(/\/master(\.[^/.]+)$/i, '/original$1')
+        .replace(/_master(\.[^/.]+)$/i, '_original$1'),
+      displayPath: photoUrl
+        .replace(/\/master(\.[^/.]+)$/i, '/display$1')
+        .replace(/_master(\.[^/.]+)$/i, '_display$1'),
+    };
+  }
+
+  return { originalPath: photoUrl, displayPath: photoUrl };
+};
+
 const mapCloudCollections = (cols: any[], items: any[]): UserCollection[] => {
   return cols.map(c => {
     const colItems: CollectionItem[] = (items || [])
       .filter(i => i.collection_id === c.id)
-      .map(i => ({
+      .map(i => {
+        const photoPath = i.photo_display_path || i.photo_original_path || i.photo_path || '';
+        return {
         id: i.id,
         collectionId: i.collection_id,
-        photoUrl: i.photo_display_path || i.photo_path,
+        photoUrl: photoPath,
         title: i.title,
         rating: i.rating,
         data: i.data,
@@ -162,7 +217,8 @@ const mapCloudCollections = (cols: any[], items: any[]): UserCollection[] => {
         updatedAt: i.updated_at,
         notes: i.notes,
         seedKey: i.seed_key
-      }));
+        };
+      });
 
     const template = TEMPLATES.find(t => t.id === c.template_id);
 
@@ -277,12 +333,14 @@ export const saveCollection = async (collection: UserCollection): Promise<void> 
       // Sync Items
       if (collectionToSave.items.length > 0) {
         const itemsToSync = collectionToSave.items.map(item => {
-          const displayPath = item.photoUrl === 'asset'
-            ? `${user.id}/${item.id}_display.jpg`
-            : item.photoUrl;
-          const originalPath = item.photoUrl === 'asset'
-            ? `${user.id}/${item.id}_original.jpg`
-            : null;
+          const basePath = `${user.id}/collections/${collectionToSave.id}/${item.id}`;
+          const { originalPath, displayPath } = normalizePhotoPaths(item.photoUrl || '');
+          const photoOriginalPath = item.photoUrl === 'asset'
+            ? `${basePath}/original.jpg`
+            : originalPath;
+          const photoDisplayPath = item.photoUrl === 'asset'
+            ? `${basePath}/display.jpg`
+            : displayPath;
           const payload: Record<string, any> = {
             id: item.id,
             user_id: user.id,
@@ -291,9 +349,8 @@ export const saveCollection = async (collection: UserCollection): Promise<void> 
             notes: item.notes,
             rating: item.rating,
             data: item.data,
-            photo_path: displayPath,
-            photo_original_path: originalPath,
-            photo_display_path: displayPath,
+            photo_original_path: photoOriginalPath,
+            photo_display_path: photoDisplayPath,
             seed_key: item.seedKey
           };
           if (SUPABASE_SYNC_TIMESTAMPS) {
@@ -315,7 +372,7 @@ export const saveCollection = async (collection: UserCollection): Promise<void> 
   }
 };
 
-export const saveAsset = async (id: string, original: Blob, display: Blob): Promise<void> => {
+export const saveAsset = async (collectionId: string, id: string, original: Blob, display: Blob): Promise<void> => {
   const db = await initDB();
   
   // Save to Local
@@ -333,8 +390,9 @@ export const saveAsset = async (id: string, original: Blob, display: Blob): Prom
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const originalPath = `${user.id}/${id}_original.jpg`;
-      const displayPath = `${user.id}/${id}_display.jpg`;
+      const basePath = `${user.id}/collections/${collectionId}/${id}`;
+      const originalPath = `${basePath}/original.jpg`;
+      const displayPath = `${basePath}/display.jpg`;
 
       // Upload in parallel
       await Promise.all([
@@ -347,7 +405,12 @@ export const saveAsset = async (id: string, original: Blob, display: Blob): Prom
   }
 };
 
-export const getAsset = async (id: string, type: 'original' | 'display' = 'original', remotePath?: string): Promise<Blob | null> => {
+export const getAsset = async (
+  id: string,
+  type: 'original' | 'display' = 'original',
+  remotePath?: string,
+  collectionId?: string
+): Promise<Blob | null> => {
   const db = await initDB();
   const storeName = type === 'display' ? DISPLAY_STORE : ASSETS_STORE;
   
@@ -369,11 +432,18 @@ export const getAsset = async (id: string, type: 'original' | 'display' = 'origi
       if (!user && !remotePath) return null;
 
       const normalizedRemotePath = remotePath
-        ? (type === 'original'
-          ? remotePath.replace(/_display(\.[^/.]+)$/, '_original$1')
-          : remotePath)
+        ? (type === 'display'
+          ? remotePath
+            .replace(/\/original(\.[^/.]+)$/i, '/display$1')
+            .replace(/_original(\.[^/.]+)$/i, '_display$1')
+          : remotePath
+            .replace(/\/display(\.[^/.]+)$/i, '/original$1')
+            .replace(/_display(\.[^/.]+)$/i, '_original$1'))
         : null;
-      const path = normalizedRemotePath || `${user!.id}/${id}_${type}.jpg`;
+      const fallbackPath = collectionId
+        ? `${user!.id}/collections/${collectionId}/${id}/${type === 'display' ? 'display.jpg' : 'original.jpg'}`
+        : `${user!.id}/${id}_${type}.jpg`;
+      const path = normalizedRemotePath || fallbackPath;
       const { data, error } = await supabase.storage.from('curio-assets').download(path);
       
       if (data && !error) {
@@ -411,7 +481,7 @@ export const importLocalCollectionsToCloud = async (): Promise<{ collections: nu
       const original = await getAsset(item.id, 'original');
       const display = await getAsset(item.id, 'display');
       if (original && display) {
-        await saveAsset(item.id, original, display);
+        await saveAsset(collection.id, item.id, original, display);
         assetUploads += 1;
       }
     }
@@ -420,7 +490,7 @@ export const importLocalCollectionsToCloud = async (): Promise<{ collections: nu
   return { collections: localCollections.length, assets: assetUploads };
 };
 
-export const deleteAsset = async (id: string): Promise<void> => {
+export const deleteAsset = async (collectionId: string, id: string): Promise<void> => {
     const db = await initDB();
     
     // Delete Local
@@ -436,9 +506,10 @@ export const deleteAsset = async (id: string): Promise<void> => {
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
+                const basePath = `${user.id}/collections/${collectionId}/${id}`;
                 await supabase.storage.from('curio-assets').remove([
-                    `${user.id}/${id}_original.jpg`,
-                    `${user.id}/${id}_display.jpg`
+                    `${basePath}/original.jpg`,
+                    `${basePath}/display.jpg`
                 ]);
             }
         } catch (e) {

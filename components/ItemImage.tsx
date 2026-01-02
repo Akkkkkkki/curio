@@ -7,12 +7,13 @@ import { Loader2, Camera, AlertCircle } from 'lucide-react';
 interface ItemImageProps {
   itemId: string;
   photoUrl?: string; // Can be a direct URL (relative/absolute/data) or the keyword 'asset'
+  collectionId?: string;
   className?: string;
   alt?: string;
   type?: 'display' | 'original';
 }
 
-export const ItemImage: React.FC<ItemImageProps> = ({ itemId, photoUrl, className = "", alt = "", type = 'display' }) => {
+export const ItemImage: React.FC<ItemImageProps> = ({ itemId, photoUrl, collectionId, className = "", alt = "", type = 'display' }) => {
   const [dbUrl, setDbUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
@@ -69,7 +70,7 @@ export const ItemImage: React.FC<ItemImageProps> = ({ itemId, photoUrl, classNam
         setError(false);
         try {
           // Fix: Assert 'type' as the expected union literal to prevent widening to 'string'
-          const blob = await getAsset(itemId, type as 'display' | 'original', remoteAssetPath || undefined);
+          const blob = await getAsset(itemId, type as 'display' | 'original', remoteAssetPath || undefined, collectionId);
 
           if (blob && blob.size > 0 && isMounted) {
             const objectUrl = URL.createObjectURL(blob);
@@ -98,7 +99,7 @@ export const ItemImage: React.FC<ItemImageProps> = ({ itemId, photoUrl, classNam
       setLoading(false);
       setError(false);
     }
-  }, [itemId, photoUrl, type, isDirectSource, remoteAssetPath]);
+  }, [itemId, photoUrl, type, isDirectSource, remoteAssetPath, collectionId]);
 
   // Cleanup on unmount
   useEffect(() => {

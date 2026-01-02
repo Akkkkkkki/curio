@@ -59,6 +59,7 @@ export const ItemCard: React.FC<ItemCardProps> = ({ item, fields, displayFields,
         <ItemImage 
             itemId={item.id} 
             photoUrl={item.photoUrl}
+            collectionId={item.collectionId}
             alt={item.title} 
             className={`w-full group-hover:scale-105 transition-transform duration-500 ${layout === 'grid' ? 'h-full' : 'h-auto'}`}
         />

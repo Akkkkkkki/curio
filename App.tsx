@@ -282,7 +282,7 @@ const AppContent: React.FC = () => {
       try {
         const original = await fetch(itemData.photoUrl).then(response => response.blob());
         const { display } = await processImage(itemData.photoUrl);
-        await saveAsset(itemId, original, display);
+        await saveAsset(collectionId, itemId, original, display);
         hasPhoto = true;
       } catch (e) {
         console.error('Image processing failed', e);
@@ -362,7 +362,7 @@ const AppContent: React.FC = () => {
               if (c.id === collectionId) {
                   const newC = { ...c, items: c.items.filter(i => i.id !== itemId) };
                   saveCollection(newC);
-                  deleteAsset(itemId);
+                  deleteAsset(collectionId, itemId);
                   void deleteCloudItem(collectionId, itemId);
                   return newC;
               }
@@ -463,6 +463,7 @@ const AppContent: React.FC = () => {
                         <ItemImage 
                             itemId={stats.featured.id} 
                             photoUrl={stats.featured.photoUrl} 
+                            collectionId={stats.featured.collectionId}
                             type="display" 
                             className="w-full h-full object-cover scale-105 group-hover:scale-100 transition-transform duration-[20s] ease-out" 
                         />
@@ -504,7 +505,12 @@ const AppContent: React.FC = () => {
                 {stats.historyItem ? (
                     <div className="space-y-4">
                         <div className="aspect-square rounded-2xl overflow-hidden bg-stone-100 shadow-inner">
-                            <ItemImage itemId={stats.historyItem.id} photoUrl={stats.historyItem.photoUrl} className="w-full h-full object-cover" />
+                            <ItemImage
+                              itemId={stats.historyItem.id}
+                              photoUrl={stats.historyItem.photoUrl}
+                              collectionId={stats.historyItem.collectionId}
+                              className="w-full h-full object-cover"
+                            />
                         </div>
                         <div>
                             <p className="text-[11px] font-mono opacity-40 uppercase tracking-[0.18em] mb-1">{t('historyTitle')}</p>
@@ -786,7 +792,7 @@ const AppContent: React.FC = () => {
                     } else {
                         const original = await fetch(base64).then(response => response.blob());
                         const { display } = await processImage(base64);
-                        await saveAsset(item.id, original, display);
+                        await saveAsset(collection.id, item.id, original, display);
                         updateItem(collection.id, item.id, { photoUrl: 'asset' });
                     }
                 } catch (err) {
@@ -822,6 +828,7 @@ const AppContent: React.FC = () => {
                   <ItemImage 
                     itemId={item.id} 
                     photoUrl={item.photoUrl} 
+                    collectionId={item.collectionId}
                     alt={item.title} 
                     type="display" 
                     className="w-full h-full object-cover transition-transform duration-[10s] group-hover:scale-110 opacity-80" 

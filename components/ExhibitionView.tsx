@@ -43,6 +43,7 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({ collection, init
              <ItemImage 
                 itemId={item.id} 
                 photoUrl={item.photoUrl}
+                collectionId={item.collectionId}
                 type="display" 
                 className="w-full h-full object-cover transition-transform duration-[2s] group-hover:scale-110" 
              />

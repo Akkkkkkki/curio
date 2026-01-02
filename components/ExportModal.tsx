@@ -35,7 +35,8 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
         const blob = await getAsset(
           item.id,
           'original',
-          item.photoUrl && item.photoUrl !== 'asset' ? item.photoUrl : undefined
+          item.photoUrl && item.photoUrl !== 'asset' ? item.photoUrl : undefined,
+          item.collectionId
         );
         if (blob) {
           objectUrl = URL.createObjectURL(blob);
