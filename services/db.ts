@@ -4,10 +4,10 @@ import { supabase, isSupabaseConfigured } from './supabase';
 import { TEMPLATES } from '../constants';
 
 const DB_NAME = 'CurioDatabase';
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 const COLLECTIONS_STORE = 'collections';
 const ASSETS_STORE = 'assets';
-const THUMBNAILS_STORE = 'thumbnails';
+const DISPLAY_STORE = 'display';
 const SETTINGS_STORE = 'settings';
 const SUPABASE_SYNC_TIMESTAMPS = import.meta.env.VITE_SUPABASE_SYNC_TIMESTAMPS === 'true';
 
@@ -74,27 +74,21 @@ const mergeCollections = (localCollections: UserCollection[], cloudCollections: 
   return merged;
 };
 
-const normalizePhotoPaths = (photoUrl: string) => {
-  if (!photoUrl) {
-    return { originalPath: '', displayPath: '' };
+export const extractCurioAssetPath = (value: string): string | null => {
+  if (!value) return null;
+  // Supports:
+  // - .../storage/v1/object/curio-assets/<path>
+  // - .../storage/v1/object/public/curio-assets/<path>
+  // - .../storage/v1/object/sign/curio-assets/<path>?token=...
+  const match = value.match(
+    /^https?:\/\/[^/]+\.supabase\.co\/storage\/v1\/object\/(?:public\/|sign\/)?curio-assets\/(.+?)(?:\?.*)?$/
+  );
+  if (!match) return null;
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return match[1];
   }
-  if (
-    photoUrl.startsWith('http') ||
-    photoUrl.startsWith('data:') ||
-    photoUrl.startsWith('blob:') ||
-    photoUrl.startsWith('/')
-  ) {
-    return { originalPath: photoUrl, displayPath: photoUrl };
-  }
-
-  const originalPath = photoUrl
-    .replace(/\/display\.jpg$/, '/original.jpg')
-    .replace(/_thumb(\.[^/.]+)$/, '_master$1');
-  const displayPath = photoUrl
-    .replace(/\/original\.jpg$/, '/display.jpg')
-    .replace(/_master(\.[^/.]+)$/, '_thumb$1');
-
-  return { originalPath, displayPath };
 };
 
 export const requestPersistence = async () => {
@@ -125,8 +119,8 @@ export const initDB = (): Promise<IDBDatabase> => {
       if (!db.objectStoreNames.contains(ASSETS_STORE)) {
         db.createObjectStore(ASSETS_STORE);
       }
-      if (!db.objectStoreNames.contains(THUMBNAILS_STORE)) {
-        db.createObjectStore(THUMBNAILS_STORE);
+      if (!db.objectStoreNames.contains(DISPLAY_STORE)) {
+        db.createObjectStore(DISPLAY_STORE);
       }
       if (!db.objectStoreNames.contains(SETTINGS_STORE)) {
         db.createObjectStore(SETTINGS_STORE);
@@ -170,12 +164,82 @@ export const getLocalCollections = async (): Promise<UserCollection[]> => {
   return loadLocalCollections();
 };
 
+const normalizePhotoPaths = (photoUrl: string) => {
+  if (!photoUrl) {
+    return { originalPath: '', displayPath: '' };
+  }
+
+  const extracted = extractCurioAssetPath(photoUrl);
+  const normalizedUrl = extracted || photoUrl;
+
+  // External URLs / local absolute paths: can't derive variants.
+  // Note: Supabase Storage object URLs are extracted above and become bucket-relative paths.
+  if (
+    normalizedUrl.startsWith('http') ||
+    normalizedUrl.startsWith('data:') ||
+    normalizedUrl.startsWith('blob:') ||
+    normalizedUrl.startsWith('/')
+  ) {
+    return { originalPath: normalizedUrl, displayPath: normalizedUrl };
+  }
+
+  const hasDisplay = /(?:\/display\.[^/.]+|_display\.[^/.]+)$/i.test(normalizedUrl);
+  const hasOriginal = /(?:\/original\.[^/.]+|_original\.[^/.]+)$/i.test(normalizedUrl);
+  const hasThumb = /(?:\/thumb\.[^/.]+|_thumb\.[^/.]+)$/i.test(normalizedUrl);
+  const hasMaster = /(?:\/master\.[^/.]+|_master\.[^/.]+)$/i.test(normalizedUrl);
+
+  if (hasDisplay) {
+    return {
+      displayPath: normalizedUrl,
+      originalPath: normalizedUrl
+        .replace(/\/display(\.[^/.]+)$/i, '/original$1')
+        .replace(/_display(\.[^/.]+)$/i, '_original$1'),
+    };
+  }
+
+  if (hasOriginal) {
+    return {
+      originalPath: normalizedUrl,
+      displayPath: normalizedUrl
+        .replace(/\/original(\.[^/.]+)$/i, '/display$1')
+        .replace(/_original(\.[^/.]+)$/i, '_display$1'),
+    };
+  }
+
+  // Legacy naming: thumb/master in path/filename
+  if (hasThumb) {
+    return {
+      originalPath: normalizedUrl
+        .replace(/\/thumb(\.[^/.]+)$/i, '/original$1')
+        .replace(/_thumb(\.[^/.]+)$/i, '_original$1'),
+      displayPath: normalizedUrl
+        .replace(/\/thumb(\.[^/.]+)$/i, '/display$1')
+        .replace(/_thumb(\.[^/.]+)$/i, '_display$1'),
+    };
+  }
+
+  if (hasMaster) {
+    return {
+      originalPath: normalizedUrl
+        .replace(/\/master(\.[^/.]+)$/i, '/original$1')
+        .replace(/_master(\.[^/.]+)$/i, '_original$1'),
+      displayPath: normalizedUrl
+        .replace(/\/master(\.[^/.]+)$/i, '/display$1')
+        .replace(/_master(\.[^/.]+)$/i, '_display$1'),
+    };
+  }
+
+  // Our current canonical layout uses /original.jpg and /display.jpg; for unknown shapes, treat it as a single path.
+  return { originalPath: normalizedUrl, displayPath: normalizedUrl };
+};
+
 const mapCloudCollections = (cols: any[], items: any[]): UserCollection[] => {
   return cols.map(c => {
     const colItems: CollectionItem[] = (items || [])
       .filter(i => i.collection_id === c.id)
       .map(i => {
-        const photoPath = i.photo_display_path || i.photo_original_path || i.photo_path || '';
+        // Prefer new explicit columns; avoid relying on legacy `photo_path`.
+        const photoPath = i.photo_display_path || i.photo_original_path || '';
         return {
         id: i.id,
         collectionId: i.collection_id,
@@ -187,8 +251,8 @@ const mapCloudCollections = (cols: any[], items: any[]): UserCollection[] => {
         updatedAt: i.updated_at,
         notes: i.notes,
         seedKey: i.seed_key
-      };
-    });
+        };
+      });
 
     const template = TEMPLATES.find(t => t.id === c.template_id);
 
@@ -342,14 +406,14 @@ export const saveCollection = async (collection: UserCollection): Promise<void> 
   }
 };
 
-export const saveAsset = async (collectionId: string, id: string, master: Blob, thumb: Blob): Promise<void> => {
+export const saveAsset = async (collectionId: string, id: string, original: Blob, display: Blob): Promise<void> => {
   const db = await initDB();
   
   // Save to Local
   await new Promise<void>((resolve, reject) => {
-    const transaction = db.transaction([ASSETS_STORE, THUMBNAILS_STORE], 'readwrite');
-    transaction.objectStore(ASSETS_STORE).put(master, id);
-    transaction.objectStore(THUMBNAILS_STORE).put(thumb, id);
+    const transaction = db.transaction([ASSETS_STORE, DISPLAY_STORE], 'readwrite');
+    transaction.objectStore(ASSETS_STORE).put(original, id);
+    transaction.objectStore(DISPLAY_STORE).put(display, id);
     transaction.oncomplete = () => resolve();
     transaction.onerror = () => reject(transaction.error);
   });
@@ -366,8 +430,12 @@ export const saveAsset = async (collectionId: string, id: string, master: Blob, 
 
       // Upload in parallel
       await Promise.all([
-        supabase.storage.from('curio-assets').upload(originalPath, master, { upsert: true, contentType: 'image/jpeg' }),
-        supabase.storage.from('curio-assets').upload(displayPath, thumb, { upsert: true, contentType: 'image/jpeg' })
+        supabase.storage
+          .from('curio-assets')
+          .upload(originalPath, original, { upsert: true, contentType: original.type || 'image/jpeg' }),
+        supabase.storage
+          .from('curio-assets')
+          .upload(displayPath, display, { upsert: true, contentType: display.type || 'image/jpeg' })
       ]);
     } catch (e) {
       console.warn('Cloud asset sync failed:', e);
@@ -375,9 +443,14 @@ export const saveAsset = async (collectionId: string, id: string, master: Blob, 
   }
 };
 
-export const getAsset = async (id: string, type: 'master' | 'thumb' = 'master', remotePath?: string, collectionId?: string): Promise<Blob | null> => {
+export const getAsset = async (
+  id: string,
+  type: 'original' | 'display' = 'display',
+  remotePath?: string,
+  collectionId?: string
+): Promise<Blob | null> => {
   const db = await initDB();
-  const storeName = type === 'thumb' ? THUMBNAILS_STORE : ASSETS_STORE;
+  const storeName = type === 'display' ? DISPLAY_STORE : ASSETS_STORE;
   
   // Try Local First
   const localBlob = await new Promise<Blob | null>((resolve) => {
@@ -396,18 +469,13 @@ export const getAsset = async (id: string, type: 'master' | 'thumb' = 'master', 
       const { data: { user } } = await supabase.auth.getUser();
       if (!user && !remotePath) return null;
 
-      const normalizedRemotePath = remotePath
-        ? (type === 'thumb'
-          ? remotePath
-            .replace(/\/original\.jpg$/, '/display.jpg')
-            .replace(/_master(\.[^/.]+)$/, '_thumb$1')
-          : remotePath
-            .replace(/\/display\.jpg$/, '/original.jpg')
-            .replace(/_thumb(\.[^/.]+)$/, '_master$1'))
-        : null;
+      const normalizedRemotePath = remotePath ? (type === 'display'
+        ? normalizePhotoPaths(remotePath).displayPath
+        : normalizePhotoPaths(remotePath).originalPath) : null;
       const fallbackPath = collectionId
-        ? `${user!.id}/collections/${collectionId}/${id}/${type === 'thumb' ? 'display.jpg' : 'original.jpg'}`
-        : `${user!.id}/${id}_${type}.jpg`;
+        ? `${user!.id}/collections/${collectionId}/${id}/${type === 'display' ? 'display.jpg' : 'original.jpg'}`
+        // Legacy pre-folder layout fallback
+        : `${user!.id}/${id}_${type === 'display' ? 'thumb' : 'master'}.jpg`;
       const path = normalizedRemotePath || fallbackPath;
       const { data, error } = await supabase.storage.from('curio-assets').download(path);
       
@@ -443,10 +511,10 @@ export const importLocalCollectionsToCloud = async (): Promise<{ collections: nu
     for (const item of collection.items) {
       if (item.photoUrl !== 'asset') continue;
 
-      const master = await getAsset(item.id, 'master');
-      const thumb = await getAsset(item.id, 'thumb');
-      if (master && thumb) {
-        await saveAsset(collection.id, item.id, master, thumb);
+      const original = await getAsset(item.id, 'original');
+      const display = await getAsset(item.id, 'display');
+      if (original && display) {
+        await saveAsset(collection.id, item.id, original, display);
         assetUploads += 1;
       }
     }
@@ -460,9 +528,9 @@ export const deleteAsset = async (collectionId: string, id: string): Promise<voi
     
     // Delete Local
     await new Promise<void>((resolve) => {
-      const transaction = db.transaction([ASSETS_STORE, THUMBNAILS_STORE], 'readwrite');
+    const transaction = db.transaction([ASSETS_STORE, DISPLAY_STORE], 'readwrite');
       transaction.objectStore(ASSETS_STORE).delete(id);
-      transaction.objectStore(THUMBNAILS_STORE).delete(id);
+      transaction.objectStore(DISPLAY_STORE).delete(id);
       transaction.oncomplete = () => resolve();
     });
 
@@ -474,7 +542,10 @@ export const deleteAsset = async (collectionId: string, id: string): Promise<voi
                 const basePath = `${user.id}/collections/${collectionId}/${id}`;
                 await supabase.storage.from('curio-assets').remove([
                     `${basePath}/original.jpg`,
-                    `${basePath}/display.jpg`
+                    `${basePath}/display.jpg`,
+                    // Legacy paths (safe cleanup; ignore if missing)
+                    `${user.id}/${id}_master.jpg`,
+                    `${user.id}/${id}_thumb.jpg`
                 ]);
             }
         } catch (e) {

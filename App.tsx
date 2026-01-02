@@ -280,8 +280,8 @@ const AppContent: React.FC = () => {
 
     if (!isPublicCollection && itemData.photoUrl.startsWith('data:')) {
       try {
-        const { master, thumb } = await processImage(itemData.photoUrl);
-        await saveAsset(collectionId, itemId, master, thumb);
+        const { original, display } = await processImage(itemData.photoUrl);
+        await saveAsset(collectionId, itemId, original, display);
         hasPhoto = true;
       } catch (e) {
         console.error('Image processing failed', e);
@@ -463,7 +463,7 @@ const AppContent: React.FC = () => {
                             itemId={stats.featured.id} 
                             collectionId={stats.featured.collectionId}
                             photoUrl={stats.featured.photoUrl} 
-                            type="master" 
+                            type="display" 
                             className="w-full h-full object-cover scale-105 group-hover:scale-100 transition-transform duration-[20s] ease-out" 
                         />
                     </div>
@@ -784,8 +784,8 @@ const AppContent: React.FC = () => {
                     if (collection.isPublic) {
                         updateItem(collection.id, item.id, { photoUrl: base64 });
                     } else {
-                        const { master, thumb } = await processImage(base64);
-                        await saveAsset(collection.id, item.id, master, thumb);
+                        const { original, display } = await processImage(base64);
+                        await saveAsset(collection.id, item.id, original, display);
                         updateItem(collection.id, item.id, { photoUrl: 'asset' });
                     }
                 } catch (err) {
@@ -823,7 +823,7 @@ const AppContent: React.FC = () => {
                     collectionId={collection.id}
                     photoUrl={item.photoUrl} 
                     alt={item.title} 
-                    type="master" 
+                    type="original" 
                     className="w-full h-full object-cover transition-transform duration-[10s] group-hover:scale-110 opacity-80" 
                   />
                   

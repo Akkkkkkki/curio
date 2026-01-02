@@ -1,7 +1,7 @@
 
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { getAsset } from '../services/db';
+import { extractCurioAssetPath, getAsset } from '../services/db';
 import { Loader2, Camera, AlertCircle } from 'lucide-react';
 
 interface ItemImageProps {
@@ -10,10 +10,10 @@ interface ItemImageProps {
   collectionId?: string;
   className?: string;
   alt?: string;
-  type?: 'master' | 'thumb';
+  type?: 'display' | 'original';
 }
 
-export const ItemImage: React.FC<ItemImageProps> = ({ itemId, photoUrl, collectionId, className = "", alt = "", type = 'thumb' }) => {
+export const ItemImage: React.FC<ItemImageProps> = ({ itemId, photoUrl, collectionId, className = "", alt = "", type = 'display' }) => {
   const [dbUrl, setDbUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
@@ -23,6 +23,8 @@ export const ItemImage: React.FC<ItemImageProps> = ({ itemId, photoUrl, collecti
   const remoteAssetPath = useMemo(() => {
     if (!photoUrl) return null;
     if (photoUrl === 'asset') return null;
+    const extracted = extractCurioAssetPath(photoUrl);
+    if (extracted) return extracted;
     if (photoUrl.startsWith('http') || photoUrl.startsWith('data:') || photoUrl.startsWith('blob:') || photoUrl.startsWith('/')) {
       return null;
     }
@@ -69,11 +71,10 @@ export const ItemImage: React.FC<ItemImageProps> = ({ itemId, photoUrl, collecti
         setLoading(true);
         setError(false);
         try {
-          // Fix: Assert 'type' as the expected union literal to prevent widening to 'string'
-          let blob = await getAsset(itemId, type as 'master' | 'thumb', remoteAssetPath || undefined, collectionId);
-          // Fallback to master if thumb is missing
-          if ((!blob || blob.size === 0) && type === 'thumb') {
-            blob = await getAsset(itemId, 'master', remoteAssetPath || undefined, collectionId);
+          let blob = await getAsset(itemId, type as 'original' | 'display', remoteAssetPath || undefined, collectionId);
+          // Fallback to original if display is missing
+          if ((!blob || blob.size === 0) && type === 'display') {
+            blob = await getAsset(itemId, 'original', remoteAssetPath || undefined, collectionId);
           }
 
           if (blob && blob.size > 0 && isMounted) {
@@ -103,7 +104,7 @@ export const ItemImage: React.FC<ItemImageProps> = ({ itemId, photoUrl, collecti
       setLoading(false);
       setError(false);
     }
-  }, [itemId, photoUrl, type, isDirectSource, remoteAssetPath]);
+  }, [itemId, photoUrl, type, isDirectSource, remoteAssetPath, collectionId]);
 
   // Cleanup on unmount
   useEffect(() => {
