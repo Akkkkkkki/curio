@@ -32,7 +32,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
 
   if (!supabaseActive) {
     return (
-      <div className={`fixed inset-0 z-[100] flex items-center justify-center p-4 ${overlayClass} backdrop-blur-md`}>
+      <div className={`fixed inset-0 z-[100] flex items-center justify-center p-4 pt-[calc(1rem+env(safe-area-inset-top,0px))] pb-[calc(1rem+env(safe-area-inset-bottom,0px))] pl-[calc(1rem+env(safe-area-inset-left,0px))] pr-[calc(1rem+env(safe-area-inset-right,0px))] ${overlayClass} backdrop-blur-md`}>
         <div className={`${surfaceClass} rounded-[2.5rem] shadow-2xl w-full max-w-md overflow-hidden flex flex-col border motion-panel`}>
           <div className={`flex items-center justify-between p-8 border-b ${dividerBorder}`}>
             <div>
@@ -74,7 +74,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
   };
 
   return (
-    <div className={`fixed inset-0 z-[100] flex items-center justify-center p-4 ${overlayClass} backdrop-blur-md`}>
+    <div className={`fixed inset-0 z-[100] flex items-center justify-center p-4 pt-[calc(1rem+env(safe-area-inset-top,0px))] pb-[calc(1rem+env(safe-area-inset-bottom,0px))] pl-[calc(1rem+env(safe-area-inset-left,0px))] pr-[calc(1rem+env(safe-area-inset-right,0px))] ${overlayClass} backdrop-blur-md`}>
       <div className={`${surfaceClass} rounded-[2.5rem] shadow-2xl w-full max-w-md overflow-hidden flex flex-col border motion-panel`}>
         <div className={`flex items-center justify-between p-8 border-b ${dividerBorder}`}>
           <div>

@@ -50,7 +50,7 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({ is
   };
 
   return (
-    <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${overlayClass} backdrop-blur-sm`}>
+    <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 pt-[calc(1rem+env(safe-area-inset-top,0px))] pb-[calc(1rem+env(safe-area-inset-bottom,0px))] pl-[calc(1rem+env(safe-area-inset-left,0px))] pr-[calc(1rem+env(safe-area-inset-right,0px))] ${overlayClass} backdrop-blur-sm`}>
       <div className={`${surfaceClass} rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col motion-panel border`}>
         <div className={`flex items-center justify-between p-4 border-b ${dividerBorder}`}>
           <h2 className={`font-serif font-bold text-lg ${theme === 'vault' ? 'text-white' : 'text-stone-800'}`}>{t('newArchive')}</h2>
