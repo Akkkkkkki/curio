@@ -349,10 +349,8 @@ const AppContent: React.FC = () => {
       setHasLocalImport(false);
       setImportState("idle");
       setImportMessage(null);
-      return;
     }
-    refreshCollections();
-  }, [isSupabaseReady, user, refreshCollections]);
+  }, [isSupabaseReady]);
 
   useEffect(() => {
     if (!user && collections.some((c) => c.isPublic)) {
@@ -435,6 +433,7 @@ const AppContent: React.FC = () => {
         }
         return c;
       });
+      return nextCollections;
     });
     showStatus(t("statusSaved"), "success");
   };
@@ -1411,41 +1410,40 @@ const AppContent: React.FC = () => {
     }
   };
 
-  const handleAddAction = () => {
+  const handleAddAction = useCallback(() => {
     if (!isAuthenticated) {
       setPendingAuthAction("add-item");
       setIsAuthModalOpen(true);
       return;
     }
     if (editableCollections.length === 0) {
-      setIsCreateCollectionOpen(true);
+      dispatch({ type: 'OPEN_CREATE_COLLECTION_MODAL' });
       return;
     }
-    setIsAddModalOpen(true);
-  };
+    dispatch({ type: 'OPEN_ADD_MODAL' });
+  }, [dispatch, editableCollections.length, isAuthenticated]);
 
-  const handleCreateCollectionAction = () => {
+  const handleCreateCollectionAction = useCallback(() => {
     if (!isAuthenticated) {
       setPendingAuthAction("create-collection");
       setIsAuthModalOpen(true);
       return;
     }
-    setIsCreateCollectionOpen(true);
-  };
+    dispatch({ type: 'OPEN_CREATE_COLLECTION_MODAL' });
+  }, [dispatch, isAuthenticated]);
 
   const handleSignOut = async () => {
     await signOutUser();
   };
 
   const handleAuthClose = () => {
-    setIsAuthModalOpen(false);
-    setPendingAuthAction(null);
+    dispatch({ type: 'CLOSE_AUTH_MODAL' });
   };
 
   const handleAuthSuccess = () => {
-    if (pendingAuthAction) {
-      setAuthActionQueue(pendingAuthAction);
-      setPendingAuthAction(null);
+    if (uiState.pendingAuthAction) {
+      dispatch({ type: 'QUEUE_AUTH_ACTION', action: uiState.pendingAuthAction });
+      dispatch({ type: 'SET_PENDING_AUTH_ACTION', action: null });
     }
   };
 
@@ -1456,8 +1454,8 @@ const AppContent: React.FC = () => {
     } else if (authActionQueue === "create-collection") {
       setIsCreateCollectionOpen(true);
     }
-    setAuthActionQueue(null);
-  }, [isAuthenticated, authActionQueue, handleAddAction]);
+    dispatch({ type: 'QUEUE_AUTH_ACTION', action: null });
+  }, [isAuthenticated, uiState.authActionQueue, handleAddAction]);
 
   const renderAccessGate = () => (
     <div className="flex flex-col items-center justify-center px-4 py-16 sm:py-24">
