@@ -455,17 +455,16 @@ const AppContent: React.FC = () => {
       updatedAt: now,
     };
 
-    setCollections((prev) => {
-      return prev.map((c) => {
+    setCollections((prev) =>
+      prev.map((c) => {
         if (c.id === collectionId) {
           const newC = { ...c, items: [newItem, ...c.items], updatedAt: now };
           saveCollection(newC);
           return newC;
         }
         return c;
-      });
-      return nextCollections;
-    });
+      }),
+    );
     showStatus(t('statusSaved'), 'success');
   };
 
@@ -1360,11 +1359,11 @@ const AppContent: React.FC = () => {
       return;
     }
     if (editableCollections.length === 0) {
-      dispatch({ type: 'OPEN_CREATE_COLLECTION_MODAL' });
+      setIsCreateCollectionOpen(true);
       return;
     }
-    dispatch({ type: 'OPEN_ADD_MODAL' });
-  }, [dispatch, editableCollections.length, isAuthenticated]);
+    setIsAddModalOpen(true);
+  }, [editableCollections.length, isAuthenticated]);
 
   const handleCreateCollectionAction = useCallback(() => {
     if (!isAuthenticated) {
@@ -1372,21 +1371,21 @@ const AppContent: React.FC = () => {
       setIsAuthModalOpen(true);
       return;
     }
-    dispatch({ type: 'OPEN_CREATE_COLLECTION_MODAL' });
-  }, [dispatch, isAuthenticated]);
+    setIsCreateCollectionOpen(true);
+  }, [isAuthenticated]);
 
   const handleSignOut = async () => {
     await signOutUser();
   };
 
   const handleAuthClose = () => {
-    dispatch({ type: 'CLOSE_AUTH_MODAL' });
+    setIsAuthModalOpen(false);
   };
 
   const handleAuthSuccess = () => {
-    if (uiState.pendingAuthAction) {
-      dispatch({ type: 'QUEUE_AUTH_ACTION', action: uiState.pendingAuthAction });
-      dispatch({ type: 'SET_PENDING_AUTH_ACTION', action: null });
+    if (pendingAuthAction) {
+      setAuthActionQueue(pendingAuthAction);
+      setPendingAuthAction(null);
     }
   };
 
@@ -1397,8 +1396,8 @@ const AppContent: React.FC = () => {
     } else if (authActionQueue === 'create-collection') {
       setIsCreateCollectionOpen(true);
     }
-    dispatch({ type: 'QUEUE_AUTH_ACTION', action: null });
-  }, [isAuthenticated, uiState.authActionQueue, handleAddAction]);
+    setAuthActionQueue(null);
+  }, [isAuthenticated, authActionQueue, handleAddAction]);
 
   const renderAccessGate = () => (
     <div className="flex flex-col items-center justify-center px-4 py-16 sm:py-24">
