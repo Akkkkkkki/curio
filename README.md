@@ -9,8 +9,10 @@ This contains everything you need to run your app locally.
 View your app in AI Studio: https://ai.studio/apps/drive/1Yuc0O2t_PeURvxwx5ooQNqxIIcYfegJ1
 
 ## MVP Product Behavior (5-minute time-to-value)
+
 Curio’s MVP is designed so a new user can get meaningful value within **5 minutes**:
-- **Delight before auth:** Users can explore the **Public Sample Gallery** *before signing in*.
+
+- **Delight before auth:** Users can explore the **Public Sample Gallery** _before signing in_.
 - **One clear first action:** The UI should present a primary CTA to **Add your first item** (and a secondary CTA to **Explore sample**).
 - **Capture reliability:** The add-item flow must show visible stages (Upload → Analyzing → Review → Save), and provide a manual fallback if AI fails/slow.
 - **Clear outcomes:** Users must see explicit **Saved** and **Synced / Will sync** feedback.
@@ -18,8 +20,7 @@ Curio’s MVP is designed so a new user can get meaningful value within **5 minu
 
 ## Run Locally
 
-**Prerequisites:**  Node.js
-
+**Prerequisites:** Node.js
 
 1. Install dependencies:
    `npm install`
@@ -82,6 +83,7 @@ update public.profiles set is_admin = true where id = 'YOUR_USER_UUID';
 ```
 
 Notes:
+
 - Public samples should use local image assets (e.g., `public/assets/...`) rather than private storage paths.
 - The admin account can seed the public sample by signing in on a clean database and saving the sample collection.
 
@@ -92,16 +94,19 @@ Seed data is the default sample content every new user sees. In this project it 
 is empty and the current user is an admin.
 
 Why this structure:
+
 - Keeps sample content in a single, predictable file (easier to maintain than inline data in `App.tsx`).
 - Keeps sample images local so they load without Supabase storage policies or public buckets.
 
 #### Rules for Sample Assets
+
 - Store sample images in `public/assets/`.
 - Use stable, descriptive filenames (e.g., `sample-vinyl.jpg`, `sample-camera.jpg`).
 - Prefer `.jpg` for consistent compression and load performance.
 - Reference paths as `assets/<filename>` in seed data (`photoUrl` fields).
 
 To add new sample items:
+
 1. Add the image file to `public/assets/`.
 2. Add or update the item entry in `services/seedCollections.ts` with `photoUrl: 'assets/<filename>'`.
 

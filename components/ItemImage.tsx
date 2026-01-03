@@ -1,8 +1,6 @@
-
-
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { extractCurioAssetPath, getAsset } from '../services/db';
-import { Loader2, Camera, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo } from "react";
+import { extractCurioAssetPath, getAsset } from "../services/db";
+import { Loader2, Camera, AlertCircle } from "lucide-react";
 
 interface ItemImageProps {
   itemId: string;
@@ -10,10 +8,17 @@ interface ItemImageProps {
   collectionId?: string;
   className?: string;
   alt?: string;
-  type?: 'display' | 'original';
+  type?: "display" | "original";
 }
 
-export const ItemImage: React.FC<ItemImageProps> = ({ itemId, photoUrl, collectionId, className = "", alt = "", type = 'display' }) => {
+export const ItemImage: React.FC<ItemImageProps> = ({
+  itemId,
+  photoUrl,
+  collectionId,
+  className = "",
+  alt = "",
+  type = "display",
+}) => {
   const [dbUrl, setDbUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
@@ -22,24 +27,34 @@ export const ItemImage: React.FC<ItemImageProps> = ({ itemId, photoUrl, collecti
   const defaultFallback = `${import.meta.env.BASE_URL}assets/sample-vinyl.jpg`;
   const remoteAssetPath = useMemo(() => {
     if (!photoUrl) return null;
-    if (photoUrl === 'asset') return null;
+    if (photoUrl === "asset") return null;
     const extracted = extractCurioAssetPath(photoUrl);
     if (extracted) return extracted;
-    if (photoUrl.startsWith('http') || photoUrl.startsWith('data:') || photoUrl.startsWith('blob:') || photoUrl.startsWith('/')) {
+    if (
+      photoUrl.startsWith("http") ||
+      photoUrl.startsWith("data:") ||
+      photoUrl.startsWith("blob:") ||
+      photoUrl.startsWith("/")
+    ) {
       return null;
     }
-    if (photoUrl.endsWith('.jpg') || photoUrl.endsWith('.jpeg') || photoUrl.endsWith('.png') || photoUrl.endsWith('.webp')) {
+    if (
+      photoUrl.endsWith(".jpg") ||
+      photoUrl.endsWith(".jpeg") ||
+      photoUrl.endsWith(".png") ||
+      photoUrl.endsWith(".webp")
+    ) {
       return photoUrl;
     }
     return null;
   }, [photoUrl]);
   const resolvedPhotoUrl = useMemo(() => {
-    if (!photoUrl || photoUrl === 'asset' || remoteAssetPath) return null;
+    if (!photoUrl || photoUrl === "asset" || remoteAssetPath) return null;
     if (
-      photoUrl.startsWith('http') ||
-      photoUrl.startsWith('data:') ||
-      photoUrl.startsWith('blob:') ||
-      photoUrl.startsWith('/')
+      photoUrl.startsWith("http") ||
+      photoUrl.startsWith("data:") ||
+      photoUrl.startsWith("blob:") ||
+      photoUrl.startsWith("/")
     ) {
       return photoUrl;
     }
@@ -47,7 +62,8 @@ export const ItemImage: React.FC<ItemImageProps> = ({ itemId, photoUrl, collecti
   }, [photoUrl]);
 
   // If photoUrl is anything other than 'asset', it's a direct reference (URL or path)
-  const isDirectSource = resolvedPhotoUrl && resolvedPhotoUrl !== 'asset' && resolvedPhotoUrl !== '';
+  const isDirectSource =
+    resolvedPhotoUrl && resolvedPhotoUrl !== "asset" && resolvedPhotoUrl !== "";
 
   useEffect(() => {
     // Reset fallback/error when the source changes
@@ -65,16 +81,26 @@ export const ItemImage: React.FC<ItemImageProps> = ({ itemId, photoUrl, collecti
     }
 
     // If it's the 'asset' keyword, we fetch from IndexedDB
-    if (itemId && (photoUrl === 'asset' || remoteAssetPath)) {
+    if (itemId && (photoUrl === "asset" || remoteAssetPath)) {
       let isMounted = true;
       const loadFromDB = async () => {
         setLoading(true);
         setError(false);
         try {
-          let blob = await getAsset(itemId, type as 'original' | 'display', remoteAssetPath || undefined, collectionId);
+          let blob = await getAsset(
+            itemId,
+            type as "original" | "display",
+            remoteAssetPath || undefined,
+            collectionId,
+          );
           // Fallback to original if display is missing
-          if ((!blob || blob.size === 0) && type === 'display') {
-            blob = await getAsset(itemId, 'original', remoteAssetPath || undefined, collectionId);
+          if ((!blob || blob.size === 0) && type === "display") {
+            blob = await getAsset(
+              itemId,
+              "original",
+              remoteAssetPath || undefined,
+              collectionId,
+            );
           }
 
           if (blob && blob.size > 0 && isMounted) {
@@ -98,7 +124,9 @@ export const ItemImage: React.FC<ItemImageProps> = ({ itemId, photoUrl, collecti
       };
 
       loadFromDB();
-      return () => { isMounted = false; };
+      return () => {
+        isMounted = false;
+      };
     } else {
       setDbUrl(null);
       setLoading(false);
@@ -120,7 +148,9 @@ export const ItemImage: React.FC<ItemImageProps> = ({ itemId, photoUrl, collecti
 
   if (loading && !finalSrc) {
     return (
-      <div className={`flex items-center justify-center bg-stone-100 ${className}`}>
+      <div
+        className={`flex items-center justify-center bg-stone-100 ${className}`}
+      >
         <Loader2 className="animate-spin text-stone-300" size={24} />
       </div>
     );
@@ -129,21 +159,27 @@ export const ItemImage: React.FC<ItemImageProps> = ({ itemId, photoUrl, collecti
   // If there's an error OR we have no source and aren't loading, show placeholder
   if (error || (!finalSrc && !loading)) {
     return (
-      <div className={`flex flex-col items-center justify-center bg-stone-100 text-stone-300 ${className} min-h-[100px]`}>
-        {error ? <AlertCircle size={32} className="opacity-10 mb-2" /> : <Camera size={32} className="opacity-10 mb-2" />}
+      <div
+        className={`flex flex-col items-center justify-center bg-stone-100 text-stone-300 ${className} min-h-[100px]`}
+      >
+        {error ? (
+          <AlertCircle size={32} className="opacity-10 mb-2" />
+        ) : (
+          <Camera size={32} className="opacity-10 mb-2" />
+        )}
         <span className="text-[10px] font-bold uppercase tracking-widest opacity-30">
-          {error ? 'Image Error' : 'No Photo'}
+          {error ? "Image Error" : "No Photo"}
         </span>
       </div>
     );
   }
 
   return (
-    <img 
-      src={finalSrc || ''} 
-      alt={alt} 
-      className={`object-cover ${className}`} 
-      loading="lazy" 
+    <img
+      src={finalSrc || ""}
+      alt={alt}
+      className={`object-cover ${className}`}
+      loading="lazy"
       onError={() => {
         // Handle native browser load errors (e.g., 404 for relative paths)
         if (!fallbackSrc && isDirectSource) {
