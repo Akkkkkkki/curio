@@ -386,6 +386,13 @@ const AppContent: React.FC = () => {
   }, [isSupabaseReady]);
 
   useEffect(() => {
+    if (!isSupabaseReady || !authReady) {
+      return;
+    }
+    refreshCollections();
+  }, [authReady, isSupabaseReady, refreshCollections]);
+
+  useEffect(() => {
     if (!user && collections.some((c) => c.isPublic)) {
       setAllowPublicBrowse(true);
     }
