@@ -1,8 +1,8 @@
-import React, { useState } from "react";
-import { X, ChevronLeft, ChevronRight, Star } from "lucide-react";
-import { UserCollection } from "../types";
-import { ItemImage } from "./ItemImage";
-import { useTranslation } from "../i18n";
+import React, { useState } from 'react';
+import { X, ChevronLeft, ChevronRight, Star } from 'lucide-react';
+import { UserCollection } from '../types';
+import { ItemImage } from './ItemImage';
+import { useTranslation } from '../i18n';
 
 interface ExhibitionViewProps {
   collection: UserCollection;
@@ -24,10 +24,7 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
 
   const item = collection.items[index];
   const next = () => setIndex((i) => (i + 1) % collection.items.length);
-  const prev = () =>
-    setIndex(
-      (i) => (i - 1 + collection.items.length) % collection.items.length,
-    );
+  const prev = () => setIndex((i) => (i - 1 + collection.items.length) % collection.items.length);
 
   return (
     <div className="fixed inset-0 z-[70] bg-stone-950 text-white flex flex-col animate-in fade-in duration-500 overflow-y-auto sm:overflow-hidden pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)] pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)]">
@@ -37,7 +34,7 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
             {collection.name}
           </h2>
           <p className="text-lg sm:text-xl font-serif italic text-amber-500">
-            {t("exhibitNo", { n: index + 1, total: collection.items.length })}
+            {t('exhibitNo', { n: index + 1, total: collection.items.length })}
           </p>
         </div>
         <button
@@ -72,19 +69,14 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
             <div className="space-y-3 sm:space-y-4">
               <div className="flex items-center justify-center sm:justify-start gap-1 sm:gap-2 text-amber-500">
                 {[...Array(item.rating)].map((_, i) => (
-                  <Star
-                    key={i}
-                    size={16}
-                    className="sm:w-[18px]"
-                    fill="currentColor"
-                  />
+                  <Star key={i} size={16} className="sm:w-[18px]" fill="currentColor" />
                 ))}
               </div>
               <h1 className="text-3xl sm:text-5xl lg:text-6xl font-serif font-bold leading-tight">
                 {item.title}
               </h1>
               <p className="text-stone-400 text-base sm:text-xl font-light leading-relaxed font-serif italic border-none sm:border-l-2 border-stone-800 px-0 sm:pl-6 line-clamp-4">
-                {item.notes || "..."}
+                {item.notes || '...'}
               </p>
             </div>
             <div className="grid grid-cols-2 gap-x-6 sm:gap-x-12 gap-y-4 sm:gap-y-6 pt-6 sm:pt-8 border-t border-white/10 text-left">
@@ -94,7 +86,7 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
                     {f.label}
                   </p>
                   <p className="text-sm sm:text-lg font-medium truncate">
-                    {item.data[f.id] || "—"}
+                    {item.data[f.id] || '—'}
                   </p>
                 </div>
               ))}
@@ -116,7 +108,7 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
             <button
               key={i}
               onClick={() => setIndex(i)}
-              className={`h-1 rounded-full transition-all ${i === index ? "w-8 sm:w-12 bg-amber-500" : "w-2 sm:w-4 bg-white/10"}`}
+              className={`h-1 rounded-full transition-all ${i === index ? 'w-8 sm:w-12 bg-amber-500' : 'w-2 sm:w-4 bg-white/10'}`}
             />
           ))}
           {collection.items.length > 10 && (

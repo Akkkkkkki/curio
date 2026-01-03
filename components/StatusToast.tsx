@@ -1,7 +1,7 @@
-import React from "react";
-import { CheckCircle, AlertTriangle, Info } from "lucide-react";
+import React from 'react';
+import { CheckCircle, AlertTriangle, Info } from 'lucide-react';
 
-export type StatusTone = "success" | "error" | "info";
+export type StatusTone = 'success' | 'error' | 'info';
 
 interface StatusToastProps {
   message: string;
@@ -9,32 +9,26 @@ interface StatusToastProps {
   onDismiss?: () => void;
 }
 
-const toneStyles: Record<
-  StatusTone,
-  { bg: string; text: string; Icon: React.ComponentType<any> }
-> = {
-  success: {
-    bg: "bg-emerald-50 border-emerald-100",
-    text: "text-emerald-800",
-    Icon: CheckCircle,
-  },
-  error: {
-    bg: "bg-red-50 border-red-100",
-    text: "text-red-700",
-    Icon: AlertTriangle,
-  },
-  info: {
-    bg: "bg-stone-50 border-stone-200",
-    text: "text-stone-700",
-    Icon: Info,
-  },
-};
+const toneStyles: Record<StatusTone, { bg: string; text: string; Icon: React.ComponentType<any> }> =
+  {
+    success: {
+      bg: 'bg-emerald-50 border-emerald-100',
+      text: 'text-emerald-800',
+      Icon: CheckCircle,
+    },
+    error: {
+      bg: 'bg-red-50 border-red-100',
+      text: 'text-red-700',
+      Icon: AlertTriangle,
+    },
+    info: {
+      bg: 'bg-stone-50 border-stone-200',
+      text: 'text-stone-700',
+      Icon: Info,
+    },
+  };
 
-export const StatusToast: React.FC<StatusToastProps> = ({
-  message,
-  tone = "info",
-  onDismiss,
-}) => {
+export const StatusToast: React.FC<StatusToastProps> = ({ message, tone = 'info', onDismiss }) => {
   const { bg, text, Icon } = toneStyles[tone];
   return (
     <div

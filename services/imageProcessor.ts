@@ -18,10 +18,10 @@ export const processImage = async (
     const url = URL.createObjectURL(blob);
     try {
       const img = new Image();
-      img.crossOrigin = "anonymous";
+      img.crossOrigin = 'anonymous';
       await new Promise<void>((resolve, reject) => {
         img.onload = () => resolve();
-        img.onerror = () => reject(new Error("Image load failed"));
+        img.onerror = () => reject(new Error('Image load failed'));
         img.src = url;
       });
       return img;
@@ -39,7 +39,7 @@ export const processImage = async (
       let width = img.width;
       let height = img.height;
 
-      if (typeof maxDim === "number" && maxDim > 0) {
+      if (typeof maxDim === 'number' && maxDim > 0) {
         const largest = Math.max(width, height);
         if (largest > maxDim) {
           const scale = maxDim / largest;
@@ -48,36 +48,34 @@ export const processImage = async (
         }
       }
 
-      const canvas = document.createElement("canvas");
+      const canvas = document.createElement('canvas');
       canvas.width = width;
       canvas.height = height;
-      const ctx = canvas.getContext("2d", { alpha: false });
-      if (!ctx) return reject(new Error("Canvas context failed"));
+      const ctx = canvas.getContext('2d', { alpha: false });
+      if (!ctx) return reject(new Error('Canvas context failed'));
 
       ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = "high";
-      ctx.fillStyle = "#FFFFFF";
+      ctx.imageSmoothingQuality = 'high';
+      ctx.fillStyle = '#FFFFFF';
       ctx.fillRect(0, 0, width, height);
       ctx.drawImage(img, 0, 0, width, height);
 
       canvas.toBlob(
-        (b) => (b ? resolve(b) : reject(new Error("toBlob failed"))),
-        "image/jpeg",
+        (b) => (b ? resolve(b) : reject(new Error('toBlob failed'))),
+        'image/jpeg',
         quality,
       );
     });
   };
 
-  const inputBlob = input.startsWith("data:")
+  const inputBlob = input.startsWith('data:')
     ? await dataUrlToBlob(input)
     : await (await fetch(input)).blob();
 
   const img = await loadImageFromBlob(inputBlob);
 
   const original =
-    inputBlob.type === "image/jpeg"
-      ? inputBlob
-      : await jpegFromImage(img, { quality: 0.95 });
+    inputBlob.type === 'image/jpeg' ? inputBlob : await jpegFromImage(img, { quality: 0.95 });
 
   const display = await jpegFromImage(img, {
     maxDim: displayMax,

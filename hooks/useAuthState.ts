@@ -25,7 +25,9 @@ export const useAuthState = (isSupabaseReady: boolean): AuthState => {
     let isActive = true;
     const initAuth = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
         if (isActive) {
           setUser(session?.user || null);
         }
@@ -40,7 +42,9 @@ export const useAuthState = (isSupabaseReady: boolean): AuthState => {
         }
       }
 
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      const {
+        data: { subscription },
+      } = supabase.auth.onAuthStateChange((_event, session) => {
         if (isActive) {
           setUser(session?.user || null);
         }
@@ -59,7 +63,9 @@ export const useAuthState = (isSupabaseReady: boolean): AuthState => {
     let isMounted = true;
     if (!isSupabaseReady || !supabase || !user) {
       setIsAdmin(false);
-      return () => { isMounted = false; };
+      return () => {
+        isMounted = false;
+      };
     }
 
     const loadAdminStatus = async () => {
@@ -83,7 +89,9 @@ export const useAuthState = (isSupabaseReady: boolean): AuthState => {
     };
 
     loadAdminStatus();
-    return () => { isMounted = false; };
+    return () => {
+      isMounted = false;
+    };
   }, [isSupabaseReady, user]);
 
   return { user, isAdmin, authReady };
