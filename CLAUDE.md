@@ -23,9 +23,14 @@ When making UX/product changes, preserve these constraints:
 ```bash
 npm install          # Install dependencies
 npm run dev          # Start dev server on http://localhost:3000
+npm run server       # Start Gemini proxy server on http://localhost:8787 (run in separate terminal)
 npm run build        # Build for production
 npm run preview      # Preview production build
+npm run format       # Format code with Prettier
+npm run format:check # Check formatting without changes
 ```
+
+**Important:** For AI features to work in development, you must run BOTH `npm run dev` AND `npm run server` in separate terminals.
 
 ### Environment Setup
 
@@ -69,10 +74,11 @@ GEMINI_API_KEY=your_api_key_here
 
 **Image Storage:**
 
-- Master images: max 1600px @ 85% quality JPEG
-- Thumbnails: max 400px @ 70% quality
-- Stored in IndexedDB `assets` and `thumbnails` stores
-- Cloud backup in Supabase Storage under `user_id/item_id_master.jpg`
+- Original images: High-quality JPEG @ 95% quality (preserves original if already JPEG)
+- Display images: Downsampled to max 2000px @ 92% quality
+- Stored in IndexedDB `assets` (original) and `display` stores
+- Cloud backup in Supabase Storage under `user_id/item_id_original.jpg` and `user_id/item_id_display.jpg`
+- Public sample collections use direct URLs from `public/assets/` (no private storage)
 
 ### Key Files
 
@@ -85,10 +91,20 @@ GEMINI_API_KEY=your_api_key_here
 
 **Services:**
 
-- `services/db.ts` - IndexedDB operations and Supabase sync logic
+- `services/db.ts` - IndexedDB operations, Supabase sync logic, and merge strategies
 - `services/geminiService.ts` - Image analysis and audio guide AI integration
-- `services/supabase.ts` - Authentication (email/password)
-- `services/imageProcessor.ts` - Image resizing and optimization
+- `services/supabase.ts` - Authentication (email/password) and client configuration
+- `services/imageProcessor.ts` - Image resizing and optimization (original + display)
+- `services/seedCollections.ts` - Public sample data (Vinyl Vault with 4 items)
+
+**Hooks:**
+
+- `hooks/useCollections.ts` - Collection fetch, merge, and seed population
+- `hooks/useAuthState.ts` - Supabase auth state management
+
+**Server:**
+
+- `server/geminiProxy.js` - Express server (port 8787) that proxies Gemini API requests, keeping API keys server-side
 
 **Components:**
 
@@ -163,15 +179,18 @@ GEMINI_API_KEY=your_api_key_here
 
 **Database Schema:**
 
-- `collections` table: id (text), user_id, template_id, name, icon, settings (JSON), seed_key, is_public, created_at, updated_at
-- `items` table: id (text), collection_id, user_id, title, rating, notes, data (JSON), photo_path, seed_key, created_at, updated_at
-- `profiles` table: id, seed_version, is_admin, created_at
+- `collections` table: id (text), user_id, template_id, name, icon, settings (jsonb), seed_key, is_public, created_at, updated_at
+- `items` table: id (text), collection_id, user_id, title, rating, notes, data (jsonb), photo_path (legacy), photo_original_path, photo_display_path, seed_key, created_at, updated_at
+- `profiles` table: id (uuid), seed_version, is_admin, created_at
 - RLS enforces per-user access, plus public read on `is_public` collections/items and admin-only edits
-  **Supabase Scripts:**
+- Update trigger (`set_updated_at()`) auto-maintains `updated_at` timestamps for conflict resolution
+
+**Supabase Scripts:**
+
 - `supabase/0_reset.sql` (destructive reset)
-- `supabase/1_schema.sql`
-- `supabase/2_storage.sql`
-- `supabase/3_profiles.sql`
+- `supabase/1_schema.sql` (tables, RLS policies, update triggers)
+- `supabase/2_storage.sql` (storage buckets and policies)
+- `supabase/3_profiles.sql` (profiles table and RLS)
 
 ### Collection Templates
 
@@ -203,6 +222,15 @@ Six predefined templates in `constants.ts`:
 - Changes sync to Supabase after 1500ms debounce
 - Images normalized and uploaded to Supabase Storage bucket for private collections
 - Public sample collections use direct public URLs for images (no private storage dependency)
+
+**Merge Strategy (services/db.ts):**
+
+- `mergeCollections()` and `mergeItems()` implement smart conflict resolution
+- Cloud state is source of truth for existence (prevents deleted items from resurrecting)
+- Local-only items (unsynced) are preserved in merged result
+- Timestamp-based conflict resolution: `compareTimestamps(local, cloud) > 0 ? local : cloud`
+- When `VITE_SUPABASE_SYNC_TIMESTAMPS=true`, newer `updated_at` wins
+- Cloud deletions (items missing from cloud) are respected and removed locally
 
 ### Styling System
 
@@ -237,6 +265,84 @@ import { Button } from '@/components/ui/Button';
 ```
 
 Configured in vite.config.ts and tsconfig.json.
+
+### PWA & Service Worker
+
+**Service Worker** (`public/sw.js`):
+
+- Registered in production only (disabled in dev to avoid HMR conflicts)
+- Caches static assets for offline access
+- Installed via `index.tsx` when `import.meta.env.PROD === true`
+
+**PWA Manifest** (`public/manifest.webmanifest`):
+
+- App name: "Curio"
+- Theme colors: amber-500
+- Icons in `public/` (icon-192.svg, icon-512.svg, etc.)
+- Installable on mobile and desktop
+
+### Deployment
+
+**Vercel Configuration** (`vercel.json`):
+
+```json
+{
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://gemini-proxy-xyz.a.run.app/api/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
+```
+
+- API routes rewrite to hosted Gemini proxy (Cloud Run or similar)
+- All other routes fall back to `index.html` for SPA routing
+- Production builds in `dist/` folder
+
+**Production Environment Variables:**
+
+- Set `VITE_API_BASE_URL=/api` (not localhost)
+- Ensure Supabase URL and keys are configured
+- Gemini API key must be set on the proxy server (not in client env)
+
+## Common Development Workflows
+
+### Adding a New Collection Template
+
+1. Add template definition to `constants.ts` in the `TEMPLATES` array
+2. Define `icon` (emoji), `accentColor` (Tailwind class), and `fields` (FieldDefinition[])
+3. Specify `displayFields` and `badgeFields` for card UI
+4. The Gemini proxy automatically handles new field types via `mapFieldTypeToSchemaType()`
+5. If it's a public sample, update `services/seedCollections.ts` and increment `CURRENT_SEED_VERSION`
+
+### Modifying Sync Logic
+
+1. Edit `services/db.ts` functions: `mergeCollections()`, `mergeItems()`, `saveCollection()`, `saveItem()`
+2. Consider timestamp logic when `VITE_SUPABASE_SYNC_TIMESTAMPS=true`
+3. Test merge strategy with offline/online scenarios
+4. Check IndexedDB in browser DevTools → Application → IndexedDB → curio-database
+5. Check Supabase Dashboard → Table Editor → collections/items for cloud state
+
+### Adding a UI Component
+
+1. Create component in `/components` or `/components/ui`
+2. Use `useTheme()` and `useTranslation()` hooks for theming/i18n
+3. Import theme class maps from `theme.tsx` (e.g., `cardSurfaceClasses`)
+4. Emit callbacks to parent (state lives in App.tsx)
+5. Add modal state to App.tsx if needed (e.g., `isNewModalOpen`)
+
+### Debugging Sync Issues
+
+1. **Check IndexedDB:** DevTools → Application → IndexedDB → curio-database → collections/items/assets/display
+2. **Check Supabase:** Dashboard → Table Editor → collections/items tables
+3. **Check Network:** DevTools → Network → filter `/api/gemini/analyze` and Supabase requests
+4. **Check Console:** Look for sync errors, merge conflicts, or authentication issues
+5. **Compare Timestamps:** Verify `updated_at` fields in local vs cloud to understand conflict resolution
 
 ### No Testing Infrastructure
 
