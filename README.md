@@ -1,9 +1,5 @@
 # Curio — Personal Museum
 
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
-
 Curio is a personal museum for collecting, organizing, and browsing items with optional AI-assisted metadata extraction.
 
 - **Live app**: [curio-app.vercel.app](https://curio-app.vercel.app)
