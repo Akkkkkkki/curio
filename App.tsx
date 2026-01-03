@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, useReducer } from 'react';
 import { HashRouter, Routes, Route, useNavigate, useParams, Link, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { CollectionCard } from './components/CollectionCard';
@@ -7,11 +7,11 @@ import { ItemCard } from './components/ItemCard';
 import { AddItemModal } from './components/AddItemModal';
 import { CreateCollectionModal } from './components/CreateCollectionModal';
 import { AuthModal } from './components/AuthModal';
-import { UserCollection, CollectionItem, AppTheme } from './types';
+import { UserCollection, CollectionItem } from './types';
 import { TEMPLATES } from './constants';
 import { Plus, SlidersHorizontal, ArrowLeft, Trash2, LayoutGrid, LayoutTemplate, Printer, Camera, Search, Loader2, Sparkles, Mic, Play, Quote, Sparkle, Globe, Calendar, Lock, AlertCircle, X } from 'lucide-react';
 import { Button } from './components/ui/Button';
-import { fetchCloudCollections, getLocalCollections, hasLocalOnlyData, importLocalCollectionsToCloud, saveCollection, saveAllCollections, saveAsset, deleteAsset, deleteCloudItem, requestPersistence, getSeedVersion, setSeedVersion, initDB } from './services/db';
+import { importLocalCollectionsToCloud, saveCollection, saveAsset, deleteAsset, deleteCloudItem } from './services/db';
 import { processImage } from './services/imageProcessor';
 import { ItemImage } from './components/ItemImage';
 import { MuseumGuide } from './components/MuseumGuide';
@@ -19,33 +19,22 @@ import { ExhibitionView } from './components/ExhibitionView';
 import { ExportModal } from './components/ExportModal';
 import { FilterModal } from './components/FilterModal';
 import { LanguageProvider, useTranslation } from './i18n';
-import { supabase, isSupabaseConfigured, signOutUser } from './services/supabase';
+import { isSupabaseConfigured, signOutUser } from './services/supabase';
 import { ThemeProvider, useTheme } from './theme';
 import { StatusToast, StatusTone } from './components/StatusToast';
-import { CURRENT_SEED_VERSION, INITIAL_COLLECTIONS } from './services/seedCollections';
+import { INITIAL_COLLECTIONS } from './services/seedCollections';
+import { useAuthState } from './hooks/useAuthState';
+import { useCollections } from './hooks/useCollections';
 
 const AppContent: React.FC = () => {
   const { t, language, setLanguage } = useTranslation();
-  const { theme, setTheme } = useTheme();
+  const { theme } = useTheme();
   const isVoiceGuideEnabled = import.meta.env.VITE_VOICE_GUIDE_ENABLED === 'true';
-  const [collections, setCollections] = useState<UserCollection[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [user, setUser] = useState<any>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [authReady, setAuthReady] = useState(false);
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [allowPublicBrowse, setAllowPublicBrowse] = useState(false);
-  const [hasLocalImport, setHasLocalImport] = useState(false);
   const [importState, setImportState] = useState<'idle' | 'running' | 'done' | 'error'>('idle');
   const [importMessage, setImportMessage] = useState<string | null>(null);
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [isCreateCollectionOpen, setIsCreateCollectionOpen] = useState(false);
-  const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [activeCollectionForGuide, setActiveCollectionForGuide] = useState<UserCollection | null>(null);
   const [status, setStatus] = useState<{ message: string; tone: StatusTone } | null>(null);
-  const [pendingAuthAction, setPendingAuthAction] = useState<'add-item' | 'create-collection' | null>(null);
-  const [authActionQueue, setAuthActionQueue] = useState<'add-item' | 'create-collection' | null>(null);
   const saveTimeoutRef = useRef<Record<string, any>>({});
   const statusTimeoutRef = useRef<number | null>(null);
   const isSupabaseReady = isSupabaseConfigured();
@@ -56,6 +45,64 @@ const AppContent: React.FC = () => {
       ownerId: collection.ownerId || null,
     }))
   ), []);
+  const { user, isAdmin, authReady } = useAuthState(isSupabaseReady);
+
+  type AuthAction = 'add-item' | 'create-collection';
+  type UIState = {
+    isAuthModalOpen: boolean;
+    isAddModalOpen: boolean;
+    isCreateCollectionOpen: boolean;
+    isGuideOpen: boolean;
+    pendingAuthAction: AuthAction | null;
+    authActionQueue: AuthAction | null;
+  };
+  type UIAction =
+    | { type: 'OPEN_AUTH_MODAL' }
+    | { type: 'CLOSE_AUTH_MODAL' }
+    | { type: 'OPEN_ADD_MODAL' }
+    | { type: 'CLOSE_ADD_MODAL' }
+    | { type: 'OPEN_CREATE_COLLECTION_MODAL' }
+    | { type: 'CLOSE_CREATE_COLLECTION_MODAL' }
+    | { type: 'OPEN_GUIDE' }
+    | { type: 'CLOSE_GUIDE' }
+    | { type: 'SET_PENDING_AUTH_ACTION'; action: AuthAction | null }
+    | { type: 'QUEUE_AUTH_ACTION'; action: AuthAction | null };
+
+  const uiReducer = (state: UIState, action: UIAction): UIState => {
+    switch (action.type) {
+      case 'OPEN_AUTH_MODAL':
+        return { ...state, isAuthModalOpen: true };
+      case 'CLOSE_AUTH_MODAL':
+        return { ...state, isAuthModalOpen: false, pendingAuthAction: null };
+      case 'OPEN_ADD_MODAL':
+        return { ...state, isAddModalOpen: true };
+      case 'CLOSE_ADD_MODAL':
+        return { ...state, isAddModalOpen: false };
+      case 'OPEN_CREATE_COLLECTION_MODAL':
+        return { ...state, isCreateCollectionOpen: true };
+      case 'CLOSE_CREATE_COLLECTION_MODAL':
+        return { ...state, isCreateCollectionOpen: false };
+      case 'OPEN_GUIDE':
+        return { ...state, isGuideOpen: true };
+      case 'CLOSE_GUIDE':
+        return { ...state, isGuideOpen: false };
+      case 'SET_PENDING_AUTH_ACTION':
+        return { ...state, pendingAuthAction: action.action };
+      case 'QUEUE_AUTH_ACTION':
+        return { ...state, authActionQueue: action.action };
+      default:
+        return state;
+    }
+  };
+
+  const [uiState, dispatch] = useReducer(uiReducer, {
+    isAuthModalOpen: false,
+    isAddModalOpen: false,
+    isCreateCollectionOpen: false,
+    isGuideOpen: false,
+    pendingAuthAction: null,
+    authActionQueue: null,
+  });
 
   const showStatus = useCallback((message: string, tone: StatusTone = 'info') => {
     if (statusTimeoutRef.current) {
@@ -71,168 +118,21 @@ const AppContent: React.FC = () => {
     };
   }, []);
 
-  useEffect(() => {
-    if (!isSupabaseReady || !supabase) {
-      setUser(null);
-      setAuthReady(true);
-      return;
-    }
-
-    let unsubscribe: (() => void) | undefined;
-    const initAuth = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        setUser(session?.user || null);
-      } catch (e) {
-        console.warn('Auth init failed:', e);
-        setUser(null);
-      } finally {
-        setAuthReady(true);
-      }
-
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-        setUser(session?.user || null);
-      });
-      unsubscribe = () => subscription.unsubscribe();
-    };
-
-    initAuth();
-    return () => {
-      if (unsubscribe) unsubscribe();
-    };
-  }, [isSupabaseReady]);
-
-  useEffect(() => {
-    let isMounted = true;
-    if (!isSupabaseReady || !supabase || !user) {
-      setIsAdmin(false);
-      return () => { isMounted = false; };
-    }
-
-    const loadAdminStatus = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('is_admin')
-          .eq('id', user.id)
-          .single();
-        if (!isMounted) return;
-        if (error) {
-          console.warn('Admin status check failed:', error);
-          setIsAdmin(false);
-          return;
-        }
-        setIsAdmin(Boolean(data?.is_admin));
-      } catch (e) {
-        console.warn('Admin status check failed:', e);
-        if (isMounted) setIsAdmin(false);
-      }
-    };
-
-    loadAdminStatus();
-    return () => { isMounted = false; };
-  }, [isSupabaseReady, user]);
-
-  const withTimeout = useCallback(async <T,>(promise: Promise<T>, ms: number, message: string): Promise<T> => {
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
-    const timeoutPromise = new Promise<T>((_resolve, reject) => {
-      timeoutId = setTimeout(() => reject(new Error(message)), ms);
-    });
-    try {
-      return await Promise.race([promise, timeoutPromise]);
-    } finally {
-      if (timeoutId) clearTimeout(timeoutId);
-    }
-  }, []);
-
-  const refreshCollections = useCallback(async () => {
-    if (!isSupabaseReady) {
-      setCollections([]);
-      setIsLoading(false);
-      return;
-    }
-    setIsLoading(true);
-    setLoadError(null);
-    try {
-      await withTimeout(requestPersistence(), 4000, 'Persistence request timed out');
-
-      const localCollections = await withTimeout(getLocalCollections(), 4000, 'Local cache load timed out');
-      let cloudCollections: UserCollection[] = [];
-      try {
-        cloudCollections = await withTimeout(fetchCloudCollections({ userId: user?.id ?? null, includePublic: true }), 12000, 'Cloud fetch timed out');
-      } catch (e) {
-        console.warn('Supabase cloud fetch failed:', e);
-        setHasLocalImport(false);
-        setCollections(localCollections);
-        setLoadError('Unable to sync with Supabase. Check your connection and Supabase settings.');
-        showStatus(t('statusSyncPaused'), 'error');
-        return;
-      }
-
-      if (!user) {
-        setHasLocalImport(false);
-        if (cloudCollections.length === 0 && localCollections.length === 0) {
-          setCollections(fallbackSampleCollections);
-        } else {
-          setCollections(cloudCollections);
-        }
-        return;
-      }
-
-      const localOnly = hasLocalOnlyData(localCollections, cloudCollections);
-      setHasLocalImport(localOnly);
-
-      if (cloudCollections.length === 0 && localCollections.length === 0 && isAdmin) {
-        const localSeedVersion = await getSeedVersion();
-        if (localSeedVersion < CURRENT_SEED_VERSION) {
-          const seededCollections = INITIAL_COLLECTIONS.map(seed => ({
-            ...seed,
-            isPublic: true,
-            ownerId: user.id
-          }));
-          for (const seedCollection of seededCollections) {
-            await saveCollection(seedCollection);
-          }
-          await setSeedVersion(CURRENT_SEED_VERSION);
-          cloudCollections = [...seededCollections];
-        }
-      }
-
-      if (!localOnly) {
-        await saveAllCollections(cloudCollections);
-      }
-
-      if (user) {
-        setCollections(cloudCollections);
-      } else if (cloudCollections.length === 0 && localCollections.length === 0) {
-        setCollections(fallbackSampleCollections);
-      } else {
-        setCollections(cloudCollections.length > 0 ? cloudCollections : localCollections);
-      }
-      if ((cloudCollections.length + localCollections.length) > 0) {
-        showStatus(t('statusSynced'), 'success');
-      }
-    } catch (e) {
-      console.error("Initialization failed:", e);
-      setLoadError('Failed to load collections. Please try again.');
-      showStatus(t('statusSyncPaused'), 'error');
-      setCollections([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [user, isAdmin, isSupabaseReady, withTimeout, fallbackSampleCollections, t, showStatus]);
+  const { collections, isLoading, loadError, hasLocalImport, refreshCollections } = useCollections({
+    user,
+    isAdmin,
+    isSupabaseReady,
+    fallbackSampleCollections,
+    t,
+    showStatus,
+  });
 
   useEffect(() => {
     if (!isSupabaseReady) {
-      setCollections([]);
-      setIsLoading(false);
-      setHasLocalImport(false);
       setImportState('idle');
       setImportMessage(null);
-      return;
     }
-    refreshCollections();
-  }, [isSupabaseReady, user, refreshCollections]);
+  }, [isSupabaseReady]);
 
   useEffect(() => {
     if (!user && collections.some(c => c.isPublic)) {
@@ -330,9 +230,9 @@ const AppContent: React.FC = () => {
 
   const handleCreateCollection = (templateId: string, name: string, icon: string) => {
       if (!isAuthenticated) {
-        setPendingAuthAction('create-collection');
-        setIsAuthModalOpen(true);
-        setIsCreateCollectionOpen(false);
+        dispatch({ type: 'SET_PENDING_AUTH_ACTION', action: 'create-collection' });
+        dispatch({ type: 'OPEN_AUTH_MODAL' });
+        dispatch({ type: 'CLOSE_CREATE_COLLECTION_MODAL' });
         return;
       }
       const template = TEMPLATES.find(t => t.id === templateId) || TEMPLATES[0];
@@ -651,7 +551,7 @@ const AppContent: React.FC = () => {
                  {canAddItems && (
                    <Button 
                      variant="primary"
-                     onClick={() => setIsAddModalOpen(true)} 
+                   onClick={() => dispatch({ type: 'OPEN_ADD_MODAL' })} 
                      icon={<Plus size={16} />}
                      className="shadow-md"
                    >
@@ -670,7 +570,12 @@ const AppContent: React.FC = () => {
                  <Button 
                    variant="outline" 
                    className={theme === 'vault' ? 'bg-stone-900 text-white border-white/10' : 'bg-white'}
-                   onClick={() => { if (isVoiceGuideEnabled) { setActiveCollectionForGuide(collection); setIsGuideOpen(true); } }}
+                  onClick={() => {
+                    if (isVoiceGuideEnabled) {
+                      setActiveCollectionForGuide(collection);
+                      dispatch({ type: 'OPEN_GUIDE' });
+                    }
+                  }}
                    disabled={!isVoiceGuideEnabled || collection.items.length === 0}
                    icon={<Mic size={16} />}
                    title={isVoiceGuideEnabled ? undefined : 'Coming soon'}
@@ -722,7 +627,7 @@ const AppContent: React.FC = () => {
                  <h3 className={`text-3xl font-serif font-bold mb-2 italic tracking-tight ${theme === 'vault' ? 'text-white' : 'text-stone-800'}`}>{t('galleryAwaits')}</h3>
                  <p className={`${theme === 'vault' ? 'text-white/60' : 'text-stone-400'} mb-10 max-w-sm mx-auto leading-relaxed font-serif text-lg`}>{t('museumDefinition')}</p>
                  {!isReadOnly && !filter && activeFilterCount === 0 && (
-                   <Button size="lg" className="px-12 py-4 text-lg rounded-2xl shadow-xl" onClick={() => setIsAddModalOpen(true)}>
+                  <Button size="lg" className="px-12 py-4 text-lg rounded-2xl shadow-xl" onClick={() => dispatch({ type: 'OPEN_ADD_MODAL' })}>
                      {t('catalogFirst')}
                    </Button>
                  )}
@@ -961,24 +866,24 @@ const AppContent: React.FC = () => {
 
   const handleAddAction = () => {
     if (!isAuthenticated) {
-      setPendingAuthAction('add-item');
-      setIsAuthModalOpen(true);
+      dispatch({ type: 'SET_PENDING_AUTH_ACTION', action: 'add-item' });
+      dispatch({ type: 'OPEN_AUTH_MODAL' });
       return;
     }
     if (editableCollections.length === 0) {
-      setIsCreateCollectionOpen(true);
+      dispatch({ type: 'OPEN_CREATE_COLLECTION_MODAL' });
       return;
     }
-    setIsAddModalOpen(true);
+    dispatch({ type: 'OPEN_ADD_MODAL' });
   };
 
   const handleCreateCollectionAction = () => {
     if (!isAuthenticated) {
-      setPendingAuthAction('create-collection');
-      setIsAuthModalOpen(true);
+      dispatch({ type: 'SET_PENDING_AUTH_ACTION', action: 'create-collection' });
+      dispatch({ type: 'OPEN_AUTH_MODAL' });
       return;
     }
-    setIsCreateCollectionOpen(true);
+    dispatch({ type: 'OPEN_CREATE_COLLECTION_MODAL' });
   };
 
   const handleSignOut = async () => {
@@ -986,26 +891,25 @@ const AppContent: React.FC = () => {
   };
 
   const handleAuthClose = () => {
-    setIsAuthModalOpen(false);
-    setPendingAuthAction(null);
+    dispatch({ type: 'CLOSE_AUTH_MODAL' });
   };
 
   const handleAuthSuccess = () => {
-    if (pendingAuthAction) {
-      setAuthActionQueue(pendingAuthAction);
-      setPendingAuthAction(null);
+    if (uiState.pendingAuthAction) {
+      dispatch({ type: 'QUEUE_AUTH_ACTION', action: uiState.pendingAuthAction });
+      dispatch({ type: 'SET_PENDING_AUTH_ACTION', action: null });
     }
   };
 
   useEffect(() => {
-    if (!isAuthenticated || !authActionQueue) return;
-    if (authActionQueue === 'add-item') {
+    if (!isAuthenticated || !uiState.authActionQueue) return;
+    if (uiState.authActionQueue === 'add-item') {
       handleAddAction();
-    } else if (authActionQueue === 'create-collection') {
-      setIsCreateCollectionOpen(true);
+    } else if (uiState.authActionQueue === 'create-collection') {
+      dispatch({ type: 'OPEN_CREATE_COLLECTION_MODAL' });
     }
-    setAuthActionQueue(null);
-  }, [isAuthenticated, authActionQueue, handleAddAction]);
+    dispatch({ type: 'QUEUE_AUTH_ACTION', action: null });
+  }, [isAuthenticated, uiState.authActionQueue, handleAddAction]);
 
   const renderAccessGate = () => (
     <div className="flex flex-col items-center justify-center px-4 py-16 sm:py-24">
@@ -1029,7 +933,7 @@ const AppContent: React.FC = () => {
             </Button>
           )}
           {isSupabaseReady && authReady ? (
-            <button onClick={() => setIsAuthModalOpen(true)} className="w-full text-sm font-semibold text-stone-500 hover:text-stone-800 py-2">
+            <button onClick={() => dispatch({ type: 'OPEN_AUTH_MODAL' })} className="w-full text-sm font-semibold text-stone-500 hover:text-stone-800 py-2">
               {t('authRequiredAction')}
             </button>
           ) : !isSupabaseReady ? (
@@ -1046,7 +950,7 @@ const AppContent: React.FC = () => {
   return (
     <div className={`min-h-screen transition-colors duration-1000 ${themeColors[theme]}`}>
         <Layout 
-        onOpenAuth={() => setIsAuthModalOpen(true)}
+        onOpenAuth={() => dispatch({ type: 'OPEN_AUTH_MODAL' })}
         onSignOut={handleSignOut}
         onAddItem={handleAddAction}
         onExploreSamples={handleExploreSamples}
@@ -1092,13 +996,13 @@ const AppContent: React.FC = () => {
                 <Route path="/collection/:id/item/:itemId" element={<ItemDetailScreen />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
-            <AddItemModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} collections={editableCollections} onSave={handleAddItem} />
-            <CreateCollectionModal isOpen={isCreateCollectionOpen} onClose={() => setIsCreateCollectionOpen(false)} onCreate={handleCreateCollection} />
+            <AddItemModal isOpen={uiState.isAddModalOpen} onClose={() => dispatch({ type: 'CLOSE_ADD_MODAL' })} collections={editableCollections} onSave={handleAddItem} />
+            <CreateCollectionModal isOpen={uiState.isCreateCollectionOpen} onClose={() => dispatch({ type: 'CLOSE_CREATE_COLLECTION_MODAL' })} onCreate={handleCreateCollection} />
             {isVoiceGuideEnabled && activeCollectionForGuide && (
                 <MuseumGuide 
                 collection={activeCollectionForGuide} 
-                isOpen={isGuideOpen} 
-                onClose={() => setIsGuideOpen(false)} 
+                isOpen={uiState.isGuideOpen} 
+                onClose={() => dispatch({ type: 'CLOSE_GUIDE' })} 
                 />
             )}
           </>
@@ -1110,7 +1014,7 @@ const AppContent: React.FC = () => {
           </div>
         )}
         <AuthModal 
-          isOpen={isAuthModalOpen} 
+          isOpen={uiState.isAuthModalOpen} 
           onClose={handleAuthClose} 
           onAuthSuccess={handleAuthSuccess}
         />
