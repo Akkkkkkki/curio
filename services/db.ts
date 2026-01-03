@@ -12,7 +12,8 @@ const SUPABASE_SYNC_TIMESTAMPS = import.meta.env.VITE_SUPABASE_SYNC_TIMESTAMPS =
 
 let dbInstance: IDBDatabase | null = null;
 
-const compareTimestamps = (a?: string, b?: string) => {
+// Exported for testing
+export const compareTimestamps = (a?: string, b?: string) => {
   if (!a && !b) return 0;
   if (!a) return -1;
   if (!b) return 1;
@@ -185,7 +186,8 @@ export const getLocalCollections = async (): Promise<UserCollection[]> => {
   return loadLocalCollections();
 };
 
-const normalizePhotoPaths = (photoUrl: string) => {
+// Exported for testing
+export const normalizePhotoPaths = (photoUrl: string) => {
   if (!photoUrl) {
     return { originalPath: '', displayPath: '' };
   }
