@@ -202,7 +202,9 @@ const AppContent: React.FC = () => {
         await saveAllCollections(cloudCollections);
       }
 
-      if (cloudCollections.length === 0 && localCollections.length === 0) {
+      if (user) {
+        setCollections(cloudCollections);
+      } else if (cloudCollections.length === 0 && localCollections.length === 0) {
         setCollections(fallbackSampleCollections);
       } else {
         setCollections(cloudCollections.length > 0 ? cloudCollections : localCollections);
