@@ -9,7 +9,6 @@ import {
   ArrowUpRight,
   Download,
   Compass,
-  Plus,
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from '../i18n';
@@ -20,7 +19,6 @@ interface LayoutProps {
   children: React.ReactNode;
   onOpenAuth: () => void;
   onSignOut: () => void;
-  onAddItem?: () => void;
   onExploreSamples?: () => void;
   sampleCollectionId?: string | null;
   onImportLocal?: () => void;
@@ -36,7 +34,6 @@ export const Layout: React.FC<LayoutProps> = ({
   children,
   onOpenAuth,
   onSignOut,
-  onAddItem,
   onExploreSamples,
   sampleCollectionId = null,
   onImportLocal,
@@ -104,9 +101,7 @@ export const Layout: React.FC<LayoutProps> = ({
   const isExploreActive = sampleCollectionId
     ? location.pathname.startsWith(`/collection/${sampleCollectionId}`)
     : false;
-  const handleAddItem = onAddItem ?? (() => {});
   const handleExploreSamples = onExploreSamples ?? (() => {});
-  const addLabelClass = theme === 'vault' ? 'text-white' : 'text-stone-900';
 
   return (
     <div
@@ -115,7 +110,7 @@ export const Layout: React.FC<LayoutProps> = ({
       <header
         className={`sticky top-0 z-20 backdrop-blur-md border-b pt-[env(safe-area-inset-top,0px)] ${headerSurface}`}
       >
-        <div className="max-w-4xl mx-auto px-4 py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
           <Link to="/" className="flex items-center gap-2 group">
             <div
               className={`w-9 h-9 rounded-lg flex items-center justify-center font-serif font-bold text-xl transition-colors ${theme === 'vault' ? 'bg-white text-stone-900 group-hover:bg-amber-400' : 'bg-stone-900 text-white group-hover:bg-amber-600'}`}
@@ -127,7 +122,7 @@ export const Layout: React.FC<LayoutProps> = ({
             </span>
           </Link>
 
-          <nav className="flex items-center gap-2 flex-wrap justify-end">
+          <nav className="flex items-center gap-2 justify-end">
             {headerExtras}
 
             <div className="relative">
@@ -249,7 +244,7 @@ export const Layout: React.FC<LayoutProps> = ({
         aria-label="Primary"
       >
         <div className="mx-auto max-w-4xl px-6 pb-[env(safe-area-inset-bottom,0px)] pt-2">
-          <div className="grid grid-cols-4 items-end">
+          <div className="grid grid-cols-2 items-center">
             <Link
               to="/"
               className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition-colors ${location.pathname === '/' ? 'text-amber-500' : bottomNavMuted}`}
@@ -277,26 +272,6 @@ export const Layout: React.FC<LayoutProps> = ({
                 {t('exploreSample')}
               </button>
             )}
-
-            <button
-              type="button"
-              onClick={handleAddItem}
-              className={`flex flex-col items-center gap-1 text-[11px] font-semibold ${addLabelClass}`}
-            >
-              <span className="-mt-4 flex h-12 w-12 items-center justify-center rounded-full bg-amber-500 text-stone-900 shadow-lg shadow-amber-500/30">
-                <Plus size={20} />
-              </span>
-              {t('addItem')}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setIsProfileOpen(!isProfileOpen)}
-              className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition-colors ${isProfileOpen ? 'text-amber-500' : bottomNavMuted}`}
-            >
-              <User size={18} />
-              {t('profile')}
-            </button>
           </div>
         </div>
       </nav>
