@@ -67,7 +67,15 @@ export const analyzeImage = async (
   return postJson('/gemini/analyze', { imageBase64: base64Image, fields });
 };
 
-export const connectMuseumGuide = async (_col: UserCollection, _cb: any, _inst?: string) => {
+interface MuseumGuideSession {
+  sendRealtimeInput: (input: { media: { data: string; mimeType: string } }) => void;
+}
+
+export const connectMuseumGuide = async (
+  _col: UserCollection,
+  _cb: any,
+  _inst?: string,
+): Promise<MuseumGuideSession> => {
   if (!isVoiceGuideEnabled()) {
     throw new Error('Voice guide is disabled');
   }
