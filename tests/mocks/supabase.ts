@@ -11,6 +11,8 @@ export const mockSupabaseClient = {
     signInWithPassword: vi.fn(),
     signOut: vi.fn(),
     getSession: vi.fn(),
+    getUser: vi.fn(),
+    updateUser: vi.fn(),
     onAuthStateChange: vi.fn(),
   },
   from: vi.fn(() => ({
@@ -62,6 +64,16 @@ export function resetSupabaseMocks() {
 
   mockSupabaseClient.auth.getSession.mockResolvedValue({
     data: { session: null },
+    error: null,
+  });
+
+  mockSupabaseClient.auth.getUser.mockResolvedValue({
+    data: { user: null },
+    error: null,
+  });
+
+  mockSupabaseClient.auth.updateUser.mockResolvedValue({
+    data: { user: { id: 'test-user-id', email: 'test@example.com' } },
     error: null,
   });
 
