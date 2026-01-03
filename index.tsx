@@ -1,10 +1,10 @@
-import React from "react";
-import ReactDOM from "react-dom/client";
-import { App } from "./App";
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import { App } from './App';
 
-const rootElement = document.getElementById("root");
+const rootElement = document.getElementById('root');
 if (!rootElement) {
-  throw new Error("Could not find root element to mount to");
+  throw new Error('Could not find root element to mount to');
 }
 
 const root = ReactDOM.createRoot(rootElement);
@@ -14,13 +14,13 @@ root.render(
   </React.StrictMode>,
 );
 
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
     // Service workers aggressively cache requests and will break Vite HMR (the HMR token changes per run).
     // Only enable SW in production builds.
     if (import.meta.env.PROD) {
-      navigator.serviceWorker.register("/sw.js").catch((error) => {
-        console.error("Service worker registration failed", error);
+      navigator.serviceWorker.register('/sw.js').catch((error) => {
+        console.error('Service worker registration failed', error);
       });
       return;
     }
@@ -33,7 +33,7 @@ if ("serviceWorker" in navigator) {
       })
       .catch(() => {});
 
-    if ("caches" in window) {
+    if ('caches' in window) {
       caches
         .keys()
         .then((keys) => {

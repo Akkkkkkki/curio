@@ -1,6 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { User } from '@supabase/supabase-js';
-import { fetchCloudCollections, getLocalCollections, hasLocalOnlyData, requestPersistence, saveAllCollections, saveCollection, getSeedVersion, setSeedVersion } from '../services/db';
+import {
+  fetchCloudCollections,
+  getLocalCollections,
+  hasLocalOnlyData,
+  requestPersistence,
+  saveAllCollections,
+  saveCollection,
+  getSeedVersion,
+  setSeedVersion,
+} from '../services/db';
 import type { UserCollection } from '../types';
 import { CURRENT_SEED_VERSION, INITIAL_COLLECTIONS } from '../services/seedCollections';
 import type { StatusTone } from '../components/StatusToast';
@@ -35,17 +44,20 @@ export const useCollections = ({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [hasLocalImport, setHasLocalImport] = useState(false);
 
-  const withTimeout = useCallback(async <T,>(promise: Promise<T>, ms: number, message: string): Promise<T> => {
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
-    const timeoutPromise = new Promise<T>((_resolve, reject) => {
-      timeoutId = setTimeout(() => reject(new Error(message)), ms);
-    });
-    try {
-      return await Promise.race([promise, timeoutPromise]);
-    } finally {
-      if (timeoutId) clearTimeout(timeoutId);
-    }
-  }, []);
+  const withTimeout = useCallback(
+    async <T>(promise: Promise<T>, ms: number, message: string): Promise<T> => {
+      let timeoutId: ReturnType<typeof setTimeout> | null = null;
+      const timeoutPromise = new Promise<T>((_resolve, reject) => {
+        timeoutId = setTimeout(() => reject(new Error(message)), ms);
+      });
+      try {
+        return await Promise.race([promise, timeoutPromise]);
+      } finally {
+        if (timeoutId) clearTimeout(timeoutId);
+      }
+    },
+    [],
+  );
 
   const refreshCollections = useCallback(async () => {
     if (!isSupabaseReady) {
@@ -60,10 +72,18 @@ export const useCollections = ({
     try {
       await withTimeout(requestPersistence(), 4000, 'Persistence request timed out');
 
-      const localCollections = await withTimeout(getLocalCollections(), 4000, 'Local cache load timed out');
+      const localCollections = await withTimeout(
+        getLocalCollections(),
+        4000,
+        'Local cache load timed out',
+      );
       let cloudCollections: UserCollection[] = [];
       try {
-        cloudCollections = await withTimeout(fetchCloudCollections({ userId: user?.id ?? null, includePublic: true }), 12000, 'Cloud fetch timed out');
+        cloudCollections = await withTimeout(
+          fetchCloudCollections({ userId: user?.id ?? null, includePublic: true }),
+          12000,
+          'Cloud fetch timed out',
+        );
       } catch (e) {
         console.warn('Supabase cloud fetch failed:', e);
         setHasLocalImport(false);
@@ -89,10 +109,10 @@ export const useCollections = ({
       if (cloudCollections.length === 0 && localCollections.length === 0 && isAdmin) {
         const localSeedVersion = await getSeedVersion();
         if (localSeedVersion < CURRENT_SEED_VERSION) {
-          const seededCollections = INITIAL_COLLECTIONS.map(seed => ({
+          const seededCollections = INITIAL_COLLECTIONS.map((seed) => ({
             ...seed,
             isPublic: true,
-            ownerId: user.id
+            ownerId: user.id,
           }));
           for (const seedCollection of seededCollections) {
             await saveCollection(seedCollection);
@@ -107,7 +127,7 @@ export const useCollections = ({
       }
 
       setCollections(cloudCollections);
-      if ((cloudCollections.length + localCollections.length) > 0) {
+      if (cloudCollections.length + localCollections.length > 0) {
         showStatus(t('statusSynced'), 'success');
       }
     } catch (e) {

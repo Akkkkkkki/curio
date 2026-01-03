@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
-import { extractCurioAssetPath, getAsset } from "../services/db";
-import { Loader2, Camera, AlertCircle } from "lucide-react";
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { extractCurioAssetPath, getAsset } from '../services/db';
+import { Loader2, Camera, AlertCircle } from 'lucide-react';
 
 interface ItemImageProps {
   itemId: string;
@@ -8,16 +8,16 @@ interface ItemImageProps {
   collectionId?: string;
   className?: string;
   alt?: string;
-  type?: "display" | "original";
+  type?: 'display' | 'original';
 }
 
 export const ItemImage: React.FC<ItemImageProps> = ({
   itemId,
   photoUrl,
   collectionId,
-  className = "",
-  alt = "",
-  type = "display",
+  className = '',
+  alt = '',
+  type = 'display',
 }) => {
   const [dbUrl, setDbUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -27,34 +27,34 @@ export const ItemImage: React.FC<ItemImageProps> = ({
   const defaultFallback = `${import.meta.env.BASE_URL}assets/sample-vinyl.jpg`;
   const remoteAssetPath = useMemo(() => {
     if (!photoUrl) return null;
-    if (photoUrl === "asset") return null;
+    if (photoUrl === 'asset') return null;
     const extracted = extractCurioAssetPath(photoUrl);
     if (extracted) return extracted;
     if (
-      photoUrl.startsWith("http") ||
-      photoUrl.startsWith("data:") ||
-      photoUrl.startsWith("blob:") ||
-      photoUrl.startsWith("/")
+      photoUrl.startsWith('http') ||
+      photoUrl.startsWith('data:') ||
+      photoUrl.startsWith('blob:') ||
+      photoUrl.startsWith('/')
     ) {
       return null;
     }
     if (
-      photoUrl.endsWith(".jpg") ||
-      photoUrl.endsWith(".jpeg") ||
-      photoUrl.endsWith(".png") ||
-      photoUrl.endsWith(".webp")
+      photoUrl.endsWith('.jpg') ||
+      photoUrl.endsWith('.jpeg') ||
+      photoUrl.endsWith('.png') ||
+      photoUrl.endsWith('.webp')
     ) {
       return photoUrl;
     }
     return null;
   }, [photoUrl]);
   const resolvedPhotoUrl = useMemo(() => {
-    if (!photoUrl || photoUrl === "asset" || remoteAssetPath) return null;
+    if (!photoUrl || photoUrl === 'asset' || remoteAssetPath) return null;
     if (
-      photoUrl.startsWith("http") ||
-      photoUrl.startsWith("data:") ||
-      photoUrl.startsWith("blob:") ||
-      photoUrl.startsWith("/")
+      photoUrl.startsWith('http') ||
+      photoUrl.startsWith('data:') ||
+      photoUrl.startsWith('blob:') ||
+      photoUrl.startsWith('/')
     ) {
       return photoUrl;
     }
@@ -63,7 +63,7 @@ export const ItemImage: React.FC<ItemImageProps> = ({
 
   // If photoUrl is anything other than 'asset', it's a direct reference (URL or path)
   const isDirectSource =
-    resolvedPhotoUrl && resolvedPhotoUrl !== "asset" && resolvedPhotoUrl !== "";
+    resolvedPhotoUrl && resolvedPhotoUrl !== 'asset' && resolvedPhotoUrl !== '';
 
   useEffect(() => {
     // Reset fallback/error when the source changes
@@ -81,7 +81,7 @@ export const ItemImage: React.FC<ItemImageProps> = ({
     }
 
     // If it's the 'asset' keyword, we fetch from IndexedDB
-    if (itemId && (photoUrl === "asset" || remoteAssetPath)) {
+    if (itemId && (photoUrl === 'asset' || remoteAssetPath)) {
       let isMounted = true;
       const loadFromDB = async () => {
         setLoading(true);
@@ -89,18 +89,13 @@ export const ItemImage: React.FC<ItemImageProps> = ({
         try {
           let blob = await getAsset(
             itemId,
-            type as "original" | "display",
+            type as 'original' | 'display',
             remoteAssetPath || undefined,
             collectionId,
           );
           // Fallback to original if display is missing
-          if ((!blob || blob.size === 0) && type === "display") {
-            blob = await getAsset(
-              itemId,
-              "original",
-              remoteAssetPath || undefined,
-              collectionId,
-            );
+          if ((!blob || blob.size === 0) && type === 'display') {
+            blob = await getAsset(itemId, 'original', remoteAssetPath || undefined, collectionId);
           }
 
           if (blob && blob.size > 0 && isMounted) {
@@ -116,7 +111,7 @@ export const ItemImage: React.FC<ItemImageProps> = ({
             setError(true);
           }
         } catch (e) {
-          console.error("Asset DB error:", itemId, e);
+          console.error('Asset DB error:', itemId, e);
           if (isMounted) setError(true);
         } finally {
           if (isMounted) setLoading(false);
@@ -148,9 +143,7 @@ export const ItemImage: React.FC<ItemImageProps> = ({
 
   if (loading && !finalSrc) {
     return (
-      <div
-        className={`flex items-center justify-center bg-stone-100 ${className}`}
-      >
+      <div className={`flex items-center justify-center bg-stone-100 ${className}`}>
         <Loader2 className="animate-spin text-stone-300" size={24} />
       </div>
     );
@@ -168,7 +161,7 @@ export const ItemImage: React.FC<ItemImageProps> = ({
           <Camera size={32} className="opacity-10 mb-2" />
         )}
         <span className="text-[10px] font-bold uppercase tracking-widest opacity-30">
-          {error ? "Image Error" : "No Photo"}
+          {error ? 'Image Error' : 'No Photo'}
         </span>
       </div>
     );
@@ -176,7 +169,7 @@ export const ItemImage: React.FC<ItemImageProps> = ({
 
   return (
     <img
-      src={finalSrc || ""}
+      src={finalSrc || ''}
       alt={alt}
       className={`object-cover ${className}`}
       loading="lazy"

@@ -1,15 +1,14 @@
-import { UserCollection, CollectionItem } from "../types";
-import { supabase, isSupabaseConfigured } from "./supabase";
-import { TEMPLATES } from "../constants";
+import { UserCollection, CollectionItem } from '../types';
+import { supabase, isSupabaseConfigured } from './supabase';
+import { TEMPLATES } from '../constants';
 
-const DB_NAME = "CurioDatabase";
+const DB_NAME = 'CurioDatabase';
 const DB_VERSION = 5;
-const COLLECTIONS_STORE = "collections";
-const ASSETS_STORE = "assets";
-const DISPLAY_STORE = "display";
-const SETTINGS_STORE = "settings";
-const SUPABASE_SYNC_TIMESTAMPS =
-  import.meta.env.VITE_SUPABASE_SYNC_TIMESTAMPS === "true";
+const COLLECTIONS_STORE = 'collections';
+const ASSETS_STORE = 'assets';
+const DISPLAY_STORE = 'display';
+const SETTINGS_STORE = 'settings';
+const SUPABASE_SYNC_TIMESTAMPS = import.meta.env.VITE_SUPABASE_SYNC_TIMESTAMPS === 'true';
 
 let dbInstance: IDBDatabase | null = null;
 
@@ -33,25 +32,32 @@ const normalizeCollection = (collection: UserCollection): UserCollection => {
   return { ...collection, customFields };
 };
 
-const mergeItems = (
-  localItems: CollectionItem[],
-  cloudItems: CollectionItem[],
-) => {
+const mergeItems = (localItems: CollectionItem[], cloudItems: CollectionItem[]) => {
+  // Cloud is the source of truth for what items EXIST
+  // Local can have newer data for items that exist in cloud
   const localMap = new Map(localItems.map((item) => [item.id, item]));
-  const merged = [...localItems];
+  const cloudIds = new Set(cloudItems.map((item) => item.id));
 
-  cloudItems.forEach((cloudItem) => {
+  // Start with cloud items (this ensures deleted items don't come back)
+  const merged = cloudItems.map((cloudItem) => {
     const localItem = localMap.get(cloudItem.id);
     if (!localItem) {
-      merged.push(cloudItem);
-      return;
+      return cloudItem;
     }
+    // If local has newer timestamp, use local data
     const localStamp = localItem.updatedAt || localItem.createdAt;
     const cloudStamp = cloudItem.updatedAt || cloudItem.createdAt;
-    const useLocal = compareTimestamps(localStamp, cloudStamp) >= 0;
-    const nextItem = useLocal ? localItem : cloudItem;
-    const idx = merged.findIndex((item) => item.id === cloudItem.id);
-    merged[idx] = nextItem;
+    const useLocal = compareTimestamps(localStamp, cloudStamp) > 0;
+    return useLocal ? localItem : cloudItem;
+  });
+
+  // Add local-only items that haven't been synced yet (new items created offline)
+  // These are items that exist locally but NOT in cloud
+  localItems.forEach((localItem) => {
+    if (!cloudIds.has(localItem.id)) {
+      // This is a new local item that needs to sync to cloud
+      merged.push(localItem);
+    }
   });
 
   return merged;
@@ -61,24 +67,29 @@ const mergeCollections = (
   localCollections: UserCollection[],
   cloudCollections: UserCollection[],
 ) => {
-  const localMap = new Map(
-    localCollections.map((col) => [col.id, normalizeCollection(col)]),
-  );
-  const merged = [...localCollections.map(normalizeCollection)];
+  // Cloud is the source of truth for what collections EXIST
+  const localMap = new Map(localCollections.map((col) => [col.id, normalizeCollection(col)]));
+  const cloudIds = new Set(cloudCollections.map((col) => col.id));
 
-  cloudCollections.forEach((cloudCol) => {
+  // Start with cloud collections (ensures deleted collections don't come back)
+  const merged = cloudCollections.map((cloudCol) => {
     const localCol = localMap.get(cloudCol.id);
     if (!localCol) {
-      merged.push(normalizeCollection(cloudCol));
-      return;
+      return normalizeCollection(cloudCol);
     }
     const localStamp = localCol.updatedAt;
     const cloudStamp = cloudCol.updatedAt;
-    const useLocal = compareTimestamps(localStamp, cloudStamp) >= 0;
+    const useLocal = compareTimestamps(localStamp, cloudStamp) > 0;
     const base = useLocal ? localCol : cloudCol;
     const mergedItems = mergeItems(localCol.items, cloudCol.items);
-    const idx = merged.findIndex((c) => c.id === cloudCol.id);
-    merged[idx] = { ...normalizeCollection(base), items: mergedItems };
+    return { ...normalizeCollection(base), items: mergedItems };
+  });
+
+  // Add local-only collections that haven't been synced yet
+  localCollections.forEach((localCol) => {
+    if (!cloudIds.has(localCol.id)) {
+      merged.push(normalizeCollection(localCol));
+    }
   });
 
   return merged;
@@ -124,7 +135,7 @@ export const initDB = (): Promise<IDBDatabase> => {
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
       if (!db.objectStoreNames.contains(COLLECTIONS_STORE)) {
-        db.createObjectStore(COLLECTIONS_STORE, { keyPath: "id" });
+        db.createObjectStore(COLLECTIONS_STORE, { keyPath: 'id' });
       }
       if (!db.objectStoreNames.contains(ASSETS_STORE)) {
         db.createObjectStore(ASSETS_STORE);
@@ -142,8 +153,8 @@ export const initDB = (): Promise<IDBDatabase> => {
 export const getSeedVersion = async (): Promise<number> => {
   const db = await initDB();
   return new Promise((resolve) => {
-    const transaction = db.transaction(SETTINGS_STORE, "readonly");
-    const request = transaction.objectStore(SETTINGS_STORE).get("seed_version");
+    const transaction = db.transaction(SETTINGS_STORE, 'readonly');
+    const request = transaction.objectStore(SETTINGS_STORE).get('seed_version');
     request.onsuccess = () => resolve(request.result || 0);
     request.onerror = () => resolve(0);
   });
@@ -152,23 +163,21 @@ export const getSeedVersion = async (): Promise<number> => {
 export const setSeedVersion = async (version: number): Promise<void> => {
   const db = await initDB();
   return new Promise((resolve) => {
-    const transaction = db.transaction(SETTINGS_STORE, "readwrite");
-    transaction.objectStore(SETTINGS_STORE).put(version, "seed_version");
+    const transaction = db.transaction(SETTINGS_STORE, 'readwrite');
+    transaction.objectStore(SETTINGS_STORE).put(version, 'seed_version');
     transaction.oncomplete = () => resolve();
   });
 };
 
 const loadLocalCollections = async (): Promise<UserCollection[]> => {
   const db = await initDB();
-  const localCollections = await new Promise<UserCollection[]>(
-    (resolve, reject) => {
-      const transaction = db.transaction(COLLECTIONS_STORE, "readonly");
-      const store = transaction.objectStore(COLLECTIONS_STORE);
-      const request = store.getAll();
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    },
-  );
+  const localCollections = await new Promise<UserCollection[]>((resolve, reject) => {
+    const transaction = db.transaction(COLLECTIONS_STORE, 'readonly');
+    const store = transaction.objectStore(COLLECTIONS_STORE);
+    const request = store.getAll();
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
   return localCollections.map(normalizeCollection);
 };
 
@@ -178,7 +187,7 @@ export const getLocalCollections = async (): Promise<UserCollection[]> => {
 
 const normalizePhotoPaths = (photoUrl: string) => {
   if (!photoUrl) {
-    return { originalPath: "", displayPath: "" };
+    return { originalPath: '', displayPath: '' };
   }
 
   const extracted = extractCurioAssetPath(photoUrl);
@@ -187,31 +196,25 @@ const normalizePhotoPaths = (photoUrl: string) => {
   // External URLs / local absolute paths: can't derive variants.
   // Note: Supabase Storage object URLs are extracted above and become bucket-relative paths.
   if (
-    normalizedUrl.startsWith("http") ||
-    normalizedUrl.startsWith("data:") ||
-    normalizedUrl.startsWith("blob:") ||
-    normalizedUrl.startsWith("/")
+    normalizedUrl.startsWith('http') ||
+    normalizedUrl.startsWith('data:') ||
+    normalizedUrl.startsWith('blob:') ||
+    normalizedUrl.startsWith('/')
   ) {
     return { originalPath: normalizedUrl, displayPath: normalizedUrl };
   }
 
-  const hasDisplay = /(?:\/display\.[^/.]+|_display\.[^/.]+)$/i.test(
-    normalizedUrl,
-  );
-  const hasOriginal = /(?:\/original\.[^/.]+|_original\.[^/.]+)$/i.test(
-    normalizedUrl,
-  );
+  const hasDisplay = /(?:\/display\.[^/.]+|_display\.[^/.]+)$/i.test(normalizedUrl);
+  const hasOriginal = /(?:\/original\.[^/.]+|_original\.[^/.]+)$/i.test(normalizedUrl);
   const hasThumb = /(?:\/thumb\.[^/.]+|_thumb\.[^/.]+)$/i.test(normalizedUrl);
-  const hasMaster = /(?:\/master\.[^/.]+|_master\.[^/.]+)$/i.test(
-    normalizedUrl,
-  );
+  const hasMaster = /(?:\/master\.[^/.]+|_master\.[^/.]+)$/i.test(normalizedUrl);
 
   if (hasDisplay) {
     return {
       displayPath: normalizedUrl,
       originalPath: normalizedUrl
-        .replace(/\/display(\.[^/.]+)$/i, "/original$1")
-        .replace(/_display(\.[^/.]+)$/i, "_original$1"),
+        .replace(/\/display(\.[^/.]+)$/i, '/original$1')
+        .replace(/_display(\.[^/.]+)$/i, '_original$1'),
     };
   }
 
@@ -219,8 +222,8 @@ const normalizePhotoPaths = (photoUrl: string) => {
     return {
       originalPath: normalizedUrl,
       displayPath: normalizedUrl
-        .replace(/\/original(\.[^/.]+)$/i, "/display$1")
-        .replace(/_original(\.[^/.]+)$/i, "_display$1"),
+        .replace(/\/original(\.[^/.]+)$/i, '/display$1')
+        .replace(/_original(\.[^/.]+)$/i, '_display$1'),
     };
   }
 
@@ -228,22 +231,22 @@ const normalizePhotoPaths = (photoUrl: string) => {
   if (hasThumb) {
     return {
       originalPath: normalizedUrl
-        .replace(/\/thumb(\.[^/.]+)$/i, "/original$1")
-        .replace(/_thumb(\.[^/.]+)$/i, "_original$1"),
+        .replace(/\/thumb(\.[^/.]+)$/i, '/original$1')
+        .replace(/_thumb(\.[^/.]+)$/i, '_original$1'),
       displayPath: normalizedUrl
-        .replace(/\/thumb(\.[^/.]+)$/i, "/display$1")
-        .replace(/_thumb(\.[^/.]+)$/i, "_display$1"),
+        .replace(/\/thumb(\.[^/.]+)$/i, '/display$1')
+        .replace(/_thumb(\.[^/.]+)$/i, '_display$1'),
     };
   }
 
   if (hasMaster) {
     return {
       originalPath: normalizedUrl
-        .replace(/\/master(\.[^/.]+)$/i, "/original$1")
-        .replace(/_master(\.[^/.]+)$/i, "_original$1"),
+        .replace(/\/master(\.[^/.]+)$/i, '/original$1')
+        .replace(/_master(\.[^/.]+)$/i, '_original$1'),
       displayPath: normalizedUrl
-        .replace(/\/master(\.[^/.]+)$/i, "/display$1")
-        .replace(/_master(\.[^/.]+)$/i, "_display$1"),
+        .replace(/\/master(\.[^/.]+)$/i, '/display$1')
+        .replace(/_master(\.[^/.]+)$/i, '_display$1'),
     };
   }
 
@@ -257,7 +260,7 @@ const mapCloudCollections = (cols: any[], items: any[]): UserCollection[] => {
       .filter((i) => i.collection_id === c.id)
       .map((i) => {
         // Prefer new explicit columns; avoid relying on legacy `photo_path`.
-        const photoPath = i.photo_display_path || i.photo_original_path || "";
+        const photoPath = i.photo_display_path || i.photo_original_path || '';
         return {
           id: i.id,
           collectionId: i.collection_id,
@@ -304,17 +307,15 @@ export const fetchCloudCollections = async (
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  const activeUserId = typeof userId === "string" ? userId : user?.id || null;
+  const activeUserId = typeof userId === 'string' ? userId : user?.id || null;
 
-  const collectionQuery = supabase.from("collections").select("*");
+  const collectionQuery = supabase.from('collections').select('*');
   if (activeUserId) {
     collectionQuery.or(
-      includePublic
-        ? `user_id.eq.${activeUserId},is_public.eq.true`
-        : `user_id.eq.${activeUserId}`,
+      includePublic ? `user_id.eq.${activeUserId},is_public.eq.true` : `user_id.eq.${activeUserId}`,
     );
   } else if (includePublic) {
-    collectionQuery.eq("is_public", true);
+    collectionQuery.eq('is_public', true);
   } else {
     return [];
   }
@@ -327,9 +328,9 @@ export const fetchCloudCollections = async (
 
   const collectionIds = cols.map((col) => col.id);
   const { data: items, error: itemError } = await supabase
-    .from("items")
-    .select("*")
-    .in("collection_id", collectionIds);
+    .from('items')
+    .select('*')
+    .in('collection_id', collectionIds);
 
   if (itemError) throw itemError;
 
@@ -343,9 +344,7 @@ export const hasLocalOnlyData = (
   if (localCollections.length === 0) return false;
 
   const cloudCollectionIds = new Set(cloudCollections.map((col) => col.id));
-  const cloudItemIds = new Set(
-    cloudCollections.flatMap((col) => col.items.map((item) => item.id)),
-  );
+  const cloudItemIds = new Set(cloudCollections.flatMap((col) => col.items.map((item) => item.id)));
 
   return localCollections.some((localCol) => {
     if (!cloudCollectionIds.has(localCol.id)) return true;
@@ -353,9 +352,7 @@ export const hasLocalOnlyData = (
   });
 };
 
-export const saveCollection = async (
-  collection: UserCollection,
-): Promise<void> => {
+export const saveCollection = async (collection: UserCollection): Promise<void> => {
   const db = await initDB();
   const collectionToSave = collection.updatedAt
     ? collection
@@ -363,7 +360,7 @@ export const saveCollection = async (
 
   // 1. Local Persistence (IndexedDB)
   await new Promise<void>((resolve, reject) => {
-    const transaction = db.transaction(COLLECTIONS_STORE, "readwrite");
+    const transaction = db.transaction(COLLECTIONS_STORE, 'readwrite');
     const store = transaction.objectStore(COLLECTIONS_STORE);
     store.put(collectionToSave);
     transaction.oncomplete = () => resolve();
@@ -393,25 +390,19 @@ export const saveCollection = async (
         collectionPayload.updated_at = collectionToSave.updatedAt;
       }
 
-      const { error: colError } = await supabase
-        .from("collections")
-        .upsert(collectionPayload);
+      const { error: colError } = await supabase.from('collections').upsert(collectionPayload);
 
-      if (colError) console.warn("Supabase sync collection error:", colError);
+      if (colError) console.warn('Supabase sync collection error:', colError);
 
       // Sync Items
       if (collectionToSave.items.length > 0) {
         const itemsToSync = collectionToSave.items.map((item) => {
           const basePath = `${user.id}/collections/${collectionToSave.id}/${item.id}`;
-          const { originalPath, displayPath } = normalizePhotoPaths(
-            item.photoUrl || "",
-          );
+          const { originalPath, displayPath } = normalizePhotoPaths(item.photoUrl || '');
           const photoOriginalPath =
-            item.photoUrl === "asset"
-              ? `${basePath}/original.jpg`
-              : originalPath;
+            item.photoUrl === 'asset' ? `${basePath}/original.jpg` : originalPath;
           const photoDisplayPath =
-            item.photoUrl === "asset" ? `${basePath}/display.jpg` : displayPath;
+            item.photoUrl === 'asset' ? `${basePath}/display.jpg` : displayPath;
           const payload: Record<string, any> = {
             id: item.id,
             user_id: user.id,
@@ -431,14 +422,12 @@ export const saveCollection = async (
           return payload;
         });
 
-        const { error: itemsError } = await supabase
-          .from("items")
-          .upsert(itemsToSync);
+        const { error: itemsError } = await supabase.from('items').upsert(itemsToSync);
 
-        if (itemsError) console.warn("Supabase sync items error:", itemsError);
+        if (itemsError) console.warn('Supabase sync items error:', itemsError);
       }
     } catch (e) {
-      console.error("Unexpected Supabase sync error:", e);
+      console.error('Unexpected Supabase sync error:', e);
     }
   }
 };
@@ -453,10 +442,7 @@ export const saveAsset = async (
 
   // Save to Local
   await new Promise<void>((resolve, reject) => {
-    const transaction = db.transaction(
-      [ASSETS_STORE, DISPLAY_STORE],
-      "readwrite",
-    );
+    const transaction = db.transaction([ASSETS_STORE, DISPLAY_STORE], 'readwrite');
     transaction.objectStore(ASSETS_STORE).put(original, id);
     transaction.objectStore(DISPLAY_STORE).put(display, id);
     transaction.oncomplete = () => resolve();
@@ -477,33 +463,33 @@ export const saveAsset = async (
 
       // Upload in parallel
       await Promise.all([
-        supabase.storage.from("curio-assets").upload(originalPath, original, {
+        supabase.storage.from('curio-assets').upload(originalPath, original, {
           upsert: true,
-          contentType: original.type || "image/jpeg",
+          contentType: original.type || 'image/jpeg',
         }),
-        supabase.storage.from("curio-assets").upload(displayPath, display, {
+        supabase.storage.from('curio-assets').upload(displayPath, display, {
           upsert: true,
-          contentType: display.type || "image/jpeg",
+          contentType: display.type || 'image/jpeg',
         }),
       ]);
     } catch (e) {
-      console.warn("Cloud asset sync failed:", e);
+      console.warn('Cloud asset sync failed:', e);
     }
   }
 };
 
 export const getAsset = async (
   id: string,
-  type: "original" | "display" = "display",
+  type: 'original' | 'display' = 'display',
   remotePath?: string,
   collectionId?: string,
 ): Promise<Blob | null> => {
   const db = await initDB();
-  const storeName = type === "display" ? DISPLAY_STORE : ASSETS_STORE;
+  const storeName = type === 'display' ? DISPLAY_STORE : ASSETS_STORE;
 
   // Try Local First
   const localBlob = await new Promise<Blob | null>((resolve) => {
-    const transaction = db.transaction(storeName, "readonly");
+    const transaction = db.transaction(storeName, 'readonly');
     const store = transaction.objectStore(storeName);
     const request = store.get(id);
     request.onsuccess = () => resolve(request.result || null);
@@ -521,27 +507,25 @@ export const getAsset = async (
       if (!user && !remotePath) return null;
 
       const normalizedRemotePath = remotePath
-        ? type === "display"
+        ? type === 'display'
           ? normalizePhotoPaths(remotePath).displayPath
           : normalizePhotoPaths(remotePath).originalPath
         : null;
       const fallbackPath = collectionId
-        ? `${user!.id}/collections/${collectionId}/${id}/${type === "display" ? "display.jpg" : "original.jpg"}`
+        ? `${user!.id}/collections/${collectionId}/${id}/${type === 'display' ? 'display.jpg' : 'original.jpg'}`
         : // Legacy pre-folder layout fallback
-          `${user!.id}/${id}_${type === "display" ? "thumb" : "master"}.jpg`;
+          `${user!.id}/${id}_${type === 'display' ? 'thumb' : 'master'}.jpg`;
       const path = normalizedRemotePath || fallbackPath;
-      const { data, error } = await supabase.storage
-        .from("curio-assets")
-        .download(path);
+      const { data, error } = await supabase.storage.from('curio-assets').download(path);
 
       if (data && !error) {
         // Cache back to local for performance next time
-        const transaction = db.transaction(storeName, "readwrite");
+        const transaction = db.transaction(storeName, 'readwrite');
         transaction.objectStore(storeName).put(data, id);
         return data;
       }
     } catch (e) {
-      console.warn("Cloud asset download failed:", e);
+      console.warn('Cloud asset download failed:', e);
     }
   }
 
@@ -553,13 +537,13 @@ export const importLocalCollectionsToCloud = async (): Promise<{
   assets: number;
 }> => {
   if (!isSupabaseConfigured() || !supabase) {
-    throw new Error("Supabase is not configured.");
+    throw new Error('Supabase is not configured.');
   }
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    throw new Error("You must be signed in to import local data.");
+    throw new Error('You must be signed in to import local data.');
   }
 
   const localCollections = await loadLocalCollections();
@@ -569,10 +553,10 @@ export const importLocalCollectionsToCloud = async (): Promise<{
     await saveCollection(collection);
 
     for (const item of collection.items) {
-      if (item.photoUrl !== "asset") continue;
+      if (item.photoUrl !== 'asset') continue;
 
-      const original = await getAsset(item.id, "original");
-      const display = await getAsset(item.id, "display");
+      const original = await getAsset(item.id, 'original');
+      const display = await getAsset(item.id, 'display');
       if (original && display) {
         await saveAsset(collection.id, item.id, original, display);
         assetUploads += 1;
@@ -583,18 +567,12 @@ export const importLocalCollectionsToCloud = async (): Promise<{
   return { collections: localCollections.length, assets: assetUploads };
 };
 
-export const deleteAsset = async (
-  collectionId: string,
-  id: string,
-): Promise<void> => {
+export const deleteAsset = async (collectionId: string, id: string): Promise<void> => {
   const db = await initDB();
 
   // Delete Local
   await new Promise<void>((resolve) => {
-    const transaction = db.transaction(
-      [ASSETS_STORE, DISPLAY_STORE],
-      "readwrite",
-    );
+    const transaction = db.transaction([ASSETS_STORE, DISPLAY_STORE], 'readwrite');
     transaction.objectStore(ASSETS_STORE).delete(id);
     transaction.objectStore(DISPLAY_STORE).delete(id);
     transaction.oncomplete = () => resolve();
@@ -608,7 +586,7 @@ export const deleteAsset = async (
       } = await supabase.auth.getUser();
       if (user) {
         const basePath = `${user.id}/collections/${collectionId}/${id}`;
-        await supabase.storage.from("curio-assets").remove([
+        await supabase.storage.from('curio-assets').remove([
           `${basePath}/original.jpg`,
           `${basePath}/display.jpg`,
           // Legacy paths (safe cleanup; ignore if missing)
@@ -617,15 +595,12 @@ export const deleteAsset = async (
         ]);
       }
     } catch (e) {
-      console.warn("Cloud asset deletion failed:", e);
+      console.warn('Cloud asset deletion failed:', e);
     }
   }
 };
 
-export const deleteCloudItem = async (
-  collectionId: string,
-  itemId: string,
-): Promise<void> => {
+export const deleteCloudItem = async (collectionId: string, itemId: string): Promise<void> => {
   if (!isSupabaseConfigured() || !supabase) return;
 
   try {
@@ -635,16 +610,16 @@ export const deleteCloudItem = async (
     if (!user) return;
 
     const { error } = await supabase
-      .from("items")
+      .from('items')
       .delete()
-      .eq("id", itemId)
-      .eq("collection_id", collectionId);
+      .eq('id', itemId)
+      .eq('collection_id', collectionId);
 
     if (error) {
-      console.warn("Cloud item deletion failed:", error);
+      console.warn('Cloud item deletion failed:', error);
     }
   } catch (e) {
-    console.warn("Cloud item deletion failed:", e);
+    console.warn('Cloud item deletion failed:', e);
   }
 };
 
@@ -659,23 +634,74 @@ export const loadCollections = async (): Promise<UserCollection[]> => {
         return cloudCollections;
       }
     } catch (e) {
-      console.warn("Supabase cloud fetch failed:", e);
+      console.warn('Supabase cloud fetch failed:', e);
     }
   }
 
   return localCollections;
 };
 
-export const saveAllCollections = async (
-  collections: UserCollection[],
-): Promise<void> => {
+export const saveAllCollections = async (collections: UserCollection[]): Promise<void> => {
   const db = await initDB();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(COLLECTIONS_STORE, "readwrite");
+  await new Promise<void>((resolve, reject) => {
+    const transaction = db.transaction(COLLECTIONS_STORE, 'readwrite');
     const store = transaction.objectStore(COLLECTIONS_STORE);
     store.clear();
     collections.forEach((col) => store.add(col));
     transaction.oncomplete = () => resolve();
     transaction.onerror = () => reject(transaction.error);
   });
+
+  // Clean up orphaned assets that no longer have a corresponding item
+  await cleanupOrphanedAssets(collections);
+};
+
+// Remove assets from IndexedDB that don't have a corresponding item in collections
+export const cleanupOrphanedAssets = async (collections: UserCollection[]): Promise<void> => {
+  const db = await initDB();
+
+  // Get all valid item IDs
+  const validItemIds = new Set(collections.flatMap((col) => col.items.map((item) => item.id)));
+
+  // Get all asset keys from both stores
+  const getAssetKeys = (storeName: string): Promise<IDBValidKey[]> => {
+    return new Promise((resolve) => {
+      const transaction = db.transaction(storeName, 'readonly');
+      const store = transaction.objectStore(storeName);
+      const request = store.getAllKeys();
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => resolve([]);
+    });
+  };
+
+  const [assetKeys, displayKeys] = await Promise.all([
+    getAssetKeys(ASSETS_STORE),
+    getAssetKeys(DISPLAY_STORE),
+  ]);
+
+  // Find orphaned keys (assets without corresponding items)
+  const orphanedAssetKeys = assetKeys.filter((key) => !validItemIds.has(String(key)));
+  const orphanedDisplayKeys = displayKeys.filter((key) => !validItemIds.has(String(key)));
+
+  // Delete orphaned assets
+  if (orphanedAssetKeys.length > 0 || orphanedDisplayKeys.length > 0) {
+    await new Promise<void>((resolve) => {
+      const transaction = db.transaction([ASSETS_STORE, DISPLAY_STORE], 'readwrite');
+      const assetsStore = transaction.objectStore(ASSETS_STORE);
+      const displayStore = transaction.objectStore(DISPLAY_STORE);
+
+      orphanedAssetKeys.forEach((key) => assetsStore.delete(key));
+      orphanedDisplayKeys.forEach((key) => displayStore.delete(key));
+
+      transaction.oncomplete = () => {
+        if (orphanedAssetKeys.length + orphanedDisplayKeys.length > 0) {
+          console.log(
+            `Cleaned up ${orphanedAssetKeys.length + orphanedDisplayKeys.length} orphaned assets`,
+          );
+        }
+        resolve();
+      };
+      transaction.onerror = () => resolve();
+    });
+  }
 };

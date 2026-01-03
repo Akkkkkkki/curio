@@ -210,13 +210,13 @@ Six predefined templates in `constants.ts`:
 
 ```tsx
 {
-  theme === "gallery" && "bg-white text-stone-900";
+  theme === 'gallery' && 'bg-white text-stone-900';
 }
 {
-  theme === "vault" && "bg-stone-950 text-stone-100";
+  theme === 'vault' && 'bg-stone-950 text-stone-100';
 }
 {
-  theme === "atelier" && "bg-[#faf9f6] text-stone-900";
+  theme === 'atelier' && 'bg-[#faf9f6] text-stone-900';
 }
 ```
 
@@ -232,8 +232,8 @@ Six predefined templates in `constants.ts`:
 Use `@/` for imports:
 
 ```typescript
-import { analyzeImage } from "@/services/geminiService";
-import { Button } from "@/components/ui/Button";
+import { analyzeImage } from '@/services/geminiService';
+import { Button } from '@/components/ui/Button';
 ```
 
 Configured in vite.config.ts and tsconfig.json.
