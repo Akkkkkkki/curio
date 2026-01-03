@@ -1455,7 +1455,6 @@ const AppContent: React.FC = () => {
       <Layout
         onOpenAuth={() => setIsAuthModalOpen(true)}
         onSignOut={handleSignOut}
-        onAddItem={handleAddAction}
         onExploreSamples={handleExploreSamples}
         sampleCollectionId={sampleCollectionId}
         user={user}
@@ -1465,7 +1464,7 @@ const AppContent: React.FC = () => {
         importMessage={importMessage}
         onImportLocal={handleImportLocal}
         headerExtras={
-          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+          <div className="flex items-center gap-2 sm:gap-3">
             {sampleCollection && (
               <Link to={`/collection/${sampleCollection.id}`}>
                 <Button
