@@ -118,6 +118,14 @@ const AppContent: React.FC = () => {
     };
   }, []);
 
+  useEffect(() => {
+    return () => {
+      Object.values(saveTimeoutRef.current).forEach(timeoutId => {
+        if (timeoutId) clearTimeout(timeoutId);
+      });
+    };
+  }, []);
+
   const { collections, isLoading, loadError, hasLocalImport, refreshCollections } = useCollections({
     user,
     isAdmin,
@@ -198,16 +206,21 @@ const AppContent: React.FC = () => {
       updatedAt: now,
     };
 
+    let updatedCollection: UserCollection | null = null;
     setCollections(prev => {
-      return prev.map(c => {
+      const nextCollections = prev.map(c => {
         if (c.id === collectionId) {
           const newC = { ...c, items: [newItem, ...c.items], updatedAt: now };
-          saveCollection(newC); 
+          updatedCollection = newC;
           return newC;
         }
         return c;
       });
+      return nextCollections;
     });
+    if (updatedCollection) {
+      saveCollection(updatedCollection);
+    }
     showStatus(t('statusSaved'), 'success');
   };
 
@@ -248,27 +261,28 @@ const AppContent: React.FC = () => {
           updatedAt: new Date().toISOString(),
           settings: { displayFields: template.displayFields, badgeFields: template.badgeFields }
       };
-      setCollections(prev => {
-        const updated = [...prev, newCol];
-        saveCollection(newCol);
-        return updated;
-      });
+      setCollections(prev => [...prev, newCol]);
+      saveCollection(newCol);
       showStatus(t('statusSaved'), 'success');
   };
 
   const deleteItem = (collectionId: string, itemId: string) => {
       if (!canEditCollection(collectionId)) return false;
       if (confirm(t('deleteConfirm'))) {
+          let updatedCollection: UserCollection | null = null;
           setCollections(prev => prev.map(c => {
-              if (c.id === collectionId) {
-                  const newC = { ...c, items: c.items.filter(i => i.id !== itemId) };
-                  saveCollection(newC);
-                  deleteAsset(collectionId, itemId);
-                  void deleteCloudItem(collectionId, itemId);
-                  return newC;
-              }
-              return c;
+            if (c.id === collectionId) {
+              const newC = { ...c, items: c.items.filter(i => i.id !== itemId) };
+              updatedCollection = newC;
+              return newC;
+            }
+            return c;
           }));
+          if (updatedCollection) {
+            saveCollection(updatedCollection);
+          }
+          deleteAsset(collectionId, itemId);
+          void deleteCloudItem(collectionId, itemId);
           return true;
       }
       return false;
@@ -864,7 +878,7 @@ const AppContent: React.FC = () => {
     }
   };
 
-  const handleAddAction = () => {
+  const handleAddAction = useCallback(() => {
     if (!isAuthenticated) {
       dispatch({ type: 'SET_PENDING_AUTH_ACTION', action: 'add-item' });
       dispatch({ type: 'OPEN_AUTH_MODAL' });
@@ -875,16 +889,16 @@ const AppContent: React.FC = () => {
       return;
     }
     dispatch({ type: 'OPEN_ADD_MODAL' });
-  };
+  }, [dispatch, editableCollections.length, isAuthenticated]);
 
-  const handleCreateCollectionAction = () => {
+  const handleCreateCollectionAction = useCallback(() => {
     if (!isAuthenticated) {
       dispatch({ type: 'SET_PENDING_AUTH_ACTION', action: 'create-collection' });
       dispatch({ type: 'OPEN_AUTH_MODAL' });
       return;
     }
     dispatch({ type: 'OPEN_CREATE_COLLECTION_MODAL' });
-  };
+  }, [dispatch, isAuthenticated]);
 
   const handleSignOut = async () => {
     await signOutUser();

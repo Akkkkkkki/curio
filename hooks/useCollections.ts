@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
+import type { User } from '@supabase/supabase-js';
 import { fetchCloudCollections, getLocalCollections, hasLocalOnlyData, requestPersistence, saveAllCollections, saveCollection, getSeedVersion, setSeedVersion } from '../services/db';
 import type { UserCollection } from '../types';
 import { CURRENT_SEED_VERSION, INITIAL_COLLECTIONS } from '../services/seedCollections';
 import type { StatusTone } from '../components/StatusToast';
 
 type UseCollectionsArgs = {
-  user: any;
+  user: User | null;
   isAdmin: boolean;
   isSupabaseReady: boolean;
   fallbackSampleCollections: UserCollection[];
@@ -105,13 +106,7 @@ export const useCollections = ({
         await saveAllCollections(cloudCollections);
       }
 
-      if (user) {
-        setCollections(cloudCollections);
-      } else if (cloudCollections.length === 0 && localCollections.length === 0) {
-        setCollections(fallbackSampleCollections);
-      } else {
-        setCollections(cloudCollections.length > 0 ? cloudCollections : localCollections);
-      }
+      setCollections(cloudCollections);
       if ((cloudCollections.length + localCollections.length) > 0) {
         showStatus(t('statusSynced'), 'success');
       }
@@ -134,7 +129,7 @@ export const useCollections = ({
       return;
     }
     refreshCollections();
-  }, [isSupabaseReady, user, refreshCollections]);
+  }, [isAdmin, isSupabaseReady, user?.id]);
 
   return { collections, isLoading, loadError, hasLocalImport, refreshCollections };
 };

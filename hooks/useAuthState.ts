@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react';
+import type { User } from '@supabase/supabase-js';
 import { supabase } from '../services/supabase';
 
 type AuthState = {
-  user: any;
+  user: User | null;
   isAdmin: boolean;
   authReady: boolean;
 };
 
 export const useAuthState = (isSupabaseReady: boolean): AuthState => {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [authReady, setAuthReady] = useState(false);
 
