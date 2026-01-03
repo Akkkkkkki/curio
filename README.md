@@ -1,12 +1,12 @@
+# Curio — Personal Museum
+
 <div align="center">
 <img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
 </div>
 
-# Run and deploy your AI Studio app
+Curio is a personal museum for collecting, organizing, and browsing items with optional AI-assisted metadata extraction.
 
-This contains everything you need to run your app locally.
-
-View your app in AI Studio: https://ai.studio/apps/drive/1Yuc0O2t_PeURvxwx5ooQNqxIIcYfegJ1
+- **Live app**: [curio-app.vercel.app](https://curio-app.vercel.app)
 
 ## MVP Product Behavior (5-minute time-to-value)
 
@@ -25,16 +25,16 @@ Curio’s MVP is designed so a new user can get meaningful value within **5 minu
 1. Install dependencies:
    `npm install`
 2. Set environment variables in `.env.local` (see below)
-3. Start the Gemini proxy (separate terminal):
+3. (Optional) Start the Gemini proxy (separate terminal) for AI:
    `npm run server`
-4. Run the app:
+4. Run the app (Vite):
    `npm run dev`
 
 ## Environment Variables
 
 Create a `.env.local` at the project root:
 
-```
+```dotenv
 VITE_SUPABASE_URL=...
 VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY=...
 
@@ -47,9 +47,18 @@ VITE_VOICE_GUIDE_ENABLED=false
 VITE_SUPABASE_SYNC_TIMESTAMPS=true
 ```
 
-The Gemini proxy expects:
+### AI (Gemini)
 
-```
+This app calls an AI gateway for image analysis:
+
+- **Local dev**: run `npm run server` and set `VITE_API_BASE_URL=http://localhost:8787/api`
+- **Production (Vercel)**: set `VITE_API_BASE_URL=/api` and Vercel will route `/api/*` according to `vercel.json`
+
+If you don’t want AI locally, set `VITE_AI_ENABLED=false` (the app will fall back to manual entry).
+
+The Gemini proxy expects (local dev only):
+
+```bash
 GEMINI_API_KEY=...
 ```
 
@@ -57,7 +66,7 @@ GEMINI_API_KEY=...
 
 When deploying behind a reverse proxy (e.g., Vercel rewrites), set:
 
-```
+```dotenv
 VITE_API_BASE_URL=/api
 ```
 
@@ -78,7 +87,7 @@ Curated sample collections are stored in the same `collections`/`items` tables a
 
 To promote an admin account:
 
-```
+```sql
 update public.profiles set is_admin = true where id = 'YOUR_USER_UUID';
 ```
 
