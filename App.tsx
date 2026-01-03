@@ -231,6 +231,105 @@ const AppContent: React.FC = () => {
     [],
   );
 
+  const loadLocalCollectionsWithTimeout = useCallback(
+    () =>
+      withTimeout(
+        getLocalCollections(),
+        4000,
+        "Local cache load timed out",
+      ),
+    [withTimeout],
+  );
+
+  const loadCloudCollectionsWithTimeout = useCallback(
+    (userId: string | null) =>
+      withTimeout(
+        fetchCloudCollections({
+          userId,
+          includePublic: true,
+        }),
+        12000,
+        "Cloud fetch timed out",
+      ),
+    [withTimeout],
+  );
+
+  const maybeSeedCollections = useCallback(
+    async ({
+      user,
+      isAdmin,
+      localCollections,
+      cloudCollections,
+    }: {
+      user: { id: string } | null;
+      isAdmin: boolean;
+      localCollections: UserCollection[];
+      cloudCollections: UserCollection[];
+    }) => {
+      if (
+        !user ||
+        !isAdmin ||
+        cloudCollections.length > 0 ||
+        localCollections.length > 0
+      ) {
+        return cloudCollections;
+      }
+
+      const localSeedVersion = await getSeedVersion();
+      if (localSeedVersion >= CURRENT_SEED_VERSION) {
+        return cloudCollections;
+      }
+
+      const seededCollections = INITIAL_COLLECTIONS.map((seed) => ({
+        ...seed,
+        isPublic: true,
+        ownerId: user.id,
+      }));
+      for (const seedCollection of seededCollections) {
+        await saveCollection(seedCollection);
+      }
+      await setSeedVersion(CURRENT_SEED_VERSION);
+      return [...seededCollections];
+    },
+    [],
+  );
+
+  const resolveCollectionsForUser = useCallback(
+    ({
+      user,
+      localCollections,
+      cloudCollections,
+      fallbackSampleCollections,
+    }: {
+      user: { id: string } | null;
+      localCollections: UserCollection[];
+      cloudCollections: UserCollection[];
+      fallbackSampleCollections: UserCollection[];
+    }) => {
+      if (!user) {
+        const collections =
+          cloudCollections.length === 0 && localCollections.length === 0
+            ? fallbackSampleCollections
+            : cloudCollections;
+        return {
+          collections,
+          hasLocalImport: false,
+          shouldPersist: false,
+          showSyncedStatus: false,
+        };
+      }
+
+      const localOnly = hasLocalOnlyData(localCollections, cloudCollections);
+      return {
+        collections: cloudCollections,
+        hasLocalImport: localOnly,
+        shouldPersist: !localOnly,
+        showSyncedStatus: cloudCollections.length + localCollections.length > 0,
+      };
+    },
+    [],
+  );
+
   const refreshCollections = useCallback(async () => {
     if (!isSupabaseReady) {
       setCollections([]);
@@ -246,20 +345,11 @@ const AppContent: React.FC = () => {
         "Persistence request timed out",
       );
 
-      const localCollections = await withTimeout(
-        getLocalCollections(),
-        4000,
-        "Local cache load timed out",
-      );
+      const localCollections = await loadLocalCollectionsWithTimeout();
       let cloudCollections: UserCollection[] = [];
       try {
-        cloudCollections = await withTimeout(
-          fetchCloudCollections({
-            userId: user?.id ?? null,
-            includePublic: true,
-          }),
-          12000,
-          "Cloud fetch timed out",
+        cloudCollections = await loadCloudCollectionsWithTimeout(
+          user?.id ?? null,
         );
       } catch (e) {
         console.warn("Supabase cloud fetch failed:", e);
@@ -272,56 +362,33 @@ const AppContent: React.FC = () => {
         return;
       }
 
-      if (!user) {
-        setHasLocalImport(false);
-        if (cloudCollections.length === 0 && localCollections.length === 0) {
-          setCollections(fallbackSampleCollections);
-        } else {
-          setCollections(cloudCollections);
-        }
-        return;
-      }
+      cloudCollections = await maybeSeedCollections({
+        user,
+        isAdmin,
+        localCollections,
+        cloudCollections,
+      });
 
-      const localOnly = hasLocalOnlyData(localCollections, cloudCollections);
-      setHasLocalImport(localOnly);
+      const {
+        collections: resolvedCollections,
+        hasLocalImport: resolvedHasLocalImport,
+        shouldPersist,
+        showSyncedStatus,
+      } = resolveCollectionsForUser({
+        user,
+        localCollections,
+        cloudCollections,
+        fallbackSampleCollections,
+      });
 
-      if (
-        cloudCollections.length === 0 &&
-        localCollections.length === 0 &&
-        isAdmin
-      ) {
-        const localSeedVersion = await getSeedVersion();
-        if (localSeedVersion < CURRENT_SEED_VERSION) {
-          const seededCollections = INITIAL_COLLECTIONS.map((seed) => ({
-            ...seed,
-            isPublic: true,
-            ownerId: user.id,
-          }));
-          for (const seedCollection of seededCollections) {
-            await saveCollection(seedCollection);
-          }
-          await setSeedVersion(CURRENT_SEED_VERSION);
-          cloudCollections = [...seededCollections];
-        }
-      }
+      setHasLocalImport(resolvedHasLocalImport);
 
-      if (!localOnly) {
+      if (shouldPersist) {
         await saveAllCollections(cloudCollections);
       }
 
-      if (user) {
-        setCollections(cloudCollections);
-      } else if (
-        cloudCollections.length === 0 &&
-        localCollections.length === 0
-      ) {
-        setCollections(fallbackSampleCollections);
-      } else {
-        setCollections(
-          cloudCollections.length > 0 ? cloudCollections : localCollections,
-        );
-      }
-      if (cloudCollections.length + localCollections.length > 0) {
+      setCollections(resolvedCollections);
+      if (showSyncedStatus) {
         showStatus(t("statusSynced"), "success");
       }
     } catch (e) {
@@ -340,6 +407,10 @@ const AppContent: React.FC = () => {
     fallbackSampleCollections,
     t,
     showStatus,
+    loadLocalCollectionsWithTimeout,
+    loadCloudCollectionsWithTimeout,
+    maybeSeedCollections,
+    resolveCollectionsForUser,
   ]);
 
   useEffect(() => {
