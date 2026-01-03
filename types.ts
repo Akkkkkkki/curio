@@ -1,7 +1,13 @@
+export type FieldType =
+  | "text"
+  | "long_text"
+  | "number"
+  | "date"
+  | "boolean"
+  | "rating"
+  | "select";
 
-export type FieldType = 'text' | 'long_text' | 'number' | 'date' | 'boolean' | 'rating' | 'select';
-
-export type AppTheme = 'gallery' | 'vault' | 'atelier';
+export type AppTheme = "gallery" | "vault" | "atelier";
 
 export interface FieldDefinition {
   id: string;

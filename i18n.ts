@@ -1,7 +1,6 @@
+import React, { createContext, useContext, useState, ReactNode } from "react";
 
-import React, { createContext, useContext, useState, ReactNode } from 'react';
-
-export type Language = 'en' | 'zh';
+export type Language = "en" | "zh";
 
 export const translations = {
   en: {
@@ -19,12 +18,14 @@ export const translations = {
     exploreSample: "Explore Sample",
     navHome: "Home",
     ctaAddFirst: "Add your first item",
-    ctaPromise: "Guided capture in under 5 minutes. Keep progress even if AI is slow.",
+    ctaPromise:
+      "Guided capture in under 5 minutes. Keep progress even if AI is slow.",
     catalogFirst: "Catalog First Item",
     enterExhibition: "Enter Exhibition",
     vocalGuide: "Vocal Guide",
     galleryAwaits: "The gallery awaits.",
-    museumDefinition: "A museum is defined by what it protects. Begin your archival journey today.",
+    museumDefinition:
+      "A museum is defined by what it protects. Begin your archival journey today.",
     restoringArchives: "Restoring the archives...",
     addItem: "Add Item",
     profile: "Profile",
@@ -53,7 +54,8 @@ export const translations = {
     changePhoto: "Change Photo",
     skipManual: "Skip and add manually",
     enterManually: "Enter manually",
-    aiUnavailableManual: "AI analysis is unavailable. Please fill in the details manually.",
+    aiUnavailableManual:
+      "AI analysis is unavailable. Please fill in the details manually.",
     analysisFallback: "Analysis failed. Continue with manual entry.",
     addToCollection: "Add to Collection",
     rating: "Rating",
@@ -82,7 +84,8 @@ export const translations = {
     noPhoto: "No Photo",
     loadError: "Load Error",
     readOnlyMode: "Read-only",
-    readOnlyCollectionDesc: "Public sample collections can be viewed but not edited.",
+    readOnlyCollectionDesc:
+      "Public sample collections can be viewed but not edited.",
     readOnlyItemDesc: "Sign in as an admin or owner to edit this artifact.",
     cardStyle: "Card Style",
     aspectRatio: "Aspect Ratio",
@@ -141,13 +144,15 @@ export const translations = {
     authDescSignedOut: "Sign in to access your collection.",
     authDescSignedIn: "Cloud sync active for {email}.",
     authRequiredTitle: "Sign in to continue",
-    authRequiredDesc: "Curio now requires an account to access your collection.",
+    authRequiredDesc:
+      "Curio now requires an account to access your collection.",
     authRequiredAction: "Sign In",
     authLoading: "Checking session...",
     authLoadingDesc: "Verifying your account status.",
     cloudRequiredTitle: "Cloud setup required",
     cloudRequiredStatus: "Cloud Required",
-    cloudRequiredDesc: "Supabase is required to use Curio. Configure VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY.",
+    cloudRequiredDesc:
+      "Supabase is required to use Curio. Configure VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY.",
     cloudRequiredAction: "Configure Supabase",
     cloudSyncActive: "Cloud Sync",
     cloudSyncTitle: "Cloud Account",
@@ -158,7 +163,8 @@ export const translations = {
     importing: "Importing...",
     importComplete: "Import complete.",
     importFailed: "Import failed. Please try again.",
-    readOnlyCollectionNote: "Public samples are read-only. Sign in to duplicate or edit.",
+    readOnlyCollectionNote:
+      "Public samples are read-only. Sign in to duplicate or edit.",
     readOnlyControls: "Edits disabled in read-only mode.",
     // Field Labels
     label_brand: "Brand",
@@ -191,7 +197,7 @@ export const translations = {
     label_deadstock: "Deadstock",
     label_age: "Age",
     label_abv: "ABV %",
-    label_region: "Region"
+    label_region: "Region",
   },
   zh: {
     appTitle: "珍藏",
@@ -213,7 +219,8 @@ export const translations = {
     enterExhibition: "进入展厅",
     vocalGuide: "语音向导",
     galleryAwaits: "展厅虚位以待。",
-    museumDefinition: "博物馆的价值，在于它所守护的一切。今天就开始你的馆藏之旅。",
+    museumDefinition:
+      "博物馆的价值，在于它所守护的一切。今天就开始你的馆藏之旅。",
     restoringArchives: "正在恢复档案库...",
     addItem: "添加珍品",
     profile: "个人中心",
@@ -336,7 +343,8 @@ export const translations = {
     authLoadingDesc: "正在确认您的账号状态。",
     cloudRequiredTitle: "需要云端配置",
     cloudRequiredStatus: "云端未配置",
-    cloudRequiredDesc: "使用 Curio 需要 Supabase，请配置 VITE_SUPABASE_URL 与 VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY。",
+    cloudRequiredDesc:
+      "使用 Curio 需要 Supabase，请配置 VITE_SUPABASE_URL 与 VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY。",
     cloudRequiredAction: "请配置 Supabase",
     cloudSyncActive: "云同步",
     cloudSyncTitle: "云端账号",
@@ -380,23 +388,36 @@ export const translations = {
     label_deadstock: "全新未使用",
     label_age: "年份/年份",
     label_abv: "酒精度 %",
-    label_region: "产区"
-  }
+    label_region: "产区",
+  },
 };
 
 interface LanguageContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
-  t: (key: keyof typeof translations['en'], params?: Record<string, any>) => string;
+  t: (
+    key: keyof (typeof translations)["en"],
+    params?: Record<string, any>,
+  ) => string;
 }
 
-const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
+const LanguageContext = createContext<LanguageContextType | undefined>(
+  undefined,
+);
 
-export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [language, setLanguage] = useState<Language>('en');
+export const LanguageProvider: React.FC<{ children: ReactNode }> = ({
+  children,
+}) => {
+  const [language, setLanguage] = useState<Language>("en");
 
-  const t = (key: keyof typeof translations['en'], params?: Record<string, any>) => {
-    let text = (translations[language] as any)[key] || (translations['en'] as any)[key] || key;
+  const t = (
+    key: keyof (typeof translations)["en"],
+    params?: Record<string, any>,
+  ) => {
+    let text =
+      (translations[language] as any)[key] ||
+      (translations["en"] as any)[key] ||
+      key;
     if (params) {
       Object.entries(params).forEach(([k, v]) => {
         text = text.replace(`{${k}}`, String(v));
@@ -408,12 +429,13 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
   return React.createElement(
     LanguageContext.Provider,
     { value: { language, setLanguage, t } },
-    children
+    children,
   );
 };
 
 export const useTranslation = () => {
   const context = useContext(LanguageContext);
-  if (!context) throw new Error("useTranslation must be used within LanguageProvider");
+  if (!context)
+    throw new Error("useTranslation must be used within LanguageProvider");
   return context;
 };

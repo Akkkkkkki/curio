@@ -1,15 +1,15 @@
+import { UserCollection, CollectionItem } from "../types";
+import { supabase, isSupabaseConfigured } from "./supabase";
+import { TEMPLATES } from "../constants";
 
-import { UserCollection, CollectionItem } from '../types';
-import { supabase, isSupabaseConfigured } from './supabase';
-import { TEMPLATES } from '../constants';
-
-const DB_NAME = 'CurioDatabase';
+const DB_NAME = "CurioDatabase";
 const DB_VERSION = 5;
-const COLLECTIONS_STORE = 'collections';
-const ASSETS_STORE = 'assets';
-const DISPLAY_STORE = 'display';
-const SETTINGS_STORE = 'settings';
-const SUPABASE_SYNC_TIMESTAMPS = import.meta.env.VITE_SUPABASE_SYNC_TIMESTAMPS === 'true';
+const COLLECTIONS_STORE = "collections";
+const ASSETS_STORE = "assets";
+const DISPLAY_STORE = "display";
+const SETTINGS_STORE = "settings";
+const SUPABASE_SYNC_TIMESTAMPS =
+  import.meta.env.VITE_SUPABASE_SYNC_TIMESTAMPS === "true";
 
 let dbInstance: IDBDatabase | null = null;
 
@@ -26,16 +26,21 @@ const compareTimestamps = (a?: string, b?: string) => {
 };
 
 const normalizeCollection = (collection: UserCollection): UserCollection => {
-  const template = TEMPLATES.find(t => t.id === collection.templateId);
-  const customFields = collection.customFields?.length ? collection.customFields : (template?.fields || []);
+  const template = TEMPLATES.find((t) => t.id === collection.templateId);
+  const customFields = collection.customFields?.length
+    ? collection.customFields
+    : template?.fields || [];
   return { ...collection, customFields };
 };
 
-const mergeItems = (localItems: CollectionItem[], cloudItems: CollectionItem[]) => {
-  const localMap = new Map(localItems.map(item => [item.id, item]));
+const mergeItems = (
+  localItems: CollectionItem[],
+  cloudItems: CollectionItem[],
+) => {
+  const localMap = new Map(localItems.map((item) => [item.id, item]));
   const merged = [...localItems];
 
-  cloudItems.forEach(cloudItem => {
+  cloudItems.forEach((cloudItem) => {
     const localItem = localMap.get(cloudItem.id);
     if (!localItem) {
       merged.push(cloudItem);
@@ -45,18 +50,23 @@ const mergeItems = (localItems: CollectionItem[], cloudItems: CollectionItem[]) 
     const cloudStamp = cloudItem.updatedAt || cloudItem.createdAt;
     const useLocal = compareTimestamps(localStamp, cloudStamp) >= 0;
     const nextItem = useLocal ? localItem : cloudItem;
-    const idx = merged.findIndex(item => item.id === cloudItem.id);
+    const idx = merged.findIndex((item) => item.id === cloudItem.id);
     merged[idx] = nextItem;
   });
 
   return merged;
 };
 
-const mergeCollections = (localCollections: UserCollection[], cloudCollections: UserCollection[]) => {
-  const localMap = new Map(localCollections.map(col => [col.id, normalizeCollection(col)]));
+const mergeCollections = (
+  localCollections: UserCollection[],
+  cloudCollections: UserCollection[],
+) => {
+  const localMap = new Map(
+    localCollections.map((col) => [col.id, normalizeCollection(col)]),
+  );
   const merged = [...localCollections.map(normalizeCollection)];
 
-  cloudCollections.forEach(cloudCol => {
+  cloudCollections.forEach((cloudCol) => {
     const localCol = localMap.get(cloudCol.id);
     if (!localCol) {
       merged.push(normalizeCollection(cloudCol));
@@ -67,7 +77,7 @@ const mergeCollections = (localCollections: UserCollection[], cloudCollections: 
     const useLocal = compareTimestamps(localStamp, cloudStamp) >= 0;
     const base = useLocal ? localCol : cloudCol;
     const mergedItems = mergeItems(localCol.items, cloudCol.items);
-    const idx = merged.findIndex(c => c.id === cloudCol.id);
+    const idx = merged.findIndex((c) => c.id === cloudCol.id);
     merged[idx] = { ...normalizeCollection(base), items: mergedItems };
   });
 
@@ -81,7 +91,7 @@ export const extractCurioAssetPath = (value: string): string | null => {
   // - .../storage/v1/object/public/curio-assets/<path>
   // - .../storage/v1/object/sign/curio-assets/<path>?token=...
   const match = value.match(
-    /^https?:\/\/[^/]+\.supabase\.co\/storage\/v1\/object\/(?:public\/|sign\/)?curio-assets\/(.+?)(?:\?.*)?$/
+    /^https?:\/\/[^/]+\.supabase\.co\/storage\/v1\/object\/(?:public\/|sign\/)?curio-assets\/(.+?)(?:\?.*)?$/,
   );
   if (!match) return null;
   try {
@@ -114,7 +124,7 @@ export const initDB = (): Promise<IDBDatabase> => {
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
       if (!db.objectStoreNames.contains(COLLECTIONS_STORE)) {
-        db.createObjectStore(COLLECTIONS_STORE, { keyPath: 'id' });
+        db.createObjectStore(COLLECTIONS_STORE, { keyPath: "id" });
       }
       if (!db.objectStoreNames.contains(ASSETS_STORE)) {
         db.createObjectStore(ASSETS_STORE);
@@ -132,8 +142,8 @@ export const initDB = (): Promise<IDBDatabase> => {
 export const getSeedVersion = async (): Promise<number> => {
   const db = await initDB();
   return new Promise((resolve) => {
-    const transaction = db.transaction(SETTINGS_STORE, 'readonly');
-    const request = transaction.objectStore(SETTINGS_STORE).get('seed_version');
+    const transaction = db.transaction(SETTINGS_STORE, "readonly");
+    const request = transaction.objectStore(SETTINGS_STORE).get("seed_version");
     request.onsuccess = () => resolve(request.result || 0);
     request.onerror = () => resolve(0);
   });
@@ -142,21 +152,23 @@ export const getSeedVersion = async (): Promise<number> => {
 export const setSeedVersion = async (version: number): Promise<void> => {
   const db = await initDB();
   return new Promise((resolve) => {
-    const transaction = db.transaction(SETTINGS_STORE, 'readwrite');
-    transaction.objectStore(SETTINGS_STORE).put(version, 'seed_version');
+    const transaction = db.transaction(SETTINGS_STORE, "readwrite");
+    transaction.objectStore(SETTINGS_STORE).put(version, "seed_version");
     transaction.oncomplete = () => resolve();
   });
 };
 
 const loadLocalCollections = async (): Promise<UserCollection[]> => {
   const db = await initDB();
-  const localCollections = await new Promise<UserCollection[]>((resolve, reject) => {
-    const transaction = db.transaction(COLLECTIONS_STORE, 'readonly');
-    const store = transaction.objectStore(COLLECTIONS_STORE);
-    const request = store.getAll();
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
+  const localCollections = await new Promise<UserCollection[]>(
+    (resolve, reject) => {
+      const transaction = db.transaction(COLLECTIONS_STORE, "readonly");
+      const store = transaction.objectStore(COLLECTIONS_STORE);
+      const request = store.getAll();
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    },
+  );
   return localCollections.map(normalizeCollection);
 };
 
@@ -166,7 +178,7 @@ export const getLocalCollections = async (): Promise<UserCollection[]> => {
 
 const normalizePhotoPaths = (photoUrl: string) => {
   if (!photoUrl) {
-    return { originalPath: '', displayPath: '' };
+    return { originalPath: "", displayPath: "" };
   }
 
   const extracted = extractCurioAssetPath(photoUrl);
@@ -175,25 +187,31 @@ const normalizePhotoPaths = (photoUrl: string) => {
   // External URLs / local absolute paths: can't derive variants.
   // Note: Supabase Storage object URLs are extracted above and become bucket-relative paths.
   if (
-    normalizedUrl.startsWith('http') ||
-    normalizedUrl.startsWith('data:') ||
-    normalizedUrl.startsWith('blob:') ||
-    normalizedUrl.startsWith('/')
+    normalizedUrl.startsWith("http") ||
+    normalizedUrl.startsWith("data:") ||
+    normalizedUrl.startsWith("blob:") ||
+    normalizedUrl.startsWith("/")
   ) {
     return { originalPath: normalizedUrl, displayPath: normalizedUrl };
   }
 
-  const hasDisplay = /(?:\/display\.[^/.]+|_display\.[^/.]+)$/i.test(normalizedUrl);
-  const hasOriginal = /(?:\/original\.[^/.]+|_original\.[^/.]+)$/i.test(normalizedUrl);
+  const hasDisplay = /(?:\/display\.[^/.]+|_display\.[^/.]+)$/i.test(
+    normalizedUrl,
+  );
+  const hasOriginal = /(?:\/original\.[^/.]+|_original\.[^/.]+)$/i.test(
+    normalizedUrl,
+  );
   const hasThumb = /(?:\/thumb\.[^/.]+|_thumb\.[^/.]+)$/i.test(normalizedUrl);
-  const hasMaster = /(?:\/master\.[^/.]+|_master\.[^/.]+)$/i.test(normalizedUrl);
+  const hasMaster = /(?:\/master\.[^/.]+|_master\.[^/.]+)$/i.test(
+    normalizedUrl,
+  );
 
   if (hasDisplay) {
     return {
       displayPath: normalizedUrl,
       originalPath: normalizedUrl
-        .replace(/\/display(\.[^/.]+)$/i, '/original$1')
-        .replace(/_display(\.[^/.]+)$/i, '_original$1'),
+        .replace(/\/display(\.[^/.]+)$/i, "/original$1")
+        .replace(/_display(\.[^/.]+)$/i, "_original$1"),
     };
   }
 
@@ -201,8 +219,8 @@ const normalizePhotoPaths = (photoUrl: string) => {
     return {
       originalPath: normalizedUrl,
       displayPath: normalizedUrl
-        .replace(/\/original(\.[^/.]+)$/i, '/display$1')
-        .replace(/_original(\.[^/.]+)$/i, '_display$1'),
+        .replace(/\/original(\.[^/.]+)$/i, "/display$1")
+        .replace(/_original(\.[^/.]+)$/i, "_display$1"),
     };
   }
 
@@ -210,22 +228,22 @@ const normalizePhotoPaths = (photoUrl: string) => {
   if (hasThumb) {
     return {
       originalPath: normalizedUrl
-        .replace(/\/thumb(\.[^/.]+)$/i, '/original$1')
-        .replace(/_thumb(\.[^/.]+)$/i, '_original$1'),
+        .replace(/\/thumb(\.[^/.]+)$/i, "/original$1")
+        .replace(/_thumb(\.[^/.]+)$/i, "_original$1"),
       displayPath: normalizedUrl
-        .replace(/\/thumb(\.[^/.]+)$/i, '/display$1')
-        .replace(/_thumb(\.[^/.]+)$/i, '_display$1'),
+        .replace(/\/thumb(\.[^/.]+)$/i, "/display$1")
+        .replace(/_thumb(\.[^/.]+)$/i, "_display$1"),
     };
   }
 
   if (hasMaster) {
     return {
       originalPath: normalizedUrl
-        .replace(/\/master(\.[^/.]+)$/i, '/original$1')
-        .replace(/_master(\.[^/.]+)$/i, '_original$1'),
+        .replace(/\/master(\.[^/.]+)$/i, "/original$1")
+        .replace(/_master(\.[^/.]+)$/i, "_original$1"),
       displayPath: normalizedUrl
-        .replace(/\/master(\.[^/.]+)$/i, '/display$1')
-        .replace(/_master(\.[^/.]+)$/i, '_display$1'),
+        .replace(/\/master(\.[^/.]+)$/i, "/display$1")
+        .replace(/_master(\.[^/.]+)$/i, "_display$1"),
     };
   }
 
@@ -234,27 +252,27 @@ const normalizePhotoPaths = (photoUrl: string) => {
 };
 
 const mapCloudCollections = (cols: any[], items: any[]): UserCollection[] => {
-  return cols.map(c => {
+  return cols.map((c) => {
     const colItems: CollectionItem[] = (items || [])
-      .filter(i => i.collection_id === c.id)
-      .map(i => {
+      .filter((i) => i.collection_id === c.id)
+      .map((i) => {
         // Prefer new explicit columns; avoid relying on legacy `photo_path`.
-        const photoPath = i.photo_display_path || i.photo_original_path || '';
+        const photoPath = i.photo_display_path || i.photo_original_path || "";
         return {
-        id: i.id,
-        collectionId: i.collection_id,
-        photoUrl: photoPath,
-        title: i.title,
-        rating: i.rating,
-        data: i.data,
-        createdAt: i.created_at || new Date().toISOString(),
-        updatedAt: i.updated_at,
-        notes: i.notes,
-        seedKey: i.seed_key
+          id: i.id,
+          collectionId: i.collection_id,
+          photoUrl: photoPath,
+          title: i.title,
+          rating: i.rating,
+          data: i.data,
+          createdAt: i.created_at || new Date().toISOString(),
+          updatedAt: i.updated_at,
+          notes: i.notes,
+          seedKey: i.seed_key,
         };
       });
 
-    const template = TEMPLATES.find(t => t.id === c.template_id);
+    const template = TEMPLATES.find((t) => t.id === c.template_id);
 
     return normalizeCollection({
       id: c.id,
@@ -267,7 +285,7 @@ const mapCloudCollections = (cols: any[], items: any[]): UserCollection[] => {
       items: colItems,
       settings: c.settings || { displayFields: [], badgeFields: [] },
       seedKey: c.seed_key,
-      updatedAt: c.updated_at
+      updatedAt: c.updated_at,
     });
   });
 };
@@ -277,18 +295,26 @@ type FetchCollectionsOptions = {
   includePublic?: boolean;
 };
 
-export const fetchCloudCollections = async (options: FetchCollectionsOptions = {}): Promise<UserCollection[]> => {
+export const fetchCloudCollections = async (
+  options: FetchCollectionsOptions = {},
+): Promise<UserCollection[]> => {
   if (!isSupabaseConfigured() || !supabase) return [];
 
   const { userId = null, includePublic = true } = options;
-  const { data: { user } } = await supabase.auth.getUser();
-  const activeUserId = typeof userId === 'string' ? userId : user?.id || null;
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const activeUserId = typeof userId === "string" ? userId : user?.id || null;
 
-  const collectionQuery = supabase.from('collections').select('*');
+  const collectionQuery = supabase.from("collections").select("*");
   if (activeUserId) {
-    collectionQuery.or(includePublic ? `user_id.eq.${activeUserId},is_public.eq.true` : `user_id.eq.${activeUserId}`);
+    collectionQuery.or(
+      includePublic
+        ? `user_id.eq.${activeUserId},is_public.eq.true`
+        : `user_id.eq.${activeUserId}`,
+    );
   } else if (includePublic) {
-    collectionQuery.eq('is_public', true);
+    collectionQuery.eq("is_public", true);
   } else {
     return [];
   }
@@ -299,38 +325,45 @@ export const fetchCloudCollections = async (options: FetchCollectionsOptions = {
 
   if (!cols || cols.length === 0) return [];
 
-  const collectionIds = cols.map(col => col.id);
+  const collectionIds = cols.map((col) => col.id);
   const { data: items, error: itemError } = await supabase
-    .from('items')
-    .select('*')
-    .in('collection_id', collectionIds);
+    .from("items")
+    .select("*")
+    .in("collection_id", collectionIds);
 
   if (itemError) throw itemError;
 
   return mapCloudCollections(cols, items || []);
 };
 
-export const hasLocalOnlyData = (localCollections: UserCollection[], cloudCollections: UserCollection[]) => {
+export const hasLocalOnlyData = (
+  localCollections: UserCollection[],
+  cloudCollections: UserCollection[],
+) => {
   if (localCollections.length === 0) return false;
 
-  const cloudCollectionIds = new Set(cloudCollections.map(col => col.id));
-  const cloudItemIds = new Set(cloudCollections.flatMap(col => col.items.map(item => item.id)));
+  const cloudCollectionIds = new Set(cloudCollections.map((col) => col.id));
+  const cloudItemIds = new Set(
+    cloudCollections.flatMap((col) => col.items.map((item) => item.id)),
+  );
 
-  return localCollections.some(localCol => {
+  return localCollections.some((localCol) => {
     if (!cloudCollectionIds.has(localCol.id)) return true;
-    return localCol.items.some(item => !cloudItemIds.has(item.id));
+    return localCol.items.some((item) => !cloudItemIds.has(item.id));
   });
 };
 
-export const saveCollection = async (collection: UserCollection): Promise<void> => {
+export const saveCollection = async (
+  collection: UserCollection,
+): Promise<void> => {
   const db = await initDB();
   const collectionToSave = collection.updatedAt
     ? collection
     : { ...collection, updatedAt: new Date().toISOString() };
-  
+
   // 1. Local Persistence (IndexedDB)
   await new Promise<void>((resolve, reject) => {
-    const transaction = db.transaction(COLLECTIONS_STORE, 'readwrite');
+    const transaction = db.transaction(COLLECTIONS_STORE, "readwrite");
     const store = transaction.objectStore(COLLECTIONS_STORE);
     store.put(collectionToSave);
     transaction.oncomplete = () => resolve();
@@ -340,7 +373,9 @@ export const saveCollection = async (collection: UserCollection): Promise<void> 
   // 2. Cloud Sync (Supabase Normalized Mapping)
   if (isSupabaseConfigured() && supabase) {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return;
 
       // Sync Collection Metadata
@@ -352,29 +387,31 @@ export const saveCollection = async (collection: UserCollection): Promise<void> 
         icon: collectionToSave.icon,
         settings: collectionToSave.settings,
         seed_key: collectionToSave.seedKey,
-        is_public: Boolean(collectionToSave.isPublic)
+        is_public: Boolean(collectionToSave.isPublic),
       };
       if (SUPABASE_SYNC_TIMESTAMPS && collectionToSave.updatedAt) {
         collectionPayload.updated_at = collectionToSave.updatedAt;
       }
 
       const { error: colError } = await supabase
-        .from('collections')
+        .from("collections")
         .upsert(collectionPayload);
 
-      if (colError) console.warn('Supabase sync collection error:', colError);
+      if (colError) console.warn("Supabase sync collection error:", colError);
 
       // Sync Items
       if (collectionToSave.items.length > 0) {
-        const itemsToSync = collectionToSave.items.map(item => {
+        const itemsToSync = collectionToSave.items.map((item) => {
           const basePath = `${user.id}/collections/${collectionToSave.id}/${item.id}`;
-          const { originalPath, displayPath } = normalizePhotoPaths(item.photoUrl || '');
-          const photoOriginalPath = item.photoUrl === 'asset'
-            ? `${basePath}/original.jpg`
-            : originalPath;
-          const photoDisplayPath = item.photoUrl === 'asset'
-            ? `${basePath}/display.jpg`
-            : displayPath;
+          const { originalPath, displayPath } = normalizePhotoPaths(
+            item.photoUrl || "",
+          );
+          const photoOriginalPath =
+            item.photoUrl === "asset"
+              ? `${basePath}/original.jpg`
+              : originalPath;
+          const photoDisplayPath =
+            item.photoUrl === "asset" ? `${basePath}/display.jpg` : displayPath;
           const payload: Record<string, any> = {
             id: item.id,
             user_id: user.id,
@@ -385,7 +422,7 @@ export const saveCollection = async (collection: UserCollection): Promise<void> 
             data: item.data,
             photo_original_path: photoOriginalPath,
             photo_display_path: photoDisplayPath,
-            seed_key: item.seedKey
+            seed_key: item.seedKey,
           };
           if (SUPABASE_SYNC_TIMESTAMPS) {
             payload.created_at = item.createdAt;
@@ -395,23 +432,31 @@ export const saveCollection = async (collection: UserCollection): Promise<void> 
         });
 
         const { error: itemsError } = await supabase
-          .from('items')
+          .from("items")
           .upsert(itemsToSync);
 
-        if (itemsError) console.warn('Supabase sync items error:', itemsError);
+        if (itemsError) console.warn("Supabase sync items error:", itemsError);
       }
     } catch (e) {
-      console.error('Unexpected Supabase sync error:', e);
+      console.error("Unexpected Supabase sync error:", e);
     }
   }
 };
 
-export const saveAsset = async (collectionId: string, id: string, original: Blob, display: Blob): Promise<void> => {
+export const saveAsset = async (
+  collectionId: string,
+  id: string,
+  original: Blob,
+  display: Blob,
+): Promise<void> => {
   const db = await initDB();
-  
+
   // Save to Local
   await new Promise<void>((resolve, reject) => {
-    const transaction = db.transaction([ASSETS_STORE, DISPLAY_STORE], 'readwrite');
+    const transaction = db.transaction(
+      [ASSETS_STORE, DISPLAY_STORE],
+      "readwrite",
+    );
     transaction.objectStore(ASSETS_STORE).put(original, id);
     transaction.objectStore(DISPLAY_STORE).put(display, id);
     transaction.oncomplete = () => resolve();
@@ -421,7 +466,9 @@ export const saveAsset = async (collectionId: string, id: string, original: Blob
   // Save to Cloud if available
   if (isSupabaseConfigured() && supabase) {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return;
 
       const basePath = `${user.id}/collections/${collectionId}/${id}`;
@@ -430,31 +477,33 @@ export const saveAsset = async (collectionId: string, id: string, original: Blob
 
       // Upload in parallel
       await Promise.all([
-        supabase.storage
-          .from('curio-assets')
-          .upload(originalPath, original, { upsert: true, contentType: original.type || 'image/jpeg' }),
-        supabase.storage
-          .from('curio-assets')
-          .upload(displayPath, display, { upsert: true, contentType: display.type || 'image/jpeg' })
+        supabase.storage.from("curio-assets").upload(originalPath, original, {
+          upsert: true,
+          contentType: original.type || "image/jpeg",
+        }),
+        supabase.storage.from("curio-assets").upload(displayPath, display, {
+          upsert: true,
+          contentType: display.type || "image/jpeg",
+        }),
       ]);
     } catch (e) {
-      console.warn('Cloud asset sync failed:', e);
+      console.warn("Cloud asset sync failed:", e);
     }
   }
 };
 
 export const getAsset = async (
   id: string,
-  type: 'original' | 'display' = 'display',
+  type: "original" | "display" = "display",
   remotePath?: string,
-  collectionId?: string
+  collectionId?: string,
 ): Promise<Blob | null> => {
   const db = await initDB();
-  const storeName = type === 'display' ? DISPLAY_STORE : ASSETS_STORE;
-  
+  const storeName = type === "display" ? DISPLAY_STORE : ASSETS_STORE;
+
   // Try Local First
   const localBlob = await new Promise<Blob | null>((resolve) => {
-    const transaction = db.transaction(storeName, 'readonly');
+    const transaction = db.transaction(storeName, "readonly");
     const store = transaction.objectStore(storeName);
     const request = store.get(id);
     request.onsuccess = () => resolve(request.result || null);
@@ -466,40 +515,51 @@ export const getAsset = async (
   // Try Cloud if not local
   if (isSupabaseConfigured() && supabase) {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user && !remotePath) return null;
 
-      const normalizedRemotePath = remotePath ? (type === 'display'
-        ? normalizePhotoPaths(remotePath).displayPath
-        : normalizePhotoPaths(remotePath).originalPath) : null;
+      const normalizedRemotePath = remotePath
+        ? type === "display"
+          ? normalizePhotoPaths(remotePath).displayPath
+          : normalizePhotoPaths(remotePath).originalPath
+        : null;
       const fallbackPath = collectionId
-        ? `${user!.id}/collections/${collectionId}/${id}/${type === 'display' ? 'display.jpg' : 'original.jpg'}`
-        // Legacy pre-folder layout fallback
-        : `${user!.id}/${id}_${type === 'display' ? 'thumb' : 'master'}.jpg`;
+        ? `${user!.id}/collections/${collectionId}/${id}/${type === "display" ? "display.jpg" : "original.jpg"}`
+        : // Legacy pre-folder layout fallback
+          `${user!.id}/${id}_${type === "display" ? "thumb" : "master"}.jpg`;
       const path = normalizedRemotePath || fallbackPath;
-      const { data, error } = await supabase.storage.from('curio-assets').download(path);
-      
+      const { data, error } = await supabase.storage
+        .from("curio-assets")
+        .download(path);
+
       if (data && !error) {
         // Cache back to local for performance next time
-        const transaction = db.transaction(storeName, 'readwrite');
+        const transaction = db.transaction(storeName, "readwrite");
         transaction.objectStore(storeName).put(data, id);
         return data;
       }
     } catch (e) {
-      console.warn('Cloud asset download failed:', e);
+      console.warn("Cloud asset download failed:", e);
     }
   }
 
   return null;
 };
 
-export const importLocalCollectionsToCloud = async (): Promise<{ collections: number; assets: number }> => {
+export const importLocalCollectionsToCloud = async (): Promise<{
+  collections: number;
+  assets: number;
+}> => {
   if (!isSupabaseConfigured() || !supabase) {
-    throw new Error('Supabase is not configured.');
+    throw new Error("Supabase is not configured.");
   }
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) {
-    throw new Error('You must be signed in to import local data.');
+    throw new Error("You must be signed in to import local data.");
   }
 
   const localCollections = await loadLocalCollections();
@@ -509,10 +569,10 @@ export const importLocalCollectionsToCloud = async (): Promise<{ collections: nu
     await saveCollection(collection);
 
     for (const item of collection.items) {
-      if (item.photoUrl !== 'asset') continue;
+      if (item.photoUrl !== "asset") continue;
 
-      const original = await getAsset(item.id, 'original');
-      const display = await getAsset(item.id, 'display');
+      const original = await getAsset(item.id, "original");
+      const display = await getAsset(item.id, "display");
       if (original && display) {
         await saveAsset(collection.id, item.id, original, display);
         assetUploads += 1;
@@ -523,55 +583,68 @@ export const importLocalCollectionsToCloud = async (): Promise<{ collections: nu
   return { collections: localCollections.length, assets: assetUploads };
 };
 
-export const deleteAsset = async (collectionId: string, id: string): Promise<void> => {
-    const db = await initDB();
-    
-    // Delete Local
-    await new Promise<void>((resolve) => {
-    const transaction = db.transaction([ASSETS_STORE, DISPLAY_STORE], 'readwrite');
-      transaction.objectStore(ASSETS_STORE).delete(id);
-      transaction.objectStore(DISPLAY_STORE).delete(id);
-      transaction.oncomplete = () => resolve();
-    });
+export const deleteAsset = async (
+  collectionId: string,
+  id: string,
+): Promise<void> => {
+  const db = await initDB();
 
-    // Delete Cloud
-    if (isSupabaseConfigured() && supabase) {
-        try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                const basePath = `${user.id}/collections/${collectionId}/${id}`;
-                await supabase.storage.from('curio-assets').remove([
-                    `${basePath}/original.jpg`,
-                    `${basePath}/display.jpg`,
-                    // Legacy paths (safe cleanup; ignore if missing)
-                    `${user.id}/${id}_master.jpg`,
-                    `${user.id}/${id}_thumb.jpg`
-                ]);
-            }
-        } catch (e) {
-            console.warn('Cloud asset deletion failed:', e);
-        }
+  // Delete Local
+  await new Promise<void>((resolve) => {
+    const transaction = db.transaction(
+      [ASSETS_STORE, DISPLAY_STORE],
+      "readwrite",
+    );
+    transaction.objectStore(ASSETS_STORE).delete(id);
+    transaction.objectStore(DISPLAY_STORE).delete(id);
+    transaction.oncomplete = () => resolve();
+  });
+
+  // Delete Cloud
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        const basePath = `${user.id}/collections/${collectionId}/${id}`;
+        await supabase.storage.from("curio-assets").remove([
+          `${basePath}/original.jpg`,
+          `${basePath}/display.jpg`,
+          // Legacy paths (safe cleanup; ignore if missing)
+          `${user.id}/${id}_master.jpg`,
+          `${user.id}/${id}_thumb.jpg`,
+        ]);
+      }
+    } catch (e) {
+      console.warn("Cloud asset deletion failed:", e);
     }
+  }
 };
 
-export const deleteCloudItem = async (collectionId: string, itemId: string): Promise<void> => {
+export const deleteCloudItem = async (
+  collectionId: string,
+  itemId: string,
+): Promise<void> => {
   if (!isSupabaseConfigured() || !supabase) return;
 
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) return;
 
     const { error } = await supabase
-      .from('items')
+      .from("items")
       .delete()
-      .eq('id', itemId)
-      .eq('collection_id', collectionId);
+      .eq("id", itemId)
+      .eq("collection_id", collectionId);
 
     if (error) {
-      console.warn('Cloud item deletion failed:', error);
+      console.warn("Cloud item deletion failed:", error);
     }
   } catch (e) {
-    console.warn('Cloud item deletion failed:', e);
+    console.warn("Cloud item deletion failed:", e);
   }
 };
 
@@ -586,21 +659,23 @@ export const loadCollections = async (): Promise<UserCollection[]> => {
         return cloudCollections;
       }
     } catch (e) {
-      console.warn('Supabase cloud fetch failed:', e);
+      console.warn("Supabase cloud fetch failed:", e);
     }
   }
 
   return localCollections;
 };
 
-export const saveAllCollections = async (collections: UserCollection[]): Promise<void> => {
-    const db = await initDB();
-    return new Promise((resolve, reject) => {
-        const transaction = db.transaction(COLLECTIONS_STORE, 'readwrite');
-        const store = transaction.objectStore(COLLECTIONS_STORE);
-        store.clear();
-        collections.forEach(col => store.add(col));
-        transaction.oncomplete = () => resolve();
-        transaction.onerror = () => reject(transaction.error);
-    });
+export const saveAllCollections = async (
+  collections: UserCollection[],
+): Promise<void> => {
+  const db = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(COLLECTIONS_STORE, "readwrite");
+    const store = transaction.objectStore(COLLECTIONS_STORE);
+    store.clear();
+    collections.forEach((col) => store.add(col));
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+  });
 };
