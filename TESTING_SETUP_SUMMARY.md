@@ -212,13 +212,11 @@ All dependencies from roadmap "Testing Stack" section installed and configured.
 The infrastructure is ready. You can now start Phase 1:
 
 1. **`tests/services/db.pure.test.ts`**
-
    - Test `compareTimestamps(local, cloud)`
    - Test `normalizePhotoPaths(item)`
    - Zero mocks required, pure function tests
 
 2. **`tests/services/imageProcessor.test.ts`**
-
    - Import real `canvas` package
    - Test image processing (quality, resizing, format conversion)
    - Use canvas-mock utilities
