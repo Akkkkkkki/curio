@@ -122,6 +122,16 @@ export const translations = {
     statusSyncPaused: 'Sync paused',
     statusImportComplete: 'Imported from local storage',
     statusImportFailed: 'Import failed',
+    // IndexedDB Recovery Messages
+    localCacheCorrupted:
+      'Local cache was corrupted and has been reset. Your cloud data will reload.',
+    localCacheRecovered: 'Local cache restored from cloud.',
+    localCacheRecoveryFailed: 'Local cache recovery failed. Some data may be unavailable.',
+    // Sync Status Messages
+    statusSyncing: 'Syncing...',
+    statusSyncError: 'Sync failed: {error}',
+    statusPendingSyncs: '{count} change(s) pending sync',
+    statusPendingSynced: '{count} pending change(s) synced',
     // Auth & Cloud
     login: 'Sign In',
     register: 'Create Account',
@@ -312,6 +322,15 @@ export const translations = {
     statusSyncPaused: '同步暂停',
     statusImportComplete: '本地数据已导入',
     statusImportFailed: '导入失败，请重试。',
+    // IndexedDB Recovery Messages
+    localCacheCorrupted: '本地缓存已损坏并已重置。云端数据将重新加载。',
+    localCacheRecovered: '本地缓存已从云端恢复。',
+    localCacheRecoveryFailed: '本地缓存恢复失败。部分数据可能不可用。',
+    // Sync Status Messages
+    statusSyncing: '同步中...',
+    statusSyncError: '同步失败：{error}',
+    statusPendingSyncs: '{count} 项更改待同步',
+    statusPendingSynced: '{count} 项待同步更改已完成',
     // Auth & Cloud
     login: '登录',
     register: '创建账号',
