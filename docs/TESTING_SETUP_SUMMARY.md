@@ -69,7 +69,9 @@ tests/
 │   ├── canvas-mock.ts           # Canvas API utilities
 │   └── fixtures/
 │       └── collections.ts       # Mock data factories
-├── services/                     # Phase 1 & 2
+├── unit/                         # Unit-level tests (pure/isolated)
+│   └── services/                # Phase 1
+├── services/                     # Integration-level tests (Phase 2)
 ├── hooks/                        # Phase 3
 ├── components/                   # Phase 4
 │   └── ui/
