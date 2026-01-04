@@ -335,15 +335,21 @@ const loadLocalCollections = async (isRetry = false): Promise<UserCollection[]> 
       dbInstance = null;
       dbInitPromise = null;
 
-      const result = await loadLocalCollections(true);
-      onRecoveryCallback?.({ type: 'recovery_complete', lostData: true });
-      return result;
+      try {
+        const result = await loadLocalCollections(true);
+        // Only emit recovery_complete if retry succeeded
+        onRecoveryCallback?.({ type: 'recovery_complete', lostData: true });
+        return result;
+      } catch {
+        // Retry failed - recovery_failed already emitted by inner call
+        return [];
+      }
     }
 
     // If retry also fails, notify and return empty
     console.error('IndexedDB recovery failed, returning empty collections');
     onRecoveryCallback?.({ type: 'recovery_failed', lostData: true });
-    return [];
+    throw error; // Re-throw so outer catch knows retry failed
   }
 };
 

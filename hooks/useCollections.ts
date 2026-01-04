@@ -93,7 +93,7 @@ export const useCollections = ({
     return () => setSyncStatusCallback(null);
   }, []);
 
-  // Sync pending changes when coming back online
+  // Sync pending changes when coming back online or on startup if already online
   useEffect(() => {
     const handleOnline = async () => {
       const synced = await syncPendingChanges();
@@ -104,6 +104,11 @@ export const useCollections = ({
         setSyncStatus('synced');
       }
     };
+
+    // Sync on startup if already online (handles case where app starts after offline session)
+    if (navigator.onLine) {
+      handleOnline();
+    }
 
     window.addEventListener('online', handleOnline);
     return () => window.removeEventListener('online', handleOnline);
