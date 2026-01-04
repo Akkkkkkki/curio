@@ -184,12 +184,14 @@ describe('services/supabase.ts - Auth Helpers (Phase 1.3)', () => {
   });
 
   describe('signInWithEmail(email, password)', () => {
-    it('returns a session on success (roadmap requirement)', async () => {
+    it('returns a user on success (Option A: keep implementation simple)', async () => {
       /**
-       * Happy path (roadmap): sign-in should return a session object so callers can
-       * access tokens if needed.
+       * Happy path: the current implementation returns `data.user` from Supabase.
        *
-       * Note: This test is intentionally strict to enforce the roadmap contract.
+       * Note: This intentionally chooses "Option A" (return user, not session) to keep
+       * auth usage simple while the app is changing rapidly. If we later need access/refresh
+       * tokens for server-side calls or advanced flows, we can switch the helper to return
+       * `data.session` (or `{ user, session }`) and update tests accordingly.
        */
       const mod = await importSupabaseModuleFresh({
         url: 'https://test.supabase.co',
@@ -206,7 +208,7 @@ describe('services/supabase.ts - Auth Helpers (Phase 1.3)', () => {
       });
 
       const result = await mod.signInWithEmail('signedin@example.com', 'StrongPassword!123');
-      expect(result).toMatchObject(session);
+      expect(result).toMatchObject({ id: 'signed-in-user', email: 'signedin@example.com' });
     });
 
     it('throws on invalid credentials (e.g., wrong email/password)', async () => {

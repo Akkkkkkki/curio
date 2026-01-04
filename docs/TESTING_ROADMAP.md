@@ -93,7 +93,8 @@ npm install --save-dev canvas  # for Node.js Canvas API
   - Success case: Returns user object
   - Error cases: Duplicate email, weak password, network failure
 - `signInWithEmail(email, password)`
-  - Success case: Returns session
+  - Success case: Returns user (current implementation)
+  - Note: If we later need tokens (access/refresh) for advanced flows, consider returning `session` (or `{ user, session }`)
   - Error cases: Invalid credentials, unconfirmed email
 - `signOutUser()`
   - Success case: Clears session
