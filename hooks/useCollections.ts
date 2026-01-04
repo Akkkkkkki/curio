@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import type { User } from '@supabase/supabase-js';
 import {
   fetchCloudCollections,
@@ -9,6 +9,11 @@ import {
   saveCollection,
   getSeedVersion,
   setSeedVersion,
+  setRecoveryCallback,
+  setSyncStatusCallback,
+  syncPendingChanges,
+  type RecoveryEvent,
+  type SyncStatus,
 } from '../services/db';
 import type { UserCollection } from '../types';
 import { CURRENT_SEED_VERSION, INITIAL_COLLECTIONS } from '../services/seedCollections';
@@ -28,6 +33,7 @@ type UseCollectionsResult = {
   isLoading: boolean;
   loadError: string | null;
   hasLocalImport: boolean;
+  syncStatus: SyncStatus;
   refreshCollections: () => Promise<void>;
 };
 
@@ -43,6 +49,65 @@ export const useCollections = ({
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [hasLocalImport, setHasLocalImport] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
+  const showStatusRef = useRef(showStatus);
+  const tRef = useRef(t);
+
+  // Keep refs up to date
+  useEffect(() => {
+    showStatusRef.current = showStatus;
+    tRef.current = t;
+  }, [showStatus, t]);
+
+  // Set up recovery callback to notify user of IndexedDB issues
+  useEffect(() => {
+    const handleRecovery = (event: RecoveryEvent) => {
+      const t = tRef.current;
+      const showStatus = showStatusRef.current;
+      if (event.type === 'corruption_detected') {
+        showStatus(t('localCacheCorrupted'), 'warning');
+      } else if (event.type === 'recovery_complete') {
+        showStatus(t('localCacheRecovered'), 'info');
+      } else if (event.type === 'recovery_failed') {
+        showStatus(t('localCacheRecoveryFailed'), 'error');
+      }
+    };
+
+    setRecoveryCallback(handleRecovery);
+    return () => setRecoveryCallback(null);
+  }, []);
+
+  // Set up sync status callback to track sync state
+  useEffect(() => {
+    const handleSyncStatus = (status: SyncStatus, error?: string) => {
+      setSyncStatus(status);
+      const t = tRef.current;
+      const showStatus = showStatusRef.current;
+
+      if (status === 'error' && error) {
+        showStatus(t('statusSyncError').replace('{error}', error), 'error');
+      }
+    };
+
+    setSyncStatusCallback(handleSyncStatus);
+    return () => setSyncStatusCallback(null);
+  }, []);
+
+  // Sync pending changes when coming back online
+  useEffect(() => {
+    const handleOnline = async () => {
+      const synced = await syncPendingChanges();
+      if (synced > 0) {
+        const t = tRef.current;
+        const showStatus = showStatusRef.current;
+        showStatus(t('statusPendingSynced').replace('{count}', String(synced)), 'success');
+        setSyncStatus('synced');
+      }
+    };
+
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
+  }, []);
 
   const withTimeout = useCallback(
     async <T>(promise: Promise<T>, ms: number, message: string): Promise<T> => {
@@ -151,5 +216,5 @@ export const useCollections = ({
     refreshCollections();
   }, [isAdmin, isSupabaseReady, user?.id]);
 
-  return { collections, isLoading, loadError, hasLocalImport, refreshCollections };
+  return { collections, isLoading, loadError, hasLocalImport, syncStatus, refreshCollections };
 };

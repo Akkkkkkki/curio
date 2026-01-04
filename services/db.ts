@@ -10,7 +10,44 @@ const DISPLAY_STORE = 'display';
 const SETTINGS_STORE = 'settings';
 const SUPABASE_SYNC_TIMESTAMPS = import.meta.env.VITE_SUPABASE_SYNC_TIMESTAMPS === 'true';
 
+// Keys for pending sync tracking
+const PENDING_SYNC_KEY = 'pending_sync_ids';
+
 let dbInstance: IDBDatabase | null = null;
+let dbInitPromise: Promise<IDBDatabase> | null = null;
+
+// ============================================================================
+// P0 Fix #1: Recovery Event System
+// ============================================================================
+
+export type RecoveryEvent = {
+  type: 'corruption_detected' | 'recovery_complete' | 'recovery_failed';
+  lostData: boolean;
+};
+
+type RecoveryCallback = (event: RecoveryEvent) => void;
+let onRecoveryCallback: RecoveryCallback | null = null;
+
+export const setRecoveryCallback = (cb: RecoveryCallback | null) => {
+  onRecoveryCallback = cb;
+};
+
+// ============================================================================
+// P0 Fix #2: Sync Status Visibility
+// ============================================================================
+
+export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'error' | 'offline';
+
+type SyncStatusCallback = (status: SyncStatus, error?: string) => void;
+let onSyncStatusChange: SyncStatusCallback | null = null;
+
+export const setSyncStatusCallback = (cb: SyncStatusCallback | null) => {
+  onSyncStatusChange = cb;
+};
+
+const notifySyncStatus = (status: SyncStatus, error?: string) => {
+  onSyncStatusChange?.(status, error);
+};
 
 // Exported for testing
 export const compareTimestamps = (a?: string, b?: string) => {
@@ -121,9 +158,11 @@ export const requestPersistence = async () => {
   return false;
 };
 
-export const initDB = (): Promise<IDBDatabase> => {
-  if (dbInstance) return Promise.resolve(dbInstance);
+// ============================================================================
+// Database Initialization with Recovery
+// ============================================================================
 
+const openDatabase = (): Promise<IDBDatabase> => {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
 
@@ -151,6 +190,39 @@ export const initDB = (): Promise<IDBDatabase> => {
   });
 };
 
+const deleteDatabase = (): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    if (dbInstance) {
+      dbInstance.close();
+      dbInstance = null;
+    }
+    const request = indexedDB.deleteDatabase(DB_NAME);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+    request.onblocked = () => {
+      console.warn('Database deletion blocked - closing connections');
+      resolve();
+    };
+  });
+};
+
+export const initDB = (): Promise<IDBDatabase> => {
+  if (dbInstance) return Promise.resolve(dbInstance);
+  if (dbInitPromise) return dbInitPromise;
+
+  dbInitPromise = openDatabase().catch(async (error) => {
+    console.warn('IndexedDB open failed, attempting recovery:', error);
+    onRecoveryCallback?.({ type: 'corruption_detected', lostData: true });
+    await deleteDatabase();
+    dbInitPromise = null;
+    const db = await openDatabase();
+    onRecoveryCallback?.({ type: 'recovery_complete', lostData: true });
+    return db;
+  });
+
+  return dbInitPromise;
+};
+
 export const getSeedVersion = async (): Promise<number> => {
   const db = await initDB();
   return new Promise((resolve) => {
@@ -170,16 +242,109 @@ export const setSeedVersion = async (version: number): Promise<void> => {
   });
 };
 
-const loadLocalCollections = async (): Promise<UserCollection[]> => {
+// ============================================================================
+// P1 Fix #1: Offline Queue / Retry Logic
+// ============================================================================
+
+const getPendingSyncIds = async (): Promise<string[]> => {
   const db = await initDB();
-  const localCollections = await new Promise<UserCollection[]>((resolve, reject) => {
-    const transaction = db.transaction(COLLECTIONS_STORE, 'readonly');
-    const store = transaction.objectStore(COLLECTIONS_STORE);
-    const request = store.getAll();
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
+  return new Promise((resolve) => {
+    const tx = db.transaction(SETTINGS_STORE, 'readonly');
+    const req = tx.objectStore(SETTINGS_STORE).get(PENDING_SYNC_KEY);
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => resolve([]);
   });
-  return localCollections.map(normalizeCollection);
+};
+
+const addToPendingSync = async (collectionId: string): Promise<void> => {
+  const db = await initDB();
+  const pending = await getPendingSyncIds();
+  if (!pending.includes(collectionId)) {
+    pending.push(collectionId);
+    const tx = db.transaction(SETTINGS_STORE, 'readwrite');
+    tx.objectStore(SETTINGS_STORE).put(pending, PENDING_SYNC_KEY);
+  }
+};
+
+const removeFromPendingSync = async (collectionId: string): Promise<void> => {
+  const db = await initDB();
+  const pending = await getPendingSyncIds();
+  const filtered = pending.filter((id) => id !== collectionId);
+  const tx = db.transaction(SETTINGS_STORE, 'readwrite');
+  tx.objectStore(SETTINGS_STORE).put(filtered, PENDING_SYNC_KEY);
+};
+
+export const hasPendingSyncs = async (): Promise<boolean> => {
+  const pending = await getPendingSyncIds();
+  return pending.length > 0;
+};
+
+export const getPendingSyncCount = async (): Promise<number> => {
+  const pending = await getPendingSyncIds();
+  return pending.length;
+};
+
+export const syncPendingChanges = async (): Promise<number> => {
+  const pendingIds = await getPendingSyncIds();
+  if (pendingIds.length === 0) return 0;
+
+  const localCollections = await loadLocalCollections();
+  let synced = 0;
+
+  for (const id of pendingIds) {
+    const collection = localCollections.find((c) => c.id === id);
+    if (collection) {
+      try {
+        // Attempt to sync - this will re-add to pending if it fails
+        await saveCollectionToCloud(collection);
+        await removeFromPendingSync(id);
+        synced++;
+      } catch (e) {
+        console.warn(`Failed to sync pending collection ${id}:`, e);
+        // Keep it in the pending list for next retry
+      }
+    } else {
+      // Collection no longer exists locally, remove from pending
+      await removeFromPendingSync(id);
+    }
+  }
+
+  return synced;
+};
+
+const loadLocalCollections = async (isRetry = false): Promise<UserCollection[]> => {
+  const db = await initDB();
+  try {
+    const localCollections = await new Promise<UserCollection[]>((resolve, reject) => {
+      const transaction = db.transaction(COLLECTIONS_STORE, 'readonly');
+      const store = transaction.objectStore(COLLECTIONS_STORE);
+      const request = store.getAll();
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    return localCollections.map(normalizeCollection);
+  } catch (error) {
+    // Handle corrupted IndexedDB - delete and recreate
+    if (!isRetry) {
+      console.warn('IndexedDB read failed, attempting recovery:', error);
+
+      // Notify app about corruption BEFORE deleting
+      onRecoveryCallback?.({ type: 'corruption_detected', lostData: true });
+
+      await deleteDatabase();
+      dbInstance = null;
+      dbInitPromise = null;
+
+      const result = await loadLocalCollections(true);
+      onRecoveryCallback?.({ type: 'recovery_complete', lostData: true });
+      return result;
+    }
+
+    // If retry also fails, notify and return empty
+    console.error('IndexedDB recovery failed, returning empty collections');
+    onRecoveryCallback?.({ type: 'recovery_failed', lostData: true });
+    return [];
+  }
 };
 
 export const getLocalCollections = async (): Promise<UserCollection[]> => {
@@ -354,13 +519,78 @@ export const hasLocalOnlyData = (
   });
 };
 
+// Internal function to sync a collection to cloud (used by both saveCollection and syncPendingChanges)
+const saveCollectionToCloud = async (collection: UserCollection): Promise<void> => {
+  if (!isSupabaseConfigured() || !supabase) return;
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  // Sync Collection Metadata
+  const collectionPayload: Record<string, any> = {
+    id: collection.id,
+    user_id: collection.ownerId || user.id,
+    template_id: collection.templateId,
+    name: collection.name,
+    icon: collection.icon,
+    settings: collection.settings,
+    seed_key: collection.seedKey,
+    is_public: Boolean(collection.isPublic),
+  };
+  if (SUPABASE_SYNC_TIMESTAMPS && collection.updatedAt) {
+    collectionPayload.updated_at = collection.updatedAt;
+  }
+
+  const { error: colError } = await supabase.from('collections').upsert(collectionPayload);
+
+  if (colError) {
+    throw new Error(`Collection sync failed: ${colError.message}`);
+  }
+
+  // Sync Items
+  if (collection.items.length > 0) {
+    const itemsToSync = collection.items.map((item) => {
+      const basePath = `${user.id}/collections/${collection.id}/${item.id}`;
+      const { originalPath, displayPath } = normalizePhotoPaths(item.photoUrl || '');
+      const photoOriginalPath =
+        item.photoUrl === 'asset' ? `${basePath}/original.jpg` : originalPath;
+      const photoDisplayPath = item.photoUrl === 'asset' ? `${basePath}/display.jpg` : displayPath;
+      const payload: Record<string, any> = {
+        id: item.id,
+        user_id: user.id,
+        collection_id: collection.id,
+        title: item.title,
+        notes: item.notes,
+        rating: item.rating,
+        data: item.data,
+        photo_original_path: photoOriginalPath,
+        photo_display_path: photoDisplayPath,
+        seed_key: item.seedKey,
+      };
+      if (SUPABASE_SYNC_TIMESTAMPS) {
+        payload.created_at = item.createdAt;
+        payload.updated_at = item.updatedAt || item.createdAt;
+      }
+      return payload;
+    });
+
+    const { error: itemsError } = await supabase.from('items').upsert(itemsToSync);
+
+    if (itemsError) {
+      throw new Error(`Items sync failed: ${itemsError.message}`);
+    }
+  }
+};
+
 export const saveCollection = async (collection: UserCollection): Promise<void> => {
   const db = await initDB();
   const collectionToSave = collection.updatedAt
     ? collection
     : { ...collection, updatedAt: new Date().toISOString() };
 
-  // 1. Local Persistence (IndexedDB)
+  // 1. Local Persistence (IndexedDB) - always succeeds
   await new Promise<void>((resolve, reject) => {
     const transaction = db.transaction(COLLECTIONS_STORE, 'readwrite');
     const store = transaction.objectStore(COLLECTIONS_STORE);
@@ -371,65 +601,18 @@ export const saveCollection = async (collection: UserCollection): Promise<void> 
 
   // 2. Cloud Sync (Supabase Normalized Mapping)
   if (isSupabaseConfigured() && supabase) {
+    notifySyncStatus('syncing');
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // Sync Collection Metadata
-      const collectionPayload: Record<string, any> = {
-        id: collectionToSave.id,
-        user_id: collectionToSave.ownerId || user.id,
-        template_id: collectionToSave.templateId,
-        name: collectionToSave.name,
-        icon: collectionToSave.icon,
-        settings: collectionToSave.settings,
-        seed_key: collectionToSave.seedKey,
-        is_public: Boolean(collectionToSave.isPublic),
-      };
-      if (SUPABASE_SYNC_TIMESTAMPS && collectionToSave.updatedAt) {
-        collectionPayload.updated_at = collectionToSave.updatedAt;
-      }
-
-      const { error: colError } = await supabase.from('collections').upsert(collectionPayload);
-
-      if (colError) console.warn('Supabase sync collection error:', colError);
-
-      // Sync Items
-      if (collectionToSave.items.length > 0) {
-        const itemsToSync = collectionToSave.items.map((item) => {
-          const basePath = `${user.id}/collections/${collectionToSave.id}/${item.id}`;
-          const { originalPath, displayPath } = normalizePhotoPaths(item.photoUrl || '');
-          const photoOriginalPath =
-            item.photoUrl === 'asset' ? `${basePath}/original.jpg` : originalPath;
-          const photoDisplayPath =
-            item.photoUrl === 'asset' ? `${basePath}/display.jpg` : displayPath;
-          const payload: Record<string, any> = {
-            id: item.id,
-            user_id: user.id,
-            collection_id: collectionToSave.id,
-            title: item.title,
-            notes: item.notes,
-            rating: item.rating,
-            data: item.data,
-            photo_original_path: photoOriginalPath,
-            photo_display_path: photoDisplayPath,
-            seed_key: item.seedKey,
-          };
-          if (SUPABASE_SYNC_TIMESTAMPS) {
-            payload.created_at = item.createdAt;
-            payload.updated_at = item.updatedAt || item.createdAt;
-          }
-          return payload;
-        });
-
-        const { error: itemsError } = await supabase.from('items').upsert(itemsToSync);
-
-        if (itemsError) console.warn('Supabase sync items error:', itemsError);
-      }
+      await saveCollectionToCloud(collectionToSave);
+      // Success - remove from pending queue if it was there
+      await removeFromPendingSync(collectionToSave.id);
+      notifySyncStatus('synced');
     } catch (e) {
-      console.error('Unexpected Supabase sync error:', e);
+      const errorMessage = e instanceof Error ? e.message : 'Sync failed';
+      console.warn('Supabase sync error:', errorMessage);
+      // Add to pending queue for retry
+      await addToPendingSync(collectionToSave.id);
+      notifySyncStatus('error', errorMessage);
     }
   }
 };
@@ -643,13 +826,32 @@ export const loadCollections = async (): Promise<UserCollection[]> => {
   return localCollections;
 };
 
+// P1 Fix #2: Atomic save using put() instead of clear() + add()
+// This prevents data loss if a crash occurs between clear and add
 export const saveAllCollections = async (collections: UserCollection[]): Promise<void> => {
   const db = await initDB();
+  const newIds = new Set(collections.map((c) => c.id));
+
   await new Promise<void>((resolve, reject) => {
     const transaction = db.transaction(COLLECTIONS_STORE, 'readwrite');
     const store = transaction.objectStore(COLLECTIONS_STORE);
-    store.clear();
-    collections.forEach((col) => store.add(col));
+
+    // Get existing keys to find stale entries
+    const keysRequest = store.getAllKeys();
+    keysRequest.onsuccess = () => {
+      const existingKeys = keysRequest.result as string[];
+
+      // Delete stale entries (ones not in new collection set)
+      existingKeys.forEach((key) => {
+        if (!newIds.has(key)) {
+          store.delete(key);
+        }
+      });
+
+      // Upsert all new collections (put instead of add)
+      collections.forEach((col) => store.put(col));
+    };
+
     transaction.oncomplete = () => resolve();
     transaction.onerror = () => reject(transaction.error);
   });
