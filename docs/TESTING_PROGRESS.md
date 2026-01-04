@@ -18,9 +18,9 @@ This checklist tracks test coverage implementation progress against `docs/TESTIN
 
 ## Phase 3: AI & Hooks Integration (Week 3)
 
-- [ ] **3.1 `services/geminiService.ts` — AI Analysis** (`tests/services/geminiService.test.ts`)
-- [ ] **3.2 `hooks/useAuthState.ts` — Auth State Management** (`tests/hooks/useAuthState.test.ts`)
-- [ ] **3.3 `hooks/useCollections.ts` — Collection Management** (`tests/hooks/useCollections.test.ts`)
+- [x] **3.1 `services/geminiService.ts` — AI Analysis** (`tests/services/geminiService.test.ts`)
+- [x] **3.2 `hooks/useAuthState.ts` — Auth State Management** (`tests/hooks/useAuthState.test.ts`)
+- [x] **3.3 `hooks/useCollections.ts` — Collection Management** (`tests/hooks/useCollections.test.ts`)
 
 ## Phase 4: Components (Week 4)
 
@@ -31,5 +31,3 @@ This checklist tracks test coverage implementation progress against `docs/TESTIN
 ## Phase 5: End-to-End Tests (Week 5)
 
 - [ ] **5.1 Critical User Flows** (`tests/e2e/critical-flows.spec.ts`)
-
-
