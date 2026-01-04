@@ -14,6 +14,13 @@ export default defineConfig({
     environment: 'happy-dom',
     setupFiles: './tests/setup.ts',
     include: ['tests/**/*.test.{ts,tsx}'],
+    // IndexedDB-heavy integration tests (Phase 2) use a fixed DB name in production code.
+    // Running test files in parallel can cause delete/open blocking across suites.
+    // Keep the suite deterministic by running with a single worker.
+    maxWorkers: 1,
+    sequence: {
+      concurrent: false,
+    },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

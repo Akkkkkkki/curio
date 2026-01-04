@@ -44,7 +44,7 @@
   - Test cases: legacy `photo_path` migration, modern paths, missing paths
   - Edge cases: null/undefined items, partial path data
 
-**Deliverable:** `tests/services/db.pure.test.ts`
+**Deliverable:** `tests/unit/services/db.pure.test.ts`
 
 ---
 
@@ -76,7 +76,7 @@
 npm install --save-dev canvas  # for Node.js Canvas API
 ```
 
-**Deliverable:** `tests/services/imageProcessor.test.ts`
+**Deliverable:** `tests/unit/services/imageProcessor.test.ts`
 
 ---
 
@@ -106,7 +106,7 @@ npm install --save-dev canvas  # for Node.js Canvas API
 // Return controlled responses for auth methods
 ```
 
-**Deliverable:** `tests/services/supabase.test.ts`
+**Deliverable:** `tests/unit/services/supabase.test.ts`
 
 ---
 

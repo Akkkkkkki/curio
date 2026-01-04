@@ -12,9 +12,9 @@ This checklist tracks test coverage implementation progress against `docs/TESTIN
 
 ## Phase 2: Critical Services — Integration (Week 2)
 
-- [ ] **2.1 `services/db.ts` — Merge Logic** (`tests/services/db.merge.test.ts`)
-- [ ] **2.2 `services/db.ts` — Dual-Write Operations** (`tests/services/db.operations.test.ts`)
-- [ ] **2.3 `services/db.ts` — Cleanup & Utilities** (`tests/services/db.cleanup.test.ts`)
+- [x] **2.1 `services/db.ts` — Merge Logic** (`tests/services/db.merge.test.ts`)
+- [x] **2.2 `services/db.ts` — Dual-Write Operations** (`tests/services/db.operations.test.ts`)
+- [x] **2.3 `services/db.ts` — Cleanup & Utilities** (`tests/services/db.cleanup.test.ts`)
 
 ## Phase 3: AI & Hooks Integration (Week 3)
 

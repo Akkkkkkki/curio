@@ -53,7 +53,9 @@ tests/
 │   ├── canvas-mock.ts           # Canvas API utilities
 │   └── fixtures/
 │       └── collections.ts       # Mock collections and items
-├── services/                     # Phase 1 & 2 - Service tests
+├── unit/                         # Unit-level tests (pure/isolated)
+│   └── services/                # Phase 1 - Pure/isolated service tests
+├── services/                     # Integration-level service tests (IndexedDB/Supabase/etc.)
 ├── hooks/                        # Phase 3 - React hooks tests
 ├── components/                   # Phase 4 - Component tests
 └── e2e/                         # Phase 5 - End-to-end tests
@@ -77,9 +79,9 @@ All testing infrastructure is ready:
 
 **Ready to implement:**
 
-- `tests/services/db.pure.test.ts` - compareTimestamps, normalizePhotoPaths
-- `tests/services/imageProcessor.test.ts` - Image processing validation
-- `tests/services/supabase.test.ts` - Auth function tests
+- `tests/unit/services/db.pure.test.ts` - compareTimestamps, normalizePhotoPaths
+- `tests/unit/services/imageProcessor.test.ts` - Image processing validation
+- `tests/unit/services/supabase.test.ts` - Auth function tests
 
 ### 📋 Phase 2: Critical Services - Integration
 
@@ -208,6 +210,11 @@ MSW handlers are stubs. Expand them in Phase 2/3 as needed:
 - Add realistic error responses
 - Implement RLS policy simulation
 - Add request validation
+
+### IndexedDB + Parallel Test Execution
+
+`services/db.ts` uses a fixed IndexedDB database name (`CurioDatabase`). Running IndexedDB-heavy integration suites in parallel can cause open/delete blocking.
+For determinism, the test runner is configured to run with a single worker.
 
 ## Next Steps
 
