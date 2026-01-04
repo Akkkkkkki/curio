@@ -93,7 +93,7 @@ export const useCollections = ({
     return () => setSyncStatusCallback(null);
   }, []);
 
-  // Sync pending changes when coming back online or on startup if already online
+  // Sync pending changes when coming back online
   useEffect(() => {
     const handleOnline = async () => {
       const synced = await syncPendingChanges();
@@ -105,10 +105,8 @@ export const useCollections = ({
       }
     };
 
-    // Sync on startup if already online (handles case where app starts after offline session)
-    if (navigator.onLine) {
-      handleOnline();
-    }
+    // Note: We don't sync on mount here - that's handled at the end of refreshCollections()
+    // to avoid race conditions with the initial load
 
     window.addEventListener('online', handleOnline);
     return () => window.removeEventListener('online', handleOnline);
@@ -199,6 +197,14 @@ export const useCollections = ({
       setCollections(cloudCollections);
       if (cloudCollections.length + localCollections.length > 0) {
         showStatus(t('statusSynced'), 'success');
+      }
+
+      // Sync any pending changes from previous offline session (only when online and logged in)
+      if (user && navigator.onLine) {
+        const synced = await syncPendingChanges();
+        if (synced > 0) {
+          showStatus(t('statusPendingSynced').replace('{count}', String(synced)), 'success');
+        }
       }
     } catch (e) {
       console.error('Initialization failed:', e);

@@ -81,11 +81,12 @@ App Load ← IndexedDB (cache) ←──────── Supabase (source of t
 - Added `PENDING_SYNC_KEY` in settings store to track pending syncs
 - Added `addToPendingSync()`, `removeFromPendingSync()`, `getPendingSyncIds()` helpers
 - Added `syncPendingChanges()` exported function
-- `saveCollection()` now queues failed syncs for later retry
+- `saveCollection()` now queues failed syncs for later retry (including when no user session)
 - `useCollections.ts` listens for `online` event and calls `syncPendingChanges()`
+- Startup sync called at end of `refreshCollections()` to avoid race conditions with initial load
 - Added translations: `statusPendingSyncs`, `statusPendingSynced`
 
-**User Experience:** Changes made offline are automatically synced when connection is restored, with a notification showing how many changes were synced.
+**User Experience:** Changes made offline are automatically synced when connection is restored (or on app startup if already online), with a notification showing how many changes were synced.
 
 ---
 
