@@ -520,13 +520,20 @@ export const hasLocalOnlyData = (
 };
 
 // Internal function to sync a collection to cloud (used by both saveCollection and syncPendingChanges)
+// Throws on failure so callers can retain pending syncs for retry
 const saveCollectionToCloud = async (collection: UserCollection): Promise<void> => {
-  if (!isSupabaseConfigured() || !supabase) return;
+  if (!isSupabaseConfigured() || !supabase) {
+    // No cloud configured - not an error, just skip
+    return;
+  }
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return;
+  if (!user) {
+    // No user session - throw so pending syncs are retained for retry
+    throw new Error('No authenticated user session');
+  }
 
   // Sync Collection Metadata
   const collectionPayload: Record<string, any> = {
