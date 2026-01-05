@@ -63,12 +63,8 @@ describe('AuthModal', () => {
       const user = userEvent.setup();
       renderWithProviders(<AuthModal {...defaultProps} />);
 
-      // Find close button (X icon button)
-      const closeButtons = screen.getAllByRole('button');
-      const closeButton = closeButtons.find((btn) => btn.querySelector('svg'));
-      expect(closeButton).toBeInTheDocument();
-
-      await user.click(closeButton!);
+      const closeButton = screen.getByRole('button', { name: /close/i });
+      await user.click(closeButton);
       expect(mockOnClose).toHaveBeenCalledTimes(1);
     });
   });
@@ -88,8 +84,8 @@ describe('AuthModal', () => {
       const user = userEvent.setup();
       renderWithProviders(<AuthModal {...defaultProps} />);
 
-      const closeButton = screen.getByRole('button', { name: /close/i });
-      await user.click(closeButton);
+      const closeButtons = screen.getAllByRole('button', { name: /close/i });
+      await user.click(closeButtons[0]);
 
       expect(mockOnClose).toHaveBeenCalledTimes(1);
     });

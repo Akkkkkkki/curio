@@ -60,6 +60,10 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
       className={`fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 ${overlayClass} backdrop-blur-sm`}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="create-collection-title"
+        data-testid="create-collection-modal"
         className={`${surfaceClass} rounded-t-3xl rounded-b-none sm:rounded-2xl shadow-xl w-full max-w-md h-[100dvh] sm:h-auto max-h-[100dvh] overflow-hidden flex flex-col motion-panel border pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] sm:pt-0 sm:pb-0`}
       >
         <div className="sm:hidden flex items-center justify-center pt-2">
@@ -69,12 +73,14 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
         </div>
         <div className={`flex items-center justify-between p-4 border-b ${dividerBorder}`}>
           <h2
+            id="create-collection-title"
             className={`font-serif font-bold text-lg ${theme === 'vault' ? 'text-white' : 'text-stone-800'}`}
           >
             {t('newArchive')}
           </h2>
           <button
             onClick={onClose}
+            aria-label={t('close')}
             className={`p-1 rounded-full transition-colors ${theme === 'vault' ? 'hover:bg-white/5 text-stone-300 hover:text-white' : 'hover:bg-stone-100 text-stone-400 hover:text-stone-800'}`}
           >
             <X size={20} />
@@ -108,6 +114,7 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="..."
+                data-testid="create-collection-name"
                 className={`w-full p-3.5 rounded-xl focus:ring-2 focus:ring-amber-200 outline-none font-medium ${inputSurface}`}
                 autoFocus
               />

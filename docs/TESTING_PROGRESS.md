@@ -142,4 +142,5 @@ npm run test:e2e:debug      # Debug mode
 1. **saveItem function**: Not yet implemented in db.ts (tracked as todo test)
 2. **Upload retry logic**: Not yet implemented for saveAsset (tracked as todo test)
 3. **E2E tests require running app**: E2E tests need `npm run dev` server running
-4. **Supabase integration**: Some E2E tests need actual Supabase backend for full coverage
+4. **Supabase integration**: Authenticated E2E tests require real credentials (`E2E_EMAIL`, `E2E_PASSWORD`) and are skipped if not provided
+5. **Theme persistence**: Component tests use an in-memory ThemeProvider mock; persistence to IndexedDB is not covered by unit/component tests (see `tests/utils/test-utils.tsx`)

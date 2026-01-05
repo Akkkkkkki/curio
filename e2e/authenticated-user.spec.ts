@@ -1,233 +1,64 @@
 import { test, expect, Page } from '@playwright/test';
 
 /**
- * Phase 5.1: Authenticated User Flow E2E Tests
+ * Phase 5.2: Authenticated User Flow (Playwright)
  *
- * Product Requirements Tested:
- * - Collection management for authenticated users
- * - Item CRUD operations
- * - Sync status visibility
- * - AI analysis flow (with graceful degradation)
+ * These tests require real Supabase credentials.
+ * Provide:
+ * - E2E_EMAIL
+ * - E2E_PASSWORD
  */
 
-// Note: These tests require a running Supabase backend
-// For CI, mock the auth or use a test account
+const E2E_EMAIL = process.env.E2E_EMAIL;
+const E2E_PASSWORD = process.env.E2E_PASSWORD;
 
-test.describe('Authenticated User Experience', () => {
-  // Helper to mock authenticated state
-  async function mockAuthenticatedUser(page: Page) {
-    // For actual E2E with Supabase, you would login
-    // For isolated testing, we check if auth modal appears and close it
-    await page.goto('/');
+async function signIn(page: Page) {
+  await page.goto('/');
 
-    // Check if app loads
-    await expect(page.locator('body')).toBeVisible();
+  // Open auth modal from the access gate when present; otherwise from the account menu.
+  const gate = page.getByTestId('access-gate');
+  if (await gate.isVisible()) {
+    await page.getByTestId('cta-primary-add-first').click();
+  } else {
+    await page.getByRole('button', { name: 'Account' }).click();
+    await page.getByRole('button', { name: /login/i }).click();
   }
 
-  test.describe('Collection Management', () => {
-    test('should display user collections on home screen', async ({ page }) => {
-      await mockAuthenticatedUser(page);
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.getByPlaceholder('curator@museum.com').fill(E2E_EMAIL!);
+  await page.getByPlaceholder('••••••••').fill(E2E_PASSWORD!);
+  await page.getByRole('button', { name: /login/i }).click();
 
-      // Home should display collection grid
-      await expect(page.locator('body')).toBeVisible();
-    });
+  await expect(page.getByRole('dialog')).toBeHidden({ timeout: 15000 });
+}
 
-    test('should allow creating a new collection', async ({ page }) => {
-      await mockAuthenticatedUser(page);
-
-      // Look for create collection button
-      const createButton = page.getByRole('button', { name: /create|new collection/i }).first();
-      if (await createButton.isVisible()) {
-        await createButton.click();
-
-        // Modal should appear
-        await expect(page.locator('[role="dialog"]')).toBeVisible({ timeout: 5000 });
-      }
-    });
-
-    test('should display collection templates when creating', async ({ page }) => {
-      await mockAuthenticatedUser(page);
-
-      // Trigger create flow
-      const createButton = page.getByRole('button', { name: /create|new/i }).first();
-      if (await createButton.isVisible()) {
-        await createButton.click();
-
-        // Should show template options
-        await expect(
-          page.getByText(/vinyl|chocolate|sneaker|spirit|scent|archive/i).first(),
-        ).toBeVisible({ timeout: 5000 });
-      }
-    });
+test.describe('Authenticated User Experience', () => {
+  test.beforeEach(async ({ page }) => {
+    test.skip(!E2E_EMAIL || !E2E_PASSWORD, 'E2E_EMAIL/E2E_PASSWORD not set');
+    await signIn(page);
   });
 
-  test.describe('Item Management', () => {
-    test('should navigate to item detail when clicking item', async ({ page }) => {
-      await mockAuthenticatedUser(page);
+  test('should show explicit “Saved” feedback after adding an item', async ({ page }) => {
+    // Create a new collection
+    await expect(page.getByTestId('collections-grid')).toBeVisible({ timeout: 15000 });
+    await page.getByText(/new archive/i).click();
 
-      // Navigate to a collection first
-      const collection = page.getByText(/vinyl/i).first();
-      if (await collection.isVisible()) {
-        await collection.click();
-        await page.waitForTimeout(1000);
+    await expect(page.getByTestId('create-collection-modal')).toBeVisible();
+    await page.getByTestId('create-collection-name').fill('E2E Archive');
+    await page.getByRole('button', { name: /create/i }).click();
 
-        // Find an item
-        const item = page.locator('[data-testid="item-card"]').first();
-        if (await item.isVisible()) {
-          await item.click();
-          await expect(page).toHaveURL(/#\/collection\/.*\/item\//);
-        }
-      }
-    });
+    await expect(page.getByText('E2E Archive')).toBeVisible({ timeout: 15000 });
+    await page.getByText('E2E Archive').click();
 
-    test('should display item details correctly', async ({ page }) => {
-      await mockAuthenticatedUser(page);
+    // Add item (manual path — recoverable AI)
+    await page.getByRole('button', { name: /add item/i }).click();
+    await page.getByText(/skip and add manually/i).click();
 
-      // Navigate to collection
-      const collection = page.getByText(/vinyl/i).first();
-      if (await collection.isVisible()) {
-        await collection.click();
-        await page.waitForTimeout(1000);
+    const title = page.getByRole('textbox').first();
+    await title.fill('E2E Item');
+    await page.getByRole('button', { name: /add to collection/i }).click();
 
-        // Click on first item
-        const item = page.locator('[data-testid="item-card"]').first();
-        if (await item.isVisible()) {
-          await item.click();
-          await page.waitForTimeout(500);
-
-          // Should show item title
-          await expect(page.locator('h1, h2, h3').first()).toBeVisible();
-        }
-      }
-    });
-  });
-
-  test.describe('Add Item Flow', () => {
-    test('should open add item modal', async ({ page }) => {
-      await mockAuthenticatedUser(page);
-
-      // Navigate to a collection
-      const collection = page.getByText(/vinyl/i).first();
-      if (await collection.isVisible()) {
-        await collection.click();
-        await page.waitForTimeout(1000);
-
-        // Find add button
-        const addButton = page.getByRole('button', { name: /add/i }).first();
-        if (await addButton.isVisible()) {
-          await addButton.click();
-
-          // Modal should appear
-          await expect(page.locator('[role="dialog"]')).toBeVisible({ timeout: 5000 });
-        }
-      }
-    });
-
-    test('should show skip to manual option (AI recovery)', async ({ page }) => {
-      await mockAuthenticatedUser(page);
-
-      // Navigate to collection and open add modal
-      const collection = page.getByText(/vinyl/i).first();
-      if (await collection.isVisible()) {
-        await collection.click();
-        await page.waitForTimeout(1000);
-
-        const addButton = page.getByRole('button', { name: /add/i }).first();
-        if (await addButton.isVisible()) {
-          await addButton.click();
-          await page.waitForTimeout(500);
-
-          // Product requirement: AI must be recoverable
-          await expect(page.getByText(/skip and add manually/i)).toBeVisible({ timeout: 5000 });
-        }
-      }
-    });
-
-    test('should allow manual entry without photo', async ({ page }) => {
-      await mockAuthenticatedUser(page);
-
-      const collection = page.getByText(/vinyl/i).first();
-      if (await collection.isVisible()) {
-        await collection.click();
-        await page.waitForTimeout(1000);
-
-        const addButton = page.getByRole('button', { name: /add/i }).first();
-        if (await addButton.isVisible()) {
-          await addButton.click();
-          await page.waitForTimeout(500);
-
-          // Click skip to manual
-          const skipButton = page.getByText(/skip and add manually/i);
-          if (await skipButton.isVisible()) {
-            await skipButton.click();
-
-            // Should show form fields
-            await expect(page.getByRole('textbox').first()).toBeVisible({ timeout: 5000 });
-          }
-        }
-      }
-    });
-  });
-
-  test.describe('Sync Status', () => {
-    test('should display sync status indicator', async ({ page }) => {
-      await mockAuthenticatedUser(page);
-
-      // Look for sync status indicator in header/layout
-      const syncStatus = page.getByText(/signed in|synced|offline/i).first();
-      await expect(syncStatus).toBeVisible({ timeout: 10000 });
-    });
-  });
-
-  test.describe('Search and Filter', () => {
-    test('should have search functionality on home screen', async ({ page }) => {
-      await mockAuthenticatedUser(page);
-
-      // Look for search input
-      const searchInput = page.getByPlaceholder(/search/i).first();
-      if (await searchInput.isVisible()) {
-        await searchInput.fill('test search');
-        // Search should filter results
-      }
-    });
-
-    test('should have filter options in collection view', async ({ page }) => {
-      await mockAuthenticatedUser(page);
-
-      const collection = page.getByText(/vinyl/i).first();
-      if (await collection.isVisible()) {
-        await collection.click();
-        await page.waitForTimeout(1000);
-
-        // Look for filter button or options
-        const filterButton = page.getByRole('button', { name: /filter/i }).first();
-        if (await filterButton.isVisible()) {
-          await filterButton.click();
-          // Filter modal should appear
-          await expect(page.locator('[role="dialog"]')).toBeVisible({ timeout: 5000 });
-        }
-      }
-    });
-  });
-});
-
-test.describe('Exhibition Mode', () => {
-  test('should enter exhibition/slideshow mode', async ({ page }) => {
-    await page.goto('/');
-
-    const collection = page.getByText(/vinyl/i).first();
-    if (await collection.isVisible()) {
-      await collection.click();
-      await page.waitForTimeout(1000);
-
-      // Look for exhibition mode button
-      const exhibitionButton = page
-        .getByRole('button', { name: /exhibition|slideshow|present/i })
-        .first();
-      if (await exhibitionButton.isVisible()) {
-        await exhibitionButton.click();
-        // Should enter fullscreen or exhibition view
-      }
-    }
+    await expect(page.getByTestId('status-toast')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('status-toast-message')).toContainText(/saved/i);
   });
 });

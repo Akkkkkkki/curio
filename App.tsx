@@ -778,7 +778,7 @@ const AppContent: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8" data-testid="collections-grid">
           {filteredCollections.map((col) => (
             <CollectionCard
               key={col.id}
@@ -870,6 +870,7 @@ const AppContent: React.FC = () => {
       <div className="space-y-10 animate-in slide-in-from-bottom-4 duration-500">
         {isReadOnly && (
           <div
+            data-testid="read-only-banner"
             className={`flex items-center gap-3 p-4 rounded-2xl border shadow-sm ${theme === 'vault' ? 'bg-white/5 border-white/10' : 'bg-white/80 border-stone-100'}`}
           >
             <div className="p-2 rounded-xl bg-amber-50 text-amber-700 shadow-inner">
@@ -1048,6 +1049,7 @@ const AppContent: React.FC = () => {
                 ? 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 sm:gap-8'
                 : 'columns-1 sm:columns-2 md:columns-3 lg:columns-4 [column-gap:1.5rem] sm:[column-gap:2rem]'
             } w-full`}
+            data-testid="items-grid"
           >
             {filteredItems.map((item) => (
               <div
@@ -1407,7 +1409,10 @@ const AppContent: React.FC = () => {
   }, [isAuthenticated, authActionQueue, handleAddAction]);
 
   const renderAccessGate = () => (
-    <div className="flex flex-col items-center justify-center px-4 py-16 sm:py-24">
+    <div
+      className="flex flex-col items-center justify-center px-4 py-16 sm:py-24"
+      data-testid="access-gate"
+    >
       <div className="max-w-md w-full text-center bg-white/70 border border-stone-200 rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-10 shadow-xl">
         <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-stone-100 text-stone-500 flex items-center justify-center mx-auto mb-5 sm:mb-6">
           {!authReady && isSupabaseReady ? (
@@ -1430,23 +1435,27 @@ const AppContent: React.FC = () => {
               ? t('authRequiredDesc')
               : t('cloudRequiredDesc')}
         </p>
-        <div className="space-y-2">
-          <Button onClick={handleAddAction} size="lg" className="w-full">
+        <div className="space-y-2" data-testid="first-run-ctas">
+          <Button
+            onClick={handleAddAction}
+            size="lg"
+            className="w-full"
+            data-testid="cta-primary-add-first"
+          >
             {t('ctaAddFirst')}
           </Button>
           {isSupabaseReady && (
-            <Button onClick={handleExploreSamples} size="lg" variant="secondary" className="w-full">
+            <Button
+              onClick={handleExploreSamples}
+              size="lg"
+              variant="secondary"
+              className="w-full"
+              data-testid="cta-secondary-explore-sample"
+            >
               {t('exploreSample')}
             </Button>
           )}
-          {isSupabaseReady && authReady ? (
-            <button
-              onClick={() => setIsAuthModalOpen(true)}
-              className="w-full text-sm font-semibold text-stone-500 hover:text-stone-800 py-2"
-            >
-              {t('authRequiredAction')}
-            </button>
-          ) : !isSupabaseReady ? (
+          {!isSupabaseReady ? (
             <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-stone-400">
               {t('cloudRequiredAction')}
             </div>
@@ -1458,7 +1467,10 @@ const AppContent: React.FC = () => {
   );
 
   return (
-    <div className={`min-h-screen transition-colors duration-1000 ${themeColors[theme]}`}>
+    <div
+      className={`min-h-screen transition-colors duration-1000 ${themeColors[theme]}`}
+      data-theme={theme}
+    >
       <Layout
         onOpenAuth={() => setIsAuthModalOpen(true)}
         onSignOut={handleSignOut}

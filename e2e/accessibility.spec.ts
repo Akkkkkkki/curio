@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, Page } from '@playwright/test';
 
 /**
  * Phase 5.1: Accessibility E2E Tests
@@ -11,6 +11,18 @@ import { test, expect } from '@playwright/test';
  */
 
 test.describe('Accessibility', () => {
+  async function openAuthModal(page: Page) {
+    await page.goto('/');
+    const gate = page.getByTestId('access-gate');
+    if (await gate.isVisible()) {
+      await page.getByTestId('cta-primary-add-first').click();
+    } else {
+      await page.getByRole('button', { name: 'Account' }).click();
+      await page.getByRole('button', { name: /login/i }).click();
+    }
+    await expect(page.getByRole('dialog')).toBeVisible();
+  }
+
   test.describe('Keyboard Navigation', () => {
     test('should be able to navigate home page with keyboard only', async ({ page }) => {
       await page.goto('/');
@@ -24,61 +36,28 @@ test.describe('Accessibility', () => {
       await expect(focusedElement).toBeVisible();
     });
 
-    test('should be able to open modals with keyboard', async ({ page }) => {
+    test('should close modal with Escape key and restore focus to trigger', async ({ page }) => {
       await page.goto('/');
+      const trigger = page.getByTestId('cta-primary-add-first');
+      test.skip(!(await page.getByTestId('access-gate').isVisible()), 'Access gate not shown');
 
-      // Tab to a button and press Enter
-      for (let i = 0; i < 5; i++) {
-        await page.keyboard.press('Tab');
-        await page.waitForTimeout(50);
+      await trigger.click();
+      await expect(page.getByRole('dialog')).toBeVisible();
 
-        const focused = await page.locator(':focus');
-        const tagName = await focused.evaluate((el) => el.tagName.toLowerCase());
-
-        if (tagName === 'button') {
-          await page.keyboard.press('Enter');
-          break;
-        }
-      }
+      await page.keyboard.press('Escape');
+      await expect(page.getByRole('dialog')).toBeHidden();
+      await expect(trigger).toBeFocused();
     });
 
     test('should trap focus within modal when open', async ({ page }) => {
-      await page.goto('/');
+      await openAuthModal(page);
+      const dialog = page.getByRole('dialog');
 
-      // Open a modal (e.g., auth modal)
-      const authButton = page.getByText(/sign in/i).first();
-      if (await authButton.isVisible()) {
-        await authButton.click();
-        await page.waitForTimeout(500);
-
-        // Tab through modal elements
+      // Walk focus around and ensure it never escapes the dialog.
+      for (let i = 0; i < 15; i++) {
         await page.keyboard.press('Tab');
-        const focused = await page.locator(':focus');
-        await expect(focused).toBeVisible();
-
-        // Focus should remain within the modal
-        const modal = page.locator('[role="dialog"]');
-        if (await modal.isVisible()) {
-          const focusedInModal = modal.locator(':focus');
-          await expect(focusedInModal).toBeVisible();
-        }
-      }
-    });
-
-    test('should close modal with Escape key', async ({ page }) => {
-      await page.goto('/');
-
-      const authButton = page.getByText(/sign in/i).first();
-      if (await authButton.isVisible()) {
-        await authButton.click();
-        await page.waitForTimeout(500);
-
-        // Press Escape
-        await page.keyboard.press('Escape');
-        await page.waitForTimeout(300);
-
-        // Modal should be closed
-        await expect(page.locator('[role="dialog"]')).not.toBeVisible();
+        const isInside = await dialog.evaluate((node) => node.contains(document.activeElement));
+        expect(isInside).toBe(true);
       }
     });
   });
@@ -87,9 +66,10 @@ test.describe('Accessibility', () => {
     test('should have proper heading hierarchy', async ({ page }) => {
       await page.goto('/');
 
-      // Check for h1
-      const h1 = page.locator('h1').first();
-      await expect(h1).toBeVisible({ timeout: 10000 });
+      const headings = await page
+        .locator('h1, h2, h3, h4, h5, h6')
+        .evaluateAll((nodes) => nodes.map((n) => n.tagName.toLowerCase()));
+      expect(headings[0]).toBe('h1');
     });
 
     test('should have descriptive button labels', async ({ page }) => {
@@ -111,28 +91,25 @@ test.describe('Accessibility', () => {
     });
 
     test('should have proper form labels', async ({ page }) => {
-      await page.goto('/');
+      await openAuthModal(page);
+      const inputs = page.getByRole('dialog').locator('input');
+      const inputCount = await inputs.count();
+      expect(inputCount).toBeGreaterThan(0);
 
-      // Open auth modal to check form
-      const authButton = page.getByText(/sign in/i).first();
-      if (await authButton.isVisible()) {
-        await authButton.click();
-        await page.waitForTimeout(500);
-
-        // Check input fields have labels
-        const inputs = page.locator('input');
-        const inputCount = await inputs.count();
-
-        for (let i = 0; i < inputCount; i++) {
-          const input = inputs.nth(i);
-          if (await input.isVisible()) {
-            // Input should have placeholder or aria-label
-            const placeholder = await input.getAttribute('placeholder');
-            const ariaLabel = await input.getAttribute('aria-label');
-            expect(placeholder || ariaLabel).toBeTruthy();
-          }
+      for (let i = 0; i < inputCount; i++) {
+        const input = inputs.nth(i);
+        if (await input.isVisible()) {
+          const placeholder = await input.getAttribute('placeholder');
+          const ariaLabel = await input.getAttribute('aria-label');
+          expect(placeholder || ariaLabel).toBeTruthy();
         }
       }
+    });
+
+    test('should expose landmark regions (main + primary nav)', async ({ page }) => {
+      await page.goto('/');
+      await expect(page.locator('main')).toBeVisible();
+      await expect(page.locator('nav[aria-label="Primary"]')).toBeVisible();
     });
   });
 
