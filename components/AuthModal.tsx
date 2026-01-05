@@ -105,6 +105,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
           role="dialog"
           aria-modal="true"
           aria-labelledby="auth-modal-title"
+          data-testid="auth-modal"
           className={`${surfaceClass} rounded-t-[2.5rem] rounded-b-none sm:rounded-[2.5rem] shadow-2xl w-full max-w-md h-[100dvh] sm:h-auto max-h-[100dvh] overflow-hidden flex flex-col border motion-panel pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] sm:pt-0 sm:pb-0`}
         >
           <div className="sm:hidden flex items-center justify-center pt-2">
@@ -169,6 +170,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
         role="dialog"
         aria-modal="true"
         aria-labelledby="auth-modal-title"
+        data-testid="auth-modal"
         className={`${surfaceClass} rounded-t-[2.5rem] rounded-b-none sm:rounded-[2.5rem] shadow-2xl w-full max-w-md h-[100dvh] sm:h-auto max-h-[100dvh] overflow-hidden flex flex-col border motion-panel pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] sm:pt-0 sm:pb-0`}
       >
         <div className="sm:hidden flex items-center justify-center pt-2">

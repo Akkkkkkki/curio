@@ -1421,13 +1421,13 @@ const AppContent: React.FC = () => {
             <Lock size={24} />
           )}
         </div>
-        <h2 className="font-serif text-2xl font-bold text-stone-900 mb-2">
+        <h1 className="font-serif text-2xl font-bold text-stone-900 mb-2">
           {!authReady && isSupabaseReady
             ? t('authLoading')
             : isSupabaseReady
               ? t('authRequiredTitle')
               : t('cloudRequiredTitle')}
-        </h2>
+        </h1>
         <p className="text-sm text-stone-500 mb-6">
           {!authReady && isSupabaseReady
             ? t('authLoadingDesc')
