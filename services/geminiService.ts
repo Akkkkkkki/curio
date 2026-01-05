@@ -60,11 +60,19 @@ export const isVoiceGuideEnabled = () => isAiEnabled() && VOICE_GUIDE_ENABLED;
 export const analyzeImage = async (
   base64Image: string,
   fields: FieldDefinition[],
-): Promise<{ title: string; data: Record<string, any>; notes: string }> => {
-  if (!(await refreshAiEnabled())) {
-    throw new Error('AI is disabled');
+): Promise<{ title: string; data: Record<string, any>; notes: string } | null> => {
+  // Graceful degradation: return null if AI is disabled or on any failure
+  // This allows the UI to remain functional and let users proceed without AI
+  try {
+    if (!(await refreshAiEnabled())) {
+      return null;
+    }
+    return await postJson('/gemini/analyze', { imageBase64: base64Image, fields });
+  } catch (error) {
+    // Log for debugging but don't block the user
+    console.warn('AI analysis failed:', error);
+    return null;
   }
-  return postJson('/gemini/analyze', { imageBase64: base64Image, fields });
 };
 
 interface MuseumGuideSession {

@@ -1,13 +1,13 @@
 /**
  * Phase 3.1: services/geminiService.ts — AI Analysis Tests
  *
- * Tests for the Gemini AI service that handles image analysis.
+ * Success criteria (from docs/TESTING_ROADMAP.md):
+ * - Non-blocking failures: UI remains functional if AI fails
+ * - Timeout handling: User can proceed without AI (timeout returns null)
+ * - Schema validation: Response matches FieldDefinition[] structure
  *
- * Note: The current implementation throws errors on failure. The roadmap suggests
- * graceful degradation (returning null), but this isn't implemented yet. These tests
- * verify the actual behavior. Graceful degradation is tracked as a future enhancement.
- *
- * IMPORTANT (TDD): Do not modify production implementations while writing these tests.
+ * IMPORTANT: Per product requirements, analyzeImage returns null on any failure
+ * to ensure graceful degradation and non-blocking UX.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -48,7 +48,7 @@ describe('services/geminiService.ts - analyzeImage (Phase 3.1)', () => {
   it('happy path: posts image + field schema to /gemini/analyze and returns {title, notes, data}', async () => {
     /**
      * Verifies the typical AI analysis request:
-     * - Uses the correct API route (/gemini/analyze - not /api/gemini/analyze)
+     * - Uses the correct API route (/gemini/analyze)
      * - Sends { imageBase64, fields } in the JSON body
      * - Returns the expected response shape for downstream UI usage
      */
@@ -80,21 +80,28 @@ describe('services/geminiService.ts - analyzeImage (Phase 3.1)', () => {
     });
   });
 
-  it('throws when AI is disabled', async () => {
+  it('graceful degradation: returns null when AI is disabled', async () => {
+    /**
+     * Per product requirements: AI failures should not block the UI.
+     * When AI is disabled, analyzeImage returns null so users can proceed manually.
+     */
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue(createOkJsonResponse({ geminiConfigured: false })),
     );
     const mod = await importGeminiServiceFresh({ aiEnabled: 'false' });
 
-    await expect(mod.analyzeImage('BASE64', fields)).rejects.toThrow('AI is disabled');
+    const result = await mod.analyzeImage('BASE64', fields);
+    expect(result).toBeNull();
   });
 
-  it('throws on network failure (fetch rejects)', async () => {
+  it('graceful degradation: returns null on network failure', async () => {
     /**
-     * Current behavior: network failures throw errors.
-     * The caller (UI) should catch and handle gracefully.
+     * Per product requirements: Network failures should not block the UI.
+     * analyzeImage catches errors and returns null.
      */
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
     vi.stubGlobal(
       'fetch',
       vi.fn().mockImplementation(async (url: string) => {
@@ -106,13 +113,20 @@ describe('services/geminiService.ts - analyzeImage (Phase 3.1)', () => {
     );
 
     const mod = await importGeminiServiceFresh();
-    await expect(mod.analyzeImage('BASE64', fields)).rejects.toThrow('Network down');
+    const result = await mod.analyzeImage('BASE64', fields);
+
+    expect(result).toBeNull();
+    expect(warnSpy).toHaveBeenCalledWith('AI analysis failed:', expect.any(Error));
+
+    warnSpy.mockRestore();
   });
 
-  it('throws on non-OK response (401, 429, etc)', async () => {
+  it('graceful degradation: returns null on non-OK response (401, 429, etc)', async () => {
     /**
-     * Current behavior: non-OK HTTP responses throw errors with the error message.
+     * Per product requirements: API errors should not block the UI.
      */
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
     vi.stubGlobal(
       'fetch',
       vi.fn().mockImplementation(async (url: string) => {
@@ -124,16 +138,19 @@ describe('services/geminiService.ts - analyzeImage (Phase 3.1)', () => {
     );
 
     const mod = await importGeminiServiceFresh();
-    await expect(mod.analyzeImage('BASE64', fields)).rejects.toThrow('Invalid API key');
+    const result = await mod.analyzeImage('BASE64', fields);
+
+    expect(result).toBeNull();
+    warnSpy.mockRestore();
   });
 
-  it('aborts request after 30s timeout', async () => {
+  it('graceful degradation: returns null after 30s timeout', async () => {
     /**
-     * Verifies the timeout behavior:
-     * - The request is aborted after 30 seconds
-     * - An AbortError is thrown
+     * Per product requirements: "Timeout: Returns null after 30s (non-blocking)"
+     * Users can proceed without AI if the request takes too long.
      */
     vi.useFakeTimers();
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     const fetchSpy = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
       if (url.includes('/health')) {
@@ -156,37 +173,43 @@ describe('services/geminiService.ts - analyzeImage (Phase 3.1)', () => {
 
     const promise = mod.analyzeImage('BASE64', fields);
 
-    // Capture the rejection before advancing timers to avoid unhandled rejection warning
-    let error: Error | undefined;
-    promise.catch((e) => {
-      error = e;
+    // Capture result
+    let result: unknown;
+    promise.then((r) => {
+      result = r;
     });
 
     // Advance past the 30s timeout
     await vi.advanceTimersByTimeAsync(30_000);
 
-    // Wait for the promise to settle
-    await expect(promise).rejects.toThrow();
-    expect(error).toBeDefined();
+    // Wait for all timers and promises to settle
+    await vi.runAllTimersAsync();
+
+    expect(result).toBeNull();
+    warnSpy.mockRestore();
   });
 
-  it('throws on malformed JSON response', async () => {
+  it('graceful degradation: returns null on malformed JSON response', async () => {
     /**
-     * Current behavior: if response.json() fails, the error propagates.
+     * Per product requirements: Schema mismatch should not crash the app.
      */
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
     vi.stubGlobal(
       'fetch',
       vi.fn().mockImplementation(async (url: string) => {
         if (url.includes('/health')) {
           return createOkJsonResponse({ geminiConfigured: true });
         }
-        const res = new Response('not valid json', { status: 200 });
-        return res;
+        return new Response('not valid json', { status: 200 });
       }),
     );
 
     const mod = await importGeminiServiceFresh();
-    await expect(mod.analyzeImage('BASE64', fields)).rejects.toThrow();
+    const result = await mod.analyzeImage('BASE64', fields);
+
+    expect(result).toBeNull();
+    warnSpy.mockRestore();
   });
 });
 
