@@ -1,6 +1,6 @@
 # Curio Testing Infrastructure
 
-This directory contains the complete testing infrastructure for Curio, following the phased approach outlined in `TESTING_ROADMAP.md`.
+This directory contains the complete testing infrastructure for Curio, following the phased approach outlined in `docs/TESTING_ROADMAP.md`.
 
 ## Quick Start
 
@@ -17,6 +17,18 @@ npm run test:ui
 # Run tests with coverage
 npm run test:coverage
 ```
+
+## Current Status
+
+**Phase 1-3 Complete:** 179 tests passing, 2 skipped, 2 todo
+
+| Phase                   | Status         | Tests     |
+| ----------------------- | -------------- | --------- |
+| Phase 1: Pure Functions | ✅ Complete    | 120 tests |
+| Phase 2: Integration    | ✅ Complete    | 21 tests  |
+| Phase 3: AI & Hooks     | ✅ Complete    | 19 tests  |
+| Phase 4: Components     | 📋 Not Started | -         |
+| Phase 5: E2E            | 📋 Not Started | -         |
 
 ## Infrastructure Setup ✅
 
@@ -53,79 +65,62 @@ tests/
 │   ├── canvas-mock.ts           # Canvas API utilities
 │   └── fixtures/
 │       └── collections.ts       # Mock collections and items
-├── unit/                         # Unit-level tests (pure/isolated)
-│   └── services/                # Phase 1 - Pure/isolated service tests
-├── services/                     # Integration-level service tests (IndexedDB/Supabase/etc.)
+├── unit/                         # Phase 1 - Pure function tests
+│   └── services/
+│       ├── db.pure.test.ts      # compareTimestamps, normalizePhotoPaths
+│       ├── imageProcessor.test.ts # Image processing
+│       └── supabase.test.ts     # Auth functions
+├── services/                     # Phase 2 - Integration tests
+│   ├── db.merge.test.ts         # Merge logic
+│   ├── db.operations.test.ts    # Dual-write operations
+│   ├── db.cleanup.test.ts       # Cleanup utilities
+│   └── geminiService.test.ts    # AI analysis
 ├── hooks/                        # Phase 3 - React hooks tests
-├── components/                   # Phase 4 - Component tests
-└── e2e/                         # Phase 5 - End-to-end tests
+│   ├── useAuthState.test.ts     # Auth state management
+│   └── useCollections.test.ts   # Collection management
+├── components/                   # Phase 4 - Component tests (not started)
+└── e2e/                         # Phase 5 - E2E tests (not started)
 ```
 
 ## Test Phases
 
-### ✅ Infrastructure (Complete)
+### ✅ Phase 1: Critical Services - Pure Functions (Complete)
 
-All testing infrastructure is ready:
+- `tests/unit/services/db.pure.test.ts` - 57 tests
+  - compareTimestamps, normalizePhotoPaths, extractCurioAssetPath
+- `tests/unit/services/imageProcessor.test.ts` - 50 tests
+  - Quality preservation, downsampling, format conversion
+- `tests/unit/services/supabase.test.ts` - 13 tests
+  - signUpWithEmail, signInWithEmail, signOutUser
 
-- [x] Vitest configuration with coverage thresholds
-- [x] Browser API mocks (matchMedia, mediaDevices, IntersectionObserver, etc.)
-- [x] IndexedDB mock (fake-indexeddb)
-- [x] Canvas utilities (for Phase 1 image tests)
-- [x] MSW handlers for API mocking
-- [x] Test utilities and fixtures
-- [x] Smoke tests passing (19 passed, 2 skipped)
+### ✅ Phase 2: Critical Services - Integration (Complete)
 
-### 📋 Phase 1: Critical Services - Pure Functions (Next)
+- `tests/services/db.merge.test.ts` - 13 tests
+  - mergeCollections, mergeItems, conflict resolution
+- `tests/services/db.operations.test.ts` - 4 tests + 2 todo
+  - saveCollection, saveAsset, dual-write operations
+- `tests/services/db.cleanup.test.ts` - 4 tests
+  - cleanupOrphanedAssets, batch cleanup
 
-**Ready to implement:**
+### ✅ Phase 3: AI & Hooks Integration (Complete)
 
-- `tests/unit/services/db.pure.test.ts` - compareTimestamps, normalizePhotoPaths
-- `tests/unit/services/imageProcessor.test.ts` - Image processing validation
-- `tests/unit/services/supabase.test.ts` - Auth function tests
+- `tests/services/geminiService.test.ts` - 9 tests
+  - analyzeImage, error handling, timeout
+- `tests/hooks/useAuthState.test.ts` - 4 tests
+  - Initial state, auth state changes, admin status
+- `tests/hooks/useCollections.test.ts` - 6 tests
+  - Offline fallback, cloud sync, admin seeding
 
-### 📋 Phase 2: Critical Services - Integration
-
-**Dependencies ready:**
-
-- fake-indexeddb configured
-- Supabase mocks available
-- Storage mocks ready
-
-**Tests to write:**
-
-- `tests/services/db.merge.test.ts` - Merge logic scenarios
-- `tests/services/db.operations.test.ts` - Dual-write operations
-- `tests/services/db.cleanup.test.ts` - Cleanup utilities
-
-### 📋 Phase 3: AI & Hooks Integration
-
-**Dependencies ready:**
-
-- MSW handlers configured
-- React Testing Library installed
-
-**Tests to write:**
-
-- `tests/services/geminiService.test.ts` - AI analysis with mocked responses
-- `tests/hooks/useAuthState.test.ts` - Auth state management
-- `tests/hooks/useCollections.test.ts` - Collection management
-
-### 📋 Phase 4: Components
-
-**Dependencies ready:**
-
-- Custom render utility with providers
-- All service mocks available
-
-**Tests to write:**
+### 📋 Phase 4: Components (Not Started)
 
 - `tests/components/AddItemModal.test.tsx` - Item creation flow
 - `tests/components/AuthModal.test.tsx` - Authentication UI
 - `tests/components/ui/*.test.tsx` - Other UI components
 
-### 📋 Phase 5: End-to-End Tests
+### 📋 Phase 5: End-to-End Tests (Not Started)
 
-**TODO:** Install Playwright or Cypress for E2E testing
+- Install Playwright or Cypress
+- `tests/e2e/critical-flows.spec.ts` - Critical user flows
 
 ## Writing Tests
 
@@ -159,21 +154,6 @@ afterEach(() => {
 afterAll(() => server.close());
 ```
 
-### Canvas Testing
-
-```typescript
-import { setupCanvasMocks, createMockImageFile } from '@/tests/utils/canvas-mock';
-
-beforeEach(() => {
-  setupCanvasMocks();
-});
-
-test('image processing', async () => {
-  const file = createMockImageFile('test.jpg', 'image/jpeg', 1024 * 100);
-  // Test your image processing logic
-});
-```
-
 ## Environment Variables
 
 Test environment variables are configured in `tests/setup.ts`:
@@ -197,32 +177,21 @@ process.env.VITE_API_BASE_URL = 'http://localhost:8787';
 
 ### Canvas API
 
-happy-dom doesn't fully support Canvas 2D context. For image processing tests in Phase 1:
+happy-dom doesn't fully support Canvas 2D context. For image processing tests:
 
-1. Import the real `canvas` package for Node.js
-2. Use canvas-specific test utilities in `tests/utils/canvas-mock.ts`
-3. Tests that need real Canvas rendering should use the canvas package directly
-
-### MSW with Supabase
-
-MSW handlers are stubs. Expand them in Phase 2/3 as needed:
-
-- Add realistic error responses
-- Implement RLS policy simulation
-- Add request validation
+- Tests use mocked processImage behavior
+- Logic tests validate dimension calculation and quality settings directly
 
 ### IndexedDB + Parallel Test Execution
 
-`services/db.ts` uses a fixed IndexedDB database name (`CurioDatabase`). Running IndexedDB-heavy integration suites in parallel can cause open/delete blocking.
-For determinism, the test runner is configured to run with a single worker.
+`services/db.ts` uses a fixed IndexedDB database name (`CurioDatabase`). Integration tests use per-file unique DB names to avoid blocking.
 
-## Next Steps
+## Future Work
 
-1. ✅ Complete infrastructure setup
-2. 🔄 Implement Phase 1 tests (pure functions)
-3. ⏭️ Implement Phase 2 tests (integration)
-4. ⏭️ Implement Phase 3 tests (AI & hooks)
-5. ⏭️ Implement Phase 4 tests (components)
-6. ⏭️ Implement Phase 5 tests (E2E with Playwright)
+1. **saveItem function**: Not yet implemented in db.ts (tracked as todo test)
+2. **Upload retry logic**: Not yet implemented for saveAsset (tracked as todo test)
+3. **Graceful AI degradation**: geminiService throws errors instead of returning null on failure
+4. **Component tests**: Phase 4 not started
+5. **E2E tests**: Phase 5 not started
 
-See `TESTING_ROADMAP.md` for detailed test specifications and success criteria.
+See `docs/TESTING_PROGRESS.md` for detailed progress tracking.

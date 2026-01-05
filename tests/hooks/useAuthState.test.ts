@@ -152,5 +152,3 @@ describe('hooks/useAuthState.ts (Phase 3.2)', () => {
     await waitFor(() => expect(result.current.user).toMatchObject({ id: 'u2' }));
   });
 });
-
-

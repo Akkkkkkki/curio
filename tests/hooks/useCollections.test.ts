@@ -23,6 +23,9 @@ const dbMocks = {
   saveCollection: vi.fn(),
   getSeedVersion: vi.fn(),
   setSeedVersion: vi.fn(),
+  setRecoveryCallback: vi.fn(),
+  setSyncStatusCallback: vi.fn(),
+  syncPendingChanges: vi.fn(),
 };
 
 vi.mock('@/services/db', () => dbMocks);
@@ -48,6 +51,9 @@ describe('hooks/useCollections.ts (Phase 3.3)', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.resetModules();
+
+    // Reset all mocks with default values
     dbMocks.requestPersistence.mockResolvedValue(undefined);
     dbMocks.getLocalCollections.mockResolvedValue([]);
     dbMocks.fetchCloudCollections.mockResolvedValue([]);
@@ -56,6 +62,9 @@ describe('hooks/useCollections.ts (Phase 3.3)', () => {
     dbMocks.saveCollection.mockResolvedValue(undefined);
     dbMocks.getSeedVersion.mockResolvedValue(CURRENT_SEED_VERSION);
     dbMocks.setSeedVersion.mockResolvedValue(undefined);
+    dbMocks.setRecoveryCallback.mockImplementation(() => {});
+    dbMocks.setSyncStatusCallback.mockImplementation(() => {});
+    dbMocks.syncPendingChanges.mockResolvedValue(0);
   });
 
   afterEach(() => {
@@ -70,8 +79,8 @@ describe('hooks/useCollections.ts (Phase 3.3)', () => {
      * - loadError is set and showStatus is called with an error tone
      */
     const local = [minimalCollection({ id: 'local' })];
-    dbMocks.getLocalCollections.mockResolvedValueOnce(local);
-    dbMocks.fetchCloudCollections.mockRejectedValueOnce(new Error('Network down'));
+    dbMocks.getLocalCollections.mockResolvedValue(local);
+    dbMocks.fetchCloudCollections.mockRejectedValue(new Error('Network down'));
 
     const { useCollections } = await import('@/hooks/useCollections');
     const { result } = renderHook(() =>
@@ -101,9 +110,9 @@ describe('hooks/useCollections.ts (Phase 3.3)', () => {
      */
     const local = [minimalCollection({ id: 'local' })];
     const cloud = [minimalCollection({ id: 'cloud' })];
-    dbMocks.getLocalCollections.mockResolvedValueOnce(local);
-    dbMocks.fetchCloudCollections.mockResolvedValueOnce(cloud);
-    dbMocks.hasLocalOnlyData.mockReturnValueOnce(false);
+    dbMocks.getLocalCollections.mockResolvedValue(local);
+    dbMocks.fetchCloudCollections.mockResolvedValue(cloud);
+    dbMocks.hasLocalOnlyData.mockReturnValue(false);
 
     const { useCollections } = await import('@/hooks/useCollections');
     const { result } = renderHook(() =>
@@ -132,10 +141,10 @@ describe('hooks/useCollections.ts (Phase 3.3)', () => {
      * - If local seed version < CURRENT_SEED_VERSION
      * - The hook saves each initial seed collection and updates seed version
      */
-    dbMocks.getLocalCollections.mockResolvedValueOnce([]);
-    dbMocks.fetchCloudCollections.mockResolvedValueOnce([]);
-    dbMocks.hasLocalOnlyData.mockReturnValueOnce(false);
-    dbMocks.getSeedVersion.mockResolvedValueOnce(0);
+    dbMocks.getLocalCollections.mockResolvedValue([]);
+    dbMocks.fetchCloudCollections.mockResolvedValue([]);
+    dbMocks.hasLocalOnlyData.mockReturnValue(false);
+    dbMocks.getSeedVersion.mockResolvedValue(0);
 
     const { useCollections } = await import('@/hooks/useCollections');
     const { result } = renderHook(() =>
@@ -186,8 +195,8 @@ describe('hooks/useCollections.ts (Phase 3.3)', () => {
      * Verifies unauthenticated first-use behavior:
      * - If there is no cloud data and no local cache, show sample/fallback collections.
      */
-    dbMocks.getLocalCollections.mockResolvedValueOnce([]);
-    dbMocks.fetchCloudCollections.mockResolvedValueOnce([]);
+    dbMocks.getLocalCollections.mockResolvedValue([]);
+    dbMocks.fetchCloudCollections.mockResolvedValue([]);
 
     const { useCollections } = await import('@/hooks/useCollections');
     const { result } = renderHook(() =>
@@ -204,6 +213,33 @@ describe('hooks/useCollections.ts (Phase 3.3)', () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.collections).toEqual(fallbackSampleCollections);
   });
+
+  it('hasLocalImport is true when local-only data exists', async () => {
+    /**
+     * Verifies that the hook correctly identifies when there is local data
+     * that hasn't been synced to cloud yet.
+     */
+    const local = [minimalCollection({ id: 'local-only' })];
+    const cloud = [minimalCollection({ id: 'cloud' })];
+    dbMocks.getLocalCollections.mockResolvedValue(local);
+    dbMocks.fetchCloudCollections.mockResolvedValue(cloud);
+    dbMocks.hasLocalOnlyData.mockReturnValue(true);
+
+    const { useCollections } = await import('@/hooks/useCollections');
+    const { result } = renderHook(() =>
+      useCollections({
+        user: { id: 'u1' } as any,
+        isAdmin: false,
+        isSupabaseReady: true,
+        fallbackSampleCollections,
+        t,
+        showStatus,
+      }),
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.hasLocalImport).toBe(true);
+    // When there's local-only data, we don't overwrite it with cloud data
+    expect(dbMocks.saveAllCollections).not.toHaveBeenCalled();
+  });
 });
-
-
