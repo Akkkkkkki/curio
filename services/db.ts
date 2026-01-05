@@ -70,7 +70,7 @@ const normalizeCollection = (collection: UserCollection): UserCollection => {
   return { ...collection, customFields };
 };
 
-const mergeItems = (localItems: CollectionItem[], cloudItems: CollectionItem[]) => {
+export const mergeItems = (localItems: CollectionItem[], cloudItems: CollectionItem[]) => {
   // Cloud is the source of truth for what items EXIST
   // Local can have newer data for items that exist in cloud
   const localMap = new Map(localItems.map((item) => [item.id, item]));
@@ -101,7 +101,7 @@ const mergeItems = (localItems: CollectionItem[], cloudItems: CollectionItem[]) 
   return merged;
 };
 
-const mergeCollections = (
+export const mergeCollections = (
   localCollections: UserCollection[],
   cloudCollections: UserCollection[],
 ) => {

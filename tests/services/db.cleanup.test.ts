@@ -238,5 +238,3 @@ describe('Phase 2.3 — services/db.ts cleanup utilities', () => {
     await expect((dbMod as any).cleanupOrphanedAssets(undefined)).rejects.toBeTruthy();
   });
 });
-
-

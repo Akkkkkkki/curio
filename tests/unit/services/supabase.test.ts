@@ -143,10 +143,13 @@ describe('services/supabase.ts - Auth Helpers (Phase 1.3)', () => {
         key: 'test-key',
       });
 
-      const weakPasswordError = Object.assign(new Error('Password should be at least 6 characters'), {
-        name: 'AuthWeakPasswordError',
-        status: 400,
-      });
+      const weakPasswordError = Object.assign(
+        new Error('Password should be at least 6 characters'),
+        {
+          name: 'AuthWeakPasswordError',
+          status: 400,
+        },
+      );
 
       mockSupabaseClient.auth.getUser.mockResolvedValueOnce({
         data: { user: { id: 'anon-id', is_anonymous: true } },
@@ -308,5 +311,3 @@ describe('services/supabase.ts - Auth Helpers (Phase 1.3)', () => {
     });
   });
 });
-
-
