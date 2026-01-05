@@ -38,8 +38,8 @@ This checklist tracks test coverage implementation progress against `docs/TESTIN
 ## Phase 3: AI & Hooks Integration
 
 - [x] **3.1 `services/geminiService.ts` — AI Analysis** (`tests/services/geminiService.test.ts`)
-  - 9 tests covering: analyzeImage, error handling, timeout, AI availability
-  - Note: Current implementation throws errors on failure; graceful degradation (return null) could be a future enhancement
+  - 9 tests covering: analyzeImage, graceful degradation, timeout, AI availability
+  - Graceful degradation: Returns null on any failure (network, timeout, disabled) per product requirements
 
 - [x] **3.2 `hooks/useAuthState.ts` — Auth State Management** (`tests/hooks/useAuthState.test.ts`)
   - 4 tests covering: initial state, auth state changes, admin status, rapid sign-in/out
@@ -61,6 +61,5 @@ This checklist tracks test coverage implementation progress against `docs/TESTIN
 
 1. **saveItem function**: Not yet implemented in db.ts (tracked as todo test)
 2. **Upload retry logic**: Not yet implemented for saveAsset (tracked as todo test)
-3. **Graceful AI degradation**: geminiService throws errors instead of returning null on failure
-4. **Component tests**: Phase 4 not started
-5. **E2E tests**: Phase 5 not started
+3. **Component tests**: Phase 4 not started
+4. **E2E tests**: Phase 5 not started
