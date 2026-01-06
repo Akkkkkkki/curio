@@ -53,7 +53,9 @@ test.describe('First-Time User Experience', () => {
     await expect(page.getByText('The Vinyl Vault')).toBeVisible();
   });
 
-  test('should navigate to the sample collection and clearly label it read-only', async ({ page }) => {
+  test('should navigate to the sample collection and clearly label it read-only', async ({
+    page,
+  }) => {
     await ensureSampleBrowse(page);
     await page.getByText('The Vinyl Vault').click();
     await expect(page).toHaveURL(/#\/collection\//);
@@ -80,7 +82,10 @@ test.describe('First-Time User Experience', () => {
 
     await page.getByTestId('cta-primary-add-first').click();
     const modal = page.getByTestId('auth-modal');
-    test.skip(!(await modal.isVisible().catch(() => false)), 'Auth modal not available in this environment');
+    test.skip(
+      !(await modal.isVisible().catch(() => false)),
+      'Auth modal not available in this environment',
+    );
     await expect(modal).toBeVisible();
   });
 
