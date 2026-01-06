@@ -7,8 +7,9 @@ This checklist tracks test coverage implementation progress against `docs/TESTIN
 ## Summary
 
 - **Phase 1-3:** Complete and passing (179 tests)
-- **Phase 4-5:** Not started (component and E2E tests)
-- **Test Status:** 179 passed, 2 skipped (unimplemented features), 2 todo
+- **Phase 4:** Complete and passing (84 tests) - Component tests
+- **Phase 5:** Implemented (E2E tests with Playwright)
+- **Test Status:** 263 unit/component tests passed, 2 skipped (unimplemented features), 2 todo
 
 ## Phase 1: Critical Services — Pure/Isolated
 
@@ -47,19 +48,99 @@ This checklist tracks test coverage implementation progress against `docs/TESTIN
 - [x] **3.3 `hooks/useCollections.ts` — Collection Management** (`tests/hooks/useCollections.test.ts`)
   - 6 tests covering: offline fallback, cloud sync, admin seeding, edge cases
 
-## Phase 4: Components (Not Started)
+## Phase 4: Components (Complete)
 
-- [ ] **4.1 `components/AddItemModal.tsx` — Item Creation Flow** (`tests/components/AddItemModal.test.tsx`)
-- [ ] **4.2 `components/AuthModal.tsx` — Authentication UI** (`tests/components/AuthModal.test.tsx`)
-- [ ] **4.3 Other UI Components** (`tests/components/ui/*.test.tsx`)
+- [x] **4.1 `components/AddItemModal.tsx` — Item Creation Flow** (`tests/components/AddItemModal.test.tsx`)
+  - 31 tests covering:
+    - Modal display and close functionality
+    - Step navigation (single/multiple collections)
+    - Upload step with camera, upload, and batch mode options
+    - AI analysis flow with graceful degradation
+    - AI failure handling (product requirement: recoverable AI)
+    - Verify step with form editing and rating
+    - Save flow with validation
+    - Batch mode functionality
+    - Theme support (gallery, vault, atelier)
+    - Modal state reset and accessibility
 
-## Phase 5: End-to-End Tests (Not Started)
+- [x] **4.2 `components/AuthModal.tsx` — Authentication UI** (`tests/components/AuthModal.test.tsx`)
+  - 28 tests covering:
+    - Modal display and close functionality
+    - Supabase not configured state
+    - Sign in mode with form validation
+    - Sign up mode with mode toggling
+    - Form validation (required fields, types)
+    - Loading state during authentication
+    - Cloud sync information display
+    - Theme support
+    - Accessibility (form structure, labels)
 
-- [ ] **5.1 Critical User Flows** (`tests/e2e/critical-flows.spec.ts`)
+- [x] **4.3 Other UI Components** (`tests/components/ui/Button.test.tsx`)
+  - 25 tests covering:
+    - Basic rendering
+    - Variants (primary, secondary, outline, ghost)
+    - Sizes (sm, md, lg)
+    - Icon support
+    - Disabled state
+    - Click handling
+    - Custom className
+    - HTML attributes
+    - Base styles (focus, border radius, flexbox)
+    - Accessibility (focusable, keyboard activation)
+
+## Phase 5: End-to-End Tests (Implemented)
+
+- [x] **5.1 First-Time User Flow** (`e2e/first-time-user.spec.ts`)
+  - Tests covering:
+    - Home screen initial load
+    - Sample collection exploration (delight before auth)
+    - Read-only sample collection experience
+    - Authentication prompts when needed
+    - Theme and language switching
+    - Navigation and routing (hash-based SPA)
+
+- [x] **5.2 Authenticated User Flow** (`e2e/authenticated-user.spec.ts`)
+  - Tests covering:
+    - Collection management
+    - Item management and navigation
+    - Add item flow with AI recovery option
+    - Sync status visibility
+    - Search and filter functionality
+    - Exhibition mode
+
+- [x] **5.3 Accessibility** (`e2e/accessibility.spec.ts`)
+  - Tests covering:
+    - Keyboard navigation
+    - Focus trapping in modals
+    - Escape key to close modals
+    - ARIA and semantic HTML
+    - Descriptive button labels
+    - Proper form labels
+    - Focus indicators
+    - Image alt text
+    - Mobile viewport usability
+    - Touch-friendly tap targets
+    - Theme accessibility
+
+## Running Tests
+
+```bash
+# Unit and component tests (Vitest)
+npm test                    # Run all tests
+npm run test:watch          # Watch mode
+npm run test:coverage       # Coverage report
+
+# E2E tests (Playwright)
+npm run test:e2e            # Run E2E tests
+npm run test:e2e:ui         # Run with Playwright UI
+npm run test:e2e:headed     # Run with browser visible
+npm run test:e2e:debug      # Debug mode
+```
 
 ## Known Issues & Future Work
 
 1. **saveItem function**: Not yet implemented in db.ts (tracked as todo test)
 2. **Upload retry logic**: Not yet implemented for saveAsset (tracked as todo test)
-3. **Component tests**: Phase 4 not started
-4. **E2E tests**: Phase 5 not started
+3. **E2E tests require running app**: E2E tests need `npm run dev` server running
+4. **Supabase integration**: Authenticated E2E tests require real credentials (`E2E_EMAIL`, `E2E_PASSWORD`) and are skipped if not provided
+5. **Theme persistence**: Component tests use an in-memory ThemeProvider mock; persistence to IndexedDB is not covered by unit/component tests (see `tests/utils/test-utils.tsx`)

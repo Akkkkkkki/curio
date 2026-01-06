@@ -62,6 +62,17 @@ export const ItemCard: React.FC<ItemCardProps> = ({
   return (
     <div
       onClick={onClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      data-testid="item-card"
+      data-item-id={item.id}
+      data-item-title={item.title}
       className={`group rounded-2xl transition-all duration-300 overflow-hidden border cursor-pointer flex flex-col ${layout === 'grid' ? 'h-full' : ''} motion-card ${cardSurface} ${cardShadow} ${tapRing}`}
     >
       <div

@@ -32,10 +32,13 @@ export const StatusToast: React.FC<StatusToastProps> = ({ message, tone = 'info'
   const { bg, text, Icon } = toneStyles[tone];
   return (
     <div
+      data-testid="status-toast"
       className={`pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-2xl border shadow-lg ${bg} ${text} motion-pop`}
     >
       <Icon size={18} />
-      <span className="text-sm font-semibold leading-tight">{message}</span>
+      <span className="text-sm font-semibold leading-tight" data-testid="status-toast-message">
+        {message}
+      </span>
       {onDismiss && (
         <button
           onClick={onDismiss}

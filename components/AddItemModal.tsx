@@ -62,6 +62,8 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const batchInputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const lastFocusedElementRef = useRef<HTMLElement | null>(null);
   const analysisRunId = useRef(0);
 
   const surfaceClass = panelSurfaceClasses[theme];
@@ -99,6 +101,8 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
+      lastFocusedElementRef.current =
+        document.activeElement instanceof HTMLElement ? document.activeElement : null;
       setStep(collections.length === 1 ? 'upload' : 'select-type');
       if (collections.length === 1) setSelectedCollectionId(collections[0].id);
       setImagePreview(null);
@@ -108,6 +112,63 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
       analysisRunId.current += 1;
     }
   }, [isOpen, collections]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      lastFocusedElementRef.current?.focus?.();
+      return;
+    }
+
+    const dialog = dialogRef.current;
+    // Focus the first focusable element inside the dialog.
+    requestAnimationFrame(() => {
+      const firstFocusable = dialog?.querySelector<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+      );
+      firstFocusable?.focus?.();
+    });
+
+    const getFocusable = () => {
+      const el = dialogRef.current;
+      if (!el) return [];
+      return Array.from(
+        el.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((n) => n.offsetParent !== null);
+    };
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+        return;
+      }
+
+      if (e.key !== 'Tab') return;
+      const focusable = getFocusable();
+      if (focusable.length === 0) return;
+
+      const active = document.activeElement as HTMLElement | null;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+
+      if (e.shiftKey) {
+        if (!active || active === first) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (active === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -429,6 +490,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
       <input
         type="file"
         ref={fileInputRef}
+        data-testid="add-item-file-input"
         className="hidden"
         accept="image/*"
         capture="environment"
@@ -437,6 +499,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
       <input
         type="file"
         ref={batchInputRef}
+        data-testid="add-item-batch-input"
         className="hidden"
         accept="image/*"
         multiple
@@ -511,6 +574,8 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
                       <button
                         key={s}
                         onClick={() => updateBatchItem(item.id, { rating: s })}
+                        aria-label={`Rate ${s} stars`}
+                        aria-pressed={item.rating === s}
                         className={`w-7 h-7 rounded-md border flex items-center justify-center transition-all text-xs ${
                           item.rating === s
                             ? 'bg-amber-400 border-amber-500 text-white shadow-sm'
@@ -639,6 +704,8 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
               <button
                 key={s}
                 onClick={() => setFormData({ ...formData, rating: s })}
+                aria-label={`Rate ${s} stars`}
+                aria-pressed={formData.rating === s}
                 className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg border flex items-center justify-center transition-all text-sm ${
                   formData.rating === s
                     ? 'bg-amber-400 border-amber-500 text-white shadow-sm'
@@ -665,6 +732,10 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
       className={`fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 ${overlayClass} backdrop-blur-sm`}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="add-item-modal-title"
         className={`${surfaceClass} rounded-t-3xl rounded-b-none sm:rounded-3xl shadow-2xl w-full max-w-lg h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[90vh] overflow-hidden flex flex-col motion-panel pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] sm:pt-0 sm:pb-0`}
       >
         <div className="sm:hidden flex items-center justify-center pt-2">
@@ -674,12 +745,14 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
         </div>
         <div className={`flex items-center justify-between p-4 sm:p-6 border-b ${borderClass}`}>
           <h2
+            id="add-item-modal-title"
             className={`font-serif font-bold text-lg sm:text-xl ${theme === 'vault' ? 'text-white' : 'text-stone-800'}`}
           >
             {t('addItem')}
           </h2>
           <button
             onClick={onClose}
+            aria-label={t('close')}
             className={`p-2 rounded-full transition-colors ${theme === 'vault' ? 'hover:bg-white/5 text-stone-300 hover:text-white' : 'hover:bg-stone-100 text-stone-400 hover:text-stone-800'}`}
           >
             <X size={20} />

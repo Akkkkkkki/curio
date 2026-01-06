@@ -40,6 +40,16 @@ export const CollectionCard: React.FC<CollectionCardProps> = ({ collection, onCl
   return (
     <div
       onClick={onClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      data-testid="collection-card"
+      data-collection-id={collection.id}
       className={`group relative p-8 rounded-[2.5rem] border ${baseSurface} ${accentBorder[template.accentColor] || accentBorder['stone']} transition-all duration-500 cursor-pointer ${tapShadow} ${tapRing} flex flex-col justify-between h-52 overflow-hidden motion-card`}
     >
       <div className="absolute top-0 right-0 p-8 opacity-10 text-7xl select-none group-hover:scale-110 group-hover:rotate-12 transition-transform duration-700 pointer-events-none">

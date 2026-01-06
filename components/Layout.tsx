@@ -128,6 +128,7 @@ export const Layout: React.FC<LayoutProps> = ({
             <div className="relative">
               <button
                 onClick={() => setIsProfileOpen(!isProfileOpen)}
+                aria-label="Account"
                 className={`p-2 rounded-full transition-colors ${navGhost} ${statusColor}`}
               >
                 <User size={20} />

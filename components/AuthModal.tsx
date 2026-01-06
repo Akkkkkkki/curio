@@ -19,6 +19,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const dialogRef = React.useRef<HTMLDivElement>(null);
+  const lastFocusedElementRef = React.useRef<HTMLElement | null>(null);
 
   const supabaseActive = isSupabaseConfigured();
   const surfaceClass = panelSurfaceClasses[theme];
@@ -32,12 +34,78 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
 
   if (!isOpen) return null;
 
+  // Basic modal a11y: Escape-to-close, focus trap, and focus restore.
+  React.useEffect(() => {
+    lastFocusedElementRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  }, []);
+
+  React.useEffect(() => {
+    const dialog = dialogRef.current;
+
+    requestAnimationFrame(() => {
+      const firstFocusable = dialog?.querySelector<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+      );
+      firstFocusable?.focus?.();
+    });
+
+    const getFocusable = () => {
+      const el = dialogRef.current;
+      if (!el) return [];
+      return Array.from(
+        el.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((n) => n.offsetParent !== null);
+    };
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+        return;
+      }
+
+      if (e.key !== 'Tab') return;
+      const focusable = getFocusable();
+      if (focusable.length === 0) return;
+
+      const active = document.activeElement as HTMLElement | null;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+
+      if (e.shiftKey) {
+        if (!active || active === first) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (active === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      lastFocusedElementRef.current?.focus?.();
+    };
+  }, [onClose]);
+
   if (!supabaseActive) {
     return (
       <div
         className={`fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 ${overlayClass} backdrop-blur-md`}
       >
         <div
+          ref={dialogRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="auth-modal-title"
+          data-testid="auth-modal"
           className={`${surfaceClass} rounded-t-[2.5rem] rounded-b-none sm:rounded-[2.5rem] shadow-2xl w-full max-w-md h-[100dvh] sm:h-auto max-h-[100dvh] overflow-hidden flex flex-col border motion-panel pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] sm:pt-0 sm:pb-0`}
         >
           <div className="sm:hidden flex items-center justify-center pt-2">
@@ -48,6 +116,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
           <div className={`flex items-center justify-between p-8 border-b ${dividerBorder}`}>
             <div>
               <h2
+                id="auth-modal-title"
                 className={`font-serif font-bold text-2xl ${theme === 'vault' ? 'text-white' : 'text-stone-800'}`}
               >
                 {t('cloudRequiredTitle')}
@@ -58,6 +127,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
             </div>
             <button
               onClick={onClose}
+              aria-label={t('close')}
               className={`p-2 -mr-2 rounded-full transition-colors ${theme === 'vault' ? 'hover:bg-white/5 text-stone-300 hover:text-white' : 'hover:bg-stone-100 text-stone-400 hover:text-stone-800'}`}
             >
               <X size={24} />
@@ -96,6 +166,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
       className={`fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 ${overlayClass} backdrop-blur-md`}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="auth-modal-title"
+        data-testid="auth-modal"
         className={`${surfaceClass} rounded-t-[2.5rem] rounded-b-none sm:rounded-[2.5rem] shadow-2xl w-full max-w-md h-[100dvh] sm:h-auto max-h-[100dvh] overflow-hidden flex flex-col border motion-panel pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] sm:pt-0 sm:pb-0`}
       >
         <div className="sm:hidden flex items-center justify-center pt-2">
@@ -106,6 +181,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
         <div className={`flex items-center justify-between p-8 border-b ${dividerBorder}`}>
           <div>
             <h2
+              id="auth-modal-title"
               className={`font-serif font-bold text-2xl ${theme === 'vault' ? 'text-white' : 'text-stone-800'}`}
             >
               {mode === 'signin' ? t('loginTitle') : t('registerTitle')}
@@ -116,6 +192,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
           </div>
           <button
             onClick={onClose}
+            aria-label={t('close')}
             className={`p-2 -mr-2 rounded-full transition-colors ${theme === 'vault' ? 'hover:bg-white/5 text-stone-300 hover:text-white' : 'hover:bg-stone-100 text-stone-400 hover:text-stone-800'}`}
           >
             <X size={24} />
