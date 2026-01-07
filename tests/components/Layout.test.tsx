@@ -118,6 +118,9 @@ describe('Layout Component', () => {
         expect(screen.getByTestId('mock-theme-picker')).toHaveAttribute('data-layout', 'stacked');
       });
     });
+
+    // Note: Click-outside and Escape key handlers are not currently implemented
+    // in the Layout component. These would be good accessibility improvements.
   });
 
   describe('Authentication Status - Not Configured', () => {

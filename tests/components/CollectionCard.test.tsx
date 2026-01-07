@@ -327,7 +327,7 @@ describe('CollectionCard Component', () => {
       renderWithProviders(<CollectionCard collection={collection} onClick={onClick} />);
 
       const card = screen.getByTestId('collection-card');
-      // Should fall back to first template (general) or stone color
+      // Falls back to TEMPLATES[0] (general template) which uses stone accent color
       expect(card.className).toMatch(/border-stone/);
     });
   });

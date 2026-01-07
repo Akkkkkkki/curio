@@ -160,31 +160,29 @@ describe('ItemCard Component', () => {
         />,
       );
 
-      // Rating badge should not exist
-      const ratingElements = screen.queryAllByText('0');
-      // Filter to only find elements that would be in a rating context
-      const ratingBadge = ratingElements.find((el) => el.closest('[class*="backdrop-blur"]'));
-      expect(ratingBadge).toBeUndefined();
+      // Rating badge should not exist - the component conditionally renders rating > 0
+      // Query for any text "0" that appears with a star icon nearby
+      const card = screen.getByTestId('item-card');
+      const starIcon = card.querySelector('svg'); // Star icon in rating badge
+      // When rating is 0, there should be no star icon in the rating context
+      expect(starIcon).toBeNull();
     });
 
-    it('displays various rating values correctly', () => {
-      [1, 2, 3, 4, 5].forEach((rating) => {
-        const item = createMockItem({ id: `item-${rating}`, rating });
-        const onClick = vi.fn();
+    it.each([1, 2, 3, 4, 5])('displays rating %i correctly', (rating) => {
+      const item = createMockItem({ id: `item-${rating}`, rating });
+      const onClick = vi.fn();
 
-        const { unmount } = renderWithProviders(
-          <ItemCard
-            item={item}
-            fields={mockFields}
-            displayFields={[]}
-            badgeFields={[]}
-            onClick={onClick}
-          />,
-        );
+      renderWithProviders(
+        <ItemCard
+          item={item}
+          fields={mockFields}
+          displayFields={[]}
+          badgeFields={[]}
+          onClick={onClick}
+        />,
+      );
 
-        expect(screen.getByText(rating.toString())).toBeInTheDocument();
-        unmount();
-      });
+      expect(screen.getByText(rating.toString())).toBeInTheDocument();
     });
   });
 
