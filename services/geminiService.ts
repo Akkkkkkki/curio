@@ -31,7 +31,7 @@ const postJson = async <T>(path: string, body: unknown): Promise<T> => {
 
 const fetchAiHealth = async (): Promise<boolean> => {
   try {
-    const response = await fetch(`${API_BASE_URL}/health`);
+    const response = await fetch(`${API_BASE_URL}/api/health`);
     if (!response.ok) return false;
     const payload = await response.json().catch(() => ({}));
     return Boolean(payload?.geminiConfigured);
@@ -67,7 +67,7 @@ export const analyzeImage = async (
     if (!(await refreshAiEnabled())) {
       return null;
     }
-    return await postJson('/gemini/analyze', { imageBase64: base64Image, fields });
+    return await postJson('/api/gemini/analyze', { imageBase64: base64Image, fields });
   } catch (error) {
     // Log for debugging but don't block the user
     console.warn('AI analysis failed:', error);

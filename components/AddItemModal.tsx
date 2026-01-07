@@ -45,6 +45,18 @@ const createEmptyForm = () => ({
   rating: 0,
 });
 
+// Helper to filter out null/undefined values from AI-extracted data
+const cleanAiData = (data: Record<string, any>): Record<string, any> => {
+  const cleaned: Record<string, any> = {};
+  for (const [key, value] of Object.entries(data)) {
+    // Skip if value is null, undefined, or the string "null"
+    if (value !== null && value !== undefined && value !== 'null') {
+      cleaned[key] = value;
+    }
+  }
+  return cleaned;
+};
+
 export const AddItemModal: React.FC<AddItemModalProps> = ({
   isOpen,
   onClose,
@@ -60,7 +72,8 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
   const [formData, setFormData] = useState(createEmptyForm());
   const [error, setError] = useState<string | null>(null);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
   const batchInputRef = useRef<HTMLInputElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const lastFocusedElementRef = useRef<HTMLElement | null>(null);
@@ -239,7 +252,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
             createBatchItem(image, {
               title: result.title || '',
               notes: result.notes || '',
-              data: result.data || {},
+              data: cleanAiData(result.data || {}),
             }),
           );
         } catch (err) {
@@ -311,7 +324,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
       setFormData({
         title: result.title || '',
         notes: result.notes || '',
-        data: result.data || {},
+        data: cleanAiData(result.data || {}),
         rating: 0,
       });
       setStep('verify');
@@ -438,15 +451,15 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
         <div className="relative">
           <div
             className="w-32 h-32 sm:w-40 sm:h-40 rounded-full bg-stone-50 border-2 border-dashed border-stone-200 flex flex-col items-center justify-center text-stone-400 group hover:border-amber-400 hover:bg-amber-50 transition-all cursor-pointer overflow-hidden"
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => galleryInputRef.current?.click()}
           >
             {imagePreview ? (
               <img src={imagePreview} className="w-full h-full object-cover" alt="Preview" />
             ) : (
               <>
-                <Camera size={28} className="sm:w-8 sm:h-8 mb-2" />
+                <Upload size={28} className="sm:w-8 sm:h-8 mb-2" />
                 <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">
-                  {t('takePhoto')}
+                  {t('uploadPhoto')}
                 </span>
               </>
             )}
@@ -464,13 +477,17 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
       <div className="flex flex-col gap-2 sm:gap-3">
         <Button
           variant="secondary"
-          onClick={() => fileInputRef.current?.click()}
+          onClick={() => cameraInputRef.current?.click()}
           size="lg"
           icon={<Camera size={18} />}
         >
           {t('takePhoto')}
         </Button>
-        <Button onClick={() => fileInputRef.current?.click()} size="lg" icon={<Upload size={18} />}>
+        <Button
+          onClick={() => galleryInputRef.current?.click()}
+          size="lg"
+          icon={<Upload size={18} />}
+        >
           {imagePreview ? t('changePhoto') : t('uploadPhoto')}
         </Button>
         <Button
@@ -489,11 +506,19 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
       </div>
       <input
         type="file"
-        ref={fileInputRef}
-        data-testid="add-item-file-input"
+        ref={cameraInputRef}
+        data-testid="add-item-camera-input"
         className="hidden"
         accept="image/*"
         capture="environment"
+        onChange={handleFileChange}
+      />
+      <input
+        type="file"
+        ref={galleryInputRef}
+        data-testid="add-item-gallery-input"
+        className="hidden"
+        accept="image/*"
         onChange={handleFileChange}
       />
       <input
@@ -577,7 +602,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
                         aria-label={`Rate ${s} stars`}
                         aria-pressed={item.rating === s}
                         className={`w-7 h-7 rounded-md border flex items-center justify-center transition-all text-xs ${
-                          item.rating === s
+                          s <= item.rating
                             ? 'bg-amber-400 border-amber-500 text-white shadow-sm'
                             : theme === 'vault'
                               ? 'bg-white/5 border-white/10 text-white/60'
@@ -707,7 +732,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
                 aria-label={`Rate ${s} stars`}
                 aria-pressed={formData.rating === s}
                 className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg border flex items-center justify-center transition-all text-sm ${
-                  formData.rating === s
+                  s <= formData.rating
                     ? 'bg-amber-400 border-amber-500 text-white shadow-sm'
                     : theme === 'vault'
                       ? 'bg-white/5 border-white/10 text-white/60'
