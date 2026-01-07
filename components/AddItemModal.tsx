@@ -516,7 +516,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
       <input
         type="file"
         ref={galleryInputRef}
-        data-testid="add-item-gallery-input"
+        data-testid="add-item-file-input"
         className="hidden"
         accept="image/*"
         onChange={handleFileChange}

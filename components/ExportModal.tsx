@@ -229,13 +229,13 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
     <div
       className={`fixed inset-0 z-50 bg-stone-950/90 backdrop-blur-md animate-in fade-in duration-200 print:bg-white print:static print:block flex flex-col md:block md:[--sheet-height:0px] pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)] pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)] ${isExpanded ? '[--sheet-height:85dvh]' : '[--sheet-height:55dvh]'}`}
     >
-      <div className="flex-1 min-h-0 flex flex-col items-center justify-center px-6 pt-6 pb-6 md:absolute md:inset-0 md:pb-6 md:pr-96 md:pt-6 overflow-hidden print:static">
+      <div className="flex-1 min-h-0 flex flex-col items-center justify-center px-6 py-6 md:absolute md:inset-0 md:pr-[calc(24rem+1.5rem)] overflow-hidden print:static">
         <div className="h-full w-full flex items-center justify-center print:block">
           {renderCardPreview()}
         </div>
       </div>
       <div
-        className={`relative bottom-0 left-0 right-0 md:absolute md:top-0 md:left-auto md:w-96 md:h-full bg-white rounded-t-3xl md:rounded-none shadow-2xl flex flex-col transition-all duration-300 ease-out z-10 h-[var(--sheet-height)] md:h-full print:hidden`}
+        className={`relative bottom-0 left-0 right-0 md:absolute md:top-0 md:left-auto md:w-96 md:h-full bg-white rounded-t-3xl md:rounded-none shadow-2xl flex flex-col transition-all duration-300 ease-out z-10 h-[var(--sheet-height)] md:h-full print:hidden [--export-footer-height:8.5rem] md:[--export-footer-height:9.5rem]`}
       >
         <div
           className="md:hidden w-full flex justify-center py-3 cursor-pointer"
@@ -254,7 +254,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
             <X size={20} />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto p-6 pb-[calc(var(--export-footer-height)+env(safe-area-inset-bottom,0px))] space-y-10">
           <div>
             <label className="block text-xs font-bold text-stone-400 uppercase tracking-wider mb-3">
               {t('cardStyle')}
@@ -279,7 +279,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
               ))}
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid gap-6 md:grid-cols-2">
             <div>
               <label className="block text-xs font-bold text-stone-400 uppercase tracking-wider mb-2">
                 {t('aspectRatio')}
@@ -317,7 +317,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
             </div>
           </div>
         </div>
-        <div className="p-4 md:p-6 border-t border-stone-100 bg-stone-50 space-y-3 shrink-0">
+        <div className="sticky bottom-0 border-t border-stone-100 bg-stone-50 space-y-3 shrink-0 px-4 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] md:px-6 md:pt-6 md:pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] min-h-[var(--export-footer-height)]">
           <Button className="w-full" size="lg" icon={<Download size={18} />}>
             {t('saveImage')}
           </Button>
