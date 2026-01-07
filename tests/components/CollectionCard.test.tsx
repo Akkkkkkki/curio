@@ -5,18 +5,21 @@
  * Validates rendering, accessibility, theme support, and interaction behavior.
  */
 
-import { describe, it, expect, vi } from 'vitest';
-import { renderWithProviders, screen, fireEvent } from '../utils/test-utils';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import {
+  renderWithProviders,
+  screen,
+  fireEvent,
+  setMockTheme,
+  createThemeMock,
+} from '../utils/test-utils';
 import { CollectionCard } from '@/components/CollectionCard';
 import { UserCollection } from '@/types';
 
-// Mock the theme module - uses gallery theme by default
+// Use centralized configurable theme mock
 vi.mock('@/theme', async () => {
-  const actual = await vi.importActual('@/theme');
-  return {
-    ...actual,
-    useTheme: () => ({ theme: 'gallery', setTheme: vi.fn() }),
-  };
+  const { createThemeMock } = await import('../utils/test-utils');
+  return createThemeMock();
 });
 
 // Test data factory
@@ -34,6 +37,11 @@ const createMockCollection = (overrides: Partial<UserCollection> = {}): UserColl
 });
 
 describe('CollectionCard Component', () => {
+  // Reset theme to gallery before each test
+  beforeEach(() => {
+    setMockTheme('gallery');
+  });
+
   describe('Basic Rendering', () => {
     it('renders collection name', () => {
       const collection = createMockCollection({ name: 'Test Collection' });
@@ -249,26 +257,45 @@ describe('CollectionCard Component', () => {
   });
 
   describe('Theme Support', () => {
-    it('renders correctly with default gallery theme', () => {
-      const collection = createMockCollection();
-      const onClick = vi.fn();
+    describe.each([
+      { theme: 'gallery' as const, bgPattern: /bg-white/, description: 'light background' },
+      { theme: 'vault' as const, bgPattern: /bg-stone-950/, description: 'dark background' },
+      { theme: 'atelier' as const, bgPattern: /bg-\[#f8f6f1\]/, description: 'cream background' },
+    ])('Theme: $theme', ({ theme, bgPattern, description }) => {
+      beforeEach(() => {
+        setMockTheme(theme);
+      });
 
-      renderWithProviders(<CollectionCard collection={collection} onClick={onClick} />);
+      it(`renders correctly with ${theme} theme`, () => {
+        const collection = createMockCollection();
+        const onClick = vi.fn();
 
-      const card = screen.getByTestId('collection-card');
-      expect(card).toBeInTheDocument();
-      expect(screen.getByText('My Vinyl Collection')).toBeInTheDocument();
-    });
+        renderWithProviders(<CollectionCard collection={collection} onClick={onClick} />);
 
-    it('applies gallery theme light styling', () => {
-      const collection = createMockCollection();
-      const onClick = vi.fn();
+        const card = screen.getByTestId('collection-card');
+        expect(card).toBeInTheDocument();
+        expect(screen.getByText('My Vinyl Collection')).toBeInTheDocument();
+      });
 
-      renderWithProviders(<CollectionCard collection={collection} onClick={onClick} />);
+      it(`applies ${description} styling for ${theme} theme`, () => {
+        const collection = createMockCollection();
+        const onClick = vi.fn();
 
-      const card = screen.getByTestId('collection-card');
-      // Gallery theme should have light background classes
-      expect(card.className).toMatch(/bg-white/);
+        renderWithProviders(<CollectionCard collection={collection} onClick={onClick} />);
+
+        const card = screen.getByTestId('collection-card');
+        expect(card.className).toMatch(bgPattern);
+      });
+
+      it(`maintains interactive behavior with ${theme} theme`, () => {
+        const collection = createMockCollection();
+        const onClick = vi.fn();
+
+        renderWithProviders(<CollectionCard collection={collection} onClick={onClick} />);
+
+        fireEvent.click(screen.getByTestId('collection-card'));
+        expect(onClick).toHaveBeenCalledTimes(1);
+      });
     });
   });
 

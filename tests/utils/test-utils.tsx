@@ -3,6 +3,7 @@ import { render, RenderOptions } from '@testing-library/react';
 import { HashRouter } from 'react-router-dom';
 import { LanguageProvider } from '@/i18n';
 import { AppTheme } from '@/types';
+import { vi } from 'vitest';
 
 /**
  * Custom render function that wraps components with necessary providers
@@ -29,6 +30,41 @@ const ThemeContext = createContext<ThemeContextValue>({
 });
 
 export const useTheme = () => useContext(ThemeContext);
+
+/**
+ * Configurable theme mock state
+ * Use setMockTheme() before rendering to configure the theme for tests
+ */
+let mockThemeValue: AppTheme = 'gallery';
+const mockSetTheme = vi.fn();
+
+export function setMockTheme(theme: AppTheme) {
+  mockThemeValue = theme;
+}
+
+export function getMockTheme(): AppTheme {
+  return mockThemeValue;
+}
+
+export function getMockSetTheme() {
+  return mockSetTheme;
+}
+
+/**
+ * Creates the theme mock object for vi.mock('@/theme')
+ * Usage in test file:
+ *   vi.mock('@/theme', async () => {
+ *     const { createThemeMock } = await import('../utils/test-utils');
+ *     return createThemeMock();
+ *   });
+ */
+export async function createThemeMock() {
+  const actual = await vi.importActual('@/theme');
+  return {
+    ...actual,
+    useTheme: () => ({ theme: getMockTheme(), setTheme: getMockSetTheme() }),
+  };
+}
 
 function MockThemeProvider({
   children,

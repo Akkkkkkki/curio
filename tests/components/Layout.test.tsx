@@ -6,16 +6,20 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderWithProviders, screen, fireEvent, waitFor } from '../utils/test-utils';
+import {
+  renderWithProviders,
+  screen,
+  fireEvent,
+  waitFor,
+  setMockTheme,
+  createThemeMock,
+} from '../utils/test-utils';
 import { Layout } from '@/components/Layout';
 
-// Mock the theme module - uses gallery theme by default
+// Use centralized configurable theme mock
 vi.mock('@/theme', async () => {
-  const actual = await vi.importActual('@/theme');
-  return {
-    ...actual,
-    useTheme: () => ({ theme: 'gallery', setTheme: vi.fn() }),
-  };
+  const { createThemeMock } = await import('../utils/test-utils');
+  return createThemeMock();
 });
 
 // Mock ThemePicker to simplify testing
@@ -38,6 +42,7 @@ describe('Layout Component', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    setMockTheme('gallery');
   });
 
   describe('Basic Rendering', () => {
@@ -418,26 +423,46 @@ describe('Layout Component', () => {
   });
 
   describe('Theme Support', () => {
-    it('renders correctly with default theme', () => {
-      renderWithProviders(<Layout {...defaultProps} />);
+    describe.each([
+      { theme: 'gallery' as const, bgPattern: /bg-white/, description: 'light background' },
+      { theme: 'vault' as const, bgPattern: /bg-stone-900/, description: 'dark background' },
+      { theme: 'atelier' as const, bgPattern: /bg-\[#f8f6f1\]/, description: 'cream background' },
+    ])('Theme: $theme', ({ theme, bgPattern, description }) => {
+      beforeEach(() => {
+        setMockTheme(theme);
+      });
 
-      expect(screen.getByText('Curio')).toBeInTheDocument();
-      expect(screen.getByTestId('child-content')).toBeInTheDocument();
-    });
+      it(`renders correctly with ${theme} theme`, () => {
+        renderWithProviders(<Layout {...defaultProps} />);
 
-    it('applies gallery theme light styling to header', () => {
-      // Using mocked gallery theme
-      renderWithProviders(<Layout {...defaultProps} />);
+        expect(screen.getByText('Curio')).toBeInTheDocument();
+        expect(screen.getByTestId('child-content')).toBeInTheDocument();
+      });
 
-      const header = document.querySelector('header');
-      expect(header?.className).toMatch(/bg-white/);
-    });
+      it(`applies ${description} styling to header for ${theme} theme`, () => {
+        renderWithProviders(<Layout {...defaultProps} />);
 
-    it('header has backdrop blur effect', () => {
-      renderWithProviders(<Layout {...defaultProps} />);
+        const header = document.querySelector('header');
+        expect(header?.className).toMatch(bgPattern);
+      });
 
-      const header = document.querySelector('header');
-      expect(header?.className).toContain('backdrop-blur');
+      it(`header has backdrop blur effect with ${theme} theme`, () => {
+        renderWithProviders(<Layout {...defaultProps} />);
+
+        const header = document.querySelector('header');
+        expect(header?.className).toContain('backdrop-blur');
+      });
+
+      it(`maintains navigation functionality with ${theme} theme`, async () => {
+        renderWithProviders(<Layout {...defaultProps} />);
+
+        const accountButton = screen.getByRole('button', { name: /account/i });
+        fireEvent.click(accountButton);
+
+        await waitFor(() => {
+          expect(screen.getByText('Account Status')).toBeInTheDocument();
+        });
+      });
     });
   });
 

@@ -5,18 +5,21 @@
  * Validates rendering, accessibility, theme support, and interaction behavior.
  */
 
-import { describe, it, expect, vi } from 'vitest';
-import { renderWithProviders, screen, fireEvent } from '../utils/test-utils';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import {
+  renderWithProviders,
+  screen,
+  fireEvent,
+  setMockTheme,
+  createThemeMock,
+} from '../utils/test-utils';
 import { ItemCard } from '@/components/ItemCard';
 import { CollectionItem, FieldDefinition } from '@/types';
 
-// Mock the theme module - uses gallery theme by default
+// Use centralized configurable theme mock
 vi.mock('@/theme', async () => {
-  const actual = await vi.importActual('@/theme');
-  return {
-    ...actual,
-    useTheme: () => ({ theme: 'gallery', setTheme: vi.fn() }),
-  };
+  const { createThemeMock } = await import('../utils/test-utils');
+  return createThemeMock();
 });
 
 // Mock ItemImage component to avoid image loading complexity
@@ -63,6 +66,11 @@ const createMockItem = (overrides: Partial<CollectionItem> = {}): CollectionItem
 });
 
 describe('ItemCard Component', () => {
+  // Reset theme to gallery before each test
+  beforeEach(() => {
+    setMockTheme('gallery');
+  });
+
   describe('Basic Rendering', () => {
     it('renders item title', () => {
       const item = createMockItem();
@@ -497,42 +505,69 @@ describe('ItemCard Component', () => {
   });
 
   describe('Theme Support', () => {
-    it('renders correctly with default gallery theme', () => {
-      const item = createMockItem();
-      const onClick = vi.fn();
+    describe.each([
+      { theme: 'gallery' as const, bgPattern: /bg-white/, description: 'light background' },
+      { theme: 'vault' as const, bgPattern: /bg-stone-950/, description: 'dark background' },
+      { theme: 'atelier' as const, bgPattern: /bg-\[#f8f6f1\]/, description: 'cream background' },
+    ])('Theme: $theme', ({ theme, bgPattern, description }) => {
+      beforeEach(() => {
+        setMockTheme(theme);
+      });
 
-      renderWithProviders(
-        <ItemCard
-          item={item}
-          fields={mockFields}
-          displayFields={['artist']}
-          badgeFields={['year']}
-          onClick={onClick}
-        />,
-      );
+      it(`renders correctly with ${theme} theme`, () => {
+        const item = createMockItem();
+        const onClick = vi.fn();
 
-      const card = screen.getByTestId('item-card');
-      expect(card).toBeInTheDocument();
-      expect(screen.getByText('Abbey Road')).toBeInTheDocument();
-    });
+        renderWithProviders(
+          <ItemCard
+            item={item}
+            fields={mockFields}
+            displayFields={['artist']}
+            badgeFields={['year']}
+            onClick={onClick}
+          />,
+        );
 
-    it('applies gallery theme light styling', () => {
-      const item = createMockItem();
-      const onClick = vi.fn();
+        const card = screen.getByTestId('item-card');
+        expect(card).toBeInTheDocument();
+        expect(screen.getByText('Abbey Road')).toBeInTheDocument();
+      });
 
-      renderWithProviders(
-        <ItemCard
-          item={item}
-          fields={mockFields}
-          displayFields={['artist']}
-          badgeFields={['year']}
-          onClick={onClick}
-        />,
-      );
+      it(`applies ${description} styling for ${theme} theme`, () => {
+        const item = createMockItem();
+        const onClick = vi.fn();
 
-      const card = screen.getByTestId('item-card');
-      // Gallery theme should have light background classes
-      expect(card.className).toMatch(/bg-white/);
+        renderWithProviders(
+          <ItemCard
+            item={item}
+            fields={mockFields}
+            displayFields={['artist']}
+            badgeFields={['year']}
+            onClick={onClick}
+          />,
+        );
+
+        const card = screen.getByTestId('item-card');
+        expect(card.className).toMatch(bgPattern);
+      });
+
+      it(`maintains interactive behavior with ${theme} theme`, () => {
+        const item = createMockItem();
+        const onClick = vi.fn();
+
+        renderWithProviders(
+          <ItemCard
+            item={item}
+            fields={mockFields}
+            displayFields={[]}
+            badgeFields={[]}
+            onClick={onClick}
+          />,
+        );
+
+        fireEvent.click(screen.getByTestId('item-card'));
+        expect(onClick).toHaveBeenCalledTimes(1);
+      });
     });
   });
 
