@@ -102,13 +102,20 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
     const titleSize = aspectRatio === '1:1' ? 'text-xl' : 'text-3xl';
     const metaSize = aspectRatio === '1:1' ? 'text-[8px]' : 'text-[10px]';
     const [ratioW, ratioH] = aspectRatio.split(':').map(Number);
-    const previewWidth = `min(80vw, 520px, calc((100dvh - var(--sheet-height)) * ${ratioW} / ${ratioH}))`;
+    const previewWidth = 'max(260px, min(85vw, 560px))';
+    const previewMaxWidth = 'min(85vw, 560px)';
+    const previewMaxHeight = 'min(80dvh, 720px)';
 
     return (
       <div
         id="card-preview"
         className={`shadow-2xl transition-all duration-300 overflow-hidden relative group select-none h-auto mx-auto print:h-auto print:!w-[100mm]`}
-        style={{ aspectRatio: `${ratioW} / ${ratioH}`, width: previewWidth }}
+        style={{
+          aspectRatio: `${ratioW} / ${ratioH}`,
+          width: previewWidth,
+          maxWidth: previewMaxWidth,
+          maxHeight: previewMaxHeight,
+        }}
       >
         <div className={`w-full h-full ${containerStyles[style]} transition-all duration-300`}>
           {style === 'minimal' && (
