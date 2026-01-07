@@ -32,15 +32,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
       ? 'bg-white/5 border border-white/10 text-white placeholder:text-stone-400'
       : 'bg-stone-50 border border-stone-200 text-stone-900';
 
-  if (!isOpen) return null;
-
   // Basic modal a11y: Escape-to-close, focus trap, and focus restore.
   React.useEffect(() => {
+    if (!isOpen) return;
     lastFocusedElementRef.current =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
-  }, []);
+  }, [isOpen]);
 
   React.useEffect(() => {
+    if (!isOpen) return;
     const dialog = dialogRef.current;
 
     requestAnimationFrame(() => {
@@ -93,7 +93,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
       document.removeEventListener('keydown', onKeyDown);
       lastFocusedElementRef.current?.focus?.();
     };
-  }, [onClose]);
+  }, [isOpen, onClose]);
+
+  if (!isOpen) return null;
 
   if (!supabaseActive) {
     return (
