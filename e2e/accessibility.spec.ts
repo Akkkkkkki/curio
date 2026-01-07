@@ -47,7 +47,10 @@ test.describe('Accessibility', () => {
 
       await trigger.click();
       const modal = page.getByTestId('auth-modal');
-      test.skip(!(await modal.isVisible().catch(() => false)), 'Auth modal not available in this environment');
+      test.skip(
+        !(await modal.isVisible().catch(() => false)),
+        'Auth modal not available in this environment',
+      );
 
       await page.keyboard.press('Escape');
       await expect(modal).toBeHidden();
