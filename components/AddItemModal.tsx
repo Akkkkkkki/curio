@@ -45,6 +45,18 @@ const createEmptyForm = () => ({
   rating: 0,
 });
 
+// Helper to filter out null/undefined values from AI-extracted data
+const cleanAiData = (data: Record<string, any>): Record<string, any> => {
+  const cleaned: Record<string, any> = {};
+  for (const [key, value] of Object.entries(data)) {
+    // Skip if value is null, undefined, or the string "null"
+    if (value !== null && value !== undefined && value !== 'null') {
+      cleaned[key] = value;
+    }
+  }
+  return cleaned;
+};
+
 export const AddItemModal: React.FC<AddItemModalProps> = ({
   isOpen,
   onClose,
@@ -240,7 +252,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
             createBatchItem(image, {
               title: result.title || '',
               notes: result.notes || '',
-              data: result.data || {},
+              data: cleanAiData(result.data || {}),
             }),
           );
         } catch (err) {
@@ -312,7 +324,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
       setFormData({
         title: result.title || '',
         notes: result.notes || '',
-        data: result.data || {},
+        data: cleanAiData(result.data || {}),
         rating: 0,
       });
       setStep('verify');
@@ -590,7 +602,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
                         aria-label={`Rate ${s} stars`}
                         aria-pressed={item.rating === s}
                         className={`w-7 h-7 rounded-md border flex items-center justify-center transition-all text-xs ${
-                          item.rating === s
+                          s <= item.rating
                             ? 'bg-amber-400 border-amber-500 text-white shadow-sm'
                             : theme === 'vault'
                               ? 'bg-white/5 border-white/10 text-white/60'
@@ -720,7 +732,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
                 aria-label={`Rate ${s} stars`}
                 aria-pressed={formData.rating === s}
                 className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg border flex items-center justify-center transition-all text-sm ${
-                  formData.rating === s
+                  s <= formData.rating
                     ? 'bg-amber-400 border-amber-500 text-white shadow-sm'
                     : theme === 'vault'
                       ? 'bg-white/5 border-white/10 text-white/60'
