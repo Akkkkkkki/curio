@@ -1,15 +1,15 @@
 # Testing Progress - Curio
 
-**Last updated:** 2026-01-05
+**Last updated:** 2026-01-07
 
 This checklist tracks test coverage implementation progress against `docs/TESTING_ROADMAP.md`.
 
 ## Summary
 
 - **Phase 1-3:** Complete and passing (179 tests)
-- **Phase 4:** Complete and passing (84 tests) - Component tests
+- **Phase 4:** Complete and passing (177 tests) - Component tests
 - **Phase 5:** Implemented (E2E tests with Playwright)
-- **Test Status:** 263 unit/component tests passed, 2 skipped (unimplemented features), 2 todo
+- **Test Status:** 356 unit/component tests passed, 2 skipped (unimplemented features), 2 todo
 
 ## Phase 1: Critical Services — Pure/Isolated
 
@@ -87,6 +87,42 @@ This checklist tracks test coverage implementation progress against `docs/TESTIN
     - HTML attributes
     - Base styles (focus, border radius, flexbox)
     - Accessibility (focusable, keyboard activation)
+
+- [x] **4.4 `components/ItemCard.tsx` — Item Display** (`tests/components/ItemCard.test.tsx`)
+  - 29 tests covering:
+    - Basic rendering (title, data-testid, image)
+    - Rating display (0-5 stars)
+    - Display fields with labels and values
+    - Badge fields rendering
+    - Click handling (mouse and keyboard)
+    - Accessibility (role, tabIndex, focus)
+    - Layout modes (grid, masonry)
+    - Theme support (gallery theme)
+    - Edge cases (empty fields, missing data, long titles)
+
+- [x] **4.5 `components/CollectionCard.tsx` — Collection Preview** (`tests/components/CollectionCard.test.tsx`)
+  - 27 tests covering:
+    - Basic rendering (name, icon, description)
+    - Item count display (singular/plural)
+    - Sample/public collection read-only indicator
+    - Click handling (mouse and keyboard)
+    - Accessibility (role, tabIndex, focus)
+    - Theme support (gallery theme)
+    - Template accent colors (orange, indigo, stone)
+    - Edge cases (long names, missing items, undefined icon)
+    - Visual elements (chevron, cursor-pointer)
+
+- [x] **4.6 `components/Layout.tsx` — App Shell** (`tests/components/Layout.test.tsx`)
+  - 36 tests covering:
+    - Basic rendering (children, title, logo, header extras)
+    - Profile dropdown (open/close, ThemePicker)
+    - Authentication status (not configured, signed out, signed in)
+    - Sign in/out flows (button clicks, dropdown close)
+    - Local import feature (display, import action, importing state)
+    - Bottom navigation (home link, explore link/button)
+    - Theme support (default gallery theme)
+    - Accessibility (aria-labels, sticky header)
+    - Edge cases (undefined callbacks, null props)
 
 ## Phase 5: End-to-End Tests (Implemented)
 
