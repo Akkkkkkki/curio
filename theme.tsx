@@ -93,4 +93,16 @@ export const mutedTextClasses: Record<AppTheme, string> = {
   atelier: 'text-stone-500',
 };
 
+export const frameClasses: Record<AppTheme, string> = {
+  gallery: 'bg-stone-100 border-stone-300 shadow-[0_2px_8px_rgba(0,0,0,0.06)]',
+  vault: 'bg-stone-800 border-amber-600/40 shadow-[0_4px_20px_rgba(0,0,0,0.5)]',
+  atelier: 'bg-[#f0ebe0] border-[#c9bfab] shadow-[0_2px_12px_rgba(87,83,78,0.1)]',
+};
+
+export const frameInnerClasses: Record<AppTheme, string> = {
+  gallery: 'ring-1 ring-stone-200',
+  vault: 'ring-1 ring-amber-500/20',
+  atelier: 'ring-1 ring-[#d4c9b8]',
+};
+
 export const useTheme = () => useContext(ThemeContext);

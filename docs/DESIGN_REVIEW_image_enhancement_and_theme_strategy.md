@@ -1,1141 +1,622 @@
 # Design Review: Image Enhancement & Theme Strategy
 
-**Date:** 2026-01-09
-**Scope:** Image model integration, app aesthetic evolution, user value optimization
-**Core Principle:** Maximum aesthetic pleasure without overwhelming users
+**Date:** 2026-01-09 (Revised: 2026-01-10)
+**Scope:** Image enhancement, theme evolution, user value optimization
+**Core Principle:** Maximum aesthetic improvement with minimum user friction
 
 ---
 
 ## Executive Summary
 
-After reviewing Curio's current implementation and the ChatGPT conversation, I recommend a **museum-first, AI-optional** approach that:
+**Recommended approach: Museum-First Presentation**
 
-1. **Enhances presentation layer** (frames, labels, lighting) rather than transforming user photos
-2. **Adds lightweight, progressive image enhancement** integrated into existing upload flow
-3. **Evolves theme system** toward a signature "Contemporary Gallery + Archive Catalog" hybrid
-4. **Keeps AI assistance non-blocking** and template-driven (not prompt-heavy)
+1. **Enhance presentation layer** (frames, labels) rather than transforming photos
+2. **Add lightweight one-tap enhancement** integrated into existing upload flow
+3. **Evolve themes** toward distinct visual personalities
+4. **Keep all AI assistance optional and non-blocking**
 
 **Why this works for Curio:**
-- Preserves your "delight before auth" and "5-minute time-to-value" constraints
-- Leverages existing Gemini integration without adding new model dependencies
-- Matches the "personal museum" concept better than heavy photo manipulation
-- Doesn't require users to become photo editors or prompt engineers
+
+- Preserves "5-minute time-to-value" constraint
+- Uses existing Gemini integration without new dependencies
+- Matches "personal museum" concept
+- Zero learning curve for users
 
 ---
 
-## Part 1: Recommended Art Direction (Theme Evolution)
+## Part 1: Frame System - Design Specification
 
-### Current State Analysis
-
-**Existing Themes:**
-- `gallery` (light) - Clean but generic
-- `vault` (dark) - Moody but lacks personality
-- `atelier` (cream) - Warmest option but underutilized
-
-**Theme System Strengths:**
-- Well-structured with comprehensive class maps (`theme.tsx`)
-- Covers all surface types (panel, card, soft, overlay)
-- Persists to IndexedDB
-- Easy to extend
-
-**Theme System Gaps:**
-- **No signature visual motifs** - Feels like "color palette swap" rather than distinct visual languages
-- **No frame system** - Photos sit directly in cards without exhibition-style presentation
-- **No typographic hierarchy** - Serif/mono/sans used inconsistently
-- **Missing museum affordances** - No accession numbers, exhibit labels, catalog stamps
-
-### Proposed Direction: "Contemporary Gallery + Archival Catalog" Hybrid
-
-**Core Concept:**
-Combine the **clean minimalism of a modern gallery** with the **tactile details of an archival catalog**.
-
-**Why this hybrid:**
-1. **Gallery aesthetics** = premium feel, editorial quality, respects user photos
-2. **Archive details** = personality, warmth, "personal museum" authenticity
-3. **Hybrid balance** = sophisticated but not sterile, detailed but not cluttered
-
-**Three Signature Components to Add:**
-
-#### 1. Exhibition Frame System
-
-Every item photo gets framed like a museum piece:
+### Visual Structure
 
 ```
-┌─────────────────────────────┐
-│ ▓▓▓▓▓▓ SUBTLE MAT ▓▓▓▓▓▓▓▓ │
-│ ▓                         ▓ │
-│ ▓   ┌─────────────────┐   ▓ │
-│ ▓   │                 │   ▓ │
-│ ▓   │   USER PHOTO    │   ▓ │
-│ ▓   │                 │   ▓ │
-│ ▓   └─────────────────┘   ▓ │
-│ ▓                         ▓ │
-│ ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ │
-│                             │
-│ Title Here                  │
-│ Metadata · Details          │
-└─────────────────────────────┘
+┌──────────────────────────────────┐
+│ ░░░░░░░░░░ MAT ░░░░░░░░░░░░░░░░░ │  ← 12px padding, theme-colored
+│ ░ ┌────────────────────────────┐░│
+│ ░ │                            │░│  ← 1px border (frame)
+│ ░ │       USER PHOTO           │░│
+│ ░ │                            │░│
+│ ░ └────────────────────────────┘░│
+│ ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ │
+└──────────────────────────────────┘
 ```
 
-**Implementation:**
-- Thin inner frame (1-2px, high contrast)
-- Optional mat padding (8-16px, theme-colored)
-- Subtle drop shadow (not floating cards)
-- Theme-specific frame styles:
-  - Gallery: thin charcoal frame, white mat, soft shadow
-  - Vault: brass/gold frame, dark mat, dramatic shadow
-  - Atelier: wooden frame, cream mat, warm shadow
+### Theme-Specific Tokens
 
-**CSS Pattern:**
-```css
-.exhibit-frame {
-  padding: 16px; /* mat */
-  background: var(--mat-color);
-  border: 1px solid var(--frame-color);
-  box-shadow: var(--frame-shadow);
-}
+| Theme   | Mat Background | Frame Border          | Shadow                                   |
+| ------- | -------------- | --------------------- | ---------------------------------------- |
+| Gallery | `bg-stone-100` | `border-stone-300`    | `shadow-[0_2px_8px_rgba(0,0,0,0.06)]`    |
+| Vault   | `bg-stone-800` | `border-amber-600/40` | `shadow-[0_4px_20px_rgba(0,0,0,0.5)]`    |
+| Atelier | `bg-[#f0ebe0]` | `border-[#c9bfab]`    | `shadow-[0_2px_12px_rgba(87,83,78,0.1)]` |
+
+### Spacing Specification
+
+| Element      | Mobile | Desktop |
+| ------------ | ------ | ------- |
+| Mat padding  | 8px    | 12px    |
+| Border width | 1px    | 1px     |
+| Outer radius | 4px    | 6px     |
+| Inner radius | 2px    | 4px     |
+
+### Hover Behavior
+
+- Subtle lift: `transform: translateY(-2px)`
+- Shadow intensifies slightly
+- Transition: `200ms ease`
+
+---
+
+## Part 2: Typography System - Design Specification
+
+### Label Hierarchy
+
+Using **system fonts only** (no custom font loading):
+
+| Element       | Tailwind Classes                                                   |
+| ------------- | ------------------------------------------------------------------ |
+| Title         | `font-serif text-lg font-semibold leading-tight tracking-tight`    |
+| Metadata      | `font-mono text-xs font-medium uppercase tracking-wide opacity-60` |
+| Notes preview | `font-sans text-sm leading-relaxed opacity-80 line-clamp-2`        |
+
+### Metadata Format
+
+Display as dot-separated values:
+
+```
+Brand · 2025 · Mint Condition
 ```
 
-#### 2. Museum Label Component
+---
 
-Replace generic "title + metadata" with structured exhibit labels:
+## Part 3: Image Enhancement - Design Specification
 
+### User Flow
+
+**In AddItemModal verify step:**
+
+1. Photo preview displays
+2. Below preview: "Enhance Photo" button (ghost style, sparkle icon)
+3. On click: processing indicator, then side-by-side preview
+4. User picks "Use Original" or "Use Enhanced"
+5. Selection persists with item
+
+### Enhancement Operations
+
+All client-side, no server calls:
+
+1. **Auto-levels** - Normalize histogram (stretch to 0-255 range)
+2. **Saturation boost** - +10% via HSL adjustment
+3. **Sharpening** - Mild unsharp mask (amount: 0.3)
+
+**Not included:** Auto-straighten (complex, error-prone, defer to v2)
+
+### Button States
+
+| State    | Appearance                                     |
+| -------- | ---------------------------------------------- |
+| Default  | Ghost button, `Sparkles` icon, "Enhance Photo" |
+| Loading  | Spinner, "Enhancing..."                        |
+| Complete | Toggle between "Original" / "Enhanced"         |
+| Error    | Toast notification, button resets              |
+
+---
+
+## Part 4: Technical Implementation
+
+### 4.1 Theme Tokens (theme.tsx)
+
+Add to existing `theme.tsx`:
+
+```typescript
+export const frameClasses: Record<AppTheme, string> = {
+  gallery: 'bg-stone-100 border-stone-300 shadow-[0_2px_8px_rgba(0,0,0,0.06)]',
+  vault: 'bg-stone-800 border-amber-600/40 shadow-[0_4px_20px_rgba(0,0,0,0.5)]',
+  atelier: 'bg-[#f0ebe0] border-[#c9bfab] shadow-[0_2px_12px_rgba(87,83,78,0.1)]',
+};
+
+export const frameInnerClasses: Record<AppTheme, string> = {
+  gallery: 'ring-1 ring-stone-200',
+  vault: 'ring-1 ring-amber-500/20',
+  atelier: 'ring-1 ring-[#d4c9b8]',
+};
 ```
-┌─────────────────────────────┐
-│ TITLE (Serif, 18-20px)      │
-│ Field Value · Year          │ ← Mono, 11-12px, muted
-│ ─                           │
-│ Notes/provenance text...    │ ← Sans, 14px
-│                             │
-│ ACC.2026.001.042           │ ← Mono, 10px, very muted
-└─────────────────────────────┘
-```
 
-**Key Details:**
-- Accession number = `ACC.{year}.{collection_index}.{item_index}`
-- Horizontal rule separator (1px, subtle)
-- Clear typographic hierarchy (serif title, mono metadata, sans body)
-- Compact but readable
+### 4.2 ExhibitFrame Component
 
-**React Component:**
+**File: `components/ExhibitFrame.tsx`**
+
 ```tsx
-<MuseumLabel
-  title={item.title}
-  metadata={['Brand Name', '2025', 'Condition: Mint']}
-  notes={item.notes}
-  accessionNo={generateAccessionNo(item)}
-/>
-```
-
-#### 3. Archival Stamps & Badges
-
-Add subtle visual markers that feel like catalog stamps:
-
-- **Status stamps:** "NEW ARRIVAL", "VERIFIED", "FAVORITE" (not stickers, more like ink stamps)
-- **Category badges:** Small rectangular tags with collection icon
-- **Date badges:** "Added MM.DD.YYYY" in monospace
-- **Rating badge:** ★★★★★ in muted gold/amber (not bright yellow)
-
-**Visual Style:**
-- Uppercase, small monospace text (10px)
-- Low opacity borders (20-30%)
-- Subtle texture overlay (optional)
-- Never bright/loud colors (keep muted)
-
-**Placement:**
-- Top-right corner of card
-- Bottom metadata area
-- Header of detail view
-
----
-
-### Revised Theme Palette & Guidelines
-
-#### Gallery (Light) - "Contemporary MoMA"
-- **Primary Surface:** `#FFFFFF` (pure white)
-- **Mat Color:** `#F5F5F5` (soft gray)
-- **Frame:** `#1A1A1A` (charcoal, 1px)
-- **Shadow:** `0 2px 8px rgba(0,0,0,0.06)`
-- **Text Primary:** `#0A0A0A`
-- **Text Muted:** `#737373` (stone-500)
-- **Accents:** Amber-600 for interactive elements
-- **Typography:**
-  - Titles: Serif (EB Garamond or similar)
-  - Labels: Mono (JetBrains Mono or SF Mono)
-  - Body: Sans (Inter or system)
-
-**Mood:** Clean, editorial, high-contrast, premium paper feel
-
-#### Vault (Dark) - "Museum Night + Archive"
-- **Primary Surface:** `#0C0A09` (stone-950)
-- **Mat Color:** `#1C1917` (stone-900)
-- **Frame:** `#D4A574` (brass/gold, 1px)
-- **Shadow:** `0 4px 16px rgba(0,0,0,0.5)`
-- **Text Primary:** `#FAFAF9` (stone-50)
-- **Text Muted:** `#A8A29E` (stone-400)
-- **Accents:** Amber-500 for warmth
-- **Typography:** Same as Gallery
-
-**Mood:** Cinematic, luxurious, nighttime gallery spotlight
-
-#### Atelier (Warm) - "Paper Archive + Natural Light"
-- **Primary Surface:** `#FAF9F6` (warm cream)
-- **Mat Color:** `#F5F1E7` (darker cream)
-- **Frame:** `#8B7355` (warm brown, 1px)
-- **Shadow:** `0 2px 12px rgba(87,83,78,0.12)` (warm shadow)
-- **Text Primary:** `#292524` (stone-800)
-- **Text Muted:** `#78716C` (stone-500)
-- **Accents:** Amber-700 for richness
-- **Typography:** Same as Gallery
-
-**Mood:** Intimate, tactile, artist's studio, vintage catalog
-
----
-
-### Implementation Priority
-
-**Phase 1: Foundation (Week 1-2)**
-1. Create `MuseumLabel` component
-2. Add accession number generation utility
-3. Implement basic frame system (CSS-only)
-4. Update `ItemImage` to use frames
-
-**Phase 2: Polish (Week 3-4)**
-1. Add archival stamps/badges
-2. Refine typography hierarchy
-3. Theme-specific frame variations
-4. Update all item cards + detail views
-
-**Phase 3: Optional Enhancements**
-- Subtle paper texture overlays (SVG noise)
-- Theme-specific transitions
-- Custom cursor on hover (magnifying glass icon?)
-
----
-
-## Part 2: Image Enhancement Strategy
-
-### Current Pipeline Analysis
-
-**Strengths:**
-- Two-variant system already exists (original + display)
-- High-quality processing (imageSmoothingQuality: 'high')
-- Gemini integration working well for metadata
-- Non-blocking AI (never blocks user)
-
-**Gaps:**
-- No editing capabilities (crop, rotate, adjust)
-- No quality checks or auto-fixes
-- No composition analysis
-- No background removal
-- No style normalization
-
-### Recommended Approach: "Museum-Ready" Auto-Enhancement
-
-**Core Philosophy:**
-Help users make photos **exhibition-worthy** without requiring photo editing skills or prompt engineering.
-
-**NOT Recommended:**
-- ❌ Full AI image generation (too slow, unpredictable, expensive)
-- ❌ Heavy style transfer (loses authenticity of user's object)
-- ❌ Open-ended prompt interface (overwhelming for non-experts)
-- ❌ Multiple competing tools (crop vs AI vs filters = decision paralysis)
-
-**Recommended:**
-- ✅ One-tap "Museum Mode" enhancement
-- ✅ Template-based fixes (not custom prompts)
-- ✅ Preview before committing
-- ✅ Always preserve original
-- ✅ Optional, never required
-
----
-
-### Three-Tier Enhancement System
-
-#### Tier 1: Automatic Quality Checks (Silent)
-
-Run immediately after upload, before AI analysis:
-
-**Check for:**
-1. **Exposure:** Histogram analysis (too dark/bright?)
-2. **Blur:** Variance of Laplacian (motion blur?)
-3. **Composition:** Object detection (subject off-center?)
-4. **Resolution:** Below 800px on any side?
-5. **Horizon tilt:** >3° rotation needed?
-
-**Action:**
-- If ALL checks pass → proceed normally
-- If ANY check fails → show enhancement chip
-
-**UI:**
-```
-┌─────────────────────────────────────┐
-│  📸 Photo uploaded                  │
-│                                     │
-│  ⚠️ We noticed:                     │
-│  • Photo is a bit dark              │
-│  • Object is slightly tilted        │
-│                                     │
-│  [ Auto-Enhance ] [ Keep As Is ]    │
-└─────────────────────────────────────┘
-```
-
-**Implementation:**
-- Client-side canvas analysis (fast)
-- Simple algorithms (brightness average, edge detection)
-- No server calls needed
-- <100ms processing time
-
-#### Tier 2: "Museum Mode" Enhancement (One-Tap)
-
-When user clicks "Auto-Enhance", apply a **fixed recipe** (not AI):
-
-**Recipe Steps:**
-1. **Auto-levels:** Normalize exposure (histogram stretch)
-2. **Smart crop:** Center the detected object, 4:3 or square aspect
-3. **Straighten:** Auto-rotate to level horizon/vertical lines
-4. **Sharpen:** Mild unsharp mask (radius: 1px, amount: 50%)
-5. **Color boost:** +10% saturation (keep realistic)
-6. **Vignette:** Subtle darkening at edges (optional, theme-dependent)
-
-**Technical Implementation:**
-- Pure canvas operations (no AI/server calls)
-- Uses existing `imageProcessor.ts` infrastructure
-- Generate third variant: `enhanced` (alongside original + display)
-- Processing time: <500ms for 2000px image
-
-**Preview UI:**
-```
-┌─────────────────────────────────────┐
-│  Before          │       After      │
-│  ┌────────┐      │     ┌────────┐   │
-│  │ Dark   │      │     │ Bright │   │
-│  │ Tilted │ →    │     │ Level  │   │
-│  │ Photo  │      │     │ Sharp  │   │
-│  └────────┘      │     └────────┘   │
-│                                     │
-│  [ Use Enhanced ] [ Keep Original ] │
-└─────────────────────────────────────┘
-```
-
-#### Tier 3: AI Background Removal (Optional)
-
-For users who want **studio product look**:
-
-**Model Options:**
-1. **Gemini Imagen Edit API** (if available)
-   - Prompt: "Remove background, keep object centered on clean white"
-   - Server-side via `/api/gemini/edit-image`
-
-2. **Remove.bg API** (alternative)
-   - Specialized background removal
-   - Higher quality than Gemini for this task
-   - $0.02/image at scale
-
-3. **Client-side ONNX** (free but slower)
-   - U²-Net model in browser
-   - No API costs
-   - 2-5 seconds processing
-
-**Recommendation:** Start with **Gemini Imagen Edit** if available, fallback to Remove.bg
-
-**UI Placement:**
-- "Advanced" section in review step
-- Clear "Background Removal" button
-- Shows before/after preview
-- Optional watermark: "AI Enhanced"
-
-**Prompt Template:**
-```
-Remove the background from this photo.
-Keep the {object_type} completely unchanged.
-Replace background with clean white.
-Maintain realistic lighting and shadows.
-Keep image centered and well-composed.
-```
-
-Where `{object_type}` comes from existing Gemini analysis metadata.
-
----
-
-### Revised Upload Flow
-
-**New Step Order:**
-
-1. **Select Collection** (existing)
-2. **Upload Photo** (existing)
-3. **🆕 Quick Check** (new)
-   - Auto-analyze quality
-   - Show enhancement options if needed
-   - User chooses: Auto-Enhance / Keep As Is / Manual Tools
-4. **Analyzing** (existing)
-   - Run Gemini metadata extraction
-   - Process enhancement if selected
-5. **Verify** (existing)
-   - Show enhanced vs original toggle
-   - Option to try background removal
-   - Metadata form with AI pre-fill
-
-**Total Added Time:**
-- Quality check: <100ms
-- Museum Mode enhancement: <500ms
-- Background removal: 2-5 seconds (optional)
-
-**Doesn't Break Existing Constraints:**
-- ✅ Still "5 minutes to first value"
-- ✅ Still works without AI
-- ✅ Still recoverable if enhancement fails
-- ✅ Still progressive disclosure
-
----
-
-### Data Model Changes
-
-**Extend Item Type:**
-
-```typescript
-interface CollectionItem {
-  // ... existing fields ...
-
-  // New fields:
-  photoOriginalPath?: string;     // Existing original
-  photoDisplayPath?: string;      // Existing display
-  photoEnhancedPath?: string;     // NEW: museum-mode enhanced
-  photoVariant?: 'original' | 'display' | 'enhanced'; // Which to show
-
-  enhancementMetadata?: {
-    applied: boolean;
-    recipe: 'museum-mode' | 'bg-removal' | 'none';
-    timestamp: number;
-    model?: string;  // If AI-based
-    params?: Record<string, any>;
-  };
-}
-```
-
-**IndexedDB Stores:**
-- `assets` (original) - existing
-- `display` (optimized) - existing
-- `enhanced` (museum-mode) - NEW
-- `enhanced-nobg` (background removed) - NEW
-
-**Supabase Storage Paths:**
-- `{user_id}/{item_id}_original.jpg` - existing
-- `{user_id}/{item_id}_display.jpg` - existing
-- `{user_id}/{item_id}_enhanced.jpg` - NEW
-- `{user_id}/{item_id}_enhanced_nobg.jpg` - NEW
-
----
-
-### Technical Implementation Details
-
-#### Museum Mode Enhancement Algorithm
-
-```typescript
-// services/imageEnhancer.ts (NEW FILE)
-
-export async function applyMuseumMode(
-  imageBlob: Blob,
-  options: MuseumModeOptions = {}
-): Promise<Blob> {
-
-  const defaults = {
-    autoLevel: true,
-    straighten: true,
-    sharpen: true,
-    saturation: 1.1,  // +10%
-    vignette: false,  // theme-dependent
-  };
-
-  const config = { ...defaults, ...options };
-
-  // 1. Load image
-  const img = await loadImage(imageBlob);
-
-  // 2. Auto-straighten (detect tilt angle)
-  const tiltAngle = detectTilt(img);
-  const straightened = rotateImage(img, -tiltAngle);
-
-  // 3. Auto-levels (histogram stretch)
-  const leveled = applyAutoLevels(straightened);
-
-  // 4. Sharpen (unsharp mask)
-  const sharpened = applyUnsharpMask(leveled, {
-    radius: 1,
-    amount: 0.5,
-  });
-
-  // 5. Color boost
-  const boosted = adjustSaturation(sharpened, config.saturation);
-
-  // 6. Optional vignette
-  const final = config.vignette
-    ? applyVignette(boosted, { strength: 0.2 })
-    : boosted;
-
-  // 7. Export as JPEG
-  return canvasToBlob(final, 'image/jpeg', 0.92);
-}
-```
-
-**Helper Functions Needed:**
-- `detectTilt()` - Hough line transform or edge detection
-- `rotateImage()` - Canvas rotate + crop
-- `applyAutoLevels()` - Histogram normalization
-- `applyUnsharpMask()` - Gaussian blur + subtract
-- `adjustSaturation()` - HSL color space manipulation
-- `applyVignette()` - Radial gradient overlay
-
-**Libraries to Consider:**
-- **CamanJS** (image processing) - Unmaintained, avoid
-- **Canvas filters** (native) - Best option, write custom
-- **Sharp** (server-side) - If moving enhancement to backend
-- **Pica** (high-quality resize) - Already using similar approach
-
-**Recommendation:** Write custom canvas filters for maximum control and performance.
-
-#### AI Background Removal Integration
-
-```typescript
-// services/geminiService.ts (EXTEND EXISTING)
-
-export async function removeBackground(
-  imageBlob: Blob,
-  objectType: string
-): Promise<{ success: boolean; resultBlob?: Blob; error?: string }> {
-
-  try {
-    const base64 = await blobToBase64(imageBlob);
-
-    const response = await fetch('/api/gemini/edit-image', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        image: base64,
-        prompt: `Remove the background from this photo. Keep the ${objectType} completely unchanged. Replace background with clean white. Maintain realistic lighting and shadows.`,
-        model: 'imagen-edit-v1',  // Or whatever Gemini offers
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error('Background removal failed');
-    }
-
-    const { imageUrl } = await response.json();
-    const resultBlob = await fetch(imageUrl).then(r => r.blob());
-
-    return { success: true, resultBlob };
-
-  } catch (error) {
-    console.error('Background removal error:', error);
-    return { success: false, error: error.message };
-  }
-}
-```
-
-**Backend Endpoint (NEW):**
-
-```javascript
-// server/geminiProxy.js (EXTEND)
-
-app.post('/api/gemini/edit-image', async (req, res) => {
-  const { image, prompt, model } = req.body;
-
-  // Option 1: Gemini Imagen API (if available)
-  const result = await geminiClient.editImage({
-    image: Buffer.from(image, 'base64'),
-    prompt,
-    model: model || 'imagen-edit-v1',
-  });
-
-  // Option 2: Fallback to Remove.bg
-  if (!result) {
-    const rbgResult = await fetch('https://api.remove.bg/v1.0/removebg', {
-      method: 'POST',
-      headers: { 'X-Api-Key': process.env.REMOVEBG_API_KEY },
-      body: formDataWithImage(image),
-    });
-    return res.json({ imageUrl: rbgResult.url });
-  }
-
-  res.json({ imageUrl: result.url });
-});
-```
-
----
-
-### UX Considerations & Edge Cases
-
-#### When Enhancement Should Be Suggested
-
-**Auto-suggest if:**
-- Brightness stddev > 70 (very dark/bright)
-- Blur metric < 100 (Laplacian variance)
-- Tilt angle > 3 degrees
-- Object bounding box < 40% of frame (too much bg)
-- Resolution < 1200px shortest side
-
-**Don't suggest if:**
-- User uploaded from batch mode (assume intentional)
-- Image already square + centered (likely pre-edited)
-- Brightness in good range (110-145 average)
-- Sharp edges detected
-
-#### Handling Enhancement Failures
-
-**If Museum Mode fails:**
-- Show error toast
-- Fall back to original image
-- Log error for debugging
-- Still allow manual save
-
-**If Background Removal fails:**
-- Show "Enhancement unavailable" message
-- Offer manual crop as alternative
-- Don't block item creation
-
-#### User Control & Transparency
-
-**Always show:**
-- Toggle between variants (Original / Enhanced / No BG)
-- "Enhanced by AI" badge on enhanced images
-- Revert button in item detail view
-- Original always preserved in storage
-
-**Settings Option:**
-- "Auto-enhance uploads" toggle (default: suggest but don't auto-apply)
-- "Background removal" toggle (default: available on demand)
-- "Enhanced quality" slider (92% default, 85-98% range)
-
----
-
-### API Cost Considerations
-
-**Free Tier Operations:**
-- Quality checks: Client-side (free)
-- Museum Mode: Client-side (free)
-- Metadata extraction: Gemini API (existing cost)
-
-**Paid Operations:**
-- Background removal: ~$0.01-0.05 per image (depending on provider)
-
-**Cost Mitigation:**
-- Cache enhancement results (don't re-process same image)
-- Rate limit: 10 enhancements per user per day (free tier)
-- Paid users: Unlimited enhancements
-- Clear pricing: "5 free AI enhancements/month, then $0.02/image"
-
-**Monthly Cost Estimate (1000 active users):**
-- 1000 users × 10 items/month × 20% use enhancement = 2000 enhancements
-- 2000 × $0.02 = $40/month (very manageable)
-
----
-
-## Part 3: Integration Strategy (How to Build This)
-
-### Phase 1: Foundation (Week 1-2)
-
-**Goal:** Get frame system + museum labels working
-
-**Tasks:**
-1. Create `MuseumLabel.tsx` component
-2. Create `ExhibitFrame.tsx` wrapper component
-3. Update `ItemImage` to use frames
-4. Add accession number generator utility
-5. Update theme palette constants
-6. Test on HomeScreen + CollectionScreen
-
-**Files to Modify:**
-- `components/MuseumLabel.tsx` (new)
-- `components/ExhibitFrame.tsx` (new)
-- `components/ItemImage.tsx` (extend)
-- `utils/accessionNumber.ts` (new)
-- `theme.tsx` (extend palette)
-- `App.tsx` (use new components)
-
-**Success Criteria:**
-- All item cards show museum-style frames
-- Labels have proper typography hierarchy
-- Accession numbers display correctly
-- Themes have distinct visual personalities
-
-### Phase 2: Image Enhancement (Week 3-4)
-
-**Goal:** Museum Mode one-tap enhancement working
-
-**Tasks:**
-1. Create `services/imageEnhancer.ts`
-2. Implement quality check algorithms
-3. Add enhancement step to AddItemModal flow
-4. Create enhancement preview UI
-5. Update data model for variants
-6. Test enhancement pipeline
-
-**Files to Modify:**
-- `services/imageEnhancer.ts` (new)
-- `components/AddItemModal.tsx` (extend flow)
-- `components/EnhancementPreview.tsx` (new)
-- `types.ts` (extend CollectionItem)
-- `services/db.ts` (handle new variants)
-
-**Success Criteria:**
-- Quality checks run in <100ms
-- Museum Mode processes in <500ms
-- Preview shows before/after comparison
-- Enhanced variant saves to IndexedDB + Supabase
-
-### Phase 3: AI Background Removal (Week 5-6)
-
-**Goal:** Optional background removal working
-
-**Tasks:**
-1. Extend `geminiService.ts` with `removeBackground()`
-2. Add `/api/gemini/edit-image` endpoint to proxy
-3. Create background removal UI in verify step
-4. Handle API errors gracefully
-5. Add cost tracking/rate limiting
-
-**Files to Modify:**
-- `services/geminiService.ts` (extend)
-- `server/geminiProxy.js` (new endpoint)
-- `components/AddItemModal.tsx` (add BG removal option)
-- `components/BackgroundRemovalPreview.tsx` (new)
-
-**Success Criteria:**
-- Background removal works for common objects
-- Errors show helpful messages
-- Rate limits prevent cost overruns
-- Original always preserved
-
-### Phase 4: Polish & Settings (Week 7-8)
-
-**Goal:** User preferences + refinement
-
-**Tasks:**
-1. Add enhancement settings panel
-2. Create variant switcher in ItemDetailScreen
-3. Add archival stamps/badges
-4. Performance optimization
-5. Mobile testing + refinement
-
-**Files to Modify:**
-- `components/SettingsModal.tsx` (extend)
-- `screens/ItemDetailScreen.tsx` (variant switcher)
-- `components/ArchivalBadge.tsx` (new)
-- `services/imageEnhancer.ts` (optimize)
-
-**Success Criteria:**
-- Users can control enhancement preferences
-- Variant switching is instant
-- Mobile performance is smooth
-- All edge cases handled
-
----
-
-### Technical Risks & Mitigations
-
-| Risk | Impact | Mitigation |
-|------|--------|------------|
-| Enhancement too slow on mobile | High | Move to Web Worker, show progress |
-| AI background removal costs too much | Medium | Rate limit, cache results, require auth |
-| Enhancement degrades image quality | High | Extensive testing, adjustable parameters |
-| Frame system breaks existing layouts | Medium | Gradual rollout, feature flag |
-| Users prefer original photos | Low | Always show toggle, make enhancement optional |
-
----
-
-### Alternative Approaches Considered (& Why Not Recommended)
-
-#### ❌ Full AI Style Transfer (Midjourney/DALL-E style)
-**Pros:** Very dramatic results, "wow factor"
-**Cons:**
-- Extremely slow (10-30 seconds)
-- Expensive ($0.10-0.50 per image)
-- Unpredictable results (may alter object identity)
-- Requires prompt engineering skills
-- Breaks "authentic collection" concept
-
-**Verdict:** Too heavy for a personal collection app. Better for creative tools.
-
-#### ❌ Manual Crop/Rotate/Adjust Tools (like Instagram editor)
-**Pros:** Full user control, familiar pattern
-**Cons:**
-- High friction (requires user effort)
-- Breaks "5-minute time-to-value"
-- Mobile UI complexity (sliders, crop handles)
-- Not everyone wants to be a photo editor
-
-**Verdict:** Save for v2.0 "Advanced Mode" if users request it.
-
-#### ❌ Multiple AI Model Options (Gemini vs DALL-E vs Stable Diffusion)
-**Pros:** Flexibility, best tool for each job
-**Cons:**
-- Decision paralysis ("which model should I use?")
-- Inconsistent results across models
-- Higher maintenance burden
-- More API keys to manage
-
-**Verdict:** Stick with Gemini ecosystem for simplicity.
-
----
-
-## Part 4: Recommended Implementation Roadmap
-
-### Immediate Actions (This Week)
-
-**1. Create Design System Update** ✅
-- Document frame system specs
-- Define museum label component
-- Update theme palette with new colors
-- Create Figma/design mockups (if applicable)
-
-**2. Prototype Frame System** ✅
-- Build `MuseumLabel` + `ExhibitFrame` components
-- Apply to one screen (e.g., HomeScreen) as proof-of-concept
-- Get user feedback on visual direction
-
-**3. Research AI Image Edit API** 🔍
-- Check if Gemini offers image editing capabilities (not just generation)
-- Test Remove.bg API (get API key, test with sample images)
-- Benchmark performance + cost
-
-### Short-Term (Month 1)
-
-**Week 1-2: Theme Evolution**
-- Implement full frame system across all views
-- Add museum labels to all item cards
-- Update typography hierarchy
-- Test on mobile devices
-
-**Week 3-4: Basic Enhancement**
-- Build quality check algorithms
-- Implement Museum Mode enhancement (no AI)
-- Add preview UI to upload flow
-- Test with real user photos
-
-### Medium-Term (Month 2-3)
-
-**Week 5-6: AI Background Removal**
-- Integrate chosen API (Gemini or Remove.bg)
-- Add to verify step as optional
-- Implement rate limiting
-- Monitor costs
-
-**Week 7-8: Polish & Settings**
-- User preference controls
-- Variant switcher in detail view
-- Performance optimization
-- Beta testing with real users
-
-### Long-Term (Month 4+)
-
-**Optional Advanced Features** (only if user demand exists):
-- Manual crop/rotate tools
-- Filter presets (B&W, vintage, etc.)
-- Batch enhancement for existing collections
-- Custom frame styles per collection
-- Export with frame + label for printing
-
----
-
-## Part 5: Success Metrics
-
-### How to Measure if This Design Works
-
-**Quantitative Metrics:**
-1. **Enhancement Adoption Rate**
-   - Target: >40% of uploads use auto-enhance
-   - Measure: Track `enhancementMetadata.applied` field
-
-2. **Time to First Item**
-   - Target: Still <5 minutes (don't regress)
-   - Measure: Upload timestamp → first save timestamp
-
-3. **Enhanced Image Preference**
-   - Target: >60% keep enhanced variant
-   - Measure: Track `photoVariant` field over time
-
-4. **Background Removal Usage**
-   - Target: 10-15% of items (niche feature)
-   - Measure: Count items with `enhanced-nobg` variant
-
-5. **API Cost per User**
-   - Target: <$0.50/user/month
-   - Measure: Background removal API calls × cost
-
-**Qualitative Metrics:**
-1. **User Feedback**
-   - "Does the app feel more premium than before?"
-   - "Do your collections look better with the new design?"
-   - "Is the enhancement feature helpful or annoying?"
-
-2. **Visual Consistency**
-   - Do item cards feel cohesive across different user uploads?
-   - Does the theme have a distinct personality now?
-
-3. **Accessibility**
-   - Can users easily revert to original?
-   - Is enhancement optional and non-blocking?
-   - Are frame contrast ratios WCAG compliant?
-
----
-
-## Part 6: Final Recommendations
-
-### For Maximum User Value WITHOUT Overwhelming
-
-**Do This:**
-1. ✅ **Frame system + museum labels** = Instant aesthetic upgrade, zero user effort
-2. ✅ **One-tap Museum Mode** = Simple, predictable, fast (no prompts needed)
-3. ✅ **Optional BG removal** = Power feature for those who want it, ignorable for others
-4. ✅ **Always preserve original** = Safe experimentation, reversible choices
-5. ✅ **Template-driven** = No prompt engineering required
-
-**Don't Do This:**
-1. ❌ **Open-ended AI prompting** = Requires expertise, unpredictable, overwhelming
-2. ❌ **Multiple editing modes** = Decision paralysis (crop vs filter vs AI vs...)
-3. ❌ **Forced enhancements** = Respect user's original photos
-4. ❌ **Heavy style transfer** = Too slow, too expensive, loses authenticity
-5. ❌ **Complex settings** = Keep preferences minimal (on/off toggle is enough)
-
-### Why This Approach Wins
-
-**Aligns with Curio's Core Values:**
-- ✅ "Delight before auth" → Frames work on sample collections too
-- ✅ "5-minute time-to-value" → Enhancement adds <1 minute
-- ✅ "Recoverable AI" → Original always preserved, variants toggleable
-- ✅ "Explicit outcomes" → Clear before/after preview
-
-**Respects User Psychology:**
-- Defaults are smart but override is easy
-- Progressive disclosure (basic → advanced)
-- Aesthetic improvement is passive (frames) + active (enhancement)
-- No learning curve for basic use
-
-**Technically Feasible:**
-- Builds on existing Gemini integration
-- Reuses image processing infrastructure
-- No new complex dependencies
-- Can ship incrementally
-
----
-
-## Appendix A: Visual Mockup Descriptions
-
-### Before (Current State)
-```
-┌─────────────────────┐
-│                     │
-│   ┌─────────────┐   │
-│   │             │   │  ← Photo sits directly in card
-│   │  USER PHOTO │   │     No frame, no context
-│   │             │   │
-│   └─────────────┘   │
-│                     │
-│ Item Title          │  ← Generic text layout
-│ Field: Value        │
-└─────────────────────┘
-```
-
-### After (Recommended Design)
-```
-┌─────────────────────────┐
-│ ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ │ ← Mat (theme-colored)
-│ ▓ ┌───────────────┐ ▓ │
-│ ▓ │               │ ▓ │ ← Thin frame
-│ ▓ │  USER PHOTO   │ ▓ │    (gallery: charcoal)
-│ ▓ │  (Enhanced)   │ ▓ │    (vault: brass)
-│ ▓ └───────────────┘ ▓ │    (atelier: wood)
-│ ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ │
-│                         │
-│ ITEM TITLE              │ ← Serif, 18px
-│ Brand · 2025 · Mint     │ ← Mono, 12px, muted
-│ ─                       │ ← Divider
-│ Provenance notes...     │ ← Sans, 14px
-│                         │
-│ ACC.2026.001.042  ★★★★☆ │ ← Accession + rating
-│                 [BADGE] │ ← "NEW" stamp
-└─────────────────────────┘
-```
-
----
-
-## Appendix B: Code Snippets
-
-### MuseumLabel Component
-
-```typescript
-// components/MuseumLabel.tsx
-
 import React from 'react';
-import { useTheme } from '@/theme';
+import { useTheme, frameClasses, frameInnerClasses } from '@/theme';
+
+interface ExhibitFrameProps {
+  children: React.ReactNode;
+  className?: string;
+  size?: 'sm' | 'md';
+}
+
+export function ExhibitFrame({ children, className = '', size = 'md' }: ExhibitFrameProps) {
+  const { theme } = useTheme();
+  const padding = size === 'sm' ? 'p-2' : 'p-3';
+  const outerRadius = size === 'sm' ? 'rounded' : 'rounded-md';
+  const innerRadius = size === 'sm' ? 'rounded-sm' : 'rounded';
+
+  return (
+    <div
+      className={`
+        border transition-all duration-200
+        hover:-translate-y-0.5
+        ${frameClasses[theme]}
+        ${padding}
+        ${outerRadius}
+        ${className}
+      `}
+    >
+      <div className={`overflow-hidden ${frameInnerClasses[theme]} ${innerRadius}`}>{children}</div>
+    </div>
+  );
+}
+```
+
+### 4.3 MuseumLabel Component
+
+**File: `components/MuseumLabel.tsx`**
+
+```tsx
+import React from 'react';
+import { Star } from 'lucide-react';
+import { useTheme, mutedTextClasses } from '@/theme';
 
 interface MuseumLabelProps {
   title: string;
-  metadata: string[];  // ['Brand', '2025', 'Condition: Mint']
+  metadata?: string[];
   notes?: string;
-  accessionNo: string;
   rating?: number;
+  className?: string;
 }
 
 export function MuseumLabel({
   title,
-  metadata,
+  metadata = [],
   notes,
-  accessionNo,
   rating,
+  className = '',
 }: MuseumLabelProps) {
   const { theme } = useTheme();
-
-  const titleClass = 'font-serif text-lg leading-tight';
-  const metadataClass = 'font-mono text-xs uppercase tracking-wide opacity-60 mt-1';
-  const notesClass = 'font-sans text-sm leading-relaxed mt-2';
-  const accessionClass = 'font-mono text-[10px] uppercase tracking-wider opacity-40 mt-3';
+  const mutedText = mutedTextClasses[theme];
 
   return (
-    <div className="museum-label">
-      <h3 className={titleClass}>{title}</h3>
+    <div className={`space-y-1.5 ${className}`}>
+      <h3 className="font-serif text-lg font-semibold leading-tight tracking-tight line-clamp-2">
+        {title}
+      </h3>
 
-      <div className={metadataClass}>
-        {metadata.filter(Boolean).join(' · ')}
-      </div>
-
-      {notes && (
-        <>
-          <div className="h-px bg-current opacity-10 my-3" />
-          <p className={notesClass}>{notes}</p>
-        </>
+      {metadata.length > 0 && (
+        <p className={`font-mono text-xs uppercase tracking-wide ${mutedText}`}>
+          {metadata.filter(Boolean).join(' · ')}
+        </p>
       )}
 
-      <div className="flex items-center justify-between">
-        <span className={accessionClass}>{accessionNo}</span>
-        {rating !== undefined && rating > 0 && (
-          <div className="flex gap-0.5">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <span key={i} className={i < rating ? 'text-amber-500' : 'opacity-20'}>
-                ★
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
+      {notes && (
+        <p className="font-sans text-sm leading-relaxed opacity-80 line-clamp-2">{notes}</p>
+      )}
+
+      {rating !== undefined && rating > 0 && (
+        <div className="flex items-center gap-0.5 pt-1">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Star
+              key={i}
+              size={12}
+              className={
+                i < rating ? 'fill-amber-500 text-amber-500' : 'fill-transparent text-stone-300'
+              }
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 ```
 
-### ExhibitFrame Component
+### 4.4 Image Enhancement Service
+
+**File: `services/imageEnhancer.ts`**
 
 ```typescript
-// components/ExhibitFrame.tsx
+/**
+ * Client-side image enhancement using canvas operations.
+ * No server calls, no API costs.
+ */
 
-import React from 'react';
-import { useTheme } from '@/theme';
-import { ItemImage } from './ItemImage';
-
-interface ExhibitFrameProps {
-  photoUrl: string;
-  alt: string;
-  variant?: 'original' | 'display' | 'enhanced';
-  itemId: string;
+export interface EnhanceResult {
+  blob: Blob;
+  adjustments: string[];
 }
 
-export function ExhibitFrame({
-  photoUrl,
-  alt,
-  variant = 'display',
-  itemId,
-}: ExhibitFrameProps) {
-  const { theme } = useTheme();
+export async function enhanceImage(input: Blob): Promise<EnhanceResult> {
+  const adjustments: string[] = [];
 
-  const frameStyles = {
-    gallery: {
-      mat: 'bg-stone-50',
-      frame: 'border border-stone-900',
-      shadow: 'shadow-md',
-    },
-    vault: {
-      mat: 'bg-stone-900',
-      frame: 'border border-amber-600/60',
-      shadow: 'shadow-2xl shadow-black/50',
-    },
-    atelier: {
-      mat: 'bg-[#f5f1e7]',
-      frame: 'border border-[#8B7355]',
-      shadow: 'shadow-lg shadow-stone-900/10',
-    },
-  };
+  const img = await loadImage(input);
+  const canvas = document.createElement('canvas');
+  canvas.width = img.width;
+  canvas.height = img.height;
+  const ctx = canvas.getContext('2d')!;
+  ctx.drawImage(img, 0, 0);
 
-  const style = frameStyles[theme];
+  // 1. Auto-levels
+  if (applyAutoLevels(ctx, canvas.width, canvas.height)) {
+    adjustments.push('Brightness normalized');
+  }
 
-  return (
-    <div className={`exhibit-frame ${style.mat} ${style.shadow} p-4 rounded-sm`}>
-      <div className={`${style.frame} overflow-hidden rounded-sm`}>
-        <ItemImage
-          photoUrl={photoUrl}
-          alt={alt}
-          itemId={itemId}
-          variant={variant}
-          className="w-full h-full object-cover"
-        />
-      </div>
-    </div>
-  );
+  // 2. Saturation boost (+10%)
+  applySaturationBoost(ctx, canvas.width, canvas.height, 1.1);
+  adjustments.push('Colors balanced');
+
+  // 3. Mild sharpening
+  applyUnsharpMask(ctx, canvas.width, canvas.height, 0.3);
+  adjustments.push('Sharpened');
+
+  const blob = await canvasToBlob(canvas, 'image/jpeg', 0.92);
+  return { blob, adjustments };
+}
+
+// --- Helpers ---
+
+function loadImage(blob: Blob): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(img);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('Load failed'));
+    };
+    img.src = url;
+  });
+}
+
+function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality: number): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('toBlob failed'))), type, quality);
+  });
+}
+
+function applyAutoLevels(ctx: CanvasRenderingContext2D, w: number, h: number): boolean {
+  const imageData = ctx.getImageData(0, 0, w, h);
+  const data = imageData.data;
+
+  let min = 255,
+    max = 0;
+  for (let i = 0; i < data.length; i += 4) {
+    const brightness = (data[i] + data[i + 1] + data[i + 2]) / 3;
+    min = Math.min(min, brightness);
+    max = Math.max(max, brightness);
+  }
+
+  if (max - min > 230) return false; // Already good range
+
+  const scale = 255 / (max - min || 1);
+  for (let i = 0; i < data.length; i += 4) {
+    data[i] = Math.min(255, Math.max(0, (data[i] - min) * scale));
+    data[i + 1] = Math.min(255, Math.max(0, (data[i + 1] - min) * scale));
+    data[i + 2] = Math.min(255, Math.max(0, (data[i + 2] - min) * scale));
+  }
+
+  ctx.putImageData(imageData, 0, 0);
+  return true;
+}
+
+function applySaturationBoost(ctx: CanvasRenderingContext2D, w: number, h: number, factor: number) {
+  const imageData = ctx.getImageData(0, 0, w, h);
+  const data = imageData.data;
+
+  for (let i = 0; i < data.length; i += 4) {
+    const [h, s, l] = rgbToHsl(data[i], data[i + 1], data[i + 2]);
+    const [r, g, b] = hslToRgb(h, Math.min(1, s * factor), l);
+    data[i] = r;
+    data[i + 1] = g;
+    data[i + 2] = b;
+  }
+
+  ctx.putImageData(imageData, 0, 0);
+}
+
+function applyUnsharpMask(ctx: CanvasRenderingContext2D, w: number, h: number, amount: number) {
+  const temp = document.createElement('canvas');
+  temp.width = w;
+  temp.height = h;
+  const tCtx = temp.getContext('2d')!;
+  tCtx.filter = 'blur(1px)';
+  tCtx.drawImage(ctx.canvas, 0, 0);
+
+  const original = ctx.getImageData(0, 0, w, h);
+  const blurred = tCtx.getImageData(0, 0, w, h);
+
+  for (let i = 0; i < original.data.length; i += 4) {
+    for (let c = 0; c < 3; c++) {
+      const diff = original.data[i + c] - blurred.data[i + c];
+      original.data[i + c] = Math.min(255, Math.max(0, original.data[i + c] + diff * amount));
+    }
+  }
+
+  ctx.putImageData(original, 0, 0);
+}
+
+function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
+  r /= 255;
+  g /= 255;
+  b /= 255;
+  const max = Math.max(r, g, b),
+    min = Math.min(r, g, b);
+  let h = 0,
+    s = 0;
+  const l = (max + min) / 2;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r:
+        h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+        break;
+      case g:
+        h = ((b - r) / d + 2) / 6;
+        break;
+      case b:
+        h = ((r - g) / d + 4) / 6;
+        break;
+    }
+  }
+  return [h, s, l];
+}
+
+function hslToRgb(h: number, s: number, l: number): [number, number, number] {
+  let r, g, b;
+  if (s === 0) {
+    r = g = b = l;
+  } else {
+    const hue2rgb = (p: number, q: number, t: number) => {
+      if (t < 0) t += 1;
+      if (t > 1) t -= 1;
+      if (t < 1 / 6) return p + (q - p) * 6 * t;
+      if (t < 1 / 2) return q;
+      if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+      return p;
+    };
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    const p = 2 * l - q;
+    r = hue2rgb(p, q, h + 1 / 3);
+    g = hue2rgb(p, q, h);
+    b = hue2rgb(p, q, h - 1 / 3);
+  }
+  return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
 }
 ```
 
-### Accession Number Generator
+### 4.5 Data Model Update
+
+**File: `types.ts` - add to CollectionItem:**
 
 ```typescript
-// utils/accessionNumber.ts
+export interface CollectionItem {
+  // ... existing fields ...
 
-export function generateAccessionNo(
-  item: CollectionItem,
-  collection: UserCollection,
-  allCollections: UserCollection[]
-): string {
-  // Format: ACC.YYYY.CCC.III
-  // ACC = Prefix
-  // YYYY = Year added
-  // CCC = Collection index (001-999)
-  // III = Item index within collection (001-999)
-
-  const year = new Date(item.createdAt).getFullYear();
-
-  const collectionIndex = allCollections
-    .sort((a, b) => a.createdAt - b.createdAt)
-    .findIndex(c => c.id === collection.id) + 1;
-
-  const itemsInCollection = allCollections
-    .find(c => c.id === collection.id)
-    ?.items.sort((a, b) => a.createdAt - b.createdAt) || [];
-
-  const itemIndex = itemsInCollection.findIndex(i => i.id === item.id) + 1;
-
-  const ccc = String(collectionIndex).padStart(3, '0');
-  const iii = String(itemIndex).padStart(3, '0');
-
-  return `ACC.${year}.${ccc}.${iii}`;
+  photoEnhancedPath?: string; // Optional enhanced image path
+  useEnhanced?: boolean; // Display preference
 }
+```
+
+### 4.6 ItemCard Integration
+
+**Changes to `components/ItemCard.tsx`:**
+
+```tsx
+// Import ExhibitFrame
+import { ExhibitFrame } from './ExhibitFrame';
+
+// Wrap the image container
+<ExhibitFrame size="sm">
+  <ItemImage
+    itemId={item.id}
+    photoUrl={item.photoUrl}
+    collectionId={item.collectionId}
+    alt={item.title}
+    className={`w-full group-hover:scale-105 transition-transform duration-500 ${layout === 'grid' ? 'h-full' : 'h-auto'}`}
+  />
+</ExhibitFrame>;
 ```
 
 ---
 
-## Conclusion
+## Part 5: Implementation Roadmap
 
-The ideal design for Curio combines:
+### Priority Matrix
 
-1. **Presentation-first enhancement** (frames + labels) that works for all photos
-2. **Lightweight, template-driven AI** (Museum Mode) that's fast and predictable
-3. **Optional power features** (background removal) for advanced users
-4. **Always-preserve-original** safety net for experimentation
+| Phase | Feature               | Impact | Effort | Dependencies |
+| ----- | --------------------- | ------ | ------ | ------------ |
+| 1     | Frame tokens          | High   | Low    | None         |
+| 1     | ExhibitFrame          | High   | Low    | Tokens       |
+| 1     | ItemCard integration  | High   | Low    | ExhibitFrame |
+| 2     | MuseumLabel           | Medium | Low    | None         |
+| 2     | ItemCard typography   | Medium | Low    | MuseumLabel  |
+| 3     | Image enhancer        | Medium | Medium | None         |
+| 3     | AddItemModal UI       | Medium | Medium | Enhancer     |
+| 4     | Enhanced storage/sync | Low    | Medium | Phase 3      |
 
-This approach maximizes aesthetic pleasure without overwhelming users, aligns with the "personal museum" concept, and respects the existing "5-minute time-to-value" constraint.
+### Phase 1: Frame System (Start Here)
 
-**Next Steps:**
-1. Review and approve this design direction
-2. Prototype frame system first (lowest risk, highest visual impact)
-3. Build Museum Mode enhancement (medium complexity, high value)
-4. Add background removal last (highest complexity, niche usage)
+**Goal:** Visual polish, no behavior changes.
 
-**Total estimated effort:** 6-8 weeks for full implementation, but can ship frame system in 2 weeks for immediate aesthetic upgrade.
+**Tasks:**
+
+1. Add `frameClasses` and `frameInnerClasses` to `theme.tsx`
+2. Create `components/ExhibitFrame.tsx`
+3. Update `ItemCard.tsx` to wrap image in ExhibitFrame
+4. Test all three themes on mobile + desktop
+
+**Files changed:** 3
+
+**Success criteria:**
+
+- Cards show framed photos
+- Vault theme has amber accent
+- No layout regressions
+
+---
+
+### Phase 2: Typography
+
+**Goal:** Consistent, polished labels.
+
+**Tasks:**
+
+1. Create `components/MuseumLabel.tsx`
+2. Refactor `ItemCard.tsx` label section to use MuseumLabel
+3. Verify font-serif/font-mono/font-sans render correctly
+
+**Files changed:** 2
+
+**Success criteria:**
+
+- Clear visual hierarchy (title > metadata > notes)
+- System fonts render correctly on all platforms
+
+---
+
+### Phase 3: Image Enhancement
+
+**Goal:** Optional one-tap enhancement.
+
+**Tasks:**
+
+1. Create `services/imageEnhancer.ts`
+2. Add enhance button to AddItemModal verify step
+3. Implement before/after toggle UI
+4. Add `photoEnhancedPath` and `useEnhanced` to types
+
+**Files changed:** 3
+
+**Success criteria:**
+
+- Enhancement completes <500ms
+- Toggle works correctly
+- Original always preserved
+
+---
+
+### Phase 4: Storage Integration
+
+**Goal:** Persist enhanced images.
+
+**Tasks:**
+
+1. Update `services/db.ts` to handle enhanced variant in IndexedDB
+2. Upload enhanced to Supabase Storage on sync
+3. Update `ItemImage.tsx` to respect `useEnhanced` preference
+
+**Files changed:** 2
+
+**Success criteria:**
+
+- Enhanced images persist across sessions
+- Sync works correctly
+- Can switch between original/enhanced in item detail
+
+---
+
+### Execution Order
+
+```
+Phase 1 (Frame System)
+    │
+    ├── theme.tsx tokens
+    ├── ExhibitFrame.tsx
+    └── ItemCard.tsx wrap
+           │
+           ▼
+Phase 2 (Typography) ─────────── Can run parallel ─────────── Phase 3 (Enhancement)
+    │                                                              │
+    ├── MuseumLabel.tsx                                           ├── imageEnhancer.ts
+    └── ItemCard.tsx labels                                       ├── AddItemModal.tsx
+                                                                   └── types.ts
+                                                                       │
+                                                                       ▼
+                                                              Phase 4 (Storage)
+                                                                   │
+                                                                   ├── db.ts
+                                                                   └── ItemImage.tsx
+```
+
+---
+
+## Part 6: What NOT to Build
+
+| Feature                | Reason                              |
+| ---------------------- | ----------------------------------- |
+| Accession numbers      | Over-engineered for personal app    |
+| Archival stamps/badges | Visual clutter                      |
+| Quality check warnings | Interrupts flow, feels judgmental   |
+| Background removal     | Scope creep, API costs              |
+| Auto-straighten        | Complex edge detection, error-prone |
+| Manual crop/rotate     | Save for v2 if users request        |
+| Custom fonts           | Bundle size, performance            |
+
+---
+
+## Appendix: Testing Checklist
+
+### Frame System (Phase 1 - COMPLETE)
+
+- [x] Gallery: stone mat, charcoal border, subtle shadow
+- [x] Vault: dark mat, amber accent, deep shadow
+- [x] Atelier: cream mat, brown border, warm shadow
+- [x] Hover lifts card slightly
+- [x] Mobile: 8px padding works
+- [x] Desktop: 12px padding works
+- [x] No layout shift when frames applied
+
+### Typography
+
+- [ ] Title: serif font renders
+- [ ] Metadata: monospace, uppercase, dot-separated
+- [ ] Notes: sans-serif, line-clamp-2
+- [ ] Rating stars: amber fill
+
+### Enhancement
+
+- [ ] Button appears in verify step
+- [ ] Spinner shows during processing
+- [ ] Completes in <500ms
+- [ ] Before/after toggle works
+- [ ] Can save with either variant
+- [ ] Error shows toast, resets button
+- [ ] Works offline
+
+### Storage
+
+- [ ] Enhanced saves to IndexedDB
+- [ ] Syncs to Supabase Storage
+- [ ] `useEnhanced` preference respected
+- [ ] Original always available

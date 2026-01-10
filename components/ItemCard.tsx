@@ -2,6 +2,7 @@ import React from 'react';
 import { CollectionItem, FieldDefinition } from '../types';
 import { Star } from 'lucide-react';
 import { ItemImage } from './ItemImage';
+import { ExhibitFrame } from './ExhibitFrame';
 import { useTranslation } from '../i18n';
 import { useTheme, cardSurfaceClasses, mutedTextClasses } from '../theme';
 
@@ -75,20 +76,20 @@ export const ItemCard: React.FC<ItemCardProps> = ({
       data-item-title={item.title}
       className={`group rounded-2xl transition-all duration-300 overflow-hidden border cursor-pointer flex flex-col ${layout === 'grid' ? 'h-full' : ''} motion-card ${cardSurface} ${cardShadow} ${tapRing}`}
     >
-      <div
-        className={`${layout === 'grid' ? 'aspect-[4/3]' : ''} ${theme === 'vault' ? 'bg-stone-800' : 'bg-stone-100'} overflow-hidden relative`}
-      >
-        <ItemImage
-          itemId={item.id}
-          photoUrl={item.photoUrl}
-          collectionId={item.collectionId}
-          alt={item.title}
-          className={`w-full group-hover:scale-105 transition-transform duration-500 ${layout === 'grid' ? 'h-full' : 'h-auto'}`}
-        />
+      <div className={`${layout === 'grid' ? 'aspect-[4/3]' : ''} relative`}>
+        <ExhibitFrame size="sm" className="h-full">
+          <ItemImage
+            itemId={item.id}
+            photoUrl={item.photoUrl}
+            collectionId={item.collectionId}
+            alt={item.title}
+            className={`w-full group-hover:scale-105 transition-transform duration-500 ${layout === 'grid' ? 'h-full' : 'h-auto'}`}
+          />
+        </ExhibitFrame>
 
         {item.rating > 0 && (
           <div
-            className={`absolute top-2 right-2 backdrop-blur-sm px-1.5 py-0.5 rounded-md flex items-center gap-1 shadow-sm ${ratingSurface}`}
+            className={`absolute top-4 right-4 backdrop-blur-sm px-1.5 py-0.5 rounded-md flex items-center gap-1 shadow-sm ${ratingSurface}`}
           >
             <Star size={10} className="fill-amber-400 text-amber-400" />
             <span className="text-[13px] sm:text-xs font-bold">{item.rating}</span>
