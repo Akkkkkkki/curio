@@ -1047,7 +1047,7 @@ const AppContent: React.FC = () => {
             className={`${
               viewMode === 'grid'
                 ? 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 sm:gap-8'
-                : 'columns-1 sm:columns-2 md:columns-3 lg:columns-4 [column-gap:1.5rem] sm:[column-gap:2rem]'
+                : 'columns-1 sm:columns-2 md:columns-3 lg:columns-4 [column-gap:1.5rem] sm:[column-gap:2rem] [column-fill:auto]'
             } w-full`}
             data-testid="items-grid"
           >
