@@ -112,6 +112,8 @@ GEMINI_API_KEY=your_api_key_here
 - `components/AddItemModal.tsx` - Multi-step item creation with AI analysis
 - `components/MuseumGuide.tsx` - Real-time audio conversation with Gemini
 - `components/ExhibitionView.tsx` - Fullscreen slideshow mode
+- `components/ExhibitFrame.tsx` - Museum-style frame wrapper for item images
+- `components/ItemCard.tsx` - Collection item card with framed image display
 - `components/ui/Button.tsx` - Reusable button component
 
 ### Routing Structure
@@ -255,6 +257,31 @@ Six predefined templates in `constants.ts`:
 - Rounded corners: xl, 2xl, 3rem, 4rem
 - Shadows: sm, md, xl, 2xl
 
+**Frame System (theme.tsx):**
+
+The `ExhibitFrame` component wraps item images in museum-style frames with theme-specific styling:
+
+| Theme   | Mat Background | Frame Border   | Shadow                |
+| ------- | -------------- | -------------- | --------------------- |
+| Gallery | `stone-100`    | `stone-300`    | Subtle (0.06 opacity) |
+| Vault   | `stone-800`    | `amber-600/40` | Deep (0.5 opacity)    |
+| Atelier | `#f0ebe0`      | `#c9bfab`      | Warm (0.1 opacity)    |
+
+Usage:
+
+```tsx
+import { ExhibitFrame } from '@/components/ExhibitFrame';
+
+<ExhibitFrame size="sm">  {/* or "md" for larger padding */}
+  <ItemImage ... />
+</ExhibitFrame>
+```
+
+Theme tokens exported from `theme.tsx`:
+
+- `frameClasses` - Mat background, border, and shadow per theme
+- `frameInnerClasses` - Inner ring styling per theme
+
 ### Path Aliases
 
 Use `@/` for imports:
@@ -344,10 +371,38 @@ Configured in vite.config.ts and tsconfig.json.
 4. **Check Console:** Look for sync errors, merge conflicts, or authentication issues
 5. **Compare Timestamps:** Verify `updated_at` fields in local vs cloud to understand conflict resolution
 
-### No Testing Infrastructure
+### Testing
 
-There are currently no test files. When adding tests:
+The project uses Vitest for unit/integration tests and Playwright for E2E tests.
 
-- Unit test services (gemini, supabase, db, imageProcessor)
-- Integration test data sync workflows
-- E2E test user flows (add item, create collection, auth)
+**Commands:**
+
+```bash
+npm run test          # Run all unit/integration tests
+npm run test:watch    # Run tests in watch mode
+npm run test:coverage # Run tests with coverage report
+npm run test:e2e      # Run Playwright E2E tests
+npm run test:e2e:ui   # Run E2E tests with Playwright UI
+```
+
+**Test Structure:**
+
+- `tests/components/` - Component tests (ItemCard, ExhibitFrame, Layout, etc.)
+- `tests/services/` - Service tests (db, geminiService)
+- `tests/hooks/` - Hook tests (useAuthState, useCollections)
+- `tests/unit/services/` - Pure unit tests (imageProcessor, supabase)
+- `tests/utils/test-utils.tsx` - Shared test utilities and providers
+- `e2e/` - Playwright E2E tests
+
+**Writing Component Tests:**
+
+```tsx
+import { renderWithProviders, screen, setMockTheme } from '../utils/test-utils';
+
+vi.mock('@/theme', async () => {
+  const { createThemeMock } = await import('../utils/test-utils');
+  return createThemeMock();
+});
+
+// Use setMockTheme('vault') to test theme-specific behavior
+```
