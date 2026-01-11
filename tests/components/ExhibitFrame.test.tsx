@@ -2,7 +2,7 @@
  * ExhibitFrame Component Tests
  *
  * Tests the ExhibitFrame component which wraps images in a museum-style frame.
- * Validates rendering, theme support, sizing, and hover behavior.
+ * Validates rendering, theme support, sizing, and structure.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -41,8 +41,8 @@ describe('ExhibitFrame Component', () => {
       );
 
       const frame = container.firstChild as HTMLElement;
-      expect(frame.className).toContain('p-3');
-      expect(frame.className).toContain('rounded-md');
+      expect(frame.className).toContain('sm:p-3');
+      expect(frame.className).toContain('rounded');
     });
 
     it('renders with sm size when specified', () => {
@@ -53,9 +53,8 @@ describe('ExhibitFrame Component', () => {
       );
 
       const frame = container.firstChild as HTMLElement;
-      expect(frame.className).toContain('p-2');
-      expect(frame.className).toContain('rounded');
-      expect(frame.className).not.toContain('rounded-md');
+      expect(frame.className).toContain('sm:p-2');
+      expect(frame.className).toContain('rounded-sm');
     });
 
     it('applies custom className', () => {
@@ -71,7 +70,7 @@ describe('ExhibitFrame Component', () => {
   });
 
   describe('Structure', () => {
-    it('has outer frame div with border and transition', () => {
+    it('has outer frame div with border', () => {
       const { container } = renderWithProviders(
         <ExhibitFrame>
           <div>Content</div>
@@ -80,19 +79,6 @@ describe('ExhibitFrame Component', () => {
 
       const frame = container.firstChild as HTMLElement;
       expect(frame.className).toContain('border');
-      expect(frame.className).toContain('transition-all');
-      expect(frame.className).toContain('duration-200');
-    });
-
-    it('has hover lift effect', () => {
-      const { container } = renderWithProviders(
-        <ExhibitFrame>
-          <div>Content</div>
-        </ExhibitFrame>,
-      );
-
-      const frame = container.firstChild as HTMLElement;
-      expect(frame.className).toContain('hover:-translate-y-0.5');
     });
 
     it('has inner container with overflow hidden', () => {
@@ -121,7 +107,7 @@ describe('ExhibitFrame Component', () => {
         );
 
         const frame = container.firstChild as HTMLElement;
-        expect(frame.className).toContain('bg-stone-100');
+        expect(frame.className).toContain('bg-stone-200/80');
         expect(frame.className).toContain('border-stone-300');
       });
 
@@ -134,7 +120,7 @@ describe('ExhibitFrame Component', () => {
 
         const innerDiv = (container.firstChild as HTMLElement).firstChild as HTMLElement;
         expect(innerDiv.className).toContain('ring-1');
-        expect(innerDiv.className).toContain('ring-stone-200');
+        expect(innerDiv.className).toContain('ring-stone-300/80');
       });
     });
 
@@ -152,7 +138,7 @@ describe('ExhibitFrame Component', () => {
 
         const frame = container.firstChild as HTMLElement;
         expect(frame.className).toContain('bg-stone-800');
-        expect(frame.className).toContain('border-amber-600/40');
+        expect(frame.className).toContain('border-amber-500/50');
       });
 
       it('applies vault inner ring classes with amber accent', () => {
@@ -164,7 +150,7 @@ describe('ExhibitFrame Component', () => {
 
         const innerDiv = (container.firstChild as HTMLElement).firstChild as HTMLElement;
         expect(innerDiv.className).toContain('ring-1');
-        expect(innerDiv.className).toContain('ring-amber-500/20');
+        expect(innerDiv.className).toContain('ring-amber-500/30');
       });
     });
 
@@ -181,7 +167,7 @@ describe('ExhibitFrame Component', () => {
         );
 
         const frame = container.firstChild as HTMLElement;
-        expect(frame.className).toContain('bg-[#f0ebe0]');
+        expect(frame.className).toContain('bg-[#e8e2d5]');
         expect(frame.className).toContain('border-[#c9bfab]');
       });
 
@@ -194,7 +180,7 @@ describe('ExhibitFrame Component', () => {
 
         const innerDiv = (container.firstChild as HTMLElement).firstChild as HTMLElement;
         expect(innerDiv.className).toContain('ring-1');
-        expect(innerDiv.className).toContain('ring-[#d4c9b8]');
+        expect(innerDiv.className).toContain('ring-[#c4b8a5]');
       });
     });
   });
@@ -210,12 +196,13 @@ describe('ExhibitFrame Component', () => {
       const frame = container.firstChild as HTMLElement;
       const innerDiv = frame.firstChild as HTMLElement;
 
-      // Outer
-      expect(frame.className).toContain('p-2');
-      expect(frame.className).toMatch(/\brounded\b/);
+      // Outer - responsive padding
+      expect(frame.className).toContain('p-1.5');
+      expect(frame.className).toContain('sm:p-2');
+      expect(frame.className).toContain('rounded-sm');
 
       // Inner
-      expect(innerDiv.className).toContain('rounded-sm');
+      expect(innerDiv.className).toContain('rounded-[2px]');
     });
 
     it('md size has correct padding and border radius', () => {
@@ -228,12 +215,13 @@ describe('ExhibitFrame Component', () => {
       const frame = container.firstChild as HTMLElement;
       const innerDiv = frame.firstChild as HTMLElement;
 
-      // Outer
-      expect(frame.className).toContain('p-3');
-      expect(frame.className).toContain('rounded-md');
+      // Outer - responsive padding
+      expect(frame.className).toContain('p-2');
+      expect(frame.className).toContain('sm:p-3');
+      expect(frame.className).toMatch(/\brounded\b/);
 
       // Inner
-      expect(innerDiv.className).toMatch(/\brounded\b/);
+      expect(innerDiv.className).toContain('rounded-sm');
     });
   });
 

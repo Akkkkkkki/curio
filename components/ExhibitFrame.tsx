@@ -9,15 +9,14 @@ interface ExhibitFrameProps {
 
 export function ExhibitFrame({ children, className = '', size = 'md' }: ExhibitFrameProps) {
   const { theme } = useTheme();
-  const padding = size === 'sm' ? 'p-2' : 'p-3';
-  const outerRadius = size === 'sm' ? 'rounded' : 'rounded-md';
-  const innerRadius = size === 'sm' ? 'rounded-sm' : 'rounded';
+  const padding = size === 'sm' ? 'p-1.5 sm:p-2' : 'p-2 sm:p-3';
+  const outerRadius = size === 'sm' ? 'rounded-sm' : 'rounded';
+  const innerRadius = size === 'sm' ? 'rounded-[2px]' : 'rounded-sm';
 
   return (
     <div
       className={`
-        border transition-all duration-200
-        hover:-translate-y-0.5
+        border
         ${frameClasses[theme]}
         ${padding}
         ${outerRadius}
