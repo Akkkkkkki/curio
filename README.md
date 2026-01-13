@@ -123,3 +123,10 @@ To add new sample items:
 - Theme selection (Gallery, Vault, Atelier) is stored in IndexedDB, surfaced via the header theme picker, and applied across modals and cards.
 - Save/sync/import outcomes surface via a shared toast so users always see a clear result.
 - Active filters display as chips with one-tap clear, and public/sample collections show a persistent read-only badge for clarity.
+
+## GitHub Issue Protocol
+
+We use a consistent format + labels for issues so triage is fast and issue creation can be automated.
+
+- **Protocol doc**: `docs/GITHUB_ISSUES_PROTOCOL.md`
+- **Recommended workflow**: write drafts → dry run → create via `gh` (and optionally delete drafts after)
