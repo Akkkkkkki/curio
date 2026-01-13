@@ -3,7 +3,14 @@ import { UserCollection } from '../types';
 import { ChevronRight } from 'lucide-react';
 import { TEMPLATES } from '../constants';
 import { useTranslation } from '../i18n';
-import { useTheme, cardSurfaceClasses, mutedTextClasses } from '../theme';
+import {
+  useTheme,
+  cardSurfaceClasses,
+  mutedTextClasses,
+  typographyClasses,
+  cardHoverClasses,
+  accentColorClasses,
+} from '../theme';
 
 interface CollectionCardProps {
   collection: UserCollection;
@@ -58,17 +65,21 @@ export const CollectionCard: React.FC<CollectionCardProps> = ({ collection, onCl
 
       <div className="relative z-10">
         <div className="flex items-center gap-2 mb-1">
-          <h3 className="font-serif text-2xl sm:text-3xl font-bold group-hover:text-amber-600 leading-tight truncate max-w-[80%]">
+          <h3
+            className={`${typographyClasses.titleLarge} group-hover:${accentColorClasses[theme]} leading-tight truncate max-w-[80%]`}
+          >
             {collection.name}
           </h3>
           {isSample && (
-            <span className="text-[13px] sm:text-[12px] font-mono tracking-[0.1em] px-2 py-0.5 rounded border uppercase font-bold shrink-0 bg-amber-50 text-amber-700 border-amber-100">
+            <span
+              className={`${typographyClasses.labelSmall} px-2 py-0.5 rounded border shrink-0 bg-amber-50 text-amber-700 border-amber-100`}
+            >
               {t('readOnlyMode')}
             </span>
           )}
         </div>
         <p
-          className={`${mutedText} text-sm mt-1 sm:mt-2 line-clamp-2 max-w-[90%] font-medium leading-relaxed`}
+          className={`${mutedText} ${typographyClasses.body} mt-1 sm:mt-2 line-clamp-2 max-w-[90%]`}
         >
           {template.description}
         </p>
