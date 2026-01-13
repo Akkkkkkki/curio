@@ -3,7 +3,14 @@ import { CollectionItem, FieldDefinition } from '../types';
 import { Star } from 'lucide-react';
 import { ItemImage } from './ItemImage';
 import { useTranslation } from '../i18n';
-import { useTheme, cardSurfaceClasses, mutedTextClasses } from '../theme';
+import {
+  useTheme,
+  cardSurfaceClasses,
+  mutedTextClasses,
+  typographyClasses,
+  ratingColorClasses,
+  dividerClasses,
+} from '../theme';
 
 interface ItemCardProps {
   item: CollectionItem;
@@ -90,14 +97,14 @@ export const ItemCard: React.FC<ItemCardProps> = ({
           <div
             className={`absolute top-2 right-2 backdrop-blur-sm px-1.5 py-0.5 rounded-md flex items-center gap-1 shadow-sm ${ratingSurface}`}
           >
-            <Star size={10} className="fill-amber-400 text-amber-400" />
+            <Star size={10} className={`fill-current ${ratingColorClasses[theme]}`} />
             <span className="text-[13px] sm:text-xs font-bold">{item.rating}</span>
           </div>
         )}
       </div>
 
       <div className="p-4 flex flex-col flex-grow">
-        <h4 className="font-bold line-clamp-1 text-lg mb-1 tracking-tight">{item.title}</h4>
+        <h4 className={`${typographyClasses.title} line-clamp-1 mb-1`}>{item.title}</h4>
 
         <div className="space-y-1 mb-3">
           {displayFields.map((fieldId) => {
@@ -107,29 +114,23 @@ export const ItemCard: React.FC<ItemCardProps> = ({
             return (
               <p
                 key={fieldId}
-                className={`text-sm line-clamp-1 flex items-center gap-1.5 ${valueText}`}
+                className={`${typographyClasses.body} line-clamp-1 flex items-center gap-1.5 ${valueText}`}
               >
-                <span
-                  className={`text-[13px] sm:text-[12px] uppercase tracking-[0.1em] ${labelText}`}
-                >
-                  {label}:
-                </span>
+                <span className={`${typographyClasses.labelSmall} ${labelText}`}>{label}:</span>
                 <span className="font-medium">{val}</span>
               </p>
             );
           })}
         </div>
 
-        <div
-          className={`mt-auto flex flex-wrap gap-1.5 pt-2 border-t ${theme === 'vault' ? 'border-white/10' : 'border-stone-50'}`}
-        >
+        <div className={`mt-auto flex flex-wrap gap-1.5 pt-2 border-t ${dividerClasses[theme]}`}>
           {badgeFields.map((fieldId) => {
             const val = getValue(fieldId);
             if (!val) return null;
             return (
               <span
                 key={fieldId}
-                className={`inline-flex items-center px-2 py-0.5 rounded-md text-[13px] sm:text-[12px] font-semibold uppercase tracking-[0.08em] ${badgeSurface}`}
+                className={`inline-flex items-center px-2 py-0.5 rounded-md ${typographyClasses.labelSmall} font-semibold ${badgeSurface}`}
               >
                 {val}
               </span>

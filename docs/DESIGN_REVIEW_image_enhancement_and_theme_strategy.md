@@ -25,13 +25,23 @@ This design review outlines an **incremental enhancement** approach that:
 
 ---
 
-## Part 1: Typography & Visual Hierarchy (Minor Enhancements)
+## Part 1: Typography & Visual Hierarchy (Minor Enhancements) ✅ IMPLEMENTED
+
+> **Status:** Implemented on 2026-01-13 in `feature/typography-and-theme-enhancements` branch.
+>
+> **Changes made:**
+>
+> - Added JetBrains Mono font for consistent monospace labels
+> - Created `typographyClasses` object in `theme.tsx` with title, label, body, and accession variants
+> - Updated App.tsx, CollectionCard.tsx, and ItemCard.tsx to use new typography classes
+> - Created `components/ui/Divider.tsx` for theme-aware separators
+> - Created `components/ui/Rating.tsx` for theme-aware star ratings
 
 These are optional refinements that can be applied incrementally to any theme.
 
 ### Typographic Hierarchy
 
-**Current State:** Serif/mono/sans used inconsistently across the app.
+**Current State:** ~~Serif/mono/sans used inconsistently across the app.~~ Now consistent via `typographyClasses`.
 
 **Recommended Pattern:**
 
@@ -50,13 +60,23 @@ Small details that add personality without major redesign:
 
 ---
 
-## Part 2: Existing Theme Enhancements
+## Part 2: Existing Theme Enhancements ✅ IMPLEMENTED
+
+> **Status:** Implemented on 2026-01-13 in `feature/typography-and-theme-enhancements` branch.
+>
+> **Changes made:**
+>
+> - Added `themeColors` object with enhanced color palettes for all three themes
+> - Created theme-specific shadow classes in Tailwind config (`shadow-gallery`, `shadow-vault`, `shadow-atelier`)
+> - Added `matSurfaceClasses`, `frameAccentClasses`, `accentColorClasses`, `accentBgClasses` for consistent theming
+> - Updated rating star colors to muted amber-500 instead of bright yellow
+> - Updated card components to use new theme-specific shadows and accents
 
 Rather than introducing new themes, we enhance the three existing themes with refined color palettes and subtle improvements.
 
 ### Gallery (Light) - Enhanced
 
-**Current:** Clean but generic white theme.
+**Current:** ~~Clean but generic white theme.~~ Now enhanced with refined shadows and typography.
 
 **Enhancements:**
 
@@ -103,12 +123,12 @@ Present features by their **outcome**, not their underlying technology. Users sh
 
 **Industry Context:**
 
-| App       | Approach                     | User-Facing Language    |
-| --------- | ---------------------------- | ----------------------- |
-| Meitu     | Heavy AI, one-tap beautify   | "Beautify", "Enhance"   |
-| Snapseed  | Manual + selective AI        | "Auto", "Tune Image"    |
-| VSCO      | Preset filters, minimal AI   | "Recipes", "Adjust"     |
-| Photoroom | AI background removal        | "Remove Background"     |
+| App       | Approach                   | User-Facing Language  |
+| --------- | -------------------------- | --------------------- |
+| Meitu     | Heavy AI, one-tap beautify | "Beautify", "Enhance" |
+| Snapseed  | Manual + selective AI      | "Auto", "Tune Image"  |
+| VSCO      | Preset filters, minimal AI | "Recipes", "Adjust"   |
+| Photoroom | AI background removal      | "Remove Background"   |
 
 **Our Approach:** Combine Snapseed's quality with Photoroom's simplicity.
 
@@ -127,12 +147,12 @@ Present features by their **outcome**, not their underlying technology. Users sh
 
 **Why These Operations:**
 
-| Operation | Algorithm                                                   | Why This Choice                                                                                                                                                                                                          |
-| --------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Contrast  | CLAHE (Contrast-Limited Adaptive Histogram Equalization)    | Industry standard. Unlike basic histogram stretch, CLAHE prevents over-saturation and works locally, preserving detail in both shadows and highlights. Used by Snapseed, Lightroom, medical imaging.                   |
-| Color     | Vibrance (selective saturation)                             | Boosts muted colors while protecting already-saturated areas and skin tones. More natural than global saturation. Standard in Lightroom, Capture One.                                                                   |
-| Sharpness | Unsharp Mask (radius: 1px, amount: 40%)                     | Mild values prevent halos and artifacts. Enhances perceived detail without over-processing. Lower than Snapseed's defaults for subtlety.                                                                                |
-| White Balance | Gray-world algorithm                                    | Fast, automatic, no user input needed. Assumes average color should be neutral gray. Works well for product/object photography.                                                                                         |
+| Operation     | Algorithm                                                | Why This Choice                                                                                                                                                                                      |
+| ------------- | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Contrast      | CLAHE (Contrast-Limited Adaptive Histogram Equalization) | Industry standard. Unlike basic histogram stretch, CLAHE prevents over-saturation and works locally, preserving detail in both shadows and highlights. Used by Snapseed, Lightroom, medical imaging. |
+| Color         | Vibrance (selective saturation)                          | Boosts muted colors while protecting already-saturated areas and skin tones. More natural than global saturation. Standard in Lightroom, Capture One.                                                |
+| Sharpness     | Unsharp Mask (radius: 1px, amount: 40%)                  | Mild values prevent halos and artifacts. Enhances perceived detail without over-processing. Lower than Snapseed's defaults for subtlety.                                                             |
+| White Balance | Gray-world algorithm                                     | Fast, automatic, no user input needed. Assumes average color should be neutral gray. Works well for product/object photography.                                                                      |
 
 **Technical Implementation:**
 
@@ -330,10 +350,7 @@ app.post('/api/gemini/edit-image', async (req, res) => {
   const result = await geminiClient.generateContent({
     contents: [
       {
-        parts: [
-          { text: prompt },
-          { inlineData: { mimeType: 'image/jpeg', data: image } },
-        ],
+        parts: [{ text: prompt }, { inlineData: { mimeType: 'image/jpeg', data: image } }],
       },
     ],
     generationConfig: {

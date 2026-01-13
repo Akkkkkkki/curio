@@ -62,7 +62,16 @@ import { ExportModal } from './components/ExportModal';
 import { FilterModal } from './components/FilterModal';
 import { LanguageProvider, useTranslation } from './i18n';
 import { supabase, isSupabaseConfigured, signOutUser } from './services/supabase';
-import { ThemeProvider, useTheme } from './theme';
+import {
+  ThemeProvider,
+  useTheme,
+  typographyClasses,
+  labelColorClasses,
+  inputClasses,
+  accentColorClasses,
+  dividerClasses,
+  cardHoverClasses,
+} from './theme';
 import { StatusToast, StatusTone } from './components/StatusToast';
 import { CURRENT_SEED_VERSION, INITIAL_COLLECTIONS } from './services/seedCollections';
 
@@ -682,11 +691,11 @@ const AppContent: React.FC = () => {
             <div className="relative z-10 p-6 sm:p-10 lg:p-12 max-w-xl">
               <div className="flex items-center gap-2 mb-3 sm:mb-4">
                 <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div>
-                <span className="text-[11px] font-mono tracking-[0.28em] uppercase text-amber-600 font-bold">
+                <span className={`${typographyClasses.label} ${accentColorClasses[theme]}`}>
                   {t('featuredArtifact')}
                 </span>
               </div>
-              <h1 className="text-3xl sm:text-4xl md:text-5xl font-serif font-bold mb-3 sm:mb-4 tracking-tight leading-tight">
+              <h1 className={`${typographyClasses.titleHero} mb-3 sm:mb-4 leading-tight`}>
                 {t('appTitle')}{' '}
                 <span className="opacity-40 italic font-light">{t('appSubtitle')}</span>
               </h1>
@@ -694,18 +703,14 @@ const AppContent: React.FC = () => {
                 {t('heroSubtitle')}
               </p>
 
-              <div className="flex gap-6 sm:gap-8 pt-6 sm:pt-8 border-t border-black/5 dark:border-white/5">
+              <div className={`flex gap-6 sm:gap-8 pt-6 sm:pt-8 border-t ${dividerClasses[theme]}`}>
                 <div className="space-y-1">
-                  <p className="text-xl font-serif font-bold">{stats.totalItems}</p>
-                  <p className="text-[11px] font-mono uppercase tracking-[0.18em] opacity-40">
-                    {t('artifacts')}
-                  </p>
+                  <p className={typographyClasses.title}>{stats.totalItems}</p>
+                  <p className={typographyClasses.labelMuted}>{t('artifacts')}</p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-xl font-serif font-bold">{stats.totalCollections}</p>
-                  <p className="text-[11px] font-mono uppercase tracking-[0.18em] opacity-40">
-                    {t('archives')}
-                  </p>
+                  <p className={typographyClasses.title}>{stats.totalCollections}</p>
+                  <p className={typographyClasses.labelMuted}>{t('archives')}</p>
                 </div>
               </div>
             </div>
@@ -719,7 +724,7 @@ const AppContent: React.FC = () => {
               <div className="p-2 bg-amber-50 rounded-xl text-amber-600">
                 <Calendar size={18} />
               </div>
-              <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-stone-400">
+              <span className={`${typographyClasses.labelSmall} ${labelColorClasses[theme]}`}>
                 {t('onThisDay')}
               </span>
             </div>
@@ -734,10 +739,8 @@ const AppContent: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <p className="text-[11px] font-mono opacity-40 uppercase tracking-[0.18em] mb-1">
-                    {t('historyTitle')}
-                  </p>
-                  <h4 className="font-serif font-bold text-lg leading-tight truncate">
+                  <p className={`${typographyClasses.labelMuted} mb-1`}>{t('historyTitle')}</p>
+                  <h4 className={`${typographyClasses.title} leading-tight truncate`}>
                     {stats.historyItem.title}
                   </h4>
                 </div>
@@ -796,13 +799,11 @@ const AppContent: React.FC = () => {
             </div>
             <div className="text-center">
               <span
-                className={`font-serif text-2xl font-bold italic tracking-tight block mb-1 ${theme === 'vault' ? 'text-white/60' : 'text-stone-400'}`}
+                className={`${typographyClasses.titleLarge} italic block mb-1 ${theme === 'vault' ? 'text-white/60' : 'text-stone-400'}`}
               >
                 {t('newArchive')}
               </span>
-              <span className="text-[10px] font-mono uppercase tracking-[0.2em] opacity-60">
-                {t('expandSpace')}
-              </span>
+              <span className={typographyClasses.labelMuted}>{t('expandSpace')}</span>
             </div>
           </button>
         </div>
@@ -897,16 +898,18 @@ const AppContent: React.FC = () => {
             </Link>
             <div>
               <h1
-                className={`text-3xl sm:text-4xl md:text-5xl font-serif font-bold tracking-tight mb-2 ${theme === 'vault' ? 'text-white' : 'text-stone-900'}`}
+                className={`${typographyClasses.titleHero} mb-2 ${theme === 'vault' ? 'text-white' : 'text-stone-900'}`}
               >
                 {collection.name}
               </h1>
               <div className="flex items-center gap-4">
-                <span className="text-stone-400 font-serif text-lg italic">
+                <span className={`${typographyClasses.quote} ${labelColorClasses[theme]}`}>
                   {t('artifactsCataloged', { n: collection.items.length })}
                 </span>
                 {isSample && (
-                  <span className="text-[12px] sm:text-[11px] font-mono tracking-[0.2em] bg-white/40 text-stone-500 px-1.5 py-0.5 rounded border border-black/5 uppercase font-bold">
+                  <span
+                    className={`${typographyClasses.labelSmall} bg-white/40 text-stone-500 px-1.5 py-0.5 rounded border border-black/5`}
+                  >
                     Sample
                   </span>
                 )}
@@ -1236,7 +1239,7 @@ const AppContent: React.FC = () => {
             <div className="flex-1 w-full">
               <input
                 type="text"
-                className={`text-3xl sm:text-5xl md:text-6xl font-serif font-bold mb-4 sm:mb-6 w-full bg-transparent border-b-2 border-transparent focus:border-amber-100 outline-none transition-all placeholder:italic tracking-tight ${theme === 'vault' ? 'text-white' : 'text-stone-900'} ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                className={`${typographyClasses.titleDisplay} mb-4 sm:mb-6 w-full bg-transparent border-b-2 border-transparent focus:border-amber-100 outline-none transition-all placeholder:italic ${theme === 'vault' ? 'text-white' : 'text-stone-900'} ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
                 value={item.title}
                 onChange={(e) => updateItem(collection.id, item.id, { title: e.target.value })}
                 placeholder="..."
@@ -1252,14 +1255,14 @@ const AppContent: React.FC = () => {
                   >
                     <span className="text-2xl sm:text-4xl">
                       {star <= item.rating ? (
-                        <span className="text-amber-400">★</span>
+                        <span className="text-amber-500">★</span>
                       ) : (
-                        <span className="text-stone-100/10">★</span>
+                        <span className="text-amber-500/20">★</span>
                       )}
                     </span>
                   </button>
                 ))}
-                <span className="ml-3 sm:ml-4 text-[11px] sm:text-[12px] font-mono tracking-[0.18em] sm:tracking-[0.2em] text-stone-300 uppercase font-bold">
+                <span className={`ml-3 sm:ml-4 ${typographyClasses.label} text-stone-300`}>
                   {t('registryQuality')}
                 </span>
                 {isReadOnly && (
@@ -1281,9 +1284,11 @@ const AppContent: React.FC = () => {
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 sm:gap-16">
             <div className="lg:col-span-2 space-y-6">
-              <div className="flex flex-wrap items-center gap-3 text-amber-600">
+              <div className={`flex flex-wrap items-center gap-3 ${accentColorClasses[theme]}`}>
                 <Quote size={18} fill="currentColor" className="opacity-20 sm:w-5 sm:h-5" />
-                <dt className="min-w-0 text-[11px] sm:text-[12px] font-bold text-stone-400 uppercase tracking-[0.2em] sm:tracking-[0.3em] font-mono break-words">
+                <dt
+                  className={`min-w-0 ${typographyClasses.label} ${labelColorClasses[theme]} break-words`}
+                >
                   {t('archiveNarrative')}
                 </dt>
               </div>
@@ -1298,7 +1303,7 @@ const AppContent: React.FC = () => {
 
             <div className="space-y-8 sm:space-y-10">
               <dt
-                className={`text-[11px] sm:text-[12px] font-bold uppercase tracking-[0.2em] sm:tracking-[0.3em] pb-3 sm:pb-4 border-b font-mono break-words leading-tight ${theme === 'vault' ? 'text-stone-500 border-white/5' : 'text-stone-400 border-stone-100'}`}
+                className={`${typographyClasses.label} pb-3 sm:pb-4 border-b break-words leading-tight ${theme === 'vault' ? 'text-stone-500 border-white/5' : `${labelColorClasses[theme]} ${dividerClasses[theme]}`}`}
               >
                 {t('technicalSpec')}
               </dt>
@@ -1308,11 +1313,13 @@ const AppContent: React.FC = () => {
                   const label = getLabel(field.id);
                   return (
                     <div key={field.id} className="group">
-                      <dt className="text-[11px] sm:text-[12px] font-bold text-stone-300 uppercase tracking-2.0 mb-1 sm:mb-2 group-hover:text-amber-500 transition-colors font-mono break-words leading-tight">
+                      <dt
+                        className={`${typographyClasses.label} text-stone-300 mb-1 sm:mb-2 group-hover:text-amber-500 transition-colors break-words leading-tight`}
+                      >
                         {label}
                       </dt>
                       <input
-                        className={`font-serif text-lg sm:text-xl w-full bg-transparent border-none p-0 outline-none focus:text-amber-900 focus:ring-0 transition-colors placeholder:text-stone-100 ${theme === 'vault' ? 'text-white' : 'text-stone-900'} ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                        className={`${typographyClasses.title} w-full bg-transparent border-none p-0 outline-none focus:text-amber-900 focus:ring-0 transition-colors placeholder:text-stone-100 ${theme === 'vault' ? 'text-white' : 'text-stone-900'} ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
                         value={val || ''}
                         placeholder="—"
                         onChange={(e) => {

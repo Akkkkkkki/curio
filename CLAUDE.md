@@ -113,6 +113,8 @@ GEMINI_API_KEY=your_api_key_here
 - `components/MuseumGuide.tsx` - Real-time audio conversation with Gemini
 - `components/ExhibitionView.tsx` - Fullscreen slideshow mode
 - `components/ui/Button.tsx` - Reusable button component
+- `components/ui/Divider.tsx` - Theme-aware horizontal/vertical dividers
+- `components/ui/Rating.tsx` - Theme-aware star rating component
 
 ### Routing Structure
 
@@ -234,26 +236,59 @@ Six predefined templates in `constants.ts`:
 
 ### Styling System
 
-**Themes applied via conditionals:**
+**Theme Architecture** (`theme.tsx`):
+
+Curio uses a comprehensive theme system with three themes:
+
+- **Gallery** (light): Clean, editorial, high-contrast (white + charcoal accents)
+- **Vault** (dark): Cinematic, luxurious (dark + brass/gold accents)
+- **Atelier** (warm): Intimate, tactile (cream + warm brown accents)
+
+**Typography Classes** (`typographyClasses`):
 
 ```tsx
-{
-  theme === 'gallery' && 'bg-white text-stone-900';
-}
-{
-  theme === 'vault' && 'bg-stone-950 text-stone-100';
-}
-{
-  theme === 'atelier' && 'bg-[#faf9f6] text-stone-900';
-}
+import { typographyClasses, labelColorClasses } from '@/theme';
+
+// Titles: Serif, bold, tight tracking
+<h1 className={typographyClasses.titleHero}>Large Title</h1>
+<h2 className={typographyClasses.titleLarge}>Section Title</h2>
+<h3 className={typographyClasses.title}>Item Title</h3>
+
+// Labels: Mono, uppercase, wide tracking
+<span className={typographyClasses.label}>CATEGORY</span>
+<span className={typographyClasses.labelMuted}>MUTED LABEL</span>
+<span className={typographyClasses.labelSmall}>SMALL</span>
+
+// Body: Sans, relaxed leading
+<p className={typographyClasses.body}>Description text</p>
+<p className={typographyClasses.quote}>Italic serif quote</p>
 ```
+
+**Theme-Aware Surface Classes:**
+
+```tsx
+import { cardSurfaceClasses, matSurfaceClasses, dividerClasses } from '@/theme';
+
+// Cards with theme-appropriate shadows
+<div className={cardSurfaceClasses[theme]}>Card content</div>
+
+// Subtle depth backgrounds
+<div className={matSurfaceClasses[theme]}>Mat surface</div>
+
+// Dividers
+<hr className={`border-t ${dividerClasses[theme]}`} />
+```
+
+**Enhanced Theme Color Palettes** (`themeColors`):
+
+Each theme defines: mat, frameAccent, surface, surfaceMuted, text, textMuted, border, accent, accentHover
 
 **Design Tokens:**
 
-- Accent: amber-500/600
-- Typography: serif (titles), mono (labels), sans (body)
+- Fonts: DM Serif Display (titles), JetBrains Mono (labels), Inter (body)
+- Accents: Gallery=amber-600, Vault=#D4A574 (brass), Atelier=#8B7355 (warm brown)
+- Shadows: Custom per-theme (gallery/vault/atelier) defined in Tailwind config
 - Rounded corners: xl, 2xl, 3rem, 4rem
-- Shadows: sm, md, xl, 2xl
 
 ### Path Aliases
 
