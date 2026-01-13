@@ -8,6 +8,8 @@
     "server": "node server/geminiProxy.js",
     "build": "vite build",
     "preview": "vite preview",
+    "gh:issues:dry-run": "node scripts/github/create-issues-from-drafts.mjs --dry-run",
+    "gh:issues:create": "node scripts/github/create-issues-from-drafts.mjs --skip-existing",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
