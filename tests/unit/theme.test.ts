@@ -71,9 +71,9 @@ describe('Theme Utilities', () => {
     });
 
     it('has atelier theme colors', () => {
-      expect(themeColors.atelier.mat).toBe('#F5F1E7');
-      expect(themeColors.atelier.frameAccent).toBe('#8B7355');
-      expect(themeColors.atelier.accent).toBe('#8B7355');
+      expect(themeColors.atelier.mat).toBe('#EDE4D3');
+      expect(themeColors.atelier.frameAccent).toBe('#6B5344');
+      expect(themeColors.atelier.accent).toBe('#A86F3C');
     });
   });
 
@@ -87,7 +87,7 @@ describe('Theme Utilities', () => {
     it('uses appropriate colors per theme', () => {
       expect(labelColorClasses.gallery).toContain('text-stone');
       expect(labelColorClasses.vault).toContain('text-stone');
-      expect(labelColorClasses.atelier).toContain('text-stone');
+      expect(labelColorClasses.atelier).toContain('text-[#8C7B6B]');
     });
   });
 
@@ -106,8 +106,8 @@ describe('Theme Utilities', () => {
       expect(cardSurfaceClasses.vault).toContain('bg-stone-950');
     });
 
-    it('atelier theme uses cream background', () => {
-      expect(cardSurfaceClasses.atelier).toContain('bg-[#f8f6f1]');
+    it('atelier theme uses warm cream background', () => {
+      expect(cardSurfaceClasses.atelier).toContain('bg-[#F5EFE4]');
     });
   });
 
@@ -121,7 +121,7 @@ describe('Theme Utilities', () => {
     it('uses correct mat colors', () => {
       expect(matSurfaceClasses.gallery).toContain('#F5F5F5');
       expect(matSurfaceClasses.vault).toContain('#1C1917');
-      expect(matSurfaceClasses.atelier).toContain('#F5F1E7');
+      expect(matSurfaceClasses.atelier).toContain('#EDE4D3');
     });
   });
 
@@ -149,7 +149,7 @@ describe('Theme Utilities', () => {
     it('uses amber/brass colors', () => {
       expect(ratingColorClasses.gallery).toContain('amber');
       expect(ratingColorClasses.vault).toContain('#D4A574');
-      expect(ratingColorClasses.atelier).toContain('amber');
+      expect(ratingColorClasses.atelier).toContain('#A86F3C');
     });
   });
 
@@ -191,7 +191,7 @@ describe('Theme Utilities', () => {
     it('uses correct accent colors', () => {
       expect(frameAccentClasses.gallery).toContain('#1A1A1A');
       expect(frameAccentClasses.vault).toContain('#D4A574');
-      expect(frameAccentClasses.atelier).toContain('#8B7355');
+      expect(frameAccentClasses.atelier).toContain('#6B5344');
     });
   });
 

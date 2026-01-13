@@ -506,7 +506,11 @@ describe('ItemCard Component', () => {
     describe.each([
       { theme: 'gallery' as const, bgPattern: /bg-white/, description: 'light background' },
       { theme: 'vault' as const, bgPattern: /bg-stone-950/, description: 'dark background' },
-      { theme: 'atelier' as const, bgPattern: /bg-\[#f8f6f1\]/, description: 'cream background' },
+      {
+        theme: 'atelier' as const,
+        bgPattern: /bg-\[#F5EFE4\]/,
+        description: 'warm cream background',
+      },
     ])('Theme: $theme', ({ theme, bgPattern, description }) => {
       beforeEach(() => {
         setMockTheme(theme);

@@ -77,7 +77,7 @@ export const Layout: React.FC<LayoutProps> = ({
     theme === 'vault'
       ? 'bg-stone-900/80 border-white/10 shadow-[0_12px_40px_rgba(0,0,0,0.35)]'
       : theme === 'atelier'
-        ? 'bg-[#f8f6f1]/85 border-[#e6e1d5] shadow-sm'
+        ? 'bg-[#F5EFE4]/85 border-[#D4C9B8] shadow-sm'
         : 'bg-white/85 border-stone-200/70 shadow-sm';
   const navGhost =
     theme === 'vault'
@@ -89,13 +89,13 @@ export const Layout: React.FC<LayoutProps> = ({
     theme === 'vault'
       ? 'from-stone-950 via-stone-950 to-transparent'
       : theme === 'atelier'
-        ? 'from-[#f8f6f1] via-[#f8f6f1] to-transparent'
+        ? 'from-[#F5EFE4] via-[#F5EFE4] to-transparent'
         : 'from-stone-50 via-stone-50 to-transparent';
   const bottomNavSurface =
     theme === 'vault'
       ? 'bg-stone-900/95 border-white/10'
       : theme === 'atelier'
-        ? 'bg-[#f8f6f1]/95 border-[#e6e1d5]'
+        ? 'bg-[#F5EFE4]/95 border-[#D4C9B8]'
         : 'bg-white/95 border-stone-200/70';
   const bottomNavMuted = theme === 'vault' ? 'text-white/60' : 'text-stone-400';
   const isExploreActive = sampleCollectionId

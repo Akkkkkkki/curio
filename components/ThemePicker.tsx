@@ -28,7 +28,7 @@ export const ThemePicker: React.FC<ThemePickerProps> = ({ layout = 'inline' }) =
     theme === 'vault'
       ? 'bg-stone-900/70 border-white/10 text-white shadow-[0_10px_30px_rgba(0,0,0,0.25)]'
       : theme === 'atelier'
-        ? 'bg-[#f8f6f1]/90 border-[#e6e1d5] text-stone-800'
+        ? 'bg-[#F5EFE4]/90 border-[#D4C9B8] text-[#3D3530]'
         : 'bg-white/80 border-stone-200 text-stone-700';
   const inactiveText =
     theme === 'vault' ? 'text-white/70 hover:text-white' : 'text-stone-500 hover:text-stone-800';

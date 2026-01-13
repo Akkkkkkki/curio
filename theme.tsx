@@ -66,31 +66,31 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
 export const panelSurfaceClasses: Record<AppTheme, string> = {
   gallery: 'bg-white text-stone-900 border-stone-200',
   vault: 'bg-stone-900 text-white border-white/10',
-  atelier: 'bg-[#f8f6f1] text-stone-900 border-[#e6e1d5]',
+  atelier: 'bg-[#F5EFE4] text-[#3D3530] border-[#D4C9B8]',
 };
 
 export const cardSurfaceClasses: Record<AppTheme, string> = {
   gallery: 'bg-white text-stone-900 border-stone-100',
   vault: 'bg-stone-950 text-white border-white/10',
-  atelier: 'bg-[#f8f6f1] text-stone-900 border-[#e6e1d5]',
+  atelier: 'bg-[#F5EFE4] text-[#3D3530] border-[#D4C9B8]',
 };
 
 export const softSurfaceClasses: Record<AppTheme, string> = {
   gallery: 'bg-white/80 text-stone-800 border-stone-100',
   vault: 'bg-white/5 text-white border-white/10',
-  atelier: 'bg-[#f5f1e7] text-stone-900 border-[#e6e1d5]',
+  atelier: 'bg-[#EDE4D3] text-[#3D3530] border-[#D4C9B8]',
 };
 
 export const overlaySurfaceClasses: Record<AppTheme, string> = {
   gallery: 'bg-stone-900/45',
   vault: 'bg-stone-950/70',
-  atelier: 'bg-stone-900/40',
+  atelier: 'bg-[#3D3530]/50', // Warm brown overlay instead of cool gray
 };
 
 export const mutedTextClasses: Record<AppTheme, string> = {
   gallery: 'text-stone-500',
   vault: 'text-stone-300',
-  atelier: 'text-stone-500',
+  atelier: 'text-[#8C7B6B]', // Sepia-toned muted text
 };
 
 export const useTheme = () => useContext(ThemeContext);
@@ -133,7 +133,7 @@ export const typographyClasses = {
 export const labelColorClasses: Record<AppTheme, string> = {
   gallery: 'text-stone-400',
   vault: 'text-stone-500',
-  atelier: 'text-stone-400',
+  atelier: 'text-[#8C7B6B]', // Sepia-toned labels
 };
 
 // =============================================================================
@@ -168,15 +168,15 @@ export const themeColors = {
     accentHover: '#E0B585',
   },
   atelier: {
-    mat: '#F5F1E7', // Darker cream for texture
-    frameAccent: '#8B7355', // Warm brown for earthiness
-    surface: '#FAF9F6',
-    surfaceMuted: '#F5F1E7',
-    text: '#1C1917', // stone-900
-    textMuted: '#78716C', // stone-500
-    border: '#E6E1D5',
-    accent: '#8B7355', // Warm brown
-    accentHover: '#9D856A',
+    mat: '#EDE4D3', // Warm parchment - distinctly yellower than Gallery
+    frameAccent: '#6B5344', // Aged wood brown
+    surface: '#F5EFE4', // Warm cream with yellow undertone
+    surfaceMuted: '#EDE4D3', // Parchment
+    text: '#3D3530', // Warm dark brown (not cool gray)
+    textMuted: '#8C7B6B', // Sepia-toned muted text
+    border: '#D4C9B8', // Warmer, more visible border
+    accent: '#A86F3C', // Rich amber-brown (aged leather)
+    accentHover: '#8B5A2B', // Deeper on hover
   },
 } as const;
 
@@ -189,62 +189,62 @@ export const themeColors = {
 export const matSurfaceClasses: Record<AppTheme, string> = {
   gallery: 'bg-[#F5F5F5]',
   vault: 'bg-[#1C1917]',
-  atelier: 'bg-[#F5F1E7]',
+  atelier: 'bg-[#EDE4D3]', // Warm parchment
 };
 
 // Frame accent colors (for borders, dividers, highlights)
 export const frameAccentClasses: Record<AppTheme, string> = {
   gallery: 'border-[#1A1A1A]',
   vault: 'border-[#D4A574]',
-  atelier: 'border-[#8B7355]',
+  atelier: 'border-[#6B5344]', // Aged wood brown
 };
 
 // Interactive element accent colors
 export const accentColorClasses: Record<AppTheme, string> = {
   gallery: 'text-amber-600 hover:text-amber-700',
   vault: 'text-[#D4A574] hover:text-[#E0B585]',
-  atelier: 'text-[#8B7355] hover:text-[#9D856A]',
+  atelier: 'text-[#A86F3C] hover:text-[#8B5A2B]', // Rich amber-brown
 };
 
 // Accent background classes (for buttons, badges)
 export const accentBgClasses: Record<AppTheme, string> = {
   gallery: 'bg-amber-500 hover:bg-amber-600 text-white',
   vault: 'bg-[#D4A574] hover:bg-[#E0B585] text-stone-900',
-  atelier: 'bg-[#8B7355] hover:bg-[#9D856A] text-white',
+  atelier: 'bg-[#A86F3C] hover:bg-[#8B5A2B] text-white', // Leather brown
 };
 
 // Card hover states with enhanced shadows
 export const cardHoverClasses: Record<AppTheme, string> = {
   gallery: 'hover:shadow-gallery-hover hover:border-stone-200 transition-all duration-200',
   vault: 'hover:shadow-vault-hover hover:border-[#D4A574]/30 transition-all duration-200',
-  atelier: 'hover:shadow-atelier-hover hover:border-[#8B7355]/30 transition-all duration-200',
+  atelier: 'hover:shadow-atelier-hover hover:border-[#A86F3C]/30 transition-all duration-200',
 };
 
 // Enhanced card surfaces with theme-specific shadows
 export const cardSurfaceEnhancedClasses: Record<AppTheme, string> = {
   gallery: 'bg-white text-stone-900 border border-stone-100 shadow-gallery',
   vault: 'bg-stone-950 text-white border border-white/10 shadow-vault',
-  atelier: 'bg-[#faf9f6] text-stone-900 border border-[#e6e1d5] shadow-atelier',
+  atelier: 'bg-[#F5EFE4] text-[#3D3530] border border-[#D4C9B8] shadow-atelier',
 };
 
 // Divider/separator classes
 export const dividerClasses: Record<AppTheme, string> = {
   gallery: 'border-stone-200',
   vault: 'border-white/10',
-  atelier: 'border-[#e6e1d5]',
+  atelier: 'border-[#D4C9B8]', // Warmer, more visible
 };
 
 // Rating star colors (muted amber instead of bright yellow)
 export const ratingColorClasses: Record<AppTheme, string> = {
   gallery: 'text-amber-500',
   vault: 'text-[#D4A574]',
-  atelier: 'text-amber-600',
+  atelier: 'text-[#A86F3C]', // Leather brown
 };
 
 export const ratingEmptyClasses: Record<AppTheme, string> = {
   gallery: 'text-amber-500/30',
   vault: 'text-[#D4A574]/30',
-  atelier: 'text-amber-600/30',
+  atelier: 'text-[#A86F3C]/30',
 };
 
 // Input field classes
@@ -254,5 +254,5 @@ export const inputClasses: Record<AppTheme, string> = {
   vault:
     'bg-stone-900 border-white/10 text-white placeholder:text-stone-500 focus:ring-[#D4A574]/10 focus:border-[#D4A574]/30',
   atelier:
-    'bg-[#faf9f6] border-[#e6e1d5] text-stone-900 placeholder:text-stone-300 focus:ring-[#8B7355]/10 focus:border-[#8B7355]/30',
+    'bg-[#F5EFE4] border-[#D4C9B8] text-[#3D3530] placeholder:text-[#8C7B6B] focus:ring-[#A86F3C]/10 focus:border-[#A86F3C]/30',
 };
