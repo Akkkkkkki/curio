@@ -55,6 +55,7 @@ import {
   getSeedVersion,
   setSeedVersion,
   initDB,
+  type SyncStatus,
 } from './services/db';
 import { processImage } from './services/imageProcessor';
 import { ItemImage } from './components/ItemImage';
@@ -104,6 +105,8 @@ const AppContent: React.FC = () => {
   } | null>(null);
   const tRef = useRef(t);
   const showStatusRef = useRef<(message: string, tone?: StatusTone) => void>(() => undefined);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
+  const [syncError, setSyncError] = useState<string | null>(null);
   const [pendingAuthAction, setPendingAuthAction] = useState<
     'add-item' | 'create-collection' | null
   >(null);
