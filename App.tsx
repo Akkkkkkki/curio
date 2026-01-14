@@ -9,6 +9,7 @@ import {
   Navigate,
 } from 'react-router-dom';
 import { SpeedInsights } from '@vercel/speed-insights/react';
+import { Analytics } from '@vercel/analytics/react';
 import { Layout } from './components/Layout';
 import { CollectionCard } from './components/CollectionCard';
 import { ItemCard } from './components/ItemCard';
@@ -1602,6 +1603,7 @@ export const App: React.FC = () => {
           <AppContent />
         </HashRouter>
         <SpeedInsights />
+        <Analytics />
       </LanguageProvider>
     </ThemeProvider>
   );
