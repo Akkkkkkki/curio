@@ -4,6 +4,28 @@ Curio is a personal museum for collecting, organizing, and browsing items with o
 
 - **Live app**: [curio-app.vercel.app](https://curio-app.vercel.app)
 
+## Documentation (how we keep it clean)
+
+This repo intentionally keeps documentation **small, current, and non-duplicative**.
+
+### Principles
+
+- **One source of truth**: prefer documenting behavior next to the code when possible (e.g., `tests/README.md` for test internals).
+- **Avoid duplicates**: do not maintain multiple docs that describe the same system; consolidate or delete older ones.
+- **Docs must reflect reality**: if a doc becomes stale or contradicts the code, update it or remove it.
+- **Issues live in GitHub**: keep long-term tracking in GitHub Issues/Projects, not in markdown checklists.
+- **Issue drafts are temporary**: if using issue drafts for batch creation, delete the draft files after the issues exist on GitHub.
+
+### Canonical docs
+
+- **Product**: `docs/PRODUCT_DESIGN.md`
+- **Architecture**: `docs/TECHNICAL_DESIGN.md`
+- **Operational reliability**: `docs/INDEXEDDB_RELIABILITY.md`
+- **Design proposals / reviews**: `docs/DESIGN_REVIEW_image_enhancement_and_theme_strategy.md`
+- **Testing**: `docs/TESTING.md` (quick how-to) and `tests/README.md` (details)
+- **Issue filing**: `docs/GITHUB_ISSUES_PROTOCOL.md`
+- **Historical reviews**: `docs/PRODUCT_REVIEW_FEEDBACK_20260113.md` (reference; tracking happens in GitHub)
+
 ## MVP Product Behavior (5-minute time-to-value)
 
 Curio’s MVP is designed so a new user can get meaningful value within **5 minutes**:

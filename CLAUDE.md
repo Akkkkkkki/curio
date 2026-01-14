@@ -6,6 +6,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Curio is a personal collection management app with AI-powered image analysis and cloud synchronization. It uses a cloud-first architecture where Supabase is the source of truth and IndexedDB is a local cache.
 
+## Documentation Rules (for AI helpers)
+
+When changing code or product behavior, follow these documentation rules:
+
+- **Do not create duplicate docs.** Prefer updating an existing doc or deleting stale docs rather than adding more files.
+- **Keep docs aligned with reality.** If documentation contradicts the codebase, fix or remove it.
+- **Prefer code-adjacent docs** for implementation details (e.g., testing details in `tests/README.md`).
+- **Issues belong in GitHub.** Do not maintain long-term “TODO” lists in `docs/` when an issue already exists.
+- **Issue drafts are temporary.** If you create `docs/issue-drafts/<YYYY-MM-DD>/...` for batch import, delete the drafts after issues exist on GitHub.
+- **Canonical docs list** lives in `README.md` under “Documentation (how we keep it clean)”.
+
 ## Product Constraints (MVP: Value in 5 Minutes)
 
 When making UX/product changes, preserve these constraints:
@@ -26,6 +37,8 @@ npm run dev          # Start dev server on http://localhost:3000
 npm run server       # Start Gemini proxy server on http://localhost:8787 (run in separate terminal)
 npm run build        # Build for production
 npm run preview      # Preview production build
+npm test             # Run unit/component tests (Vitest)
+npm run test:e2e      # Run E2E tests (Playwright)
 npm run format       # Format code with Prettier
 npm run format:check # Check formatting without changes
 ```
@@ -379,10 +392,9 @@ Configured in vite.config.ts and tsconfig.json.
 4. **Check Console:** Look for sync errors, merge conflicts, or authentication issues
 5. **Compare Timestamps:** Verify `updated_at` fields in local vs cloud to understand conflict resolution
 
-### No Testing Infrastructure
+### Testing
 
-There are currently no test files. When adding tests:
+Testing docs:
 
-- Unit test services (gemini, supabase, db, imageProcessor)
-- Integration test data sync workflows
-- E2E test user flows (add item, create collection, auth)
+- `docs/TESTING.md` (how to run)
+- `tests/README.md` (structure, patterns, utilities)
