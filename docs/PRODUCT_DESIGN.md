@@ -29,6 +29,15 @@ Curio is a digital sanctuary for physical collectors. Unlike marketplace-driven 
 - **Read-only must be obvious:** Public/sample content must always show a persistent read-only indicator and disabled edit affordances.
 - **Defer advanced features:** Museum Guide, Exhibition, deep filtering, etc. should be discoverable _after_ the first successful save.
 
+## 1.2 MVP Checklist (tracking)
+
+We avoid keeping long-lived “implementation checklists” in `docs/` because they go stale quickly.
+
+- **Product constraints** (must not regress): see `README.md` and `CLAUDE.md`.
+- **Work tracking**: use GitHub Issues/Projects as the source of truth.
+
+If you need a checklist for a short-lived push, keep it inside the relevant GitHub issue/PR description instead of a new doc.
+
 ## 2. MVP Goals & Enhancements
 
 1.  **Velocity of Capture**:

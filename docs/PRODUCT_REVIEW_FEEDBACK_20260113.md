@@ -4,6 +4,8 @@ Date of review: 13 Jan 2026
 Test Env: Chrome on Linux
 App URL: https://curio‑bay.vercel.app
 
+> Note: This is a historical review document. Any actionable items should be tracked in GitHub Issues (not duplicated in `docs/`).
+
 1. Overview of the Curio app
 
 Curio positions itself as a personal museum where users can build archives (collections) and catalogue memorabilia, vinyl records, sweets and other collectibles.  After logging in with the provided test account, I created a new archive called Chocolate Haven using the “Chocolate Vault” preset, downloaded a public image of a chocolate bar from Wikimedia Commons, and walked through the Add Item flow.  I also created and added a vinyl‑record item to a Vinyl Vault archive.  The app offers:
