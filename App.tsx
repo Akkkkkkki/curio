@@ -55,6 +55,8 @@ import {
   getSeedVersion,
   setSeedVersion,
   initDB,
+  setSyncStatusCallback,
+  syncPendingChanges,
   type SyncStatus,
 } from './services/db';
 import { processImage } from './services/imageProcessor';
@@ -102,6 +104,8 @@ const AppContent: React.FC = () => {
   const [status, setStatus] = useState<{
     message: string;
     tone: StatusTone;
+    actionLabel?: string;
+    onAction?: () => void;
   } | null>(null);
   const tRef = useRef(t);
   const showStatusRef = useRef<(message: string, tone?: StatusTone) => void>(() => undefined);
@@ -115,6 +119,7 @@ const AppContent: React.FC = () => {
   );
   const saveTimeoutRef = useRef<Record<string, any>>({});
   const statusTimeoutRef = useRef<number | null>(null);
+  const pendingSyncToastRef = useRef(false);
   const isSupabaseReady = isSupabaseConfigured();
   const fallbackSampleCollections = useMemo(
     () =>
@@ -126,13 +131,43 @@ const AppContent: React.FC = () => {
     [],
   );
 
-  const showStatus = useCallback((message: string, tone: StatusTone = 'info') => {
-    if (statusTimeoutRef.current) {
-      clearTimeout(statusTimeoutRef.current);
+  const showStatus = useCallback(
+    (
+      message: string,
+      tone: StatusTone = 'info',
+      options?: { actionLabel?: string; onAction?: () => void; durationMs?: number },
+    ) => {
+      if (statusTimeoutRef.current) {
+        clearTimeout(statusTimeoutRef.current);
+      }
+      setStatus({
+        message,
+        tone,
+        actionLabel: options?.actionLabel,
+        onAction: options?.onAction,
+      });
+      const durationMs = options?.durationMs ?? (options?.actionLabel ? 6000 : 2400);
+      statusTimeoutRef.current = window.setTimeout(() => setStatus(null), durationMs);
+    },
+    [],
+  );
+
+  const handleRetrySync = useCallback(async () => {
+    try {
+      const synced = await syncPendingChanges();
+      if (synced > 0) {
+        showStatus(t('statusPendingSynced').replace('{count}', String(synced)), 'success');
+      } else {
+        showStatus(t('statusWillSync'), 'warning');
+      }
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : t('statusSyncPaused');
+      showStatus(t('statusSyncError').replace('{error}', errorMessage), 'error', {
+        actionLabel: t('actionRetry'),
+        onAction: () => handleRetrySync(),
+      });
     }
-    setStatus({ message, tone });
-    statusTimeoutRef.current = window.setTimeout(() => setStatus(null), 2400);
-  }, []);
+  }, [showStatus, t]);
 
   useEffect(() => {
     tRef.current = t;
@@ -144,6 +179,42 @@ const AppContent: React.FC = () => {
       if (statusTimeoutRef.current) clearTimeout(statusTimeoutRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    const handleSyncStatus = (status: SyncStatus, error?: string) => {
+      setSyncStatus(status);
+      setSyncError(error ?? null);
+    };
+    setSyncStatusCallback(handleSyncStatus);
+    return () => setSyncStatusCallback(null);
+  }, []);
+
+  useEffect(() => {
+    if (!pendingSyncToastRef.current) return;
+
+    if (syncStatus === 'synced') {
+      showStatus(t('statusSynced'), 'success');
+      pendingSyncToastRef.current = false;
+    }
+
+    if (syncStatus === 'offline') {
+      showStatus(t('statusWillSync'), 'warning');
+      pendingSyncToastRef.current = false;
+    }
+
+    if (syncStatus === 'error') {
+      const errorMessage = syncError || t('statusSyncPaused');
+      if (!navigator.onLine) {
+        showStatus(t('statusWillSync'), 'warning');
+      } else {
+        showStatus(t('statusSyncError').replace('{error}', errorMessage), 'error', {
+          actionLabel: t('actionRetry'),
+          onAction: () => handleRetrySync(),
+        });
+      }
+      pendingSyncToastRef.current = false;
+    }
+  }, [handleRetrySync, showStatus, syncError, syncStatus, t]);
 
   useEffect(() => {
     if (!isSupabaseReady || !supabase) {
@@ -457,6 +528,8 @@ const AppContent: React.FC = () => {
     itemData: Omit<CollectionItem, 'id' | 'createdAt' | 'updatedAt'>,
   ) => {
     if (!canEditCollection(collectionId)) return;
+    pendingSyncToastRef.current = true;
+    if (!isSupabaseReady) pendingSyncToastRef.current = false;
     const itemId = Math.random().toString(36).substr(2, 9);
     const now = new Date().toISOString();
     let hasPhoto = false;
@@ -522,6 +595,8 @@ const AppContent: React.FC = () => {
       setIsCreateCollectionOpen(false);
       return;
     }
+    pendingSyncToastRef.current = true;
+    if (!isSupabaseReady) pendingSyncToastRef.current = false;
     const template = TEMPLATES.find((t) => t.id === templateId) || TEMPLATES[0];
     const newCol: UserCollection = {
       id: Math.random().toString(36).substr(2, 9),
@@ -1590,6 +1665,8 @@ const AppContent: React.FC = () => {
           <StatusToast
             message={status.message}
             tone={status.tone}
+            actionLabel={status.actionLabel}
+            onAction={status.onAction}
             onDismiss={() => setStatus(null)}
           />
         </div>

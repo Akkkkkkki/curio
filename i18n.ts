@@ -123,6 +123,7 @@ export const translations = {
     statusSaved: 'Saved to your archive',
     statusSynced: 'Synced',
     statusSyncPaused: 'Sync paused',
+    statusWillSync: 'Will sync / retrying',
     statusImportComplete: 'Imported from local storage',
     statusImportFailed: 'Import failed',
     // IndexedDB Recovery Messages
@@ -135,6 +136,7 @@ export const translations = {
     statusSyncError: 'Sync failed: {error}',
     statusPendingSyncs: '{count} change(s) pending sync',
     statusPendingSynced: '{count} pending change(s) synced',
+    actionRetry: 'Retry',
     // Auth & Cloud
     login: 'Sign In',
     register: 'Create Account',
@@ -326,6 +328,7 @@ export const translations = {
     statusSaved: '已保存到档案',
     statusSynced: '已同步',
     statusSyncPaused: '同步暂停',
+    statusWillSync: '将同步 / 正在重试',
     statusImportComplete: '本地数据已导入',
     statusImportFailed: '导入失败，请重试。',
     // IndexedDB Recovery Messages
@@ -337,6 +340,7 @@ export const translations = {
     statusSyncError: '同步失败：{error}',
     statusPendingSyncs: '{count} 项更改待同步',
     statusPendingSynced: '{count} 项待同步更改已完成',
+    actionRetry: '重试',
     // Auth & Cloud
     login: '登录',
     register: '创建账号',
