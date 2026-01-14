@@ -128,7 +128,7 @@ Mock data factories:
 
 - `mockCollection` - Pre-defined collection
 - `mockItem` - Pre-defined item
-- `mockItemWithLegacyPath` - Legacy photo_path migration testing
+- `mockItemWithLegacyPath` - Legacy photo path migration testing
 - `createMockCollection()` - Factory with overrides
 - `createMockItem()` - Factory with overrides
 - `createMockCollections()` - Batch generation

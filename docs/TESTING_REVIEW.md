@@ -127,7 +127,7 @@ e2e/                   # Phase 5: End-to-end tests
   - Very old/future dates
 - **normalizePhotoPaths**: Thorough path normalization testing
   - Empty/null handling
-  - Legacy `photo_path` migration
+  - Legacy photo path migration
   - Modern path formats
   - Supabase URL extraction
   - Edge cases (missing fields, partial data)
