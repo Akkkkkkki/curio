@@ -107,6 +107,8 @@ const AppContent: React.FC = () => {
     actionLabel?: string;
     onAction?: () => void;
   } | null>(null);
+  const tRef = useRef(t);
+  const showStatusRef = useRef<(message: string, tone?: StatusTone) => void>(() => undefined);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
   const [syncError, setSyncError] = useState<string | null>(null);
   const [pendingAuthAction, setPendingAuthAction] = useState<
@@ -166,6 +168,11 @@ const AppContent: React.FC = () => {
       });
     }
   }, [showStatus, t]);
+
+  useEffect(() => {
+    tRef.current = t;
+    showStatusRef.current = showStatus;
+  }, [t, showStatus]);
 
   useEffect(() => {
     return () => {
@@ -405,7 +412,7 @@ const AppContent: React.FC = () => {
         setHasLocalImport(false);
         setCollections(localCollections);
         setLoadError('Unable to sync with Supabase. Check your connection and Supabase settings.');
-        showStatus(t('statusSyncPaused'), 'error');
+        showStatusRef.current(tRef.current('statusSyncPaused'), 'error');
         return;
       }
 
@@ -436,12 +443,12 @@ const AppContent: React.FC = () => {
 
       setCollections(resolvedCollections);
       if (showSyncedStatus) {
-        showStatus(t('statusSynced'), 'success');
+        showStatusRef.current(tRef.current('statusSynced'), 'success');
       }
     } catch (e) {
       console.error('Initialization failed:', e);
       setLoadError('Failed to load collections. Please try again.');
-      showStatus(t('statusSyncPaused'), 'error');
+      showStatusRef.current(tRef.current('statusSyncPaused'), 'error');
       setCollections([]);
     } finally {
       setIsLoading(false);
@@ -452,8 +459,6 @@ const AppContent: React.FC = () => {
     isSupabaseReady,
     withTimeout,
     fallbackSampleCollections,
-    t,
-    showStatus,
     loadLocalCollectionsWithTimeout,
     loadCloudCollectionsWithTimeout,
     maybeSeedCollections,
