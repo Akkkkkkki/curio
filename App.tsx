@@ -785,13 +785,23 @@ const AppContent: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8" data-testid="collections-grid">
-          {filteredCollections.map((col) => (
-            <CollectionCard
-              key={col.id}
-              collection={col}
-              onClick={() => navigate(`/collection/${col.id}`)}
-            />
-          ))}
+          {filteredCollections.map((col) => {
+            const matchesName = hasSearch && col.name.toLowerCase().includes(normalizedSearch);
+            const matchesItems =
+              hasSearch &&
+              col.items.some((item) => item.title.toLowerCase().includes(normalizedSearch));
+            const matchBadge =
+              hasSearch && !matchesName && matchesItems ? t('searchItemMatchLabel') : undefined;
+
+            return (
+              <CollectionCard
+                key={col.id}
+                collection={col}
+                onClick={() => navigate(`/collection/${col.id}`)}
+                matchBadge={matchBadge}
+              />
+            );
+          })}
 
           {hasSearch && filteredCollections.length === 0 && (
             <div
