@@ -604,11 +604,14 @@ const AppContent: React.FC = () => {
   const HomeScreen = () => {
     const navigate = useNavigate();
     const [searchTerm, setSearchTerm] = useState('');
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+    const hasSearch = normalizedSearch.length > 0;
 
     const filteredCollections = collections.filter(
       (c) =>
-        c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        c.items.some((i) => i.title.toLowerCase().includes(searchTerm.toLowerCase())),
+        !normalizedSearch ||
+        c.name.toLowerCase().includes(normalizedSearch) ||
+        c.items.some((i) => i.title.toLowerCase().includes(normalizedSearch)),
     );
 
     if (isLoading)
@@ -783,30 +786,55 @@ const AppContent: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8" data-testid="collections-grid">
-          {filteredCollections.map((col) => (
-            <CollectionCard
-              key={col.id}
-              collection={col}
-              onClick={() => navigate(`/collection/${col.id}`)}
-            />
-          ))}
+          {filteredCollections.map((col) => {
+            const matchesName = hasSearch && col.name.toLowerCase().includes(normalizedSearch);
+            const matchesItems =
+              hasSearch &&
+              col.items.some((item) => item.title.toLowerCase().includes(normalizedSearch));
+            const matchBadge =
+              hasSearch && !matchesName && matchesItems ? t('searchItemMatchLabel') : undefined;
 
-          <button
-            onClick={handleCreateCollectionAction}
-            className={`group relative p-8 rounded-[2rem] border-2 border-dashed transition-all flex flex-col items-center justify-center min-h-[220px] gap-4 shadow-sm hover:shadow-xl overflow-hidden ${theme === 'vault' ? 'border-white/10 hover:border-amber-400 bg-white/5 text-stone-500' : 'border-stone-200 hover:border-amber-400 bg-white/50 text-stone-400'}`}
-          >
-            <div className="w-16 h-16 rounded-full bg-stone-50 flex items-center justify-center shadow-inner group-hover:scale-110 group-hover:shadow-lg transition-transform text-stone-300">
-              <Plus size={32} strokeWidth={1.5} />
+            return (
+              <CollectionCard
+                key={col.id}
+                collection={col}
+                onClick={() => navigate(`/collection/${col.id}`)}
+                matchBadge={matchBadge}
+              />
+            );
+          })}
+
+          {hasSearch && filteredCollections.length === 0 && (
+            <div
+              className={`col-span-full rounded-[2rem] border p-6 sm:p-8 text-center shadow-sm ${theme === 'vault' ? 'bg-white/5 border-white/10 text-stone-200' : 'bg-white/80 border-stone-100 text-stone-700'}`}
+            >
+              <p className={`${typographyClasses.titleLarge} italic mb-2`}>
+                {t('searchNoResultsTitle')}
+              </p>
+              <p className={typographyClasses.labelMuted}>
+                {t('searchNoResultsBody', { query: searchTerm.trim() })}
+              </p>
             </div>
-            <div className="text-center">
-              <span
-                className={`${typographyClasses.titleLarge} italic block mb-1 ${theme === 'vault' ? 'text-white/60' : 'text-stone-400'}`}
-              >
-                {t('newArchive')}
-              </span>
-              <span className={typographyClasses.labelMuted}>{t('expandSpace')}</span>
-            </div>
-          </button>
+          )}
+
+          {!hasSearch && (
+            <button
+              onClick={handleCreateCollectionAction}
+              className={`group relative p-8 rounded-[2rem] border-2 border-dashed transition-all flex flex-col items-center justify-center min-h-[220px] gap-4 shadow-sm hover:shadow-xl overflow-hidden ${theme === 'vault' ? 'border-white/10 hover:border-amber-400 bg-white/5 text-stone-500' : 'border-stone-200 hover:border-amber-400 bg-white/50 text-stone-400'}`}
+            >
+              <div className="w-16 h-16 rounded-full bg-stone-50 flex items-center justify-center shadow-inner group-hover:scale-110 group-hover:shadow-lg transition-transform text-stone-300">
+                <Plus size={32} strokeWidth={1.5} />
+              </div>
+              <div className="text-center">
+                <span
+                  className={`${typographyClasses.titleLarge} italic block mb-1 ${theme === 'vault' ? 'text-white/60' : 'text-stone-400'}`}
+                >
+                  {t('newArchive')}
+                </span>
+                <span className={typographyClasses.labelMuted}>{t('expandSpace')}</span>
+              </div>
+            </button>
+          )}
         </div>
       </div>
     );

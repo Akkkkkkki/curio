@@ -1,6 +1,6 @@
 import React from 'react';
 import { UserCollection } from '../types';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Search } from 'lucide-react';
 import { TEMPLATES } from '../constants';
 import { useTranslation } from '../i18n';
 import {
@@ -15,9 +15,14 @@ import {
 interface CollectionCardProps {
   collection: UserCollection;
   onClick: () => void;
+  matchBadge?: string;
 }
 
-export const CollectionCard: React.FC<CollectionCardProps> = ({ collection, onClick }) => {
+export const CollectionCard: React.FC<CollectionCardProps> = ({
+  collection,
+  onClick,
+  matchBadge,
+}) => {
   const { t } = useTranslation();
   const { theme } = useTheme();
   const template = TEMPLATES.find((t) => t.id === collection.templateId) || TEMPLATES[0];
@@ -64,9 +69,9 @@ export const CollectionCard: React.FC<CollectionCardProps> = ({ collection, onCl
       </div>
 
       <div className="relative z-10">
-        <div className="flex items-center gap-2 mb-1">
+        <div className="flex items-center gap-2 mb-1 flex-wrap">
           <h3
-            className={`${typographyClasses.titleLarge} group-hover:${accentColorClasses[theme]} leading-tight truncate max-w-[80%]`}
+            className={`${typographyClasses.titleLarge} group-hover:${accentColorClasses[theme]} leading-tight truncate max-w-[80%] flex-1 min-w-0`}
           >
             {collection.name}
           </h3>
@@ -75,6 +80,14 @@ export const CollectionCard: React.FC<CollectionCardProps> = ({ collection, onCl
               className={`${typographyClasses.labelSmall} px-2 py-0.5 rounded border shrink-0 bg-amber-50 text-amber-700 border-amber-100`}
             >
               {t('readOnlyMode')}
+            </span>
+          )}
+          {matchBadge && (
+            <span
+              className={`${typographyClasses.labelSmall} inline-flex items-center gap-1 px-2 py-0.5 rounded border shrink-0 ${theme === 'vault' ? 'bg-emerald-500/15 text-emerald-200 border-emerald-500/30' : 'bg-emerald-50 text-emerald-700 border-emerald-100'}`}
+            >
+              <Search size={12} />
+              {matchBadge}
             </span>
           )}
         </div>
