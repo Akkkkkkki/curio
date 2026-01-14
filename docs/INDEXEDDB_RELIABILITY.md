@@ -115,7 +115,7 @@ App Load ← IndexedDB (cache) ←──────── Supabase (source of t
 
 **Note:** The `mergeCollections` function exists but isn't used in `loadCollections()`.
 
-**Status:** Not implemented in this PR. Could be addressed in a future update.
+**Status:** Not implemented in this PR. Could be addressed in a future update. (Tracked in [#84](https://github.com/Akkkkkkki/curio/issues/84))
 
 ---
 
@@ -123,7 +123,7 @@ App Load ← IndexedDB (cache) ←──────── Supabase (source of t
 
 **Problem:** If cloud upload fails, asset is stuck local-only with no retry mechanism.
 
-**Status:** Not implemented in this PR. Similar queue mechanism could be added for assets.
+**Status:** Not implemented in this PR. Similar queue mechanism could be added for assets. (Tracked in [#85](https://github.com/Akkkkkkki/curio/issues/85))
 
 ---
 
@@ -131,7 +131,7 @@ App Load ← IndexedDB (cache) ←──────── Supabase (source of t
 
 **Problem:** Large collections could hit IndexedDB quota limits without warning.
 
-**Status:** Not implemented in this PR. Low priority.
+**Status:** Not implemented in this PR. Low priority. (Tracked in [#83](https://github.com/Akkkkkkki/curio/issues/83))
 
 ---
 
@@ -143,9 +143,9 @@ After implementing fixes, verify:
 - [x] Sync errors display in status bar (P0 #2)
 - [x] Offline changes sync when back online (P1 #1)
 - [x] Concurrent saves don't corrupt data (P1 #2)
-- [ ] Local-only items survive cloud fetch (P2 - not implemented)
-- [ ] Failed asset uploads retry on reconnection (P2 - not implemented)
-- [ ] Large collections warn about storage limits (P3 - not implemented)
+- [ ] Local-only items survive cloud fetch (P2 - not implemented; tracked in [#84](https://github.com/Akkkkkkki/curio/issues/84))
+- [ ] Failed asset uploads retry on reconnection (P2 - not implemented; tracked in [#85](https://github.com/Akkkkkkki/curio/issues/85))
+- [ ] Large collections warn about storage limits (P3 - not implemented; tracked in [#83](https://github.com/Akkkkkkki/curio/issues/83))
 
 ---
 

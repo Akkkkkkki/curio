@@ -40,7 +40,7 @@ Curio is a digital sanctuary for physical collectors. Unlike marketplace-driven 
 3.  **Global Aesthetic Curation**:
     - **Dynamic Global Themes**: Users select from _The Gallery_ (Light/Airy), _The Vault_ (Moody/Dark), or _The Atelier_ (Artisanal/Warm).
 4.  **Security for High-Value Collections**:
-    - **Vault Lock**: Optional biometric-style lock for specific collections.
+    - **Vault Lock**: Optional biometric-style lock for specific collections. (Tracked in [#87](https://github.com/Akkkkkkki/curio/issues/87))
 
 ## 3. Design Language
 

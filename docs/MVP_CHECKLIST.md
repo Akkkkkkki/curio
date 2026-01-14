@@ -34,7 +34,7 @@ Purpose: Turn the MVP UX and aesthetic goals into an ordered, buildable plan wit
 
 ## P2 - Nice-to-Have MVP Extensions
 
-- [ ] Add inline field hints for custom templates; Tech design: display a short helper text per field in `ItemDetailScreen` and Add Item verify flow, using optional metadata in `TEMPLATES`.
-- [ ] Create a first-run empty state guide; Tech design: add a small "Getting Started" card on Home when `collections.length === 0` with 2-3 actions (create, sample, import) in `App.tsx`.
-- [ ] Provide lightweight accessibility polish; Tech design: add focus trap and ESC handling in modal components, plus `aria-label` on icon-only buttons in `components/Layout.tsx` and `components/ItemCard.tsx`.
-- [ ] Add a compact public sample update guide for admins; Tech design: document steps in `README.md` or a new `ADMIN_NOTES.md` and link from the access gate when `isAdmin` is true.
+- [ ] Add inline field hints for custom templates; Tech design: display a short helper text per field in `ItemDetailScreen` and Add Item verify flow, using optional metadata in `TEMPLATES`. (Tracked in [#76](https://github.com/Akkkkkkki/curio/issues/76))
+- [ ] Create a first-run empty state guide; Tech design: add a small "Getting Started" card on Home when `collections.length === 0` with 2-3 actions (create, sample, import) in `App.tsx`. (Tracked in [#77](https://github.com/Akkkkkkki/curio/issues/77))
+- [ ] Provide lightweight accessibility polish; Tech design: add focus trap and ESC handling in modal components, plus `aria-label` on icon-only buttons in `components/Layout.tsx` and `components/ItemCard.tsx`. (Tracked in [#79](https://github.com/Akkkkkkki/curio/issues/79))
+- [ ] Add a compact public sample update guide for admins; Tech design: document steps in `README.md` or a new `ADMIN_NOTES.md` and link from the access gate when `isAdmin` is true. (Tracked in [#86](https://github.com/Akkkkkkki/curio/issues/86))

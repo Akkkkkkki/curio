@@ -117,6 +117,8 @@ Rather than introducing new themes, we enhance the three existing themes with re
 
 ## Part 3: Photo Enhancement Tools
 
+**Tracking:** Enhance (client-side) is tracked in [#80](https://github.com/Akkkkkkki/curio/issues/80). Image edit proxy endpoint is tracked in [#78](https://github.com/Akkkkkkki/curio/issues/78). “Remove Background” / “Fix Blur” UI actions are tracked in [#81](https://github.com/Akkkkkkki/curio/issues/81). Photo variants storage/model work is tracked in [#82](https://github.com/Akkkkkkki/curio/issues/82).
+
 ### Design Principle: Invisible Intelligence
 
 Present features by their **outcome**, not their underlying technology. Users should see "Enhance" and "Remove Background" - not "AI-powered" or "Gemini Vision".
@@ -370,17 +372,17 @@ app.post('/api/gemini/edit-image', async (req, res) => {
 
 ### Phase 1: Client-Side Enhancement
 
-1. Create `services/imageEnhancer.ts` with CLAHE, vibrance, unsharp mask, white balance
-2. Add "Enhance" button to photo review step in AddItemModal
-3. Implement before/after preview UI
-4. Store enhanced variant alongside original
+1. Create `services/imageEnhancer.ts` with CLAHE, vibrance, unsharp mask, white balance (tracked in [#80](https://github.com/Akkkkkkki/curio/issues/80))
+2. Add "Enhance" button to photo review step in AddItemModal (tracked in [#80](https://github.com/Akkkkkkki/curio/issues/80))
+3. Implement before/after preview UI (tracked in [#80](https://github.com/Akkkkkkki/curio/issues/80))
+4. Store enhanced variant alongside original (tracked in [#82](https://github.com/Akkkkkkki/curio/issues/82))
 
 ### Phase 2: Gemini-Based Tools
 
-1. Add `/api/gemini/edit-image` endpoint to proxy server
-2. Implement "Remove Background" with universal prompt
-3. Implement "Fix Blur" with universal prompt
-4. Add these options to verify step as secondary actions
+1. Add `/api/gemini/edit-image` endpoint to proxy server (tracked in [#78](https://github.com/Akkkkkkki/curio/issues/78))
+2. Implement "Remove Background" with universal prompt (tracked in [#81](https://github.com/Akkkkkkki/curio/issues/81))
+3. Implement "Fix Blur" with universal prompt (tracked in [#81](https://github.com/Akkkkkkki/curio/issues/81))
+4. Add these options to verify step as secondary actions (tracked in [#81](https://github.com/Akkkkkkki/curio/issues/81))
 
 ### Phase 3: Theme Refinements
 
