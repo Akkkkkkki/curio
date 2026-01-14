@@ -82,7 +82,6 @@ create table if not exists public.items (
   notes text,
   rating int not null default 0 check (rating >= 0 and rating <= 5),
   data jsonb not null default '{}'::jsonb,
-  photo_path text,
   photo_original_path text,
   photo_display_path text,
   seed_key text,

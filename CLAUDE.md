@@ -182,7 +182,7 @@ GEMINI_API_KEY=your_api_key_here
 **Database Schema:**
 
 - `collections` table: id (text), user_id, template_id, name, icon, settings (jsonb), seed_key, is_public, created_at, updated_at
-- `items` table: id (text), collection_id, user_id, title, rating, notes, data (jsonb), photo_path (legacy), photo_original_path, photo_display_path, seed_key, created_at, updated_at
+- `items` table: id (text), collection_id, user_id, title, rating, notes, data (jsonb), photo_original_path, photo_display_path, seed_key, created_at, updated_at
 - `profiles` table: id (uuid), seed_version, is_admin, created_at
 - RLS enforces per-user access, plus public read on `is_public` collections/items and admin-only edits
 - Update trigger (`set_updated_at()`) auto-maintains `updated_at` timestamps for conflict resolution

@@ -62,9 +62,8 @@ export const mockItem: CollectionItem = {
 export const mockItemWithLegacyPath: CollectionItem = {
   ...mockItem,
   id: 'test-item-legacy',
-  photo_path: 'legacy/path.jpg',
-  photo_original_path: undefined,
-  photo_display_path: undefined,
+  photo_original_path: 'legacy/path.jpg',
+  photo_display_path: 'legacy/path.jpg',
 };
 
 export const mockCollectionWithItems: UserCollection = {

@@ -42,7 +42,7 @@
   - Test cases: local newer, cloud newer, equal, undefined handling
   - Edge cases: malformed timestamps, timezone differences
 - `normalizePhotoPaths(item)`
-  - Test cases: legacy `photo_path` migration, modern paths, missing paths
+  - Test cases: legacy photo path migration, modern paths, missing paths
   - Edge cases: null/undefined items, partial path data
 
 **Deliverable:** `tests/unit/services/db.pure.test.ts`
