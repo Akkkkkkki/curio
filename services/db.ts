@@ -70,7 +70,16 @@ const normalizeCollection = (collection: UserCollection): UserCollection => {
   return { ...collection, customFields };
 };
 
-export const mergeItems = (localItems: CollectionItem[], cloudItems: CollectionItem[]) => {
+type MergeItemsOptions = {
+  preserveLocalOnly?: boolean;
+};
+
+export const mergeItems = (
+  localItems: CollectionItem[],
+  cloudItems: CollectionItem[],
+  options: MergeItemsOptions = {},
+) => {
+  const { preserveLocalOnly = true } = options;
   // Cloud is the source of truth for what items EXIST
   // Local can have newer data for items that exist in cloud
   const localMap = new Map(localItems.map((item) => [item.id, item]));
@@ -89,14 +98,16 @@ export const mergeItems = (localItems: CollectionItem[], cloudItems: CollectionI
     return useLocal ? localItem : cloudItem;
   });
 
-  // Add local-only items that haven't been synced yet (new items created offline)
-  // These are items that exist locally but NOT in cloud
-  localItems.forEach((localItem) => {
-    if (!cloudIds.has(localItem.id)) {
-      // This is a new local item that needs to sync to cloud
-      merged.push(localItem);
-    }
-  });
+  if (preserveLocalOnly) {
+    // Add local-only items that haven't been synced yet (new items created offline)
+    // These are items that exist locally but NOT in cloud
+    localItems.forEach((localItem) => {
+      if (!cloudIds.has(localItem.id)) {
+        // This is a new local item that needs to sync to cloud
+        merged.push(localItem);
+      }
+    });
+  }
 
   return merged;
 };
@@ -104,7 +115,11 @@ export const mergeItems = (localItems: CollectionItem[], cloudItems: CollectionI
 export const mergeCollections = (
   localCollections: UserCollection[],
   cloudCollections: UserCollection[],
+  options: {
+    includeLocalOnly?: (collection: UserCollection) => boolean;
+  } = {},
 ) => {
+  const { includeLocalOnly = () => true } = options;
   // Cloud is the source of truth for what collections EXIST
   const localMap = new Map(localCollections.map((col) => [col.id, normalizeCollection(col)]));
   const cloudIds = new Set(cloudCollections.map((col) => col.id));
@@ -119,13 +134,15 @@ export const mergeCollections = (
     const cloudStamp = cloudCol.updatedAt;
     const useLocal = compareTimestamps(localStamp, cloudStamp) > 0;
     const base = useLocal ? localCol : cloudCol;
-    const mergedItems = mergeItems(localCol.items, cloudCol.items);
+    const mergedItems = mergeItems(localCol.items, cloudCol.items, {
+      preserveLocalOnly: includeLocalOnly(localCol),
+    });
     return { ...normalizeCollection(base), items: mergedItems };
   });
 
   // Add local-only collections that haven't been synced yet
   localCollections.forEach((localCol) => {
-    if (!cloudIds.has(localCol.id)) {
+    if (!cloudIds.has(localCol.id) && includeLocalOnly(localCol)) {
       merged.push(normalizeCollection(localCol));
     }
   });
@@ -826,11 +843,21 @@ export const loadCollections = async (): Promise<UserCollection[]> => {
 
   if (isSupabaseConfigured() && supabase) {
     try {
+      const pendingSyncIds = await getPendingSyncIds();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       const cloudCollections = await fetchCloudCollections();
-      if (cloudCollections.length > 0) {
-        await saveAllCollections(cloudCollections);
-        return cloudCollections;
+      if (!user && cloudCollections.length === 0) {
+        return localCollections;
       }
+
+      const merged = mergeCollections(localCollections, cloudCollections, {
+        includeLocalOnly: (collection) =>
+          !collection.ownerId || pendingSyncIds.includes(collection.id),
+      });
+      await saveAllCollections(merged);
+      return merged;
     } catch (e) {
       console.warn('Supabase cloud fetch failed:', e);
     }
