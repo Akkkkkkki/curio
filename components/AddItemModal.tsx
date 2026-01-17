@@ -311,11 +311,13 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     setError(null);
     setFormData(createEmptyForm());
     const aiEnabled = await refreshAiEnabled();
+    if (analysisRunId.current !== runId) return;
     if (!aiEnabled) {
       setError(t('aiUnavailableManual'));
       setStep('verify');
       return;
     }
+    if (analysisRunId.current !== runId) return;
     setStep('analyzing');
     try {
       const base64Data = base64.split(',')[1];
