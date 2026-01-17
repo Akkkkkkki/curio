@@ -5,12 +5,14 @@ import {
   Route,
   useNavigate,
   useParams,
+  useLocation,
   Link,
   Navigate,
 } from 'react-router-dom';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { Analytics } from '@vercel/analytics/react';
 import { Layout } from './components/Layout';
+import { ExplorePlaceholder } from './components/ExplorePlaceholder';
 import { CollectionCard } from './components/CollectionCard';
 import { ItemCard } from './components/ItemCard';
 import { AddItemModal } from './components/AddItemModal';
@@ -111,6 +113,7 @@ const AppContent: React.FC = () => {
   const showStatusRef = useRef<(message: string, tone?: StatusTone) => void>(() => undefined);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
   const [syncError, setSyncError] = useState<string | null>(null);
+  const location = useLocation();
   const [pendingAuthAction, setPendingAuthAction] = useState<
     'add-item' | 'create-collection' | null
   >(null);
@@ -1472,6 +1475,8 @@ const AppContent: React.FC = () => {
   const hasPublicCollections = useMemo(() => collections.some((c) => c.isPublic), [collections]);
   const showAccessGate =
     !isSupabaseReady || (!isAuthenticated && !allowPublicBrowse && !hasPublicCollections);
+  const isExploreRoute = location.pathname === '/explore';
+  const shouldShowAccessGate = showAccessGate && !isExploreRoute;
   const sampleCollectionId = sampleCollection?.id ?? null;
 
   const handleExploreSamples = () => {
@@ -1594,7 +1599,6 @@ const AppContent: React.FC = () => {
       <Layout
         onOpenAuth={() => setIsAuthModalOpen(true)}
         onSignOut={handleSignOut}
-        onExploreSamples={handleExploreSamples}
         sampleCollectionId={sampleCollectionId}
         user={user}
         isSupabaseConfigured={isSupabaseReady}
@@ -1629,12 +1633,21 @@ const AppContent: React.FC = () => {
           </div>
         }
       >
-        {showAccessGate ? (
+        {shouldShowAccessGate ? (
           renderAccessGate()
         ) : (
           <>
             <Routes>
               <Route path="/" element={<HomeScreen />} />
+              <Route
+                path="/explore"
+                element={
+                  <ExplorePlaceholder
+                    sampleCollectionId={sampleCollectionId}
+                    onExploreSamples={handleExploreSamples}
+                  />
+                }
+              />
               <Route path="/collection/:id" element={<CollectionScreen />} />
               <Route path="/collection/:id/item/:itemId" element={<ItemDetailScreen />} />
               <Route path="*" element={<Navigate to="/" replace />} />

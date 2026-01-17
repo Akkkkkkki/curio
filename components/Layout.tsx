@@ -19,7 +19,6 @@ interface LayoutProps {
   children: React.ReactNode;
   onOpenAuth: () => void;
   onSignOut: () => void;
-  onExploreSamples?: () => void;
   sampleCollectionId?: string | null;
   onImportLocal?: () => void;
   hasLocalImport?: boolean;
@@ -34,7 +33,6 @@ export const Layout: React.FC<LayoutProps> = ({
   children,
   onOpenAuth,
   onSignOut,
-  onExploreSamples,
   sampleCollectionId = null,
   onImportLocal,
   hasLocalImport = false,
@@ -98,10 +96,9 @@ export const Layout: React.FC<LayoutProps> = ({
         ? 'bg-[#F5EFE4]/95 border-[#D4C9B8]'
         : 'bg-white/95 border-stone-200/70';
   const bottomNavMuted = theme === 'vault' ? 'text-white/60' : 'text-stone-400';
-  const isExploreActive = sampleCollectionId
-    ? location.pathname.startsWith(`/collection/${sampleCollectionId}`)
-    : false;
-  const handleExploreSamples = onExploreSamples ?? (() => {});
+  const isExploreActive =
+    location.pathname === '/explore' ||
+    (sampleCollectionId ? location.pathname.startsWith(`/collection/${sampleCollectionId}`) : false);
 
   return (
     <div
@@ -254,25 +251,13 @@ export const Layout: React.FC<LayoutProps> = ({
               {t('navHome')}
             </Link>
 
-            {sampleCollectionId ? (
-              <Link
-                to={`/collection/${sampleCollectionId}`}
-                onClick={handleExploreSamples}
-                className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition-colors ${isExploreActive ? 'text-amber-500' : bottomNavMuted}`}
-              >
-                <Compass size={18} />
-                {t('exploreSample')}
-              </Link>
-            ) : (
-              <button
-                type="button"
-                onClick={handleExploreSamples}
-                className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition-colors ${bottomNavMuted}`}
-              >
-                <Compass size={18} />
-                {t('exploreSample')}
-              </button>
-            )}
+            <Link
+              to="/explore"
+              className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition-colors ${isExploreActive ? 'text-amber-500' : bottomNavMuted}`}
+            >
+              <Compass size={18} />
+              {t('exploreSample')}
+            </Link>
           </div>
         </div>
       </nav>
