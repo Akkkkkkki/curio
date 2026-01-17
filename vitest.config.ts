@@ -6,7 +6,8 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, '.'),
+      '@': path.resolve(__dirname, './src'),
+      '@tests': path.resolve(__dirname, './tests'),
     },
   },
   test: {
@@ -24,7 +25,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
-      include: ['services/**/*.ts', 'hooks/**/*.ts', 'components/**/*.tsx'],
+      include: ['src/services/**/*.ts', 'src/hooks/**/*.ts', 'src/components/**/*.tsx'],
       exclude: [
         'node_modules/',
         'tests/',
@@ -34,19 +35,19 @@ export default defineConfig({
         '**/i18n.ts',
       ],
       thresholds: {
-        'services/**/*.ts': {
+        'src/services/**/*.ts': {
           lines: 90,
           functions: 90,
           branches: 90,
           statements: 90,
         },
-        'hooks/**/*.ts': {
+        'src/hooks/**/*.ts': {
           lines: 80,
           functions: 80,
           branches: 80,
           statements: 80,
         },
-        'components/**/*.tsx': {
+        'src/components/**/*.tsx': {
           lines: 70,
           functions: 70,
           branches: 70,

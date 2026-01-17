@@ -37,8 +37,7 @@ const makeQuery = (data: any[]) => {
   query.or = vi.fn().mockReturnValue(query);
   query.eq = vi.fn().mockReturnValue(query);
   query.in = vi.fn().mockReturnValue(query);
-  query.then = (resolve: (value: any) => any) =>
-    Promise.resolve(resolve({ data, error: null }));
+  query.then = (resolve: (value: any) => any) => Promise.resolve(resolve({ data, error: null }));
   return query;
 };
 
