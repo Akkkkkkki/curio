@@ -80,7 +80,7 @@ GEMINI_API_KEY=your_api_key_here
 
 **Cloud-First Pattern:**
 
-1. Authenticated users are required before accessing collections
+1. Users can browse the Public Sample Gallery before signing in; authentication is required before creating/saving their own collections
 2. Reads come from Supabase; IndexedDB caches for offline/latency
 3. Writes update IndexedDB and sync to Supabase (debounced 1500ms)
 4. Local import is manual for legacy data
@@ -354,7 +354,7 @@ Configured in vite.config.ts and tsconfig.json.
 
 **Production Environment Variables:**
 
-- Set `VITE_API_BASE_URL=/api` (not localhost)
+- Leave `VITE_API_BASE_URL` unset so the client uses same-origin `/api/*` rewrites (or set it to the AI gateway origin if hosted elsewhere)
 - Ensure Supabase URL and keys are configured
 - Gemini API key must be set on the proxy server (not in client env)
 

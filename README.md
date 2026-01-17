@@ -58,7 +58,7 @@ VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY=...
 
 # AI gateway
 VITE_AI_ENABLED=true
-VITE_API_BASE_URL=http://localhost:8787/api
+VITE_API_BASE_URL=http://localhost:8787
 VITE_VOICE_GUIDE_ENABLED=false
 
 # Timestamp-based conflict resolution (requires columns in supabase/1_schema.sql)
@@ -69,8 +69,8 @@ VITE_SUPABASE_SYNC_TIMESTAMPS=true
 
 This app calls an AI gateway for image analysis:
 
-- **Local dev**: run `npm run server` and set `VITE_API_BASE_URL=http://localhost:8787/api`
-- **Production (Vercel)**: set `VITE_API_BASE_URL=/api` and Vercel will route `/api/*` according to `vercel.json`
+- **Local dev**: run `npm run server` and set `VITE_API_BASE_URL=http://localhost:8787`
+- **Production (Vercel)**: leave `VITE_API_BASE_URL` unset so the client uses same-origin `/api/*` (and Vercel routes it according to `vercel.json`)
 
 If you don’t want AI locally, set `VITE_AI_ENABLED=false` (the app will fall back to manual entry).
 
@@ -82,10 +82,10 @@ GEMINI_API_KEY=...
 
 ### Production API base
 
-When deploying behind a reverse proxy (e.g., Vercel rewrites), set:
+If you deploy the AI gateway on a different origin than the frontend, set:
 
 ```dotenv
-VITE_API_BASE_URL=/api
+VITE_API_BASE_URL=https://your-ai-gateway.example.com
 ```
 
 ## Supabase Setup
