@@ -70,11 +70,20 @@ export const CollectionCard: React.FC<CollectionCardProps> = ({
 
       <div className="relative z-10">
         <div className="flex items-center gap-2 mb-1 flex-wrap">
-          <h3
-            className={`${typographyClasses.titleLarge} group-hover:${accentColorClasses[theme]} leading-tight truncate max-w-[80%] flex-1 min-w-0`}
-          >
-            {collection.name}
-          </h3>
+          <div className="relative flex-1 min-w-0 max-w-[80%]">
+            <h3
+              title={collection.name}
+              aria-label={collection.name}
+              className={`${typographyClasses.titleLarge} group-hover:${accentColorClasses[theme]} leading-tight truncate`}
+            >
+              {collection.name}
+            </h3>
+            <span
+              className={`pointer-events-none absolute left-0 top-full mt-2 w-max max-w-[90vw] rounded-2xl px-3 py-2 text-sm leading-snug shadow-lg opacity-0 scale-95 transition duration-200 ease-out whitespace-normal break-words group-hover:opacity-100 group-hover:scale-100 group-focus-within:opacity-100 group-focus-within:scale-100 group-active:opacity-100 group-active:scale-100 sm:max-w-[18rem] ${theme === 'vault' ? 'bg-stone-900 text-white' : 'bg-white text-stone-900 border border-stone-200/70'}`}
+            >
+              {collection.name}
+            </span>
+          </div>
           {isSample && (
             <span
               className={`${typographyClasses.labelSmall} px-2 py-0.5 rounded border shrink-0 bg-amber-50 text-amber-700 border-amber-100`}

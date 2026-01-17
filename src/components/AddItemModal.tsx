@@ -573,6 +573,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
                     value={item.title}
                     onChange={(e) => updateBatchItem(item.id, { title: e.target.value })}
                   />
+                  <p className={`mt-1 text-[10px] ${mutedText}`}>{t('titleGuidance')}</p>
                 </div>
                 {currentCollection?.customFields.map((field) => (
                   <div key={field.id}>
@@ -695,6 +696,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
             value={formData.title}
             onChange={(e) => setFormData({ ...formData, title: e.target.value })}
           />
+          <p className={`mt-1 text-[11px] sm:text-xs ${mutedText}`}>{t('titleGuidance')}</p>
         </div>
       </div>
 
