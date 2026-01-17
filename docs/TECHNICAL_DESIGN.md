@@ -76,6 +76,23 @@ The client composes requests as `${VITE_API_BASE_URL}<path>` where `<path>` incl
 - **Local dev**: set `VITE_API_BASE_URL=http://localhost:8787` and run `npm run server`
 - **Production**: leave `VITE_API_BASE_URL` unset to use same-origin `/api/*` (Vercel rewrites / handlers provide the gateway)
 
+## 8.1 AI feature flags (design-time requirements)
+
+We want to be able to toggle AI capabilities on/off independently (especially image-to-image, which is newer and higher-cost).
+
+- **Metadata extraction**: `VITE_AI_METADATA_ENABLED`
+  - Controls “image → structured fields” auto-fill.
+  - Should remain “deep-read” (core value), but must still degrade gracefully when unavailable.
+- **Image-to-image editing**: `VITE_AI_IMAGE_EDIT_ENABLED`
+  - Controls “image → enhanced image” and “image → poster/ad asset”.
+  - Must be easy to disable globally during rollout / incident response.
+- **Back-compat**: `VITE_AI_ENABLED` (legacy)
+  - If present, it may be treated as the default for metadata extraction in older builds.
+
+### Reference: Gemini image editing
+
+For Google’s Gemini-native image editing/generation models (Nano Banana), see: [Gemini image editing](https://ai.google.dev/gemini-api/docs/image-generation#gemini-image-editing).
+
 ## 5. Security
 
 - **RLS Policies**: Users can access their own rows. Public collections (`is_public = true`) are readable by all authenticated users, and admins can mutate them.

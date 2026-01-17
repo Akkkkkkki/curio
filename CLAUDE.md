@@ -52,7 +52,9 @@ Create `.env.local` with:
 ```
 VITE_SUPABASE_URL=your_supabase_url
 VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY=your_publishable_key
-VITE_AI_ENABLED=true
+VITE_AI_METADATA_ENABLED=true
+VITE_AI_IMAGE_EDIT_ENABLED=false
+# Back-compat (older builds): VITE_AI_ENABLED=true
 VITE_API_BASE_URL=http://localhost:8787
 VITE_VOICE_GUIDE_ENABLED=false
 VITE_SUPABASE_SYNC_TIMESTAMPS=true

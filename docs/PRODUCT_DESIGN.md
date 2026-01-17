@@ -15,7 +15,7 @@ Curio is a digital sanctuary for physical collectors. Unlike marketplace-driven 
   - One-line positioning explains Curio: _a personal archival sanctuary, not a marketplace_.
 - **Minute 1–3: One clear action**
   - One primary CTA: **Add your first item** (secondary: **Explore sample**).
-  - Capture is guided by visible stages (e.g., Upload → Analyzing → Review → Save) with progress copy.
+  - Capture is guided by a single, mobile-first screen (Upload photo → Details) where AI can auto-fill in the background (never blocking Save).
 - **Minute 3–5: Trust + completion**
   - AI produces a usable draft (title + key fields). User confirms and saves.
   - Clear feedback: **Saved** and **Synced / Will sync**. User sees the item in the collection grid.
@@ -48,9 +48,38 @@ This section captures **current behavior in the codebase** (so docs stay actiona
 
 ### Item creation (guided + recoverable)
 
-- **Guided steps**: Choose collection → Add photo → AI assist → Verify details
-- **Recoverable AI**: Users can skip analysis and proceed with manual entry if AI is unavailable or fails.
+- **Single-screen capture**: Pick photo → Edit details (collection is a compact dropdown when multiple exist).
+- **Non-blocking AI**: AI auto-fill happens in the background and never blocks manual entry or saving.
+- **Recoverable AI**: Users can disable/skip AI and proceed with manual entry if AI is unavailable or fails.
 - **Title guidance**: Users are nudged to keep titles **concise for cards** and put extra detail in metadata fields (localized EN/ZH).
+
+### Design notes: Make capture “feel simple” on mobile
+
+- **Default view is minimal**: photo + title + a few “primary” fields + rating + Save.
+- **Progress never blocks**: any AI-assisted work is communicated as “filling in” rather than “step 3/4”.
+- **Advanced inputs are secondary**:
+  - **Notes** is hidden behind a lightweight “Add narrative” toggle.
+  - Remaining metadata fields are hidden behind a “More details” / “Technical spec” toggle.
+  - Batch mode is present but not primary (it’s discoverable as an optional link).
+- **AI failures are boring**: show a short “AI unavailable—continue manually” message and keep the user on the same screen.
+
+## 2.1 AI image features (design + cost guardrails)
+
+Curio’s AI image work should be **explicitly optional**, **recoverable**, and **cost-aware**:
+
+- **Two capabilities (separately toggleable)**:
+  - **Metadata extraction**: “fill in fields from an uploaded photo” (fast, low-risk).
+  - **Image-to-image enhancement**: “make this photo look cleaner / more presentable” or “generate a poster/ad version” (newer, higher-cost, higher-risk).
+- **Cost guardrail**: never generate multiple variations by default. Defaults:
+  - One-tap “Enhance” generates **one** result.
+  - “Try again” / “More like this” is an explicit user action (each action == one more generation).
+- **Transparency**:
+  - Always keep **Original** available.
+  - If enhancement fails, the user still has their item saved with original/display images.
+
+### Gemini image editing reference
+
+When using Google’s Gemini image-to-image models (Nano Banana), we should follow and link to the official API guidance: [Gemini image editing](https://ai.google.dev/gemini-api/docs/image-generation#gemini-image-editing).
 
 ### Card readability
 
@@ -74,15 +103,15 @@ If you need a checklist for a short-lived push, keep it inside the relevant GitH
 
 ## 2. MVP Goals & Enhancements
 
-1.  **Velocity of Capture**:
+1. **Velocity of Capture**:
     - **Rapid-Fire Mode**: Batch upload for serious archivists.
     - **AI Auto-naming**: Gemini suggests high-quality archival names based on visual cues.
-2.  **Emotional Utility**:
+2. **Emotional Utility**:
     - **Archive Archeology**: "On This Day" feature to surface past memories.
     - **Museum Guide**: A proactive vocal companion that acts as a sophisticated curator.
-3.  **Global Aesthetic Curation**:
+3. **Global Aesthetic Curation**:
     - **Dynamic Global Themes**: Users select from _The Gallery_ (Light/Airy), _The Vault_ (Moody/Dark), or _The Atelier_ (Artisanal/Warm).
-4.  **Security for High-Value Collections**:
+4. **Security for High-Value Collections**:
     - **Vault Lock**: Optional biometric-style lock for specific collections. (Tracked in [#87](https://github.com/Akkkkkkki/curio/issues/87))
 
 ## 3. Design Language
