@@ -49,7 +49,7 @@ describe('CollectionCard Component', () => {
 
       renderWithProviders(<CollectionCard collection={collection} onClick={onClick} />);
 
-      expect(screen.getByText('Test Collection')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Test Collection' })).toBeInTheDocument();
     });
 
     it('renders with data-testid for testing', () => {
@@ -278,7 +278,7 @@ describe('CollectionCard Component', () => {
 
         const card = screen.getByTestId('collection-card');
         expect(card).toBeInTheDocument();
-        expect(screen.getByText('My Vinyl Collection')).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: 'My Vinyl Collection' })).toBeInTheDocument();
       });
 
       it(`applies ${description} styling for ${theme} theme`, () => {
@@ -345,7 +345,7 @@ describe('CollectionCard Component', () => {
 
       renderWithProviders(<CollectionCard collection={collection} onClick={onClick} />);
 
-      const nameElement = screen.getByText(longName);
+      const nameElement = screen.getByRole('heading', { name: longName });
       expect(nameElement).toBeInTheDocument();
       expect(nameElement.className).toContain('truncate');
     });

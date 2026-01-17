@@ -230,7 +230,8 @@ export const translations = {
     expandSpace: '扩展策展空间',
     exploreSample: '探索',
     explorePlaceholderTitle: '社区功能即将上线。',
-    explorePlaceholderBody: '我们正在打造共享馆藏、讨论等功能。欢迎稍后再来，也可以先看看示例展厅。',
+    explorePlaceholderBody:
+      '我们正在打造共享馆藏、讨论等功能。欢迎稍后再来，也可以先看看示例展厅。',
     explorePlaceholderAction: '浏览示例展厅',
     navHome: '首页',
     ctaAddFirst: '添加第一件藏品',
