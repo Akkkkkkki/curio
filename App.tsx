@@ -660,9 +660,12 @@ const AppContent: React.FC = () => {
     const featured =
       allItems.length > 0 ? allItems[Math.floor(Math.random() * allItems.length)] : null;
 
-    // Archeology: Find item added on this day in past
+    // Archeology: Find item added on this day in past with cascading fallbacks
     const now = new Date();
-    const historyItem = allItems.find((i) => {
+    let historyItem: CollectionItem | undefined;
+
+    // 1. Try: Same Month/Day from Prior Year
+    historyItem = allItems.find((i) => {
       const d = new Date(i.createdAt);
       return (
         d.getDate() === now.getDate() &&
@@ -670,6 +673,36 @@ const AppContent: React.FC = () => {
         d.getFullYear() < now.getFullYear()
       );
     });
+
+    // 2. Fallback: Same Day from Prior Month (days 1-28 only)
+    if (!historyItem && now.getDate() <= 28) {
+      const priorMonth = new Date(now);
+      priorMonth.setMonth(now.getMonth() - 1);
+
+      historyItem = allItems.find((i) => {
+        const d = new Date(i.createdAt);
+        return (
+          d.getDate() === now.getDate() &&
+          d.getMonth() === priorMonth.getMonth() &&
+          d.getFullYear() === priorMonth.getFullYear()
+        );
+      });
+    }
+
+    // 3. Fallback: Same Day from Prior Week
+    if (!historyItem) {
+      const priorWeek = new Date(now);
+      priorWeek.setDate(now.getDate() - 7);
+
+      historyItem = allItems.find((i) => {
+        const d = new Date(i.createdAt);
+        return (
+          d.getDate() === priorWeek.getDate() &&
+          d.getMonth() === priorWeek.getMonth() &&
+          d.getFullYear() === priorWeek.getFullYear()
+        );
+      });
+    }
 
     return {
       totalItems,
