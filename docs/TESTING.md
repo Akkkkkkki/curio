@@ -34,4 +34,4 @@ The authenticated flow test (`e2e/authenticated-user.spec.ts`) is **skipped** un
 ## Notes
 
 - Playwright will start (or reuse) the dev server automatically (see `playwright.config.ts`).
-- Unit tests use mocked Supabase; do **not** rely on a local Supabase instance.  
+- Unit tests use mocked Supabase; do **not** rely on a local Supabase instance.

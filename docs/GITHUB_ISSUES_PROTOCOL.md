@@ -100,4 +100,3 @@ node scripts/github/create-issues-from-drafts.mjs --skip-existing --dir docs/iss
 ## Filename rules for drafts
 
 - Avoid `/` in filenames (it creates folders). Prefer `EN-ZH` and `3 of 5`.
-

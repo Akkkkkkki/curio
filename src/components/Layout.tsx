@@ -98,7 +98,9 @@ export const Layout: React.FC<LayoutProps> = ({
   const bottomNavMuted = theme === 'vault' ? 'text-white/60' : 'text-stone-400';
   const isExploreActive =
     location.pathname === '/explore' ||
-    (sampleCollectionId ? location.pathname.startsWith(`/collection/${sampleCollectionId}`) : false);
+    (sampleCollectionId
+      ? location.pathname.startsWith(`/collection/${sampleCollectionId}`)
+      : false);
 
   return (
     <div

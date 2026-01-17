@@ -11,7 +11,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
-import { mockSupabaseClient, resetSupabaseMocks } from '@/tests/mocks/supabase';
+import { mockSupabaseClient, resetSupabaseMocks } from '@tests/mocks/supabase';
 
 // Provide a controlled Supabase client for the hook under test.
 vi.mock('@/services/supabase', () => {

@@ -11,7 +11,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { mockSupabaseClient, resetSupabaseMocks } from '@/tests/mocks/supabase';
+import { mockSupabaseClient, resetSupabaseMocks } from '@tests/mocks/supabase';
 
 // Mock the Supabase SDK so `services/supabase.ts` gets a controlled client instance.
 vi.mock('@supabase/supabase-js', () => {

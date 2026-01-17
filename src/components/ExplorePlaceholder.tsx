@@ -23,7 +23,11 @@ export const ExplorePlaceholder: React.FC<ExplorePlaceholderProps> = ({
         ? 'bg-[#F5EFE4]/85 border-[#D4C9B8] text-stone-800'
         : 'bg-white/70 border-stone-200 text-stone-900';
   const subTextClass =
-    theme === 'vault' ? 'text-stone-300' : theme === 'atelier' ? 'text-stone-500' : 'text-stone-500';
+    theme === 'vault'
+      ? 'text-stone-300'
+      : theme === 'atelier'
+        ? 'text-stone-500'
+        : 'text-stone-500';
   const iconClass =
     theme === 'vault'
       ? 'bg-white/10 text-white/70'
@@ -44,9 +48,7 @@ export const ExplorePlaceholder: React.FC<ExplorePlaceholderProps> = ({
         >
           <Compass size={24} />
         </div>
-        <h1 className="font-serif text-2xl font-bold mb-2">
-          {t('explorePlaceholderTitle')}
-        </h1>
+        <h1 className="font-serif text-2xl font-bold mb-2">{t('explorePlaceholderTitle')}</h1>
         <p className={`text-sm mb-6 ${subTextClass}`}>{t('explorePlaceholderBody')}</p>
         {sampleCollectionId && (
           <Link to={`/collection/${sampleCollectionId}`} onClick={onExploreSamples}>
