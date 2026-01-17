@@ -3,7 +3,7 @@
 ## 1. System Architecture
 
 - **Storage**: Supabase (PostgreSQL + Auth + Storage) as source of truth, IndexedDB as cache.
-- **AI Inference**: Gemini-3-flash-preview via a server-side proxy (`server/geminiProxy.js`) to keep API keys off the client.
+- **AI Inference**: Gemini-3-flash-preview via a server-side proxy (local dev: `server/geminiProxy.js`; deploy: same-origin `/api/*` via Vercel rewrites and/or `api/*` handlers) to keep API keys off the client.
 
 ## 1.1 MVP UX Requirements (Time-to-Value)
 
@@ -16,7 +16,12 @@ To ensure users gain value within the first **5 minutes**, the system must suppo
 
 ## 2. Identity & Sync Logic
 
-Curio requires explicit login before access. Supabase auth is the only supported auth mode.
+Curio uses Supabase Auth for user-owned data. Users can browse the Public Sample Gallery without signing in; authentication is required before creating/saving their own collections and items.
+
+### Access gating (pre-login sample)
+
+- The app supports a **sample-first** path: users can opt into browsing public/sample collections without being authenticated.
+- If Supabase is configured, the client can fetch **public collections** even when `user` is null (cloud public read), and will fall back to local seeded sample collections if nothing is available.
 
 ### Manual Local Import
 
@@ -37,6 +42,39 @@ Curated sample collections live in the same tables and are flagged with `is_publ
 - **Status Indicator**: Signed in / signed out / cloud required states shown in the header.
 - **Sync Debounce**: Metadata changes are debounced by 1500ms before hitting the network to prevent rate-limiting during rapid cataloging.
 - **Cache Strategy**: Cloud data hydrates IndexedDB unless a local import is pending.
+
+### Explicit outcomes (“Saved / Synced / Will sync”)
+
+- Writes update local state immediately and surface **Saved** feedback.
+- Sync state is surfaced as:
+  - `synced` → toast **Synced**
+  - `offline` → toast **Will sync / retrying**
+  - `error` → toast **Sync failed** (with retry action when online)
+- Pending changes can be retried via a queued sync mechanism (see `docs/INDEXEDDB_RELIABILITY.md` for the deeper operational details).
+
+## 4.1 Home “On This Day” selection logic
+
+Home surfaces a single historical item using cascading fallbacks:
+
+1. Same month/day in a prior year
+2. Same day in the prior month (days 1–28 only)
+3. Same day in the prior week
+
+If no match exists, the card is hidden.
+
+## 4.2 Home search semantics
+
+- Search matches against:
+  - Collection name
+  - Item titles within a collection
+- If the collection name doesn’t match but an item title does, the UI shows an **item-match badge** on the collection card.
+
+## 8. AI gateway configuration (runtime)
+
+The client composes requests as `${VITE_API_BASE_URL}<path>` where `<path>` includes `/api/...` (e.g., `/api/health`, `/api/gemini/analyze`).
+
+- **Local dev**: set `VITE_API_BASE_URL=http://localhost:8787` and run `npm run server`
+- **Production**: leave `VITE_API_BASE_URL` unset to use same-origin `/api/*` (Vercel rewrites / handlers provide the gateway)
 
 ## 5. Security
 
