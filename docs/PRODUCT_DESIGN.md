@@ -29,6 +29,40 @@ Curio is a digital sanctuary for physical collectors. Unlike marketplace-driven 
 - **Read-only must be obvious:** Public/sample content must always show a persistent read-only indicator and disabled edit affordances.
 - **Defer advanced features:** Museum Guide, Exhibition, deep filtering, etc. should be discoverable _after_ the first successful save.
 
+## 1.3 MVP Behaviors (as implemented)
+
+This section captures **current behavior in the codebase** (so docs stay actionable, not aspirational).
+
+### Home (museum “bento”)
+
+- **Search**
+  - Searches across **collection names** and **item titles**.
+  - If a collection name doesn’t match but an item title does, the collection card shows an **“Item match”** badge.
+  - When search yields no matches, Home shows a themed **empty state** (“No matches found”).
+- **Archive Archeology (“On This Day”)**
+  - The card only appears when a matching item exists.
+  - Matching is **cascading** (highest priority first):
+    - Same month/day in a **prior year**
+    - Fallback: same day in the **prior month** (days 1–28 only)
+    - Fallback: same day in the **prior week**
+
+### Item creation (guided + recoverable)
+
+- **Guided steps**: Choose collection → Add photo → AI assist → Verify details
+- **Recoverable AI**: Users can skip analysis and proceed with manual entry if AI is unavailable or fails.
+- **Title guidance**: Users are nudged to keep titles **concise for cards** and put extra detail in metadata fields (localized EN/ZH).
+
+### Card readability
+
+- Long titles are discoverable via **hover/focus tooltips** on collection and item cards (so we keep cards scannable while preserving full text).
+
+### Save / sync feedback
+
+- Saving an item/collection shows explicit feedback:
+  - **Saved** immediately after local update
+  - **Synced** when cloud sync completes
+  - **Will sync / retrying** when offline or when sync errors occur (with a **Retry** action when applicable)
+
 ## 1.2 MVP Checklist (tracking)
 
 We avoid keeping long-lived “implementation checklists” in `docs/` because they go stale quickly.
@@ -59,7 +93,7 @@ If you need a checklist for a short-lived push, keep it inside the relevant GitH
 
 ## 4. Onboarding & Cloud Access
 
-Curio now requires an account before access. Collections live in the cloud by default, with a local cache for speed and offline resilience.
+Curio is cloud-first for user-owned data: signing in is required to **create and save** your own collections/items. Users can still explore the **Public Sample Gallery** without signing in to get value immediately.
 
 ### MVP Requirement: Sample-first entry
 
