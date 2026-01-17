@@ -6,7 +6,7 @@
 **Related docs (existing context):**
 - Product baseline: `docs/PRODUCT_DESIGN.md`
 - Architecture baseline: `docs/TECHNICAL_DESIGN.md`
-- Prior design review (photo tooling/theme work): `docs/DESIGN_REVIEW_image_enhancement_and_theme_strategy.md`
+- Prior design review (legacy; merged here): `docs/DESIGN_REVIEW_image_enhancement_and_theme_strategy.md`
 
 ---
 
@@ -43,6 +43,19 @@
 - **Single primary CTA on first run**: avoid multiple competing actions.
 - **Cost control**: do not generate multiple variants by default; avoid background generation that surprises users.
 - **Clarity**: always show explicit outcomes (Saved / Synced / Will sync).
+
+---
+
+## One canonical doc policy (team workflow)
+
+This file is the **single canonical design doc** for the topics below:
+
+- Simplifying item capture UX (mobile-first)
+- AI metadata extraction behavior (non-blocking)
+- AI image-to-image features (cost-aware, phased rollout)
+- Photo variant storage requirements
+
+Legacy content from `docs/DESIGN_REVIEW_image_enhancement_and_theme_strategy.md` has been merged into this doc to avoid parallel/duplicated guidance.
 
 ---
 
@@ -90,6 +103,26 @@ If users want a deeper editing experience, they can do it after saving:
 - Edit details later on Item Detail screen
 
 This reduces “time-to-first-save” and improves overall perceived simplicity.
+
+---
+
+## Design principle: “Invisible intelligence” (merged from legacy review)
+
+Present features by their **outcome**, not by their underlying technology:
+
+- Good: “Enhance”, “Remove background”, “Fix blur”
+- Avoid leading with: “AI”, “Gemini Vision”, “prompt”, model names (unless in developer/debug surfaces)
+
+### Industry language reference (for naming)
+
+| App       | Approach                   | User-facing language |
+| --------- | -------------------------- | -------------------- |
+| Meitu     | Heavy AI, one-tap beautify | “Beautify”, “Enhance” |
+| Snapseed  | Manual + selective AI      | “Auto”, “Tune Image” |
+| VSCO      | Presets, minimal AI        | “Recipes”, “Adjust” |
+| Photoroom | AI background removal      | “Remove Background” |
+
+Curio should combine **Snapseed’s taste** with **Photoroom’s simplicity** (low-friction, outcome-first).
 
 ---
 
@@ -152,6 +185,36 @@ Design requirements (policy; implementation later):
 
 ---
 
+## Optional future photo tools (not required for V1)
+
+These were proposed in the legacy design review. They are valuable, but should be treated as **optional future scope** (post-V1) so we don’t dilute the core rollout.
+
+### Tool A — Remove Background
+
+**User intent:** “Isolate the object for a clean, e-commerce-like look.”
+
+- Output should ideally be **transparent background** (PNG).
+- UX should remain a one-tap action with Accept / Keep original.
+- Expect occasional edge artifacts; recoverable fallback is “Keep original”.
+
+Suggested prompt constraint (conceptual; provider-agnostic):
+
+> Identify the primary object and remove the background completely. Preserve clean, precise edges, including fine details and semi-transparent elements. Return the isolated object on a transparent background.
+
+### Tool B — Fix Blur
+
+**User intent:** “Make a slightly blurry photo usable.”
+
+Suggested prompt constraint (conceptual; provider-agnostic):
+
+> Enhance clarity and sharpness while preserving a natural appearance. Restore textures without introducing artifacts or over-sharpening.
+
+### How these relate to Gemini image editing
+
+These tools are a direct fit for **image-to-image editing** models described in Google’s Gemini API documentation: [Gemini image editing](https://ai.google.dev/gemini-api/docs/image-generation#gemini-image-editing).
+
+---
+
 ## Data/storage requirements (new asset versions)
 
 Curio should support **three versions** of a user-owned item image:
@@ -160,9 +223,17 @@ Curio should support **three versions** of a user-owned item image:
 - **Display/compressed**: optimized for UI performance
 - **Enhanced**: generated output (optional)
 
+### Extension (if we ship “Remove Background” later)
+
+If/when we add “Remove Background”, we should plan for a 4th variant:
+
+- **No background**: PNG with transparency (optional)
+
 For enhanced outputs, also store:
 - Enhancement status: none | processing | ready | failed
 - Enhancement recipe metadata: model, prompt template version, timestamp, input image hash
+
+If we add more tools (remove background / fix blur), store analogous “recipe” metadata per variant so we can debug quality + cost by feature.
 
 This ensures:
 - Recoverability (original always exists)
@@ -188,6 +259,18 @@ Important implications from the doc:
 - Gemini “Nano Banana” models support conversational image creation/editing.
 - Generated images include a **SynthID watermark** (needs product messaging for exports/sharing).  
   (See: [Gemini image editing](https://ai.google.dev/gemini-api/docs/image-generation#gemini-image-editing))
+
+---
+
+## Historical context: theme + typography work (already implemented)
+
+The legacy design review also included theme/typography improvements that are already implemented (kept here as historical context so the team has one place to review):
+
+- Typography consistency (`typographyClasses`)
+- Theme palette/shadows refinements (Gallery/Vault/Atelier)
+- Shared UI primitives (theme-aware divider and rating)
+
+These are documented historically in `docs/DESIGN_REVIEW_image_enhancement_and_theme_strategy.md`, but the source of truth for current UI should always be the code + `docs/PRODUCT_DESIGN.md`.
 
 ---
 
