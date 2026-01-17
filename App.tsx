@@ -660,17 +660,49 @@ const AppContent: React.FC = () => {
     const featured =
       allItems.length > 0 ? allItems[Math.floor(Math.random() * allItems.length)] : null;
 
-    // Archeology: Find item added on this day in past
+    // Archeology: Find item added on this day in past with cascading fallbacks
     const now = new Date();
-    const historyItem =
-      allItems.find((i) => {
+    let historyItem: CollectionItem | undefined;
+
+    // 1. Try: Same Month/Day from Prior Year
+    historyItem = allItems.find((i) => {
+      const d = new Date(i.createdAt);
+      return (
+        d.getDate() === now.getDate() &&
+        d.getMonth() === now.getMonth() &&
+        d.getFullYear() < now.getFullYear()
+      );
+    });
+
+    // 2. Fallback: Same Day from Prior Month (days 1-28 only)
+    if (!historyItem && now.getDate() <= 28) {
+      const priorMonth = new Date(now);
+      priorMonth.setMonth(now.getMonth() - 1);
+
+      historyItem = allItems.find((i) => {
         const d = new Date(i.createdAt);
         return (
           d.getDate() === now.getDate() &&
-          d.getMonth() === now.getMonth() &&
-          d.getFullYear() < now.getFullYear()
+          d.getMonth() === priorMonth.getMonth() &&
+          d.getFullYear() === priorMonth.getFullYear()
         );
-      }) || allItems[0];
+      });
+    }
+
+    // 3. Fallback: Same Day from Prior Week
+    if (!historyItem) {
+      const priorWeek = new Date(now);
+      priorWeek.setDate(now.getDate() - 7);
+
+      historyItem = allItems.find((i) => {
+        const d = new Date(i.createdAt);
+        return (
+          d.getDate() === priorWeek.getDate() &&
+          d.getMonth() === priorWeek.getMonth() &&
+          d.getFullYear() === priorWeek.getFullYear()
+        );
+      });
+    }
 
     return {
       totalItems,
@@ -757,9 +789,9 @@ const AppContent: React.FC = () => {
           </div>
         )}
         {/* Bento Grid Hero */}
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <section className={`grid grid-cols-1 gap-6 ${stats.historyItem ? 'md:grid-cols-3' : ''}`}>
           <div
-            className={`md:col-span-2 relative overflow-hidden rounded-[2rem] sm:rounded-[2.25rem] min-h-[280px] sm:min-h-[360px] flex items-center shadow-xl border transition-all duration-700 ${themeBaseClasses[theme]} group`}
+            className={`${stats.historyItem ? 'md:col-span-2' : ''} relative overflow-hidden rounded-[2rem] sm:rounded-[2.25rem] min-h-[280px] sm:min-h-[360px] flex items-center shadow-xl border transition-all duration-700 ${themeBaseClasses[theme]} group`}
           >
             {stats.featured && (
               <div className="absolute inset-0 opacity-30 group-hover:opacity-25 transition-opacity duration-700">
@@ -805,18 +837,18 @@ const AppContent: React.FC = () => {
           </div>
 
           {/* Archeology Bento Card */}
-          <div
-            className={`relative overflow-hidden rounded-[2rem] p-6 sm:p-7 border flex flex-col justify-between transition-all duration-500 ${themeBaseClasses[theme]} shadow-md`}
-          >
-            <div className="flex items-center justify-between mb-3 sm:mb-4">
-              <div className="p-2 bg-amber-50 rounded-xl text-amber-600">
-                <Calendar size={18} />
+          {stats.historyItem && (
+            <div
+              className={`relative overflow-hidden rounded-[2rem] p-6 sm:p-7 border flex flex-col justify-between transition-all duration-500 ${themeBaseClasses[theme]} shadow-md`}
+            >
+              <div className="flex items-center justify-between mb-3 sm:mb-4">
+                <div className="p-2 bg-amber-50 rounded-xl text-amber-600">
+                  <Calendar size={18} />
+                </div>
+                <span className={`${typographyClasses.labelSmall} ${labelColorClasses[theme]}`}>
+                  {t('onThisDay')}
+                </span>
               </div>
-              <span className={`${typographyClasses.labelSmall} ${labelColorClasses[theme]}`}>
-                {t('onThisDay')}
-              </span>
-            </div>
-            {stats.historyItem ? (
               <div className="space-y-4">
                 <div className="aspect-square rounded-2xl overflow-hidden bg-stone-100 shadow-inner">
                   <ItemImage
@@ -838,19 +870,15 @@ const AppContent: React.FC = () => {
                   className="w-full"
                   onClick={() =>
                     navigate(
-                      `/collection/${stats.historyItem?.collectionId}/item/${stats.historyItem?.id}`,
+                      `/collection/${stats.historyItem.collectionId}/item/${stats.historyItem.id}`,
                     )
                   }
                 >
                   {t('viewHistory') || 'Relive Memory'}
                 </Button>
               </div>
-            ) : (
-              <div className="h-full flex items-center justify-center italic text-stone-300 font-serif">
-                Awaiting history...
-              </div>
-            )}
-          </div>
+            </div>
+          )}
         </section>
 
         <div className="relative max-w-xl mx-auto -mt-6 sm:-mt-10 z-20 px-4">
