@@ -1477,7 +1477,8 @@ const AppContent: React.FC = () => {
     !isSupabaseReady || (!isAuthenticated && !allowPublicBrowse && !hasPublicCollections);
   const isExploreRoute = location.pathname === '/explore';
   const shouldShowAccessGate = showAccessGate && !isExploreRoute;
-  const sampleCollectionId = sampleCollection?.id ?? null;
+  const fallbackSampleCollectionId = fallbackSampleCollections[0]?.id ?? null;
+  const sampleCollectionId = sampleCollection?.id ?? fallbackSampleCollectionId;
 
   const handleExploreSamples = () => {
     setAllowPublicBrowse(true);
