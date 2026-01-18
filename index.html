@@ -72,7 +72,10 @@
         animation: motionSlideUp 320ms ease-out both;
       }
       .zoom-in-95 {
-        animation: motionPanel 260ms ease-out both;
+        animation: motionPanel 260ms ease-out forwards;
+      }
+      .zoom-in-95.duration-500 {
+        animation-duration: 500ms;
       }
       @keyframes motionPop {
         0% {
@@ -94,7 +97,7 @@
         }
         100% {
           opacity: 1;
-          transform: translateY(0) scale(1);
+          transform: none;
         }
       }
       .motion-panel {
@@ -166,6 +169,47 @@
       }
       .animate-float {
         animation: float 6s ease-in-out infinite;
+      }
+
+      /* Print styles */
+      @media print {
+        * {
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+        html,
+        body {
+          margin: 0 !important;
+          padding: 0 !important;
+          background: white !important;
+        }
+        /* Hide everything using visibility */
+        body * {
+          visibility: hidden !important;
+        }
+        /* Reset backgrounds to prevent dark areas */
+        body *:not(#card-preview):not(#card-preview *) {
+          background: transparent !important;
+          backdrop-filter: none !important;
+        }
+        /* Show card preview and contents */
+        #card-preview,
+        #card-preview * {
+          visibility: visible !important;
+        }
+        #card-preview {
+          position: fixed !important;
+          left: 50% !important;
+          top: 10mm !important;
+          transform: translateX(-50%) !important;
+          width: 80mm !important;
+          max-width: none !important;
+          max-height: none !important;
+          height: auto !important;
+          margin: 0 !important;
+          box-shadow: none !important;
+          page-break-inside: avoid;
+        }
       }
     </style>
   </head>

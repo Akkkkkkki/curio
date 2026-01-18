@@ -1,7 +1,7 @@
 # Design Review (Legacy): Image Enhancement & Theme Strategy
 
 **Status:** Legacy doc — content merged into the canonical requirements doc.  
-**Last updated:** 2026-01-17  
+**Last updated:** 2026-01-17
 
 This file used to contain a comprehensive design review covering:
 

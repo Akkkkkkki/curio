@@ -104,15 +104,15 @@ If you need a checklist for a short-lived push, keep it inside the relevant GitH
 ## 2. MVP Goals & Enhancements
 
 1. **Velocity of Capture**:
-    - **Rapid-Fire Mode**: Batch upload for serious archivists.
-    - **AI Auto-naming**: Gemini suggests high-quality archival names based on visual cues.
+   - **Rapid-Fire Mode**: Batch upload for serious archivists.
+   - **AI Auto-naming**: Gemini suggests high-quality archival names based on visual cues.
 2. **Emotional Utility**:
-    - **Archive Archeology**: "On This Day" feature to surface past memories.
-    - **Museum Guide**: A proactive vocal companion that acts as a sophisticated curator.
+   - **Archive Archeology**: "On This Day" feature to surface past memories.
+   - **Museum Guide**: A proactive vocal companion that acts as a sophisticated curator.
 3. **Global Aesthetic Curation**:
-    - **Dynamic Global Themes**: Users select from _The Gallery_ (Light/Airy), _The Vault_ (Moody/Dark), or _The Atelier_ (Artisanal/Warm).
+   - **Dynamic Global Themes**: Users select from _The Gallery_ (Light/Airy), _The Vault_ (Moody/Dark), or _The Atelier_ (Artisanal/Warm).
 4. **Security for High-Value Collections**:
-    - **Vault Lock**: Optional biometric-style lock for specific collections. (Tracked in [#87](https://github.com/Akkkkkkki/curio/issues/87))
+   - **Vault Lock**: Optional biometric-style lock for specific collections. (Tracked in [#87](https://github.com/Akkkkkkki/curio/issues/87))
 
 ## 3. Design Language
 
