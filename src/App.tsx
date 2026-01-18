@@ -53,6 +53,7 @@ import {
   saveAsset,
   deleteAsset,
   deleteCloudItem,
+  deleteCollection,
   requestPersistence,
   getSeedVersion,
   setSeedVersion,
@@ -69,6 +70,7 @@ import { ExportModal } from './components/ExportModal';
 import { FilterModal } from './components/FilterModal';
 import { EnhanceImageModal } from './components/EnhanceImageModal';
 import { refreshAiImageEditEnabled, isAiImageEditEnabled } from './services/geminiService';
+import { DeleteCollectionModal } from './components/DeleteCollectionModal';
 import { LanguageProvider, useTranslation } from './i18n';
 import { supabase, isSupabaseConfigured, signOutUser } from './services/supabase';
 import {
@@ -966,6 +968,7 @@ const AppContent: React.FC = () => {
     const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
     const [activeFilters, setActiveFilters] = useState<Record<string, string>>({});
     const [isExhibitionOpen, setIsExhibitionOpen] = useState(false);
+    const [isDeleteCollectionModalOpen, setIsDeleteCollectionModalOpen] = useState(false);
 
     if (!collection) return <Navigate to="/" replace />;
     const isReadOnly = Boolean(collection.isPublic) && !isAdmin;
@@ -1012,6 +1015,20 @@ const AppContent: React.FC = () => {
     };
 
     const handleClearFilters = () => setActiveFilters({});
+
+    const handleDeleteCollection = async () => {
+      if (!collection || isReadOnly) return;
+      try {
+        await deleteCollection(collection);
+        setCollections((prev) => prev.filter((c) => c.id !== collection.id));
+        setIsDeleteCollectionModalOpen(false);
+        navigate('/');
+        showStatus(t('collectionDeleted'), 'success');
+      } catch (e) {
+        console.error('Failed to delete collection:', e);
+        showStatus('Failed to delete collection', 'error');
+      }
+    };
 
     return (
       <div className="space-y-10 animate-in slide-in-from-bottom-4 duration-500">
@@ -1098,6 +1115,19 @@ const AppContent: React.FC = () => {
             >
               {t('vocalGuide')}
             </Button>
+            {!isReadOnly && (
+              <button
+                onClick={() => setIsDeleteCollectionModalOpen(true)}
+                className={`w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl transition-colors ${
+                  theme === 'vault'
+                    ? 'bg-stone-900 border border-white/10 text-stone-400 hover:text-red-400 hover:border-red-400/30'
+                    : 'bg-white border border-stone-200 text-stone-400 hover:text-red-500 hover:border-red-200'
+                }`}
+                title={t('deleteCollection')}
+              >
+                <Trash2 size={18} />
+              </button>
+            )}
             <div
               className={`flex rounded-xl p-1 ${theme === 'vault' ? 'bg-white/5' : 'bg-stone-200/50'}`}
             >
@@ -1230,6 +1260,12 @@ const AppContent: React.FC = () => {
           collection={collection}
           onClose={() => setIsExhibitionOpen(false)}
         />
+        <DeleteCollectionModal
+          isOpen={isDeleteCollectionModalOpen}
+          collection={collection}
+          onClose={() => setIsDeleteCollectionModalOpen(false)}
+          onConfirm={handleDeleteCollection}
+        />
       </div>
     );
   };
@@ -1310,6 +1346,11 @@ const AppContent: React.FC = () => {
     return (
       <div
         className={`max-w-4xl mx-auto rounded-[2rem] sm:rounded-[4rem] border overflow-hidden animate-in zoom-in-95 duration-500 mb-20 ${detailBaseClasses[theme]}`}
+        onAnimationEnd={(e) => {
+          // Remove animation classes after animation ends to fix fixed positioning in children
+          e.currentTarget.classList.remove('animate-in', 'zoom-in-95', 'duration-500');
+          e.currentTarget.style.animation = 'none';
+        }}
       >
         <div
           className={`relative ${hasPhoto ? 'aspect-[4/5] sm:aspect-[16/9] md:aspect-[21/9]' : 'h-32 sm:h-48'} bg-stone-950 group transition-all duration-700 ease-in-out`}
