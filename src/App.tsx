@@ -67,6 +67,8 @@ import { MuseumGuide } from './components/MuseumGuide';
 import { ExhibitionView } from './components/ExhibitionView';
 import { ExportModal } from './components/ExportModal';
 import { FilterModal } from './components/FilterModal';
+import { EnhanceImageModal } from './components/EnhanceImageModal';
+import { refreshAiImageEditEnabled, isAiImageEditEnabled } from './services/geminiService';
 import { LanguageProvider, useTranslation } from './i18n';
 import { supabase, isSupabaseConfigured, signOutUser } from './services/supabase';
 import {
@@ -1236,11 +1238,19 @@ const AppContent: React.FC = () => {
     const { id, itemId } = useParams<{ id: string; itemId: string }>();
     const navigate = useNavigate();
     const [isExportOpen, setIsExportOpen] = useState(false);
+    const [isEnhanceOpen, setIsEnhanceOpen] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [aiImageEditEnabled, setAiImageEditEnabled] = useState(false);
+    const [imageKey, setImageKey] = useState(0); // Used to force re-render of ItemImage after enhancement
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const collection = collections.find((c) => c.id === id);
     const item = collection?.items.find((i) => i.id === itemId);
+
+    // Check if AI image editing is enabled
+    useEffect(() => {
+      refreshAiImageEditEnabled().then(setAiImageEditEnabled);
+    }, []);
 
     if (!collection || !item) return <Navigate to={`/collection/${id}`} replace />;
     const isReadOnly = Boolean(collection.isPublic) && !isAdmin;
@@ -1305,11 +1315,12 @@ const AppContent: React.FC = () => {
           className={`relative ${hasPhoto ? 'aspect-[4/5] sm:aspect-[16/9] md:aspect-[21/9]' : 'h-32 sm:h-48'} bg-stone-950 group transition-all duration-700 ease-in-out`}
         >
           <ItemImage
+            key={imageKey}
             itemId={item.id}
             collectionId={collection.id}
             photoUrl={item.photoUrl}
             alt={item.title}
-            type="original"
+            type="enhanced"
             className="w-full h-full object-cover transition-transform duration-[10s] group-hover:scale-110 opacity-80"
           />
 
@@ -1351,6 +1362,16 @@ const AppContent: React.FC = () => {
           </button>
 
           <div className="absolute top-4 right-4 sm:top-8 sm:right-8 flex gap-2 sm:gap-4 z-10">
+            {/* Enhance Image Button - only show when AI is enabled, not read-only, and has photo */}
+            {aiImageEditEnabled && !isReadOnly && hasPhoto && (
+              <button
+                onClick={() => setIsEnhanceOpen(true)}
+                className={`w-10 h-10 sm:w-14 sm:h-14 backdrop-blur-md rounded-xl sm:rounded-2xl flex items-center justify-center shadow-xl transition-all hover:scale-105 ${theme === 'vault' ? 'bg-white/10 text-white' : 'bg-white/80 text-stone-800'}`}
+                title={t('enhanceImage')}
+              >
+                <Sparkles size={20} className="sm:w-6 sm:h-6" />
+              </button>
+            )}
             <button
               onClick={() => setIsExportOpen(true)}
               className={`w-10 h-10 sm:w-14 sm:h-14 backdrop-blur-md rounded-xl sm:rounded-2xl flex items-center justify-center shadow-xl transition-all hover:scale-105 ${theme === 'vault' ? 'bg-white/10 text-white' : 'bg-white/80 text-stone-800'}`}
@@ -1487,6 +1508,16 @@ const AppContent: React.FC = () => {
           onClose={() => setIsExportOpen(false)}
           item={item}
           fields={collection.customFields}
+        />
+        <EnhanceImageModal
+          isOpen={isEnhanceOpen}
+          onClose={() => setIsEnhanceOpen(false)}
+          itemId={item.id}
+          collectionId={collection.id}
+          onEnhancementComplete={() => {
+            // Force ItemImage to re-render with updated enhanced image
+            setImageKey((prev) => prev + 1);
+          }}
         />
       </div>
     );

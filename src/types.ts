@@ -57,3 +57,15 @@ export interface AIAnalysisResult {
   data: Record<string, any>;
   notes?: string;
 }
+
+export type EnhancementStatus = 'none' | 'processing' | 'ready' | 'failed';
+export type EnhancementStrength = 'subtle' | 'beautified';
+
+export interface EnhancementMetadata {
+  status: EnhancementStatus;
+  strength: EnhancementStrength;
+  model?: string;
+  promptVersion?: number;
+  timestamp?: string;
+  errorMessage?: string;
+}

@@ -3,10 +3,11 @@ import { supabase, isSupabaseConfigured } from './supabase';
 import { TEMPLATES } from '../constants';
 
 const DB_NAME = 'CurioDatabase';
-const DB_VERSION = 5;
+const DB_VERSION = 6;
 const COLLECTIONS_STORE = 'collections';
 const ASSETS_STORE = 'assets';
 const DISPLAY_STORE = 'display';
+const ENHANCED_STORE = 'enhanced';
 const SETTINGS_STORE = 'settings';
 const SUPABASE_SYNC_TIMESTAMPS = import.meta.env.VITE_SUPABASE_SYNC_TIMESTAMPS === 'true';
 
@@ -199,6 +200,9 @@ const openDatabase = (): Promise<IDBDatabase> => {
       }
       if (!db.objectStoreNames.contains(DISPLAY_STORE)) {
         db.createObjectStore(DISPLAY_STORE);
+      }
+      if (!db.objectStoreNames.contains(ENHANCED_STORE)) {
+        db.createObjectStore(ENHANCED_STORE);
       }
       if (!db.objectStoreNames.contains(SETTINGS_STORE)) {
         db.createObjectStore(SETTINGS_STORE);
@@ -747,6 +751,109 @@ export const getAsset = async (
   return null;
 };
 
+export const saveEnhancedAsset = async (
+  collectionId: string,
+  id: string,
+  enhanced: Blob,
+): Promise<void> => {
+  const db = await initDB();
+
+  // Save to Local
+  await new Promise<void>((resolve, reject) => {
+    const transaction = db.transaction(ENHANCED_STORE, 'readwrite');
+    transaction.objectStore(ENHANCED_STORE).put(enhanced, id);
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+  });
+
+  // Save to Cloud if available
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const basePath = `${user.id}/collections/${collectionId}/${id}`;
+      const enhancedPath = `${basePath}/enhanced.jpg`;
+
+      await supabase.storage.from('curio-assets').upload(enhancedPath, enhanced, {
+        upsert: true,
+        contentType: enhanced.type || 'image/jpeg',
+      });
+    } catch (e) {
+      console.warn('Cloud enhanced asset sync failed:', e);
+    }
+  }
+};
+
+export const getEnhancedAsset = async (id: string, collectionId?: string): Promise<Blob | null> => {
+  const db = await initDB();
+
+  // Try Local First
+  const localBlob = await new Promise<Blob | null>((resolve) => {
+    const transaction = db.transaction(ENHANCED_STORE, 'readonly');
+    const store = transaction.objectStore(ENHANCED_STORE);
+    const request = store.get(id);
+    request.onsuccess = () => resolve(request.result || null);
+    request.onerror = () => resolve(null);
+  });
+
+  if (localBlob) return localBlob;
+
+  // Try Cloud if not local
+  if (isSupabaseConfigured() && supabase && collectionId) {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return null;
+
+      const basePath = `${user.id}/collections/${collectionId}/${id}`;
+      const enhancedPath = `${basePath}/enhanced.jpg`;
+
+      const { data, error } = await supabase.storage.from('curio-assets').download(enhancedPath);
+
+      if (data && !error) {
+        // Cache back to local for performance next time
+        const transaction = db.transaction(ENHANCED_STORE, 'readwrite');
+        transaction.objectStore(ENHANCED_STORE).put(data, id);
+        return data;
+      }
+    } catch (e) {
+      console.warn('Cloud enhanced asset download failed:', e);
+    }
+  }
+
+  return null;
+};
+
+export const deleteEnhancedAsset = async (collectionId: string, id: string): Promise<void> => {
+  const db = await initDB();
+
+  // Delete Local
+  await new Promise<void>((resolve) => {
+    const transaction = db.transaction(ENHANCED_STORE, 'readwrite');
+    transaction.objectStore(ENHANCED_STORE).delete(id);
+    transaction.oncomplete = () => resolve();
+  });
+
+  // Delete Cloud
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        const basePath = `${user.id}/collections/${collectionId}/${id}`;
+        await supabase.storage.from('curio-assets').remove([`${basePath}/enhanced.jpg`]);
+      }
+    } catch (e) {
+      console.warn('Cloud enhanced asset deletion failed:', e);
+    }
+  }
+};
+
 export const importLocalCollectionsToCloud = async (): Promise<{
   collections: number;
   assets: number;
@@ -785,11 +892,12 @@ export const importLocalCollectionsToCloud = async (): Promise<{
 export const deleteAsset = async (collectionId: string, id: string): Promise<void> => {
   const db = await initDB();
 
-  // Delete Local
+  // Delete Local (including enhanced if exists)
   await new Promise<void>((resolve) => {
-    const transaction = db.transaction([ASSETS_STORE, DISPLAY_STORE], 'readwrite');
+    const transaction = db.transaction([ASSETS_STORE, DISPLAY_STORE, ENHANCED_STORE], 'readwrite');
     transaction.objectStore(ASSETS_STORE).delete(id);
     transaction.objectStore(DISPLAY_STORE).delete(id);
+    transaction.objectStore(ENHANCED_STORE).delete(id);
     transaction.oncomplete = () => resolve();
   });
 
@@ -804,6 +912,7 @@ export const deleteAsset = async (collectionId: string, id: string): Promise<voi
         await supabase.storage.from('curio-assets').remove([
           `${basePath}/original.jpg`,
           `${basePath}/display.jpg`,
+          `${basePath}/enhanced.jpg`,
           // Legacy paths (safe cleanup; ignore if missing)
           `${user.id}/${id}_master.jpg`,
           `${user.id}/${id}_thumb.jpg`,
@@ -918,30 +1027,37 @@ export const cleanupOrphanedAssets = async (collections: UserCollection[]): Prom
     });
   };
 
-  const [assetKeys, displayKeys] = await Promise.all([
+  const [assetKeys, displayKeys, enhancedKeys] = await Promise.all([
     getAssetKeys(ASSETS_STORE),
     getAssetKeys(DISPLAY_STORE),
+    getAssetKeys(ENHANCED_STORE),
   ]);
 
   // Find orphaned keys (assets without corresponding items)
   const orphanedAssetKeys = assetKeys.filter((key) => !validItemIds.has(String(key)));
   const orphanedDisplayKeys = displayKeys.filter((key) => !validItemIds.has(String(key)));
+  const orphanedEnhancedKeys = enhancedKeys.filter((key) => !validItemIds.has(String(key)));
 
   // Delete orphaned assets
-  if (orphanedAssetKeys.length > 0 || orphanedDisplayKeys.length > 0) {
+  const totalOrphaned =
+    orphanedAssetKeys.length + orphanedDisplayKeys.length + orphanedEnhancedKeys.length;
+  if (totalOrphaned > 0) {
     await new Promise<void>((resolve) => {
-      const transaction = db.transaction([ASSETS_STORE, DISPLAY_STORE], 'readwrite');
+      const transaction = db.transaction(
+        [ASSETS_STORE, DISPLAY_STORE, ENHANCED_STORE],
+        'readwrite',
+      );
       const assetsStore = transaction.objectStore(ASSETS_STORE);
       const displayStore = transaction.objectStore(DISPLAY_STORE);
+      const enhancedStore = transaction.objectStore(ENHANCED_STORE);
 
       orphanedAssetKeys.forEach((key) => assetsStore.delete(key));
       orphanedDisplayKeys.forEach((key) => displayStore.delete(key));
+      orphanedEnhancedKeys.forEach((key) => enhancedStore.delete(key));
 
       transaction.oncomplete = () => {
-        if (orphanedAssetKeys.length + orphanedDisplayKeys.length > 0) {
-          console.log(
-            `Cleaned up ${orphanedAssetKeys.length + orphanedDisplayKeys.length} orphaned assets`,
-          );
+        if (totalOrphaned > 0) {
+          console.log(`Cleaned up ${totalOrphaned} orphaned assets`);
         }
         resolve();
       };

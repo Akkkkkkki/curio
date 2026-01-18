@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { extractCurioAssetPath, getAsset } from '../services/db';
+import { extractCurioAssetPath, getAsset, getEnhancedAsset } from '../services/db';
 import { Loader2, Camera, AlertCircle } from 'lucide-react';
 
 interface ItemImageProps {
@@ -8,7 +8,7 @@ interface ItemImageProps {
   collectionId?: string;
   className?: string;
   alt?: string;
-  type?: 'display' | 'original';
+  type?: 'display' | 'original' | 'enhanced';
 }
 
 export const ItemImage: React.FC<ItemImageProps> = ({
@@ -87,15 +87,28 @@ export const ItemImage: React.FC<ItemImageProps> = ({
         setLoading(true);
         setError(false);
         try {
-          let blob = await getAsset(
-            itemId,
-            type as 'original' | 'display',
-            remoteAssetPath || undefined,
-            collectionId,
-          );
-          // Fallback to original if display is missing
-          if ((!blob || blob.size === 0) && type === 'display') {
-            blob = await getAsset(itemId, 'original', remoteAssetPath || undefined, collectionId);
+          let blob: Blob | null = null;
+
+          // Handle enhanced type with fallback chain: enhanced -> display -> original
+          if (type === 'enhanced') {
+            blob = await getEnhancedAsset(itemId, collectionId);
+            if (!blob || blob.size === 0) {
+              blob = await getAsset(itemId, 'display', remoteAssetPath || undefined, collectionId);
+            }
+            if (!blob || blob.size === 0) {
+              blob = await getAsset(itemId, 'original', remoteAssetPath || undefined, collectionId);
+            }
+          } else {
+            blob = await getAsset(
+              itemId,
+              type as 'original' | 'display',
+              remoteAssetPath || undefined,
+              collectionId,
+            );
+            // Fallback to original if display is missing
+            if ((!blob || blob.size === 0) && type === 'display') {
+              blob = await getAsset(itemId, 'original', remoteAssetPath || undefined, collectionId);
+            }
           }
 
           if (blob && blob.size > 0 && isMounted) {
