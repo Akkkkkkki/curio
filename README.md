@@ -21,7 +21,8 @@ This repo intentionally keeps documentation **small, current, and non-duplicativ
 - **Product**: `docs/PRODUCT_DESIGN.md`
 - **Architecture**: `docs/TECHNICAL_DESIGN.md`
 - **Operational reliability**: `docs/INDEXEDDB_RELIABILITY.md`
-- **Design proposals / reviews**: `docs/DESIGN_REVIEW_image_enhancement_and_theme_strategy.md`
+- **Design requirements (new work)**: `docs/DESIGN_REQUIREMENTS_ai_image_features_and_capture_simplification.md`
+- **Design proposals / reviews (legacy pointer)**: `docs/DESIGN_REVIEW_image_enhancement_and_theme_strategy.md`
 - **Testing**: `docs/TESTING.md` (quick how-to) and `tests/README.md` (details)
 - **Issue filing**: `docs/GITHUB_ISSUES_PROTOCOL.md`
 - **Historical reviews**: `docs/PRODUCT_REVIEW_FEEDBACK_20260113.md` (reference; tracking happens in GitHub)
