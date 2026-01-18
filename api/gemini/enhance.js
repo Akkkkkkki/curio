@@ -55,10 +55,10 @@ export default async function handler(req, res) {
   try {
     const ai = new GoogleGenAI({ apiKey });
     // Use Gemini's image generation model for image editing
-    // Available models: gemini-2.0-flash-preview-image-generation, gemini-2.5-flash-image, gemini-3-pro-image-preview
+    // gemini-2.5-flash-image is GA and recommended for production
     // Reference: https://ai.google.dev/gemini-api/docs/image-generation
     const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash-preview-image-generation',
+      model: 'gemini-2.5-flash-preview-image-generation',
       contents: [
         { text: prompt },
         {
@@ -68,6 +68,9 @@ export default async function handler(req, res) {
           },
         },
       ],
+      config: {
+        responseModalities: ['TEXT', 'IMAGE'],
+      },
     });
 
     // Extract the generated image from the response
@@ -96,7 +99,7 @@ export default async function handler(req, res) {
     return res.status(200).json({
       enhancedImageBase64,
       metadata: {
-        model: 'gemini-2.0-flash-preview-image-generation',
+        model: 'gemini-2.5-flash-preview-image-generation',
         strength,
         promptVersion: 1,
         timestamp: new Date().toISOString(),
