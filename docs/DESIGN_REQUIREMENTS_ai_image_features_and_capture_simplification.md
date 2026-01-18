@@ -4,6 +4,7 @@
 **Owner:** Product/Eng team (Curio)  
 **Last updated:** 2026-01-17  
 **Related docs (existing context):**
+
 - Product baseline: `docs/PRODUCT_DESIGN.md`
 - Architecture baseline: `docs/TECHNICAL_DESIGN.md`
 - Prior design review (legacy; merged here): `docs/DESIGN_REVIEW_image_enhancement_and_theme_strategy.md`
@@ -13,11 +14,13 @@
 ## Goals (what success looks like)
 
 ### Goal A — Make “Add item” feel effortless on mobile
+
 - Users can add an item **without feeling like they entered a wizard**.
 - AI helps when available, but the flow **never blocks** and never “punishes” slow networks.
 - The default path optimizes for **time-to-save**, not “perfect metadata”.
 
 ### Goal B — Introduce image-to-image AI safely (toggleable + cost-aware)
+
 - Add an **optional** “Enhance image” capability (clean product photo) first.
 - Add a more creative “Poster / ad” capability later.
 - Both must be:
@@ -75,20 +78,21 @@ Design implication: **progressive disclosure** is the lever—show only what’s
 ## Requirements: Simplified “Add item” UX (mobile-first)
 
 ### Requirement 1 — Single-screen capture (default)
+
 Replace the “wizard feel” with a single capture surface:
 
 - **Primary action**: add photo (camera/gallery)
 - **Immediate editable fields**:
   - Title
-  - 3–5 “primary” fields (template-defined)
+  - Template fields (users can fill in missing info and edit AI output)
   - Rating (optional)
   - Save
 - **Secondary / optional**:
-  - “More details” reveals remaining fields
-  - “Add narrative” reveals notes
-  - “Rapid-Fire mode” link for batch (not primary)
+  - Notes (optional, but easy to access)
+  - Batch mode link for power users (not primary)
 
 ### Requirement 2 — Non-blocking AI autofill
+
 AI metadata extraction should behave like a helpful assistant:
 
 - Starts automatically **after photo selection** (if enabled)
@@ -96,13 +100,14 @@ AI metadata extraction should behave like a helpful assistant:
 - Must not overwrite fields the user has already edited
 - If it fails, show a small message: “AI unavailable — continue manually”
 
-### Requirement 3 — Keep capture minimal, push completeness later
-If users want a deeper editing experience, they can do it after saving:
+### Requirement 3 — Keep verification/editing available (do not over-simplify)
 
-- Save quickly with partial info
-- Edit details later on Item Detail screen
+We should assume AI will often miss details. Therefore:
 
-This reduces “time-to-first-save” and improves overall perceived simplicity.
+- Users must be able to **edit and fill in missing metadata during capture** (current design behavior).
+- We should not hide or remove fields based on an assumption of AI completeness until we’ve tested real-world boundaries.
+
+Mobile-friendly design still matters: group fields into clear sections, maintain a sticky Save, and keep input ergonomics strong (see “Mobile UX requirements” below).
 
 ---
 
@@ -110,17 +115,17 @@ This reduces “time-to-first-save” and improves overall perceived simplicity.
 
 Present features by their **outcome**, not by their underlying technology:
 
-- Good: “Enhance”, “Remove background”, “Fix blur”
+- Good: “Enhance”, “Tidy background”, “Fix blur”
 - Avoid leading with: “AI”, “Gemini Vision”, “prompt”, model names (unless in developer/debug surfaces)
 
 ### Industry language reference (for naming)
 
-| App       | Approach                   | User-facing language |
-| --------- | -------------------------- | -------------------- |
+| App       | Approach                   | User-facing language  |
+| --------- | -------------------------- | --------------------- |
 | Meitu     | Heavy AI, one-tap beautify | “Beautify”, “Enhance” |
-| Snapseed  | Manual + selective AI      | “Auto”, “Tune Image” |
-| VSCO      | Presets, minimal AI        | “Recipes”, “Adjust” |
-| Photoroom | AI background removal      | “Remove Background” |
+| Snapseed  | Manual + selective AI      | “Auto”, “Tune Image”  |
+| VSCO      | Presets, minimal AI        | “Recipes”, “Adjust”   |
+| Photoroom | AI background removal      | “Remove Background”   |
 
 Curio should combine **Snapseed’s taste** with **Photoroom’s simplicity** (low-friction, outcome-first).
 
@@ -129,6 +134,7 @@ Curio should combine **Snapseed’s taste** with **Photoroom’s simplicity** (l
 ## Requirements: AI Image Features (image-to-image) — Phased Rollout
 
 ### Capability split (must be explicit)
+
 We treat these as separate products/capabilities:
 
 - **AI metadata extraction**: image → structured fields
@@ -137,6 +143,7 @@ We treat these as separate products/capabilities:
 These capabilities must be **separately toggleable** at runtime/config time (see “Feature flags”).
 
 ### Phase 1 — Enhance photo (Clean / Presentable)
+
 **User intent:** “Make this look nicer / more presentable.”
 
 - **UX**:
@@ -145,13 +152,17 @@ These capabilities must be **separately toggleable** at runtime/config time (see
   - Before/after comparison
   - Accept / Keep original
   - “Try again” is explicit (one more generation)
+  - User-facing strength option:
+    - **Subtle** (default): looks like the same photo, just better
+    - **Beautified**: more opinionated “ad-like” polish; can differ more from original
 - **Output goals**:
-  - Cleaner background (or less clutter)
+  - Tidier background (reduce/remove distracting clutter; more “ad shoot” feel)
   - Improved lighting/contrast
   - Reduce glare where possible
   - Preserve product identity (no hallucinated labels)
 
 ### Phase 2 — Poster / Ad layout (Creative)
+
 **User intent:** “Make a shareable poster for this item.”
 
 - **UX**:
@@ -168,16 +179,19 @@ These capabilities must be **separately toggleable** at runtime/config time (see
 ## Cost guardrails (must-have)
 
 ### Guardrail 1 — No multi-variant by default
+
 - Default is exactly **one** generation per user action.
 - Any extra generations require an explicit user tap (“Try again”, “More like this”).
 
 ### Guardrail 2 — Quality ladder (cheap-by-default)
+
 For each AI feature, choose a default model/quality that fits the job:
 
 - Default to cheaper/faster settings for routine enhancements.
 - Offer “High quality” as an explicit user choice only when needed (e.g., poster exports).
 
 ### Guardrail 3 — Budget + rate limiting (product policy)
+
 Design requirements (policy; implementation later):
 
 - Per-user daily/monthly budgets (soft limit with messaging, or hard limit for free tier).
@@ -185,33 +199,11 @@ Design requirements (policy; implementation later):
 
 ---
 
-## Optional future photo tools (not required for V1)
+## Background tidying (clarification)
 
-These were proposed in the legacy design review. They are valuable, but should be treated as **optional future scope** (post-V1) so we don’t dilute the core rollout.
+When we say “clean/presentable”, we specifically mean **tidying a messy background** (removing distracting objects / visual noise) in a way that resembles a better product/ad shoot.
 
-### Tool A — Remove Background
-
-**User intent:** “Isolate the object for a clean, e-commerce-like look.”
-
-- Output should ideally be **transparent background** (PNG).
-- UX should remain a one-tap action with Accept / Keep original.
-- Expect occasional edge artifacts; recoverable fallback is “Keep original”.
-
-Suggested prompt constraint (conceptual; provider-agnostic):
-
-> Identify the primary object and remove the background completely. Preserve clean, precise edges, including fine details and semi-transparent elements. Return the isolated object on a transparent background.
-
-### Tool B — Fix Blur
-
-**User intent:** “Make a slightly blurry photo usable.”
-
-Suggested prompt constraint (conceptual; provider-agnostic):
-
-> Enhance clarity and sharpness while preserving a natural appearance. Restore textures without introducing artifacts or over-sharpening.
-
-### How these relate to Gemini image editing
-
-These tools are a direct fit for **image-to-image editing** models described in Google’s Gemini API documentation: [Gemini image editing](https://ai.google.dev/gemini-api/docs/image-generation#gemini-image-editing).
+We are **not** targeting a “transparent cutout” workflow as a primary concept in this plan.
 
 ---
 
@@ -223,19 +215,19 @@ Curio should support **three versions** of a user-owned item image:
 - **Display/compressed**: optimized for UI performance
 - **Enhanced**: generated output (optional)
 
-### Extension (if we ship “Remove Background” later)
+### Note on “remove background”
 
-If/when we add “Remove Background”, we should plan for a 4th variant:
-
-- **No background**: PNG with transparency (optional)
+Some systems offer transparent cutouts; however, our current direction is **background tidying** (ad-like cleanup) rather than transparent PNG cutouts. If we ever add cutouts later, we can add a dedicated variant then.
 
 For enhanced outputs, also store:
+
 - Enhancement status: none | processing | ready | failed
 - Enhancement recipe metadata: model, prompt template version, timestamp, input image hash
 
-If we add more tools (remove background / fix blur), store analogous “recipe” metadata per variant so we can debug quality + cost by feature.
+If we add additional enhancement modes later, store analogous “recipe” metadata per variant so we can debug quality + cost by feature.
 
 This ensures:
+
 - Recoverability (original always exists)
 - Debuggability (we can reproduce / analyze outcomes)
 - Cost tracking (link generations to user actions)
@@ -253,9 +245,11 @@ We want Google Gemini image editing as a primary option, but avoid lock-in:
 - Providers can be swapped behind the gateway (Gemini / Imagen / OpenAI / others).
 
 ### Reference: Gemini image editing
+
 Google documents seed-image editing (“text-and-image-to-image”) and model selection (speed vs pro quality) here: [Gemini image editing](https://ai.google.dev/gemini-api/docs/image-generation#gemini-image-editing).
 
 Important implications from the doc:
+
 - Gemini “Nano Banana” models support conversational image creation/editing.
 - Generated images include a **SynthID watermark** (needs product messaging for exports/sharing).  
   (See: [Gemini image editing](https://ai.google.dev/gemini-api/docs/image-generation#gemini-image-editing))
@@ -277,6 +271,7 @@ These are documented historically in `docs/DESIGN_REVIEW_image_enhancement_and_t
 ## Prompting strategy (requirements, not implementation)
 
 ### Principle: templates, not free-form prompting
+
 Users should not have to be prompt engineers. We provide:
 
 - A small set of user-facing intents (Clean / Poster)
@@ -286,6 +281,7 @@ Users should not have to be prompt engineers. We provide:
 Behind the scenes we use prompt templates.
 
 ### Prompt template requirements (Clean)
+
 The clean enhancement prompt should strongly prefer:
 
 - Preserve the subject identity, angle, proportions
@@ -294,13 +290,38 @@ The clean enhancement prompt should strongly prefer:
 - Make background less distracting
 - Avoid “over-stylization”
 
+#### Prompt refinements (best-practice direction)
+
+We should bake in constraints that improve reliability:
+
+- Explicit “do not alter printed text/logos/barcodes; if unsure, leave unchanged”
+- Prefer **decluttering** over “new background invention”
+- Use negative constraints like “no new text, no extra labels, no brand changes”
+
+---
+
 ### Prompt template requirements (Poster)
+
 The poster prompt should prefer:
 
 - Keep the core subject recognizable
 - Add negative space for design
 - Apply a cohesive aesthetic style (preset-driven)
 - Accept that small text may not be perfect in V1 (track as known risk)
+
+---
+
+## Mobile UX requirements (must-have)
+
+Regardless of how many fields we show, the capture experience must remain mobile-friendly:
+
+- **Sticky primary action**: Save button anchored so it’s always reachable without scrolling to the bottom.
+- **Sectioned form**: group fields into small, labeled sections (title, key fields, additional fields, notes).
+- **Keyboard ergonomics**:
+  - Next/Done behavior works well
+  - Inputs are large enough for touch
+  - Avoid jumpy layout shifts when AI fills data
+- **Clear AI state**: a subtle “filling in…” indicator (non-blocking), plus a clear “continue manually” fallback.
 
 ---
 
@@ -318,11 +339,13 @@ The poster prompt should prefer:
 ## Measurement & acceptance criteria (design targets)
 
 ### Add-item UX
+
 - **Time-to-save**: median time from “Add item” to “Saved” should drop materially (target to be defined).
 - **Completion rate**: fewer abandons inside the modal.
 - **Perceived complexity**: qualitative usability test should show users describing it as “simple”.
 
 ### AI image feature
+
 - **Cost per successful enhancement**: define budget (e.g., <$X per 100 enhancements).
 - **Retry rate**: if too high, defaults are poor or results inconsistent.
 - **Failure rate**: enhancement requests should degrade gracefully without blocking.
@@ -351,4 +374,3 @@ This doc defines requirements only. Engineering design/implementation should:
 - Keep “Enhance” explicitly user-triggered
 - Persist original/display/enhanced assets
 - Ensure all AI work is recoverable and never blocks saving
-
