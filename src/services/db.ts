@@ -838,6 +838,72 @@ export const deleteCloudItem = async (collectionId: string, itemId: string): Pro
   }
 };
 
+export const deleteCollection = async (collection: UserCollection): Promise<void> => {
+  const db = await initDB();
+
+  // 1. Delete all local assets for items in this collection
+  const itemIds = collection.items.map((item) => item.id);
+  if (itemIds.length > 0) {
+    await new Promise<void>((resolve) => {
+      const transaction = db.transaction([ASSETS_STORE, DISPLAY_STORE], 'readwrite');
+      const assetsStore = transaction.objectStore(ASSETS_STORE);
+      const displayStore = transaction.objectStore(DISPLAY_STORE);
+
+      itemIds.forEach((id) => {
+        assetsStore.delete(id);
+        displayStore.delete(id);
+      });
+
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => resolve();
+    });
+  }
+
+  // 2. Delete collection from local IndexedDB
+  await new Promise<void>((resolve, reject) => {
+    const transaction = db.transaction(COLLECTIONS_STORE, 'readwrite');
+    const store = transaction.objectStore(COLLECTIONS_STORE);
+    store.delete(collection.id);
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+  });
+
+  // 3. Delete from cloud if configured
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Delete collection (CASCADE will delete items)
+      const { error: colError } = await supabase
+        .from('collections')
+        .delete()
+        .eq('id', collection.id);
+
+      if (colError) {
+        console.warn('Cloud collection deletion failed:', colError);
+      }
+
+      // Delete assets from storage
+      if (itemIds.length > 0) {
+        const filesToDelete = itemIds.flatMap((itemId) => [
+          `${user.id}/collections/${collection.id}/${itemId}/original.jpg`,
+          `${user.id}/collections/${collection.id}/${itemId}/display.jpg`,
+        ]);
+
+        await supabase.storage.from('curio-assets').remove(filesToDelete);
+      }
+    } catch (e) {
+      console.warn('Cloud collection deletion failed:', e);
+    }
+  }
+
+  // Remove from pending sync if present
+  await removeFromPendingSync(collection.id);
+};
+
 export const loadCollections = async (): Promise<UserCollection[]> => {
   const localCollections = await loadLocalCollections();
 

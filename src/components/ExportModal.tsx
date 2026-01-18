@@ -85,6 +85,22 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
     };
   }, [isOpen, item.id, item.collectionId, remoteAssetPath]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    setTimeout(() => {
+      const modal = document.querySelector('[data-export-modal]') as HTMLElement;
+      if (modal) {
+        const rect = modal.getBoundingClientRect();
+        console.log('Modal position check:', {
+          x: rect.x,
+          y: rect.y,
+          width: rect.width,
+          height: rect.height,
+        });
+      }
+    }, 600);
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const getValue = (fieldId: string) => {
@@ -227,10 +243,11 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
 
   return (
     <div
-      className={`fixed inset-0 z-50 bg-stone-950/90 backdrop-blur-md animate-in fade-in duration-200 print:bg-white print:static print:block relative overflow-hidden md:[--sheet-height:0px] pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)] pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)] ${isExpanded ? '[--sheet-height:85dvh]' : '[--sheet-height:55dvh]'}`}
+      data-export-modal
+      className={`fixed inset-0 z-50 bg-stone-950/90 backdrop-blur-md animate-in fade-in duration-200 print:bg-white print:static print:block print:inset-auto print:h-auto print:overflow-visible overflow-hidden md:[--sheet-height:0px] pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)] pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)] ${isExpanded ? '[--sheet-height:85dvh]' : '[--sheet-height:55dvh]'}`}
     >
-      <div className="absolute inset-0 flex flex-col items-center justify-center px-6 py-6 md:pr-[calc(24rem+1.5rem)] overflow-hidden print:static">
-        <div className="h-full w-full flex items-center justify-center print:block">
+      <div className="absolute inset-0 flex flex-col items-center justify-center px-6 py-6 md:pr-[calc(24rem+1.5rem)] overflow-hidden print:static print:inset-auto print:p-0 print:block pointer-events-none">
+        <div className="h-full w-full flex items-center justify-center print:block print:h-auto print:w-auto">
           {renderCardPreview()}
         </div>
       </div>
