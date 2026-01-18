@@ -180,19 +180,24 @@ app.post('/api/gemini/enhance', async (req, res) => {
   const prompt = ENHANCEMENT_PROMPTS[strength];
 
   try {
-    // Use Gemini's image generation model with editing capability
+    // Use Gemini's image generation model for image editing
+    // Available models: gemini-2.0-flash-preview-image-generation, gemini-2.5-flash-image, gemini-3-pro-image-preview
+    // Reference: https://ai.google.dev/gemini-api/docs/image-generation
     const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash-exp-image-generation',
-      contents: {
-        parts: [{ inlineData: { mimeType: 'image/jpeg', data: imageBase64 } }, { text: prompt }],
-      },
-      config: {
-        responseModalities: ['Text', 'Image'],
-      },
+      model: 'gemini-2.0-flash-preview-image-generation',
+      contents: [
+        { text: prompt },
+        {
+          inlineData: {
+            mimeType: 'image/jpeg',
+            data: imageBase64,
+          },
+        },
+      ],
     });
 
     // Extract the generated image from the response
-    const parts = response?.candidates?.[0]?.content?.parts || [];
+    const parts = response.candidates?.[0]?.content?.parts || [];
     let enhancedImageBase64 = null;
     let responseText = null;
 
@@ -207,16 +212,17 @@ app.post('/api/gemini/enhance', async (req, res) => {
 
     if (!enhancedImageBase64) {
       console.error('No image in response. Response text:', responseText);
+      console.error('Full response:', JSON.stringify(response, null, 2));
       return res.status(500).json({
         error: 'Enhancement failed - no image generated',
-        details: responseText || 'Unknown error',
+        details: responseText || 'The model did not return an image. Try a different photo.',
       });
     }
 
     return res.json({
       enhancedImageBase64,
       metadata: {
-        model: 'gemini-2.0-flash-exp-image-generation',
+        model: 'gemini-2.0-flash-preview-image-generation',
         strength,
         promptVersion: 1,
         timestamp: new Date().toISOString(),
