@@ -142,6 +142,64 @@ We treat these as separate products/capabilities:
 
 These capabilities must be **separately toggleable** at runtime/config time (see “Feature flags”).
 
+---
+
+## Quality definition (trust rubric) — what “good enhancement” means
+
+Because Curio supports “collect anything”, we need a category-agnostic definition of success so users trust outputs and the team can QA objectively.
+
+### Universal criteria (works for whiskey / sneakers / tickets / books / anything)
+
+1. **Identity is unambiguous**
+   - The main object is clearly the subject.
+   - Key identifiers remain readable where relevant (labels, logos, title text, edition marks).
+2. **Geometry looks natural**
+   - No warping; straight edges stay straight (boxes, spines, ticket borders, bottle vertical lines).
+3. **Lighting is flattering but believable**
+   - Preserve detail without “crunchy HDR”.
+   - Avoid blown highlights (common on glossy packaging) and harsh color casts.
+4. **Color is accurate by default**
+   - Color accuracy matters (edition differences, sneaker colorways, label variants).
+   - Any stylized color shifts require explicit opt-in (see “Modes”).
+5. **Background doesn’t distract**
+   - Background is tidy/quiet; no new distracting objects introduced.
+6. **Sharp where it counts**
+   - Subject and especially label/text areas are sharp.
+   - Noise reduction must not turn text into mush or invent micro-details.
+
+### Two user-facing modes (make the difference explicit)
+
+To avoid confusion, enhancement must be presented as two clear intents:
+
+- **Catalog / Documentation (default)** = accurate + clean
+  - Goal: truthful representation (personal archive / inventory / listing-like clarity).
+  - Default behavior should be conservative.
+- **Showcase / Aesthetic (opt-in)** = studio + pretty
+  - Goal: a visually beautiful hero image.
+  - Allows more aggressive cleanup/polish, but still must not change identity.
+
+These map cleanly to the earlier “strength” choice:
+
+- **Subtle** ≈ Catalog default
+- **Beautified** ≈ Showcase opt-in
+
+### Scoring rubric (QA + acceptance tests)
+
+Score output 0–2 per dimension (total /12):
+
+1. **Subject prominence** (0 unclear / 1 clear but small/cluttered / 2 dominant & well framed)
+2. **Legibility (if text exists)** (0 unreadable / 1 partially / 2 crisp key text)
+3. **Exposure & dynamic range** (0 blown/crushed / 1 ok / 2 balanced)
+4. **Color & white balance** (0 obvious cast/wrong / 1 slightly off / 2 accurate or intentionally styled in Showcase)
+5. **Geometry correctness** (0 warped / 1 minor issues / 2 straight/natural)
+6. **Background cleanliness** (0 messy / 1 improved / 2 minimal distraction)
+
+Definition of “enhancement success” (Catalog mode):
+
+- Total score increases by **≥ 3 points**, AND
+- **Geometry never worsens**, AND
+- **Color does not materially drift** (tolerance to be defined later; start with “human-obvious drift” as failure).
+
 ### Phase 1 — Enhance photo (Clean / Presentable)
 
 **User intent:** “Make this look nicer / more presentable.”
@@ -322,6 +380,89 @@ Regardless of how many fields we show, the capture experience must remain mobile
   - Inputs are large enough for touch
   - Avoid jumpy layout shifts when AI fills data
 - **Clear AI state**: a subtle “filling in…” indicator (non-blocking), plus a clear “continue manually” fallback.
+
+---
+
+## Hard rules: what enhancement is allowed to change vs must not change
+
+To keep trust, we need strict boundaries. This applies to both Catalog and Showcase modes.
+
+### Safe transformations (generally ok)
+
+- Crop, rotate, straighten
+- Exposure/contrast and highlight/shadow recovery
+- White balance correction
+- Moderate de-noise (text-safe)
+- Background tidying / mild blur (declutter behind the subject)
+- Minor perspective correction (bounded; must not warp geometry)
+- Mild glare reduction (careful with glossy labels)
+
+### Risky transformations (require opt-in or warnings)
+
+- Aggressive relighting that changes perceived material/finish
+- Heavy “beautify” that changes texture on the object itself
+- Any operation that attempts to “reconstruct” obscured label text
+
+### Forbidden by default (trust killers)
+
+- Changing or recreating logos/labels/serial numbers
+- Altering colorway / edition markers
+- Reshaping the object (even subtly)
+- Adding props/elements that weren’t present
+
+---
+
+## Category-specific gotchas (guidance for prompts + QA)
+
+- **Glossy items** (whiskey bottles, foil packaging, shrink wrap)
+  - Reduce glare without erasing label texture.
+  - Never “guess” text under glare; prefer conservative exposure improvements.
+- **Sneakers / apparel**
+  - Colorway accuracy is sacred.
+  - Don’t reshape silhouette; preserve laces/holes/edges during cleanup.
+- **Flat documents** (tickets, cards, book covers)
+  - Perspective correction/de-skew helps a lot.
+  - Sharpening must not create fake letters.
+  - Consider a “Scan-like” variant later (high contrast, straight, minimal shadow) if demand exists.
+- **Dark / reflective objects**
+  - Lift shadows carefully; avoid “plastic look”.
+  - De-noise should keep grain natural.
+
+---
+
+## Output requirements (what the user gets back)
+
+Minimum guarantees for enhanced output:
+
+- **Same object, same identity** (no edits to label content or unique marks)
+- Better readability where possible **without invented text**
+- Natural edges (no halos / obvious artifacts)
+- Consistent lighting (no weird floating shadows)
+- Export-ready options: square + 4:5 + original aspect (design requirement; implementation later)
+
+### Trust-building UI detail (recommended)
+
+Show a small “What changed” summary, e.g.:
+
+- Straightened
+- Corrected white balance
+- Reduced background clutter
+- Improved exposure
+
+---
+
+## Capture guidance (reduce AI workload; mobile-friendly)
+
+We can improve input quality with light-touch tips in the capture screen:
+
+- “Use soft natural light (near a window)”
+- “Avoid overhead yellow light”
+- “Keep the phone parallel to flat items”
+- “Tap to focus on the label/text”
+- “Move clutter out of frame if possible”
+- “Use a plain background (wall/desk/paper) if you can”
+
+Optionally show a tiny 3-tile example: Bad / OK / Great (3D object vs flat document).
 
 ---
 
