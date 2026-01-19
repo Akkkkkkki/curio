@@ -50,6 +50,11 @@ app.use((req, res, next) => {
 const apiKey = process.env.GEMINI_API_KEY;
 const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 
+// Model configuration (can be overridden via environment variables)
+const GEMINI_ANALYZE_MODEL = process.env.GEMINI_ANALYZE_MODEL || 'gemini-2.5-flash-preview-05-20';
+const GEMINI_IMAGE_MODEL =
+  process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-preview-image-generation';
+
 const mapFieldTypeToSchemaType = (type) => {
   switch (type) {
     case 'number':
@@ -102,7 +107,7 @@ app.post('/api/gemini/analyze', async (req, res) => {
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: GEMINI_ANALYZE_MODEL,
       contents: {
         parts: [
           { inlineData: { mimeType: 'image/jpeg', data: imageBase64 } },
@@ -181,10 +186,9 @@ app.post('/api/gemini/enhance', async (req, res) => {
 
   try {
     // Use Gemini's image generation model for image editing
-    // gemini-2.5-flash-image is GA and recommended for production
     // Reference: https://ai.google.dev/gemini-api/docs/image-generation
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
+      model: GEMINI_IMAGE_MODEL,
       contents: [
         { text: prompt },
         {
@@ -225,7 +229,7 @@ app.post('/api/gemini/enhance', async (req, res) => {
     return res.json({
       enhancedImageBase64,
       metadata: {
-        model: 'gemini-2.5-flash-image',
+        model: GEMINI_IMAGE_MODEL,
         strength,
         promptVersion: 1,
         timestamp: new Date().toISOString(),

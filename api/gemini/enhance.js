@@ -1,5 +1,9 @@
 import { GoogleGenAI } from '@google/genai';
 
+// Model for image generation/enhancement
+const GEMINI_IMAGE_MODEL =
+  process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-preview-image-generation';
+
 // Prompt templates for image enhancement
 const ENHANCEMENT_PROMPTS = {
   subtle: `Enhance this photo to look cleaner and more presentable while preserving its original character.
@@ -55,10 +59,9 @@ export default async function handler(req, res) {
   try {
     const ai = new GoogleGenAI({ apiKey });
     // Use Gemini's image generation model for image editing
-    // gemini-2.5-flash-image is GA and recommended for production
     // Reference: https://ai.google.dev/gemini-api/docs/image-generation
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
+      model: GEMINI_IMAGE_MODEL,
       contents: [
         { text: prompt },
         {
@@ -99,7 +102,7 @@ export default async function handler(req, res) {
     return res.status(200).json({
       enhancedImageBase64,
       metadata: {
-        model: 'gemini-2.5-flash-image',
+        model: GEMINI_IMAGE_MODEL,
         strength,
         promptVersion: 1,
         timestamp: new Date().toISOString(),

@@ -1,5 +1,8 @@
 import { GoogleGenAI, Type } from '@google/genai';
 
+// Model for metadata extraction (vision/text analysis)
+const GEMINI_ANALYZE_MODEL = process.env.GEMINI_ANALYZE_MODEL || 'gemini-2.5-flash-preview-05-20';
+
 const mapFieldTypeToSchemaType = (type) => {
   switch (type) {
     case 'number':
@@ -55,7 +58,7 @@ export default async function handler(req, res) {
   try {
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: GEMINI_ANALYZE_MODEL,
       contents: {
         parts: [
           { inlineData: { mimeType: 'image/jpeg', data: imageBase64 } },

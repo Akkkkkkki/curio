@@ -802,6 +802,9 @@ export const getEnhancedAsset = async (id: string, collectionId?: string): Promi
   if (localBlob) return localBlob;
 
   // Try Cloud if not local
+  // Note: We only attempt cloud fetch if collectionId is provided,
+  // and we silently return null if the file doesn't exist (404/400)
+  // since many items won't have enhanced versions.
   if (isSupabaseConfigured() && supabase && collectionId) {
     try {
       const {
@@ -820,8 +823,13 @@ export const getEnhancedAsset = async (id: string, collectionId?: string): Promi
         transaction.objectStore(ENHANCED_STORE).put(data, id);
         return data;
       }
+      // Silently return null for missing files (expected for items without enhancement)
     } catch (e) {
-      console.warn('Cloud enhanced asset download failed:', e);
+      // Only log unexpected errors, not "file not found" which is expected
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      if (!errorMessage.includes('404') && !errorMessage.includes('not found')) {
+        console.warn('Cloud enhanced asset download failed:', e);
+      }
     }
   }
 
