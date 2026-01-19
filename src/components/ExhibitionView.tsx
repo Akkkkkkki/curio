@@ -59,7 +59,7 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
               itemId={item.id}
               photoUrl={item.photoUrl}
               collectionId={item.collectionId ?? collection.id}
-              type="display"
+              type="enhanced"
               className="w-full h-full object-cover transition-transform duration-[2s] group-hover:scale-110"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-stone-950/40 to-transparent" />

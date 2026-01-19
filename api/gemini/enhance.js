@@ -1,8 +1,7 @@
 import { GoogleGenAI } from '@google/genai';
 
 // Model for image generation/enhancement
-const GEMINI_IMAGE_MODEL =
-  process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image';
+const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image';
 
 // Prompt templates for image enhancement
 const ENHANCEMENT_PROMPTS = {

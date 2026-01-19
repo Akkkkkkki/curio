@@ -52,8 +52,7 @@ const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 
 // Model configuration (can be overridden via environment variables)
 const GEMINI_ANALYZE_MODEL = process.env.GEMINI_ANALYZE_MODEL || 'gemini-2.5-flash';
-const GEMINI_IMAGE_MODEL =
-  process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image';
+const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image';
 
 const mapFieldTypeToSchemaType = (type) => {
   switch (type) {

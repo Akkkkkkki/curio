@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { CollectionItem, FieldDefinition } from '../types';
 import { Button } from './ui/Button';
-import { extractCurioAssetPath, getAsset } from '../services/db';
+import { extractCurioAssetPath, getAsset, getEnhancedAsset } from '../services/db';
 import { useTranslation } from '../i18n';
 
 interface ExportModalProps {
@@ -60,15 +60,19 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
   useEffect(() => {
     if (!isOpen) return;
     let objectUrl: string | null = null;
-    const loadOriginal = async () => {
+    const loadImage = async () => {
       setIsLoadingImage(true);
       try {
-        const blob = await getAsset(
-          item.id,
-          'original',
-          remoteAssetPath || undefined,
-          item.collectionId,
-        );
+        // Try enhanced first, then fall back to original
+        let blob = await getEnhancedAsset(item.id, item.collectionId);
+        if (!blob || blob.size === 0) {
+          blob = await getAsset(
+            item.id,
+            'original',
+            remoteAssetPath || undefined,
+            item.collectionId,
+          );
+        }
         if (blob) {
           objectUrl = URL.createObjectURL(blob);
           setImageUrl(objectUrl);
@@ -79,7 +83,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
         setIsLoadingImage(false);
       }
     };
-    loadOriginal();
+    loadImage();
     return () => {
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };

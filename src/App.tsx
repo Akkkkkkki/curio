@@ -806,7 +806,7 @@ const AppContent: React.FC = () => {
                   itemId={stats.featured.id}
                   collectionId={stats.featured.collectionId}
                   photoUrl={stats.featured.photoUrl}
-                  type="display"
+                  type="enhanced"
                   className="w-full h-full object-cover scale-105 group-hover:scale-100 transition-transform duration-[20s] ease-out"
                 />
               </div>
@@ -862,6 +862,7 @@ const AppContent: React.FC = () => {
                     itemId={stats.historyItem.id}
                     collectionId={stats.historyItem.collectionId}
                     photoUrl={stats.historyItem.photoUrl}
+                    type="enhanced"
                     className="w-full h-full object-cover"
                   />
                 </div>
