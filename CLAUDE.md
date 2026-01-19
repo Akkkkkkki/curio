@@ -68,8 +68,8 @@ The Gemini proxy expects:
 GEMINI_API_KEY=your_api_key_here
 
 # Optional: Override default Gemini models
-GEMINI_ANALYZE_MODEL=gemini-2.5-flash-preview-05-20
-GEMINI_IMAGE_MODEL=gemini-2.5-flash-preview-image-generation
+GEMINI_ANALYZE_MODEL=gemini-2.5-flash
+GEMINI_IMAGE_MODEL=gemini-2.5-flash-image
 ```
 
 ## Architecture
@@ -180,7 +180,7 @@ GEMINI_IMAGE_MODEL=gemini-2.5-flash-preview-image-generation
 
 **Museum Guide (Audio):**
 
-- Model: `gemini-2.5-flash-native-audio-preview-09-2025`
+- Model: `gemini-2.5-flash-native-audio-preview-09-2025` (TBC)
 - Uses `ai.live.connect()` for bidirectional real-time audio
 - Voice: 'Kore', Audio I/O: 16kHz input / 24kHz output
 - System instruction provides collection context for expertise

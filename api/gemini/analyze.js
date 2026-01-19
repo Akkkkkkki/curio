@@ -1,7 +1,7 @@
 import { GoogleGenAI, Type } from '@google/genai';
 
 // Model for metadata extraction (vision/text analysis)
-const GEMINI_ANALYZE_MODEL = process.env.GEMINI_ANALYZE_MODEL || 'gemini-2.5-flash-preview-05-20';
+const GEMINI_ANALYZE_MODEL = process.env.GEMINI_ANALYZE_MODEL || 'gemini-2.5-flash';
 
 const mapFieldTypeToSchemaType = (type) => {
   switch (type) {
