@@ -5,6 +5,7 @@ import { Loader2, Camera, AlertCircle } from 'lucide-react';
 interface ItemImageProps {
   itemId: string;
   photoUrl?: string; // Can be a direct URL (relative/absolute/data) or the keyword 'asset'
+  enhancedPath?: string;
   collectionId?: string;
   className?: string;
   alt?: string;
@@ -14,6 +15,7 @@ interface ItemImageProps {
 export const ItemImage: React.FC<ItemImageProps> = ({
   itemId,
   photoUrl,
+  enhancedPath,
   collectionId,
   className = '',
   alt = '',
@@ -91,7 +93,7 @@ export const ItemImage: React.FC<ItemImageProps> = ({
 
           // Handle enhanced type with fallback chain: enhanced -> display -> original
           if (type === 'enhanced') {
-            blob = await getEnhancedAsset(itemId, collectionId);
+            blob = await getEnhancedAsset(itemId, { enhancedPath, collectionId });
             if (!blob || blob.size === 0) {
               blob = await getAsset(itemId, 'display', remoteAssetPath || undefined, collectionId);
             }
@@ -140,7 +142,7 @@ export const ItemImage: React.FC<ItemImageProps> = ({
       setLoading(false);
       setError(false);
     }
-  }, [itemId, photoUrl, type, isDirectSource, remoteAssetPath, collectionId]);
+  }, [itemId, photoUrl, type, isDirectSource, remoteAssetPath, collectionId, enhancedPath]);
 
   // Cleanup on unmount
   useEffect(() => {

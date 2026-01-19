@@ -141,6 +141,8 @@ Key columns added for the public sample flow:
 
 - `collections.is_public` (boolean)
 - `profiles.is_admin` (boolean)
+- `items.photo_enhanced_path` (current enhanced image pointer)
+- `item_images` table for image versions + metadata (role, status, recipe, timestamp)
 
 ## 7. UI Utilities
 

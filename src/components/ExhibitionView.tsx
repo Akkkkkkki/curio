@@ -58,6 +58,7 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
             <ItemImage
               itemId={item.id}
               photoUrl={item.photoUrl}
+              enhancedPath={item.photoEnhancedPath}
               collectionId={item.collectionId ?? collection.id}
               type="enhanced"
               className="w-full h-full object-cover transition-transform duration-[2s] group-hover:scale-110"

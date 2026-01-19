@@ -5,6 +5,7 @@ import { useTranslation } from '../i18n';
 import { EnhancementStrength } from '../types';
 import {
   enhanceImage,
+  type EnhanceImageResult,
   isAiImageEditEnabled,
   refreshAiImageEditEnabled,
 } from '../services/geminiService';
@@ -15,10 +16,30 @@ interface EnhanceImageModalProps {
   onClose: () => void;
   itemId: string;
   collectionId: string;
-  onEnhancementComplete?: () => void;
+  onEnhancementComplete?: (result: { enhancedPath: string | null }) => void;
 }
 
 type EnhanceStep = 'select' | 'generating' | 'compare' | 'error';
+
+const hashBase64 = async (base64: string): Promise<string> => {
+  if (typeof crypto !== 'undefined' && crypto.subtle) {
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    const digest = await crypto.subtle.digest('SHA-256', bytes);
+    return Array.from(new Uint8Array(digest))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+  }
+
+  let hash = 0;
+  for (let i = 0; i < base64.length; i++) {
+    hash = (hash * 31 + base64.charCodeAt(i)) >>> 0;
+  }
+  return hash.toString(16).padStart(8, '0');
+};
 
 export const EnhanceImageModal: React.FC<EnhanceImageModalProps> = ({
   isOpen,
@@ -38,6 +59,10 @@ export const EnhanceImageModal: React.FC<EnhanceImageModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [showOriginal, setShowOriginal] = useState(false);
   const [aiEnabled, setAiEnabled] = useState<boolean | null>(null);
+  const [enhancementMeta, setEnhancementMeta] = useState<EnhanceImageResult['metadata'] | null>(
+    null,
+  );
+  const [inputHash, setInputHash] = useState<string | null>(null);
 
   const originalUrlRef = useRef<string | null>(null);
   const enhancedUrlRef = useRef<string | null>(null);
@@ -86,6 +111,8 @@ export const EnhanceImageModal: React.FC<EnhanceImageModalProps> = ({
       setEnhancedBlob(null);
       setError(null);
       setShowOriginal(false);
+      setEnhancementMeta(null);
+      setInputHash(null);
     }
   }, [isOpen]);
 
@@ -115,11 +142,14 @@ export const EnhanceImageModal: React.FC<EnhanceImageModalProps> = ({
       });
 
       const base64 = await base64Promise;
+      const computedHash = await hashBase64(base64);
+      setInputHash(computedHash);
       const result = await enhanceImage(base64, strength);
 
       if (!result || !result.enhancedImageBase64) {
         throw new Error('Enhancement returned no image');
       }
+      setEnhancementMeta(result.metadata);
 
       // Convert base64 back to blob
       const byteCharacters = atob(result.enhancedImageBase64);
@@ -149,8 +179,11 @@ export const EnhanceImageModal: React.FC<EnhanceImageModalProps> = ({
     if (!enhancedBlob) return;
 
     try {
-      await saveEnhancedAsset(collectionId, itemId, enhancedBlob);
-      onEnhancementComplete?.();
+      const { enhancedPath } = await saveEnhancedAsset(collectionId, itemId, enhancedBlob, {
+        metadata: enhancementMeta || undefined,
+        inputHash: inputHash || undefined,
+      });
+      onEnhancementComplete?.({ enhancedPath });
       onClose();
     } catch (err) {
       console.error('Failed to save enhanced image:', err);
@@ -167,6 +200,8 @@ export const EnhanceImageModal: React.FC<EnhanceImageModalProps> = ({
     setEnhancedBlob(null);
     setError(null);
     setStep('select');
+    setEnhancementMeta(null);
+    setInputHash(null);
   };
 
   if (!isOpen) return null;

@@ -11,6 +11,9 @@ const ENHANCED_STORE = 'enhanced';
 const SETTINGS_STORE = 'settings';
 const SUPABASE_SYNC_TIMESTAMPS = import.meta.env.VITE_SUPABASE_SYNC_TIMESTAMPS === 'true';
 
+type ItemImageRole = 'original' | 'display' | 'enhanced' | 'thumbnail' | 'poster';
+type ItemImageStatus = 'none' | 'processing' | 'ready' | 'failed';
+
 // Keys for pending sync tracking
 const PENDING_SYNC_KEY = 'pending_sync_ids';
 
@@ -166,6 +169,11 @@ export const extractCurioAssetPath = (value: string): string | null => {
   } catch {
     return match[1];
   }
+};
+
+const normalizeStoragePath = (value?: string | null): string | null => {
+  if (!value) return null;
+  return extractCurioAssetPath(value) || value;
 };
 
 export const requestPersistence = async () => {
@@ -459,6 +467,7 @@ const mapCloudCollections = (cols: any[], items: any[]): UserCollection[] => {
           id: i.id,
           collectionId: i.collection_id,
           photoUrl: photoPath,
+          photoEnhancedPath: i.photo_enhanced_path || undefined,
           title: i.title,
           rating: i.rating,
           data: i.data,
@@ -591,6 +600,7 @@ const saveCollectionToCloud = async (collection: UserCollection): Promise<void> 
       const photoOriginalPath =
         item.photoUrl === 'asset' ? `${basePath}/original.jpg` : originalPath;
       const photoDisplayPath = item.photoUrl === 'asset' ? `${basePath}/display.jpg` : displayPath;
+      const photoEnhancedPath = normalizeStoragePath(item.photoEnhancedPath) || null;
       const payload: Record<string, any> = {
         id: item.id,
         user_id: user.id,
@@ -601,6 +611,7 @@ const saveCollectionToCloud = async (collection: UserCollection): Promise<void> 
         data: item.data,
         photo_original_path: photoOriginalPath,
         photo_display_path: photoDisplayPath,
+        photo_enhanced_path: photoEnhancedPath,
         seed_key: item.seedKey,
       };
       if (SUPABASE_SYNC_TIMESTAMPS) {
@@ -651,6 +662,62 @@ export const saveCollection = async (collection: UserCollection): Promise<void> 
   }
 };
 
+const recordItemImage = async ({
+  itemId,
+  role,
+  storagePath,
+  variant,
+  status = 'ready',
+  recipe = {},
+  isCurrent = false,
+  sourceImageId,
+}: {
+  itemId: string;
+  role: ItemImageRole;
+  storagePath: string;
+  variant?: string | null;
+  status?: ItemImageStatus;
+  recipe?: Record<string, any>;
+  isCurrent?: boolean;
+  sourceImageId?: string | null;
+}): Promise<void> => {
+  if (!isSupabaseConfigured() || !supabase) return;
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const normalizedPath = normalizeStoragePath(storagePath);
+  if (!normalizedPath) return;
+
+  if (isCurrent) {
+    await supabase
+      .from('item_images')
+      .update({ is_current: false })
+      .eq('item_id', itemId)
+      .eq('role', role)
+      .eq('is_current', true);
+  }
+
+  const payload = {
+    id: normalizedPath,
+    item_id: itemId,
+    user_id: user.id,
+    role,
+    variant: variant || null,
+    storage_path: normalizedPath,
+    status,
+    recipe,
+    source_image_id: sourceImageId || null,
+    is_current: isCurrent,
+  };
+
+  const { error } = await supabase.from('item_images').upsert(payload);
+  if (error) {
+    console.warn('Cloud item image sync failed:', error);
+  }
+};
+
 export const saveAsset = async (
   collectionId: string,
   id: string,
@@ -681,7 +748,7 @@ export const saveAsset = async (
       const displayPath = `${basePath}/display.jpg`;
 
       // Upload in parallel
-      await Promise.all([
+      const [originalUpload, displayUpload] = await Promise.all([
         supabase.storage.from('curio-assets').upload(originalPath, original, {
           upsert: true,
           contentType: original.type || 'image/jpeg',
@@ -691,6 +758,23 @@ export const saveAsset = async (
           contentType: display.type || 'image/jpeg',
         }),
       ]);
+      if (originalUpload?.error || displayUpload?.error) {
+        console.warn('Cloud asset sync failed:', originalUpload?.error || displayUpload?.error);
+        return;
+      }
+
+      await recordItemImage({
+        itemId: id,
+        role: 'original',
+        storagePath: originalPath,
+        isCurrent: true,
+      });
+      await recordItemImage({
+        itemId: id,
+        role: 'display',
+        storagePath: displayPath,
+        isCurrent: true,
+      });
     } catch (e) {
       console.warn('Cloud asset sync failed:', e);
     }
@@ -755,10 +839,19 @@ export const saveEnhancedAsset = async (
   collectionId: string,
   id: string,
   enhanced: Blob,
-): Promise<void> => {
+  options?: {
+    metadata?: {
+      model?: string;
+      strength?: string;
+      promptVersion?: number;
+      timestamp?: string;
+    };
+    inputHash?: string;
+  },
+): Promise<{ enhancedPath: string | null }> => {
   const db = await initDB();
 
-  // Save to Local
+  // Save to Local (current enhancement only)
   await new Promise<void>((resolve, reject) => {
     const transaction = db.transaction(ENHANCED_STORE, 'readwrite');
     transaction.objectStore(ENHANCED_STORE).put(enhanced, id);
@@ -766,31 +859,69 @@ export const saveEnhancedAsset = async (
     transaction.onerror = () => reject(transaction.error);
   });
 
+  let enhancedPath: string | null = null;
+
   // Save to Cloud if available
   if (isSupabaseConfigured() && supabase) {
     try {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) return { enhancedPath: null };
 
+      const imageId =
+        typeof crypto !== 'undefined' && 'randomUUID' in crypto
+          ? crypto.randomUUID()
+          : Math.random().toString(36).slice(2);
       const basePath = `${user.id}/collections/${collectionId}/${id}`;
-      const enhancedPath = `${basePath}/enhanced.jpg`;
+      enhancedPath = `${basePath}/enhanced/${imageId}.jpg`;
 
-      await supabase.storage.from('curio-assets').upload(enhancedPath, enhanced, {
+      const { error } = await supabase.storage.from('curio-assets').upload(enhancedPath, enhanced, {
         upsert: true,
         contentType: enhanced.type || 'image/jpeg',
       });
+      if (error) {
+        console.warn('Cloud enhanced asset sync failed:', error);
+        return { enhancedPath: null };
+      }
+
+      const recipe = {
+        model: options?.metadata?.model,
+        strength: options?.metadata?.strength,
+        promptVersion: options?.metadata?.promptVersion,
+        timestamp: options?.metadata?.timestamp,
+        inputHash: options?.inputHash,
+      };
+
+      await recordItemImage({
+        itemId: id,
+        role: 'enhanced',
+        storagePath: enhancedPath,
+        variant: options?.metadata?.strength || null,
+        status: 'ready',
+        recipe,
+        isCurrent: true,
+      });
     } catch (e) {
       console.warn('Cloud enhanced asset sync failed:', e);
+      return { enhancedPath: null };
     }
   }
+
+  return { enhancedPath };
 };
 
-export const getEnhancedAsset = async (id: string, collectionId?: string): Promise<Blob | null> => {
+export const getEnhancedAsset = async (
+  id: string,
+  options: {
+    enhancedPath?: string | null;
+    collectionId?: string;
+    allowLegacy?: boolean;
+  } = {},
+): Promise<Blob | null> => {
   const db = await initDB();
 
-  // Try Local First
+  // Try Local First (current enhancement only)
   const localBlob = await new Promise<Blob | null>((resolve) => {
     const transaction = db.transaction(ENHANCED_STORE, 'readonly');
     const store = transaction.objectStore(ENHANCED_STORE);
@@ -801,19 +932,28 @@ export const getEnhancedAsset = async (id: string, collectionId?: string): Promi
 
   if (localBlob) return localBlob;
 
+  const normalizedEnhancedPath = normalizeStoragePath(options.enhancedPath);
+
   // Try Cloud if not local
-  // Note: We only attempt cloud fetch if collectionId is provided,
+  // Note: We only attempt cloud fetch if a path or collectionId is provided,
   // and we silently return null if the file doesn't exist (404/400)
   // since many items won't have enhanced versions.
-  if (isSupabaseConfigured() && supabase && collectionId) {
+  const shouldCheckCloud =
+    Boolean(normalizedEnhancedPath) || Boolean(options.allowLegacy && options.collectionId);
+
+  if (isSupabaseConfigured() && supabase && shouldCheckCloud) {
     try {
       const {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) return null;
 
-      const basePath = `${user.id}/collections/${collectionId}/${id}`;
-      const enhancedPath = `${basePath}/enhanced.jpg`;
+      const fallbackPath =
+        options.allowLegacy && options.collectionId
+          ? `${user.id}/collections/${options.collectionId}/${id}/enhanced.jpg`
+          : null;
+      const enhancedPath = normalizedEnhancedPath || fallbackPath;
+      if (!enhancedPath) return null;
 
       const { data, error } = await supabase.storage.from('curio-assets').download(enhancedPath);
 
@@ -836,7 +976,11 @@ export const getEnhancedAsset = async (id: string, collectionId?: string): Promi
   return null;
 };
 
-export const deleteEnhancedAsset = async (collectionId: string, id: string): Promise<void> => {
+export const deleteEnhancedAsset = async (
+  collectionId: string,
+  id: string,
+  enhancedPath?: string | null,
+): Promise<void> => {
   const db = await initDB();
 
   // Delete Local
@@ -854,10 +998,39 @@ export const deleteEnhancedAsset = async (collectionId: string, id: string): Pro
       } = await supabase.auth.getUser();
       if (user) {
         const basePath = `${user.id}/collections/${collectionId}/${id}`;
-        await supabase.storage.from('curio-assets').remove([`${basePath}/enhanced.jpg`]);
+        const pathsToDelete = [normalizeStoragePath(enhancedPath), `${basePath}/enhanced.jpg`].filter(
+          Boolean,
+        ) as string[];
+        if (pathsToDelete.length > 0) {
+          await supabase.storage.from('curio-assets').remove(pathsToDelete);
+        }
       }
     } catch (e) {
       console.warn('Cloud enhanced asset deletion failed:', e);
+    }
+  }
+};
+
+export const clearEnhancedReference = async (itemId: string): Promise<void> => {
+  const db = await initDB();
+
+  await new Promise<void>((resolve) => {
+    const transaction = db.transaction(ENHANCED_STORE, 'readwrite');
+    transaction.objectStore(ENHANCED_STORE).delete(itemId);
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => resolve();
+  });
+
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      await supabase
+        .from('item_images')
+        .update({ is_current: false })
+        .eq('item_id', itemId)
+        .eq('role', 'enhanced')
+        .eq('is_current', true);
+    } catch (e) {
+      console.warn('Cloud enhanced image status clear failed:', e);
     }
   }
 };
@@ -891,6 +1064,26 @@ export const importLocalCollectionsToCloud = async (): Promise<{
         await saveAsset(collection.id, item.id, original, display);
         assetUploads += 1;
       }
+
+      const enhancedPath = normalizeStoragePath(item.photoEnhancedPath);
+      if (enhancedPath) {
+        const enhanced = await getEnhancedAsset(item.id, { enhancedPath });
+        if (enhanced) {
+          await supabase.storage.from('curio-assets').upload(enhancedPath, enhanced, {
+            upsert: true,
+            contentType: enhanced.type || 'image/jpeg',
+          });
+          await recordItemImage({
+            itemId: item.id,
+            role: 'enhanced',
+            storagePath: enhancedPath,
+            status: 'ready',
+            recipe: {},
+            isCurrent: true,
+          });
+          assetUploads += 1;
+        }
+      }
     }
   }
 
@@ -917,14 +1110,32 @@ export const deleteAsset = async (collectionId: string, id: string): Promise<voi
       } = await supabase.auth.getUser();
       if (user) {
         const basePath = `${user.id}/collections/${collectionId}/${id}`;
-        await supabase.storage.from('curio-assets').remove([
+        let enhancedPaths: string[] = [];
+        const { data: enhancedRows, error: enhancedError } = await supabase
+          .from('item_images')
+          .select('storage_path')
+          .eq('item_id', id)
+          .eq('role', 'enhanced');
+        if (enhancedError) {
+          console.warn('Cloud enhanced asset lookup failed:', enhancedError);
+        } else {
+          enhancedPaths = (enhancedRows || [])
+            .map((row: { storage_path?: string }) => row.storage_path)
+            .filter(Boolean) as string[];
+        }
+
+        const filesToDelete = [
           `${basePath}/original.jpg`,
           `${basePath}/display.jpg`,
           `${basePath}/enhanced.jpg`,
+          ...enhancedPaths,
           // Legacy paths (safe cleanup; ignore if missing)
           `${user.id}/${id}_master.jpg`,
           `${user.id}/${id}_thumb.jpg`,
-        ]);
+        ];
+
+        const uniquePaths = Array.from(new Set(filesToDelete.filter(Boolean)));
+        await supabase.storage.from('curio-assets').remove(uniquePaths);
       }
     } catch (e) {
       console.warn('Cloud asset deletion failed:', e);
@@ -962,13 +1173,15 @@ export const deleteCollection = async (collection: UserCollection): Promise<void
   const itemIds = collection.items.map((item) => item.id);
   if (itemIds.length > 0) {
     await new Promise<void>((resolve) => {
-      const transaction = db.transaction([ASSETS_STORE, DISPLAY_STORE], 'readwrite');
+      const transaction = db.transaction([ASSETS_STORE, DISPLAY_STORE, ENHANCED_STORE], 'readwrite');
       const assetsStore = transaction.objectStore(ASSETS_STORE);
       const displayStore = transaction.objectStore(DISPLAY_STORE);
+      const enhancedStore = transaction.objectStore(ENHANCED_STORE);
 
       itemIds.forEach((id) => {
         assetsStore.delete(id);
         displayStore.delete(id);
+        enhancedStore.delete(id);
       });
 
       transaction.oncomplete = () => resolve();
@@ -1005,12 +1218,30 @@ export const deleteCollection = async (collection: UserCollection): Promise<void
 
       // Delete assets from storage
       if (itemIds.length > 0) {
+        let enhancedPaths: string[] = [];
+        const { data: enhancedRows, error: enhancedError } = await supabase
+          .from('item_images')
+          .select('storage_path')
+          .in('item_id', itemIds)
+          .eq('role', 'enhanced');
+        if (enhancedError) {
+          console.warn('Cloud enhanced asset lookup failed:', enhancedError);
+        } else {
+          enhancedPaths = (enhancedRows || [])
+            .map((row: { storage_path?: string }) => row.storage_path)
+            .filter(Boolean) as string[];
+        }
+
         const filesToDelete = itemIds.flatMap((itemId) => [
           `${user.id}/collections/${collection.id}/${itemId}/original.jpg`,
           `${user.id}/collections/${collection.id}/${itemId}/display.jpg`,
+          `${user.id}/collections/${collection.id}/${itemId}/enhanced.jpg`,
         ]);
 
-        await supabase.storage.from('curio-assets').remove(filesToDelete);
+        const uniquePaths = Array.from(
+          new Set([...filesToDelete, ...enhancedPaths].filter(Boolean)),
+        );
+        await supabase.storage.from('curio-assets').remove(uniquePaths);
       }
     } catch (e) {
       console.warn('Cloud collection deletion failed:', e);

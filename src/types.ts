@@ -25,6 +25,7 @@ export interface CollectionItem {
   id: string;
   collectionId: string;
   photoUrl: string;
+  photoEnhancedPath?: string;
   title: string; // Core field
   rating: number; // Core field (0-5)
   data: Record<string, any>; // Dynamic data keyed by FieldDefinition.id

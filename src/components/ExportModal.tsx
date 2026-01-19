@@ -64,7 +64,10 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
       setIsLoadingImage(true);
       try {
         // Try enhanced first, then fall back to original
-        let blob = await getEnhancedAsset(item.id, item.collectionId);
+        let blob = await getEnhancedAsset(item.id, {
+          enhancedPath: item.photoEnhancedPath,
+          collectionId: item.collectionId,
+        });
         if (!blob || blob.size === 0) {
           blob = await getAsset(
             item.id,
@@ -87,7 +90,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
     return () => {
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [isOpen, item.id, item.collectionId, remoteAssetPath]);
+  }, [isOpen, item.id, item.collectionId, item.photoEnhancedPath, remoteAssetPath]);
 
   useEffect(() => {
     if (!isOpen) return;

@@ -71,10 +71,16 @@ function createSupabaseMock() {
   const collectionsUpsert = vi.fn().mockResolvedValue({ error: null });
   const itemsUpsert = vi.fn().mockResolvedValue({ error: null });
   const upload = vi.fn().mockResolvedValue({ data: { path: 'ok' }, error: null });
+  const update = vi.fn(() => {
+    const chain: any = {};
+    chain.eq = vi.fn().mockReturnValue(chain);
+    return chain;
+  });
 
   const from = vi.fn((table: string) => {
     return {
       upsert: table === 'collections' ? collectionsUpsert : itemsUpsert,
+      update,
       // present for completeness; not used directly by these tests
       select: vi.fn().mockReturnThis(),
       or: vi.fn().mockReturnThis(),
@@ -529,6 +535,9 @@ describe('deleteCollection', () => {
     expect(removedPaths).toContain(
       'test-user-id/collections/col-storage-delete/item-cloud-delete/display.jpg',
     );
+    expect(removedPaths).toContain(
+      'test-user-id/collections/col-storage-delete/item-cloud-delete/enhanced.jpg',
+    );
   });
 
   it('deleteCollection: handles collection with multiple items', async () => {
@@ -612,8 +621,8 @@ describe('deleteCollection', () => {
       expect(savedDisplay).toBeNull();
     }
 
-    // Verify storage.remove was called with all 6 paths (2 per item)
+    // Verify storage.remove was called with all 9 paths (3 per item)
     const [removedPaths] = storageRemove.mock.calls[0];
-    expect(removedPaths).toHaveLength(6);
+    expect(removedPaths).toHaveLength(9);
   });
 });
