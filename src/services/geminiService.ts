@@ -29,7 +29,10 @@ const postJson = async <T>(
     });
     if (!response.ok) {
       const errorPayload = await response.json().catch(() => ({}));
-      const message = errorPayload?.error || `AI request failed (${response.status})`;
+      const details = errorPayload?.details ? `: ${errorPayload.details}` : '';
+      const message = errorPayload?.error
+        ? `${errorPayload.error}${details}`
+        : `AI request failed (${response.status})`;
       throw new Error(message);
     }
     return response.json() as Promise<T>;

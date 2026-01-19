@@ -58,7 +58,7 @@ export default async function handler(req, res) {
     // gemini-2.5-flash-image is GA and recommended for production
     // Reference: https://ai.google.dev/gemini-api/docs/image-generation
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-preview-image-generation',
+      model: 'gemini-2.5-flash-image',
       contents: [
         { text: prompt },
         {
@@ -99,7 +99,7 @@ export default async function handler(req, res) {
     return res.status(200).json({
       enhancedImageBase64,
       metadata: {
-        model: 'gemini-2.5-flash-preview-image-generation',
+        model: 'gemini-2.5-flash-image',
         strength,
         promptVersion: 1,
         timestamp: new Date().toISOString(),
@@ -107,7 +107,34 @@ export default async function handler(req, res) {
     });
   } catch (error) {
     console.error('Image Enhancement Failed:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return res.status(500).json({ error: 'Image enhancement failed', details: errorMessage });
+
+    // Extract detailed error info
+    let errorMessage = 'Unknown error';
+    let statusCode = 500;
+
+    if (error instanceof Error) {
+      errorMessage = error.message;
+
+      // Check for specific Gemini API errors
+      if (error.message.includes('API key')) {
+        errorMessage = 'Invalid or missing API key';
+        statusCode = 503;
+      } else if (error.message.includes('quota') || error.message.includes('rate')) {
+        errorMessage = 'API rate limit exceeded. Please try again later.';
+        statusCode = 429;
+      } else if (error.message.includes('safety') || error.message.includes('blocked')) {
+        errorMessage = 'Image was blocked by safety filters. Try a different photo.';
+        statusCode = 400;
+      } else if (error.message.includes('not found') || error.message.includes('404')) {
+        errorMessage =
+          'Model not available. The image generation model may not be enabled for this API key.';
+        statusCode = 503;
+      }
+    }
+
+    return res.status(statusCode).json({
+      error: 'Image enhancement failed',
+      details: errorMessage,
+    });
   }
 }

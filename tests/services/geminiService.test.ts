@@ -245,3 +245,148 @@ describe('services/geminiService.ts - AI availability', () => {
     expect(mod.isVoiceGuideEnabled()).toBe(false);
   });
 });
+
+describe('services/geminiService.ts - enhanceImage', () => {
+  beforeEach(() => {
+    vi.unstubAllEnvs();
+    vi.stubEnv('VITE_API_BASE_URL', 'http://localhost:8787');
+    vi.stubEnv('VITE_AI_ENABLED', 'true');
+    vi.stubEnv('VITE_AI_IMAGE_EDIT_ENABLED', 'true');
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+    vi.clearAllMocks();
+  });
+
+  it('happy path: posts image to /gemini/enhance and returns enhanced image', async () => {
+    const fetchSpy = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url =
+        typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      if (url.endsWith('/gemini/enhance')) {
+        expect(init?.method).toBe('POST');
+        const body = JSON.parse(String(init?.body ?? 'null'));
+        expect(body).toMatchObject({ imageBase64: 'BASE64_IMAGE', strength: 'subtle' });
+        return createOkJsonResponse({
+          enhancedImageBase64: 'ENHANCED_BASE64',
+          metadata: {
+            model: 'gemini-2.5-flash-image',
+            strength: 'subtle',
+            promptVersion: 1,
+            timestamp: '2026-01-19T00:00:00.000Z',
+          },
+        });
+      }
+      // Health check
+      return createOkJsonResponse({ geminiConfigured: true });
+    });
+    vi.stubGlobal('fetch', fetchSpy);
+
+    const mod = await importGeminiServiceFresh();
+    const result = await mod.enhanceImage('BASE64_IMAGE', 'subtle');
+
+    expect(result).toEqual({
+      enhancedImageBase64: 'ENHANCED_BASE64',
+      metadata: {
+        model: 'gemini-2.5-flash-image',
+        strength: 'subtle',
+        promptVersion: 1,
+        timestamp: '2026-01-19T00:00:00.000Z',
+      },
+    });
+  });
+
+  it('supports beautified strength option', async () => {
+    const fetchSpy = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url =
+        typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      if (url.endsWith('/gemini/enhance')) {
+        const body = JSON.parse(String(init?.body ?? 'null'));
+        expect(body.strength).toBe('beautified');
+        return createOkJsonResponse({
+          enhancedImageBase64: 'BEAUTIFIED_BASE64',
+          metadata: {
+            model: 'gemini-2.5-flash-image',
+            strength: 'beautified',
+            promptVersion: 1,
+            timestamp: '2026-01-19T00:00:00.000Z',
+          },
+        });
+      }
+      return createOkJsonResponse({ geminiConfigured: true });
+    });
+    vi.stubGlobal('fetch', fetchSpy);
+
+    const mod = await importGeminiServiceFresh();
+    const result = await mod.enhanceImage('BASE64_IMAGE', 'beautified');
+
+    expect(result?.metadata.strength).toBe('beautified');
+  });
+
+  it('throws error with detailed message on API failure', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(async (url: string) => {
+        if (url.includes('/health')) {
+          return createOkJsonResponse({ geminiConfigured: true });
+        }
+        return new Response(
+          JSON.stringify({
+            error: 'Image enhancement failed',
+            details: 'Model not available. The image generation model may not be enabled.',
+          }),
+          { status: 503 },
+        );
+      }),
+    );
+
+    const mod = await importGeminiServiceFresh();
+
+    await expect(mod.enhanceImage('BASE64_IMAGE')).rejects.toThrow(
+      'Image enhancement failed: Model not available',
+    );
+  });
+
+  it('throws error on network failure (unlike analyzeImage which returns null)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(async (url: string) => {
+        if (url.includes('/health')) {
+          return createOkJsonResponse({ geminiConfigured: true });
+        }
+        throw new Error('Network down');
+      }),
+    );
+
+    const mod = await importGeminiServiceFresh();
+
+    // enhanceImage throws errors (unlike analyzeImage which returns null)
+    // This is intentional so the UI can show specific error messages
+    await expect(mod.enhanceImage('BASE64_IMAGE')).rejects.toThrow('Network down');
+  });
+
+  it('returns null when AI image editing is explicitly disabled', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    // Import with AI_IMAGE_EDIT explicitly disabled
+    vi.resetModules();
+    vi.stubEnv('VITE_API_BASE_URL', 'http://localhost:8787');
+    vi.stubEnv('VITE_AI_ENABLED', 'true');
+    vi.stubEnv('VITE_AI_IMAGE_EDIT_ENABLED', 'false');
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(createOkJsonResponse({ geminiConfigured: true })),
+    );
+
+    const mod = await import('@/services/geminiService');
+
+    const result = await mod.enhanceImage('BASE64_IMAGE');
+    expect(result).toBeNull();
+    expect(warnSpy).toHaveBeenCalledWith('AI image editing is disabled');
+
+    warnSpy.mockRestore();
+  });
+});
