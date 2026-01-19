@@ -61,6 +61,7 @@ import {
   initDB,
   setSyncStatusCallback,
   syncPendingChanges,
+  extractCurioAssetPath,
   type SyncStatus,
 } from './services/db';
 import { processImage } from './services/imageProcessor';
@@ -1341,7 +1342,7 @@ const AppContent: React.FC = () => {
     };
 
     const hasPhoto = item.photoUrl && item.photoUrl !== '';
-    const isAssetPhoto = item.photoUrl === 'asset';
+    const isAssetPhoto = item.photoUrl === 'asset' || !!extractCurioAssetPath(item.photoUrl || '');
 
     const detailBaseClasses = {
       gallery: 'bg-white text-stone-900 border-stone-100 shadow-2xl',
