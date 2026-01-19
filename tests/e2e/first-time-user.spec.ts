@@ -26,6 +26,12 @@ test.describe('First-Time User Experience', () => {
     await page.context().clearCookies();
   });
 
+  const sampleVinylCard = (page: Page) =>
+    page
+      .getByTestId('collection-card')
+      .filter({ has: page.getByRole('heading', { name: 'The Vinyl Vault' }) })
+      .first();
+
   test('should show a single primary + single secondary CTA on first launch', async ({ page }) => {
     await page.goto('/');
     const accessGate = page.getByTestId('access-gate');
@@ -50,29 +56,35 @@ test.describe('First-Time User Experience', () => {
   test('should allow exploring sample collections without authentication', async ({ page }) => {
     await ensureSampleBrowse(page);
     await expect(page.getByTestId('collection-card').first()).toBeVisible();
-    await expect(page.getByText('The Vinyl Vault')).toBeVisible();
+    // Use role=heading to avoid matching the tooltip text (strict mode).
+    await expect(page.getByRole('heading', { name: 'The Vinyl Vault' })).toBeVisible();
   });
 
   test('should navigate to the sample collection and clearly label it read-only', async ({
     page,
   }) => {
     await ensureSampleBrowse(page);
-    await page.getByText('The Vinyl Vault').click();
+    await sampleVinylCard(page).click();
     await expect(page).toHaveURL(/#\/collection\//);
 
     await expect(page.getByTestId('read-only-banner')).toBeVisible();
-    await expect(page.getByText(/sample/i)).toBeVisible();
+    // Assert the specific banner description (avoid broad /sample/i matches in strict mode).
+    await expect(
+      page.getByTestId('read-only-banner').getByText(/Public sample collections can be viewed/i),
+    ).toBeVisible();
     await expect(page.getByRole('button', { name: /add item/i })).toHaveCount(0);
   });
 
   test('should allow viewing item details in the sample collection', async ({ page }) => {
     await ensureSampleBrowse(page);
-    await page.getByText('The Vinyl Vault').click();
+    await sampleVinylCard(page).click();
     await expect(page.getByTestId('items-grid')).toBeVisible();
 
     await page.getByTestId('item-card').first().click();
     await expect(page).toHaveURL(/#\/collection\/.*\/item\//);
-    await expect(page.getByRole('heading', { name: /kind of blue/i })).toBeVisible();
+    // Item detail title is rendered as a (disabled) textbox in read-only mode.
+    const titleInput = page.getByRole('main').locator('input:disabled').first();
+    await expect(titleInput).toHaveValue('Kind of Blue');
   });
 
   test('should prompt for auth when starting “Add your first item”', async ({ page }) => {
@@ -94,7 +106,8 @@ test.describe('First-Time User Experience', () => {
 
     // Open account menu → switch theme.
     await page.getByRole('button', { name: 'Account' }).click();
-    await page.getByRole('button', { name: /vault/i }).click();
+    // Avoid matching the "The Vinyl Vault" collection card button.
+    await page.getByRole('button', { name: 'The Vault (Moody)' }).click();
     await expect(page.locator('[data-theme="vault"]')).toBeVisible();
 
     // Toggle language button in header.
