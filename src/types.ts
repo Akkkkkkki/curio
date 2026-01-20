@@ -25,6 +25,7 @@ export interface CollectionItem {
   id: string;
   collectionId: string;
   photoUrl: string;
+  photoEnhancedPath?: string;
   title: string; // Core field
   rating: number; // Core field (0-5)
   data: Record<string, any>; // Dynamic data keyed by FieldDefinition.id
@@ -56,4 +57,16 @@ export interface AIAnalysisResult {
   title?: string;
   data: Record<string, any>;
   notes?: string;
+}
+
+export type EnhancementStatus = 'none' | 'processing' | 'ready' | 'failed';
+export type EnhancementStrength = 'subtle' | 'beautified';
+
+export interface EnhancementMetadata {
+  status: EnhancementStatus;
+  strength: EnhancementStrength;
+  model?: string;
+  promptVersion?: number;
+  timestamp?: string;
+  errorMessage?: string;
 }

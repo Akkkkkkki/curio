@@ -84,9 +84,30 @@ create table if not exists public.items (
   data jsonb not null default '{}'::jsonb,
   photo_original_path text,
   photo_display_path text,
+  photo_enhanced_path text,
   seed_key text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
+);
+
+create table if not exists public.item_images (
+  id text primary key,
+  item_id text references public.items(id) on delete cascade not null,
+  user_id uuid references auth.users(id) on delete cascade not null,
+  role text not null,
+  variant text,
+  storage_path text not null,
+  status text not null default 'ready',
+  recipe jsonb not null default '{}'::jsonb,
+  source_image_id text references public.item_images(id) on delete set null,
+  is_current boolean not null default false,
+  created_at timestamptz not null default now(),
+  constraint item_images_role_check check (
+    role in ('original', 'display', 'enhanced', 'thumbnail', 'poster')
+  ),
+  constraint item_images_status_check check (
+    status in ('none', 'processing', 'ready', 'failed')
+  )
 );
 
 create table if not exists public.profiles (
@@ -109,10 +130,17 @@ alter table public.items add column if not exists updated_at timestamptz default
 alter table public.items alter column data set default '{}'::jsonb;
 alter table public.items add column if not exists photo_original_path text;
 alter table public.items add column if not exists photo_display_path text;
+alter table public.items add column if not exists photo_enhanced_path text;
 
 create index if not exists collections_user_id_idx on public.collections(user_id, created_at desc);
 create index if not exists items_collection_id_idx on public.items(collection_id, created_at desc);
 create index if not exists items_user_id_idx on public.items(user_id, created_at desc);
+create index if not exists item_images_item_id_idx on public.item_images(item_id, created_at desc);
+create index if not exists item_images_user_id_idx on public.item_images(user_id, created_at desc);
+create unique index if not exists item_images_storage_path_key on public.item_images(storage_path);
+create unique index if not exists item_images_current_role_key
+  on public.item_images(item_id, role)
+  where is_current;
 
 -- =============================================================================
 -- TRIGGERS
@@ -135,6 +163,28 @@ drop trigger if exists items_updated_at on public.items;
 create trigger items_updated_at
 before update on public.items
 for each row execute function public.set_updated_at();
+
+create or replace function public.set_item_image_user_id_from_item()
+returns trigger as $$
+declare owner uuid;
+begin
+  select i.user_id into owner
+  from public.items i
+  where i.id = new.item_id;
+
+  if owner is null then
+    raise exception 'Invalid item_id';
+  end if;
+
+  new.user_id := owner;
+  return new;
+end;
+$$ language plpgsql;
+
+drop trigger if exists item_images_set_user_id on public.item_images;
+create trigger item_images_set_user_id
+before insert or update of item_id on public.item_images
+for each row execute function public.set_item_image_user_id_from_item();
 
 create or replace function public.set_item_user_id_from_collection()
 returns trigger as $$
@@ -164,6 +214,7 @@ for each row execute function public.set_item_user_id_from_collection();
 
 alter table public.collections enable row level security;
 alter table public.items enable row level security;
+alter table public.item_images enable row level security;
 
 drop policy if exists "collections: select own" on public.collections;
 create policy "collections: select own"
@@ -222,6 +273,103 @@ using (
       select 1 from public.profiles p
       where p.id = auth.uid()
         and p.is_admin = true
+    )
+  )
+);
+
+drop policy if exists "item_images: select own" on public.item_images;
+create policy "item_images: select own"
+on public.item_images for select
+using (
+  auth.uid() = user_id
+  or exists (
+    select 1
+    from public.items i
+    join public.collections c on c.id = i.collection_id
+    where i.id = item_id and c.is_public = true
+  )
+);
+
+drop policy if exists "item_images: insert own" on public.item_images;
+create policy "item_images: insert own"
+on public.item_images for insert
+with check (
+  auth.uid() = user_id
+  and (
+    exists (
+      select 1
+      from public.items i
+      join public.collections c on c.id = i.collection_id
+      where i.id = item_id and c.is_public = false
+    )
+    or exists (
+      select 1
+      from public.items i
+      join public.collections c on c.id = i.collection_id
+      join public.profiles p on p.id = auth.uid()
+      where i.id = item_id and c.is_public = true and p.is_admin = true
+    )
+  )
+);
+
+drop policy if exists "item_images: update own" on public.item_images;
+create policy "item_images: update own"
+on public.item_images for update
+using (
+  auth.uid() = user_id
+  and (
+    exists (
+      select 1
+      from public.items i
+      join public.collections c on c.id = i.collection_id
+      where i.id = item_id and c.is_public = false
+    )
+    or exists (
+      select 1
+      from public.items i
+      join public.collections c on c.id = i.collection_id
+      join public.profiles p on p.id = auth.uid()
+      where i.id = item_id and c.is_public = true and p.is_admin = true
+    )
+  )
+)
+with check (
+  auth.uid() = user_id
+  and (
+    exists (
+      select 1
+      from public.items i
+      join public.collections c on c.id = i.collection_id
+      where i.id = item_id and c.is_public = false
+    )
+    or exists (
+      select 1
+      from public.items i
+      join public.collections c on c.id = i.collection_id
+      join public.profiles p on p.id = auth.uid()
+      where i.id = item_id and c.is_public = true and p.is_admin = true
+    )
+  )
+);
+
+drop policy if exists "item_images: delete own" on public.item_images;
+create policy "item_images: delete own"
+on public.item_images for delete
+using (
+  auth.uid() = user_id
+  and (
+    exists (
+      select 1
+      from public.items i
+      join public.collections c on c.id = i.collection_id
+      where i.id = item_id and c.is_public = false
+    )
+    or exists (
+      select 1
+      from public.items i
+      join public.collections c on c.id = i.collection_id
+      join public.profiles p on p.id = auth.uid()
+      where i.id = item_id and c.is_public = true and p.is_admin = true
     )
   )
 );
@@ -305,3 +453,53 @@ using (
       )
   )
 );
+
+-- =============================================================================
+-- Backfill item_images for current original/display paths
+-- =============================================================================
+
+insert into public.item_images (
+  id,
+  item_id,
+  user_id,
+  role,
+  storage_path,
+  status,
+  recipe,
+  is_current
+)
+select
+  i.photo_original_path,
+  i.id,
+  i.user_id,
+  'original',
+  i.photo_original_path,
+  'ready',
+  '{}'::jsonb,
+  true
+from public.items i
+where i.photo_original_path is not null and i.photo_original_path <> ''
+on conflict (id) do nothing;
+
+insert into public.item_images (
+  id,
+  item_id,
+  user_id,
+  role,
+  storage_path,
+  status,
+  recipe,
+  is_current
+)
+select
+  i.photo_display_path,
+  i.id,
+  i.user_id,
+  'display',
+  i.photo_display_path,
+  'ready',
+  '{}'::jsonb,
+  true
+from public.items i
+where i.photo_display_path is not null and i.photo_display_path <> ''
+on conflict (id) do nothing;
