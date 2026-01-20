@@ -12,6 +12,7 @@ const ENHANCEMENT_TIMEOUT_MS = 60000; // Longer timeout for image generation
 let aiEnabledCache: boolean | null = AI_ENABLED;
 let aiImageEditEnabledCache: boolean | null = AI_IMAGE_EDIT_ENABLED;
 let aiEnabledPromise: Promise<boolean> | null = null;
+let aiImageEditEnabledPromise: Promise<boolean> | null = null;
 
 const postJson = async <T>(
   path: string,
@@ -72,10 +73,20 @@ export const isVoiceGuideEnabled = () => isAiEnabled() && VOICE_GUIDE_ENABLED;
 // Image editing is enabled if: AI is enabled AND the feature flag is not explicitly false
 export const refreshAiImageEditEnabled = async (): Promise<boolean> => {
   if (aiImageEditEnabledCache !== null) return aiImageEditEnabledCache;
-  // If the env var is not set, default to checking if AI is enabled
-  const aiEnabled = await refreshAiEnabled();
-  aiImageEditEnabledCache = aiEnabled;
-  return aiImageEditEnabledCache;
+  if (AI_IMAGE_EDIT_ENABLED === false) {
+    aiImageEditEnabledCache = false;
+    return false;
+  }
+  if (aiImageEditEnabledPromise) return aiImageEditEnabledPromise;
+  aiImageEditEnabledPromise = fetchAiHealth()
+    .then((enabled) => {
+      aiImageEditEnabledCache = enabled;
+      return enabled;
+    })
+    .finally(() => {
+      aiImageEditEnabledPromise = null;
+    });
+  return aiImageEditEnabledPromise;
 };
 
 export const isAiImageEditEnabled = () => aiImageEditEnabledCache === true;

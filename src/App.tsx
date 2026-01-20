@@ -61,6 +61,7 @@ import {
   initDB,
   setSyncStatusCallback,
   syncPendingChanges,
+  extractCurioAssetPath,
   type SyncStatus,
 } from './services/db';
 import { processImage } from './services/imageProcessor';
@@ -1341,7 +1342,28 @@ const AppContent: React.FC = () => {
     };
 
     const hasPhoto = item.photoUrl && item.photoUrl !== '';
-    const isAssetPhoto = item.photoUrl === 'asset';
+    // Check if photo is an asset: either 'asset' sentinel, Supabase URL, or storage path
+    const isAssetPhoto = (() => {
+      if (!item.photoUrl || item.photoUrl === '') return false;
+      if (item.photoUrl === 'asset') return true;
+      // Check if it's a Supabase URL
+      if (extractCurioAssetPath(item.photoUrl)) return true;
+      // Check if it's a storage path (not a full URL, ends with image extension)
+      if (
+        !item.photoUrl.startsWith('http') &&
+        !item.photoUrl.startsWith('data:') &&
+        !item.photoUrl.startsWith('blob:') &&
+        !item.photoUrl.startsWith('/')
+      ) {
+        return (
+          item.photoUrl.endsWith('.jpg') ||
+          item.photoUrl.endsWith('.jpeg') ||
+          item.photoUrl.endsWith('.png') ||
+          item.photoUrl.endsWith('.webp')
+        );
+      }
+      return false;
+    })();
 
     const detailBaseClasses = {
       gallery: 'bg-white text-stone-900 border-stone-100 shadow-2xl',
@@ -1561,6 +1583,7 @@ const AppContent: React.FC = () => {
           isOpen={isEnhanceOpen}
           onClose={() => setIsEnhanceOpen(false)}
           itemId={item.id}
+          photoUrl={item.photoUrl}
           collectionId={collection.id}
           onEnhancementComplete={({ enhancedPath }) => {
             if (enhancedPath) {

@@ -15,6 +15,7 @@ interface EnhanceImageModalProps {
   isOpen: boolean;
   onClose: () => void;
   itemId: string;
+  photoUrl?: string;
   collectionId: string;
   onEnhancementComplete?: (result: { enhancedPath: string | null }) => void;
 }
@@ -45,6 +46,7 @@ export const EnhanceImageModal: React.FC<EnhanceImageModalProps> = ({
   isOpen,
   onClose,
   itemId,
+  photoUrl,
   collectionId,
   onEnhancementComplete,
 }) => {
@@ -78,7 +80,8 @@ export const EnhanceImageModal: React.FC<EnhanceImageModalProps> = ({
   useEffect(() => {
     if (isOpen && itemId) {
       const loadOriginal = async () => {
-        const blob = await getAsset(itemId, 'original', undefined, collectionId);
+        const remotePath = photoUrl && photoUrl !== 'asset' ? photoUrl : undefined;
+        const blob = await getAsset(itemId, 'original', remotePath, collectionId);
         if (blob) {
           const url = URL.createObjectURL(blob);
           originalUrlRef.current = url;
@@ -99,7 +102,7 @@ export const EnhanceImageModal: React.FC<EnhanceImageModalProps> = ({
         enhancedUrlRef.current = null;
       }
     };
-  }, [isOpen, itemId, collectionId]);
+  }, [isOpen, itemId, photoUrl, collectionId]);
 
   // Reset state when modal closes
   useEffect(() => {
@@ -124,7 +127,8 @@ export const EnhanceImageModal: React.FC<EnhanceImageModalProps> = ({
 
     try {
       // Get the original image as base64
-      const blob = await getAsset(itemId, 'original', undefined, collectionId);
+      const remotePath = photoUrl && photoUrl !== 'asset' ? photoUrl : undefined;
+      const blob = await getAsset(itemId, 'original', remotePath, collectionId);
       if (!blob) {
         throw new Error('Could not load original image');
       }
