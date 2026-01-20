@@ -1583,6 +1583,7 @@ const AppContent: React.FC = () => {
           isOpen={isEnhanceOpen}
           onClose={() => setIsEnhanceOpen(false)}
           itemId={item.id}
+          photoUrl={item.photoUrl}
           collectionId={collection.id}
           onEnhancementComplete={({ enhancedPath }) => {
             if (enhancedPath) {
