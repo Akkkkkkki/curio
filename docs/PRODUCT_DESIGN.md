@@ -63,6 +63,17 @@ This section captures **current behavior in the codebase** (so docs stay actiona
   - Batch mode is present but not primary (it’s discoverable as an optional link).
 - **AI failures are boring**: show a short “AI unavailable—continue manually” message and keep the user on the same screen.
 
+### Mobile development guidelines (Curio-first, industry-aligned)
+
+- **Mobile-first layout**: design for narrow viewports first, then scale up with responsive breakpoints. If a layout works at 360–430px width, it will scale cleanly. Avoid relying on hover to discover critical actions.
+- **Thumb-friendly actions**: primary actions should be near the top or bottom and have comfortable spacing. Treat **44×44px** as the minimum interactive target size for tap areas.
+- **Content density**: prioritize scannability (short headings, two-line clamp where needed). If content is hidden, provide an obvious path to reveal it without navigation churn.
+- **Input ergonomics**: use appropriate input types (e.g., numeric keyboards for years, decimal for prices) and avoid wide multi-step forms on small screens—keep flows on one page when possible.
+- **Safe-area + fixed UI**: respect safe-area insets for top/bottom fixed elements and ensure floating bars do not cover important content.
+- **Performance perception**: keep first screen fast and provide immediate feedback for save/sync actions. If an operation is async, show status and keep the UI usable.
+- **Accessibility baseline**: maintain readable contrast and font sizes; avoid tiny labels on mobile. Ensure focus states are visible for keyboard and assistive tech.
+- **Testing expectation**: validate changes at common mobile sizes (e.g., 360×740, 390×844) and at least one small Android device size. Include screenshots for perceptible UI changes.
+
 ## 2.1 AI image features (design + cost guardrails)
 
 Curio’s AI image work should be **explicitly optional**, **recoverable**, and **cost-aware**:
