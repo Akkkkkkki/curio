@@ -6,7 +6,7 @@ Curio uses **Vitest** for unit/component tests and **Playwright** for end-to-end
 
 - **Unit + component tests (`npm test`)**: fast, deterministic, and do **not** call real networks/AI.
 - **E2E tests (`npm run test:e2e`)**: run the real app in a browser and validate critical user flows.
-- **Live integration smoke tests (`npm run test:live`)**: hit *real* services (Gemini proxy). These are slower,
+- **Live integration smoke tests (`npm run test:live`)**: hit _real_ services (Gemini proxy). These are slower,
   require credentials, and may incur API cost, so they live behind a separate command.
 
 **Smoke test** means “high-signal, small-scope checks” (e.g. health + one real analyze request) that catch

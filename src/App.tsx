@@ -1316,11 +1316,17 @@ const AppContent: React.FC = () => {
           try {
             await clearEnhancedReference(item.id);
             if (collection.isPublic) {
-              updateItem(collection.id, item.id, { photoUrl: base64, photoEnhancedPath: undefined });
+              updateItem(collection.id, item.id, {
+                photoUrl: base64,
+                photoEnhancedPath: undefined,
+              });
             } else {
               const { original, display } = await processImage(base64);
               await saveAsset(collection.id, item.id, original, display);
-              updateItem(collection.id, item.id, { photoUrl: 'asset', photoEnhancedPath: undefined });
+              updateItem(collection.id, item.id, {
+                photoUrl: 'asset',
+                photoEnhancedPath: undefined,
+              });
             }
           } catch (err) {
             console.error('Photo update failed', err);

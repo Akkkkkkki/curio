@@ -66,4 +66,3 @@ describe('live: Gemini proxy smoke', () => {
     expect(typeof json.data).toBe('object');
   });
 });
-
