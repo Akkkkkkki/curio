@@ -1085,85 +1085,89 @@ const AppContent: React.FC = () => {
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-4 flex-wrap">
-            {canAddItems && (
+          <div className="flex flex-col gap-3 w-full lg:w-auto">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 w-full">
+              {canAddItems && (
+                <Button
+                  variant="primary"
+                  onClick={() => setIsAddModalOpen(true)}
+                  icon={<Plus size={16} />}
+                  className="shadow-md w-full sm:w-auto"
+                >
+                  {t('addItem')}
+                </Button>
+              )}
               <Button
                 variant="primary"
-                onClick={() => setIsAddModalOpen(true)}
-                icon={<Plus size={16} />}
-                className="shadow-md"
+                onClick={() => setIsExhibitionOpen(true)}
+                disabled={collection.items.length === 0}
+                icon={<Play size={16} />}
+                className="shadow-md w-full sm:w-auto"
               >
-                {t('addItem')}
+                {t('enterExhibition')}
               </Button>
-            )}
-            <Button
-              variant="primary"
-              onClick={() => setIsExhibitionOpen(true)}
-              disabled={collection.items.length === 0}
-              icon={<Play size={16} />}
-              className="shadow-md"
-            >
-              {t('enterExhibition')}
-            </Button>
-            <Button
-              variant="outline"
-              className={theme === 'vault' ? 'bg-stone-900 text-white border-white/10' : 'bg-white'}
-              onClick={() => {
-                if (isVoiceGuideEnabled) {
-                  setActiveCollectionForGuide(collection);
-                  setIsGuideOpen(true);
-                }
-              }}
-              disabled={!isVoiceGuideEnabled || collection.items.length === 0}
-              icon={<Mic size={16} />}
-              title={isVoiceGuideEnabled ? undefined : 'Coming soon'}
-            >
-              {t('vocalGuide')}
-            </Button>
-            {!isReadOnly && (
-              <button
-                onClick={() => setIsDeleteCollectionModalOpen(true)}
-                className={`w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl transition-colors ${
-                  theme === 'vault'
-                    ? 'bg-stone-900 border border-white/10 text-stone-400 hover:text-red-400 hover:border-red-400/30'
-                    : 'bg-white border border-stone-200 text-stone-400 hover:text-red-500 hover:border-red-200'
-                }`}
-                title={t('deleteCollection')}
-              >
-                <Trash2 size={18} />
-              </button>
-            )}
-            <div
-              className={`flex rounded-xl p-1 ${theme === 'vault' ? 'bg-white/5' : 'bg-stone-200/50'}`}
-            >
-              <button
-                onClick={() => setViewMode('grid')}
-                className={`w-11 h-11 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}
-              >
-                <LayoutGrid size={18} />
-              </button>
-              <button
-                onClick={() => setViewMode('waterfall')}
-                className={`w-11 h-11 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg transition-all ${viewMode === 'waterfall' ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}
-              >
-                <LayoutTemplate size={18} className="rotate-180" />
-              </button>
-            </div>
-            <div className="relative flex gap-2">
-              <input
-                type="text"
-                placeholder="..."
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                className={`pl-4 pr-4 py-2 rounded-xl border focus:ring-4 focus:ring-amber-500/5 outline-none text-sm w-48 transition-all shadow-sm font-serif italic ${theme === 'vault' ? 'bg-stone-900 border-white/10 text-white' : 'bg-white border-stone-200 text-stone-900'}`}
-              />
               <Button
-                variant={activeFilterCount > 0 ? 'primary' : 'outline'}
-                className={`w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center p-0 rounded-xl ${theme === 'vault' ? 'bg-stone-900 border-white/10' : activeFilterCount > 0 ? '' : 'bg-white'}`}
-                onClick={() => setIsFilterModalOpen(true)}
+                variant="outline"
+                className={`${theme === 'vault' ? 'bg-stone-900 text-white border-white/10' : 'bg-white'} w-full sm:w-auto`}
+                onClick={() => {
+                  if (isVoiceGuideEnabled) {
+                    setActiveCollectionForGuide(collection);
+                    setIsGuideOpen(true);
+                  }
+                }}
+                disabled={!isVoiceGuideEnabled || collection.items.length === 0}
+                icon={<Mic size={16} />}
+                title={isVoiceGuideEnabled ? undefined : 'Coming soon'}
               >
-                <SlidersHorizontal size={18} />
+                {t('vocalGuide')}
               </Button>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full">
+              {!isReadOnly && (
+                <button
+                  onClick={() => setIsDeleteCollectionModalOpen(true)}
+                  className={`w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl transition-colors ${
+                    theme === 'vault'
+                      ? 'bg-stone-900 border border-white/10 text-stone-400 hover:text-red-400 hover:border-red-400/30'
+                      : 'bg-white border border-stone-200 text-stone-400 hover:text-red-500 hover:border-red-200'
+                  }`}
+                  title={t('deleteCollection')}
+                >
+                  <Trash2 size={18} />
+                </button>
+              )}
+              <div
+                className={`flex rounded-xl p-1 ${theme === 'vault' ? 'bg-white/5' : 'bg-stone-200/50'}`}
+              >
+                <button
+                  onClick={() => setViewMode('grid')}
+                  className={`w-11 h-11 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}
+                >
+                  <LayoutGrid size={18} />
+                </button>
+                <button
+                  onClick={() => setViewMode('waterfall')}
+                  className={`w-11 h-11 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg transition-all ${viewMode === 'waterfall' ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}
+                >
+                  <LayoutTemplate size={18} className="rotate-180" />
+                </button>
+              </div>
+              <div className="relative flex gap-2 flex-1 min-w-[12rem]">
+                <input
+                  type="text"
+                  placeholder="..."
+                  value={filter}
+                  onChange={(e) => setFilter(e.target.value)}
+                  className={`pl-4 pr-4 py-2 rounded-xl border focus:ring-4 focus:ring-amber-500/5 outline-none text-sm w-full transition-all shadow-sm font-serif italic ${theme === 'vault' ? 'bg-stone-900 border-white/10 text-white' : 'bg-white border-stone-200 text-stone-900'}`}
+                />
+                <Button
+                  variant={activeFilterCount > 0 ? 'primary' : 'outline'}
+                  className={`w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center p-0 rounded-xl ${theme === 'vault' ? 'bg-stone-900 border-white/10' : activeFilterCount > 0 ? '' : 'bg-white'}`}
+                  onClick={() => setIsFilterModalOpen(true)}
+                >
+                  <SlidersHorizontal size={18} />
+                </Button>
+              </div>
             </div>
           </div>
         </div>
