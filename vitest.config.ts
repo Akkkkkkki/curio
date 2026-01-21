@@ -15,6 +15,8 @@ export default defineConfig({
     environment: 'happy-dom',
     setupFiles: './tests/setup.ts',
     include: ['tests/**/*.test.{ts,tsx}'],
+    // Live integration tests are opt-in (run via `npm run test:live`)
+    exclude: ['tests/live/**'],
     // IndexedDB-heavy integration tests (Phase 2) use a fixed DB name in production code.
     // Running test files in parallel can cause delete/open blocking across suites.
     // Keep the suite deterministic by running with a single worker.

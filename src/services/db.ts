@@ -998,9 +998,10 @@ export const deleteEnhancedAsset = async (
       } = await supabase.auth.getUser();
       if (user) {
         const basePath = `${user.id}/collections/${collectionId}/${id}`;
-        const pathsToDelete = [normalizeStoragePath(enhancedPath), `${basePath}/enhanced.jpg`].filter(
-          Boolean,
-        ) as string[];
+        const pathsToDelete = [
+          normalizeStoragePath(enhancedPath),
+          `${basePath}/enhanced.jpg`,
+        ].filter(Boolean) as string[];
         if (pathsToDelete.length > 0) {
           await supabase.storage.from('curio-assets').remove(pathsToDelete);
         }
@@ -1173,7 +1174,10 @@ export const deleteCollection = async (collection: UserCollection): Promise<void
   const itemIds = collection.items.map((item) => item.id);
   if (itemIds.length > 0) {
     await new Promise<void>((resolve) => {
-      const transaction = db.transaction([ASSETS_STORE, DISPLAY_STORE, ENHANCED_STORE], 'readwrite');
+      const transaction = db.transaction(
+        [ASSETS_STORE, DISPLAY_STORE, ENHANCED_STORE],
+        'readwrite',
+      );
       const assetsStore = transaction.objectStore(ASSETS_STORE);
       const displayStore = transaction.objectStore(DISPLAY_STORE);
       const enhancedStore = transaction.objectStore(ENHANCED_STORE);

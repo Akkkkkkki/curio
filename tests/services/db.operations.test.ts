@@ -344,12 +344,18 @@ describe('deleteCollection', () => {
     const storageRemove = vi.fn().mockResolvedValue({ data: [], error: null });
 
     const eqMock = vi.fn().mockResolvedValue({ error: null });
+    const update = vi.fn(() => {
+      const chain: any = {};
+      chain.eq = vi.fn().mockReturnValue(chain);
+      return chain;
+    });
 
     const from = vi.fn((table: string) => {
       return {
         delete: () => ({
           eq: eqMock,
         }),
+        update,
         upsert: vi.fn().mockResolvedValue({ error: null }),
         select: vi.fn().mockReturnThis(),
         or: vi.fn().mockReturnThis(),

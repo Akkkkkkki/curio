@@ -16,6 +16,12 @@ dist-ssr
 # Test coverage
 coverage
 
+# Playwright artifacts (keep repo root clean)
+playwright-report
+test-results
+tests/e2e/playwright-report
+tests/e2e/test-results
+
 # Editor directories and files
 .vscode/*
 .vscode
