@@ -52,6 +52,64 @@ Curated sample collections live in the same tables and are flagged with `is_publ
   - `error` → toast **Sync failed** (with retry action when online)
 - Pending changes can be retried via a queued sync mechanism (see `docs/INDEXEDDB_RELIABILITY.md` for the deeper operational details).
 
+### Sync status definitions & transitions (state diagrams)
+
+Curio’s “status” UX has two layers:
+
+- **Account / cloud availability (header)**: “Cloud Required” vs “Signed Out” vs “Signed In” (Supabase configuration + auth session).
+- **Save / sync outcomes (toast)**: “Saved”, “Synced”, “Will sync / retrying”, “Sync failed …” (local persistence + cloud sync attempt results).
+
+#### What “Saved / Synced / Will sync / Sync failed” mean
+
+- **Saved**: local state updated and persisted to IndexedDB (success path is immediate).
+- **Synced**: the most recent cloud upsert for that change succeeded.
+- **Will sync / retrying**: the change is safely local, and will be retried later (offline or queued retry not yet successful).
+- **Sync failed**: the cloud upsert failed while online; a Retry action is offered.
+
+#### Internal sync states (as defined in code)
+
+`services/db.ts` defines:
+
+- `idle` | `syncing` | `synced` | `error` | `offline`
+
+Note: `offline` is currently **defined** but not emitted by the current `saveCollection()` implementation; offline UX is primarily derived from `navigator.onLine` when handling sync failures.
+
+#### Diagram A: Local-first, cloud-best-effort flow
+
+```text
+User action
+  ↓
+React state updated
+  ↓
+IndexedDB write (saveCollection)  ───────────────►  Toast: "Saved"
+  ↓
+if Supabase configured:
+  ├─ cloud upsert success  ─────────────────────►  SyncStatus: synced  ──►  Toast: "Synced"*
+  └─ cloud upsert failure  ─────────────────────►  SyncStatus: error   ──►  Toast: "Will sync / retrying" (offline)
+                                                       │                    Toast: "Sync failed …" + Retry (online)
+                                                       └─ queue collection id in pending_sync_ids (IndexedDB)
+* "Synced/failed" follow-up toasts are gated by the initiating action (see note below).
+```
+
+#### Diagram B: SyncStatus state machine (emitted by `saveCollection`)
+
+```text
+idle
+  │ saveCollection() starts cloud attempt
+  ▼
+syncing
+  ├─ success ──► synced
+  └─ failure ──► error (and id queued for retry)
+
+error
+  └─ next saveCollection() attempt (or manual retry) ──► syncing
+```
+
+#### Notes / quirks (today)
+
+- Follow-up “Synced / Will sync / Sync failed” toasts are shown only when the initiating action sets a “pending sync toast” flag (e.g., add-item / create-collection). Debounced edits may sync without showing a toast.
+- Image asset uploads (`saveAsset`) are separate from metadata sync and do not currently participate in the pending-queue / retry UX.
+
 ## 4.1 Home “On This Day” selection logic
 
 Home surfaces a single historical item using cascading fallbacks:
