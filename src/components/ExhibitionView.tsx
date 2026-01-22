@@ -27,7 +27,7 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
   const prev = () => setIndex((i) => (i - 1 + collection.items.length) % collection.items.length);
 
   return (
-    <div className="fixed inset-0 z-[70] bg-stone-950 text-white flex flex-col animate-in fade-in duration-500 overflow-y-auto sm:overflow-hidden pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)] pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)]">
+    <div className="fixed inset-0 z-[90] isolate bg-stone-950 text-white flex flex-col animate-in fade-in duration-500 overflow-y-auto sm:overflow-hidden pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)] pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)]">
       <header className="p-6 sm:p-8 flex justify-between items-center bg-gradient-to-b from-stone-950/80 to-transparent sticky top-0 z-10">
         <div>
           <h2 className="text-[10px] font-mono tracking-[0.2em] uppercase opacity-40 mb-0.5">
