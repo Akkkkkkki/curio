@@ -3,7 +3,9 @@ import type { User } from '@supabase/supabase-js';
 import {
   fetchCloudCollections,
   getLocalCollections,
+  getPendingSyncIds,
   hasLocalOnlyData,
+  mergeCollections,
   requestPersistence,
   saveAllCollections,
   saveCollection,
@@ -214,11 +216,14 @@ export const useCollections = ({
         }
       }
 
-      if (!localOnly) {
-        await saveAllCollections(cloudCollections);
-      }
+      const pendingSyncIds = await getPendingSyncIds();
+      const mergedCollections = mergeCollections(localCollections, cloudCollections, {
+        includeLocalOnly: (collection) =>
+          !collection.ownerId || pendingSyncIds.includes(collection.id),
+      });
 
-      setCollections(cloudCollections);
+      await saveAllCollections(mergedCollections);
+      setCollections(mergedCollections);
       if (cloudCollections.length + localCollections.length > 0) {
         showStatus(t('statusSynced'), 'success');
       }

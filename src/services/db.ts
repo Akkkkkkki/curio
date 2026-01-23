@@ -301,7 +301,7 @@ export const setSeedVersion = async (version: number): Promise<void> => {
 // P1 Fix #1: Offline Queue / Retry Logic
 // ============================================================================
 
-const getPendingSyncIds = async (): Promise<string[]> => {
+export const getPendingSyncIds = async (): Promise<string[]> => {
   const db = await initDB();
   return new Promise((resolve) => {
     const tx = db.transaction(SETTINGS_STORE, 'readonly');

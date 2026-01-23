@@ -47,8 +47,10 @@ import { Button } from './components/ui/Button';
 import {
   fetchCloudCollections,
   getLocalCollections,
+  getPendingSyncIds,
   hasLocalOnlyData,
   importLocalCollectionsToCloud,
+  mergeCollections,
   saveCollection,
   saveAllCollections,
   saveAsset,
@@ -373,11 +375,13 @@ const AppContent: React.FC = () => {
       localCollections,
       cloudCollections,
       fallbackSampleCollections,
+      mergedCollections,
     }: {
       user: { id: string } | null;
       localCollections: UserCollection[];
       cloudCollections: UserCollection[];
       fallbackSampleCollections: UserCollection[];
+      mergedCollections: UserCollection[];
     }) => {
       if (!user) {
         // For unauthenticated users:
@@ -396,9 +400,9 @@ const AppContent: React.FC = () => {
 
       const localOnly = hasLocalOnlyData(localCollections, cloudCollections);
       return {
-        collections: cloudCollections,
+        collections: mergedCollections,
         hasLocalImport: localOnly,
-        shouldPersist: !localOnly,
+        shouldPersist: true,
         showSyncedStatus: cloudCollections.length + localCollections.length > 0,
       };
     },
@@ -436,6 +440,12 @@ const AppContent: React.FC = () => {
         cloudCollections,
       });
 
+      const pendingSyncIds = await getPendingSyncIds();
+      const mergedCollections = mergeCollections(localCollections, cloudCollections, {
+        includeLocalOnly: (collection) =>
+          !collection.ownerId || pendingSyncIds.includes(collection.id),
+      });
+
       const {
         collections: resolvedCollections,
         hasLocalImport: resolvedHasLocalImport,
@@ -446,12 +456,13 @@ const AppContent: React.FC = () => {
         localCollections,
         cloudCollections,
         fallbackSampleCollections,
+        mergedCollections,
       });
 
       setHasLocalImport(resolvedHasLocalImport);
 
       if (shouldPersist) {
-        await saveAllCollections(cloudCollections);
+        await saveAllCollections(mergedCollections);
       }
 
       setCollections(resolvedCollections);

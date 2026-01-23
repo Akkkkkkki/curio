@@ -17,7 +17,9 @@ import { CURRENT_SEED_VERSION, INITIAL_COLLECTIONS } from '@/services/seedCollec
 const dbMocks = {
   fetchCloudCollections: vi.fn(),
   getLocalCollections: vi.fn(),
+  getPendingSyncIds: vi.fn(),
   hasLocalOnlyData: vi.fn(),
+  mergeCollections: vi.fn(),
   requestPersistence: vi.fn(),
   saveAllCollections: vi.fn(),
   saveCollection: vi.fn(),
@@ -59,7 +61,11 @@ describe('hooks/useCollections.ts (Phase 3.3)', () => {
     dbMocks.requestPersistence.mockResolvedValue(undefined);
     dbMocks.getLocalCollections.mockResolvedValue([]);
     dbMocks.fetchCloudCollections.mockResolvedValue([]);
+    dbMocks.getPendingSyncIds.mockResolvedValue([]);
     dbMocks.hasLocalOnlyData.mockReturnValue(false);
+    dbMocks.mergeCollections.mockImplementation(
+      (local: UserCollection[], cloud: UserCollection[]) => (cloud.length ? cloud : local),
+    );
     dbMocks.saveAllCollections.mockResolvedValue(undefined);
     dbMocks.saveCollection.mockResolvedValue(undefined);
     dbMocks.getSeedVersion.mockResolvedValue(CURRENT_SEED_VERSION);
@@ -104,19 +110,22 @@ describe('hooks/useCollections.ts (Phase 3.3)', () => {
     expect(showStatus).toHaveBeenCalledWith('statusSyncPaused', 'error');
   });
 
-  it('happy path: with a user, uses cloud collections, persists them locally, and reports synced', async () => {
+  it('happy path: with a user, merges local+cloud, persists merged snapshot, and reports synced', async () => {
     /**
      * Verifies standard online behavior:
      * - Loads local cache
      * - Fetches cloud collections
-     * - When there is no local-only data, saves cloud collections to local storage
+     * - Merges local/cloud collections and persists the merged snapshot
      * - Reports "synced" status
      */
     const local = [minimalCollection({ id: 'local' })];
     const cloud = [minimalCollection({ id: 'cloud' })];
+    const merged = [...cloud];
     dbMocks.getLocalCollections.mockResolvedValue(local);
     dbMocks.fetchCloudCollections.mockResolvedValue(cloud);
     dbMocks.hasLocalOnlyData.mockReturnValue(false);
+    dbMocks.getPendingSyncIds.mockResolvedValue([]);
+    dbMocks.mergeCollections.mockReturnValue(merged);
 
     const { useCollections } = await import('@/hooks/useCollections');
     const { result } = renderHook(() =>
@@ -131,10 +140,10 @@ describe('hooks/useCollections.ts (Phase 3.3)', () => {
     );
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
-    expect(result.current.collections).toEqual(cloud);
+    expect(result.current.collections).toEqual(merged);
     expect(result.current.loadError).toBeNull();
     expect(result.current.hasLocalImport).toBe(false);
-    expect(dbMocks.saveAllCollections).toHaveBeenCalledWith(cloud);
+    expect(dbMocks.saveAllCollections).toHaveBeenCalledWith(merged);
     expect(showStatus).toHaveBeenCalledWith('statusSynced', 'success');
   });
 
@@ -225,9 +234,12 @@ describe('hooks/useCollections.ts (Phase 3.3)', () => {
      */
     const local = [minimalCollection({ id: 'local-only' })];
     const cloud = [minimalCollection({ id: 'cloud' })];
+    const merged = [...cloud, ...local];
     dbMocks.getLocalCollections.mockResolvedValue(local);
     dbMocks.fetchCloudCollections.mockResolvedValue(cloud);
     dbMocks.hasLocalOnlyData.mockReturnValue(true);
+    dbMocks.getPendingSyncIds.mockResolvedValue(['local-only']);
+    dbMocks.mergeCollections.mockReturnValue(merged);
 
     const { useCollections } = await import('@/hooks/useCollections');
     const { result } = renderHook(() =>
@@ -243,7 +255,7 @@ describe('hooks/useCollections.ts (Phase 3.3)', () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.hasLocalImport).toBe(true);
-    // When there's local-only data, we don't overwrite it with cloud data
-    expect(dbMocks.saveAllCollections).not.toHaveBeenCalled();
+    expect(result.current.collections).toEqual(merged);
+    expect(dbMocks.saveAllCollections).toHaveBeenCalledWith(merged);
   });
 });
