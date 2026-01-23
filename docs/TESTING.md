@@ -68,5 +68,9 @@ npm run server
 
 ## Notes
 
+- CI includes a **Prettier format check** (`npm run format:check`). Before pushing a PR, run:
+  - `npm run format` (fixes formatting)
+  - `npm run format:check` (verifies formatting)
+
 - Playwright will start (or reuse) the dev server automatically (see `playwright.config.ts`).
 - Unit tests use mocked Supabase; do **not** rely on a local Supabase instance.

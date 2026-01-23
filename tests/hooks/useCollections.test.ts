@@ -63,8 +63,8 @@ describe('hooks/useCollections.ts (Phase 3.3)', () => {
     dbMocks.fetchCloudCollections.mockResolvedValue([]);
     dbMocks.getPendingSyncIds.mockResolvedValue([]);
     dbMocks.hasLocalOnlyData.mockReturnValue(false);
-    dbMocks.mergeCollections.mockImplementation((local: UserCollection[], cloud: UserCollection[]) =>
-      cloud.length ? cloud : local,
+    dbMocks.mergeCollections.mockImplementation(
+      (local: UserCollection[], cloud: UserCollection[]) => (cloud.length ? cloud : local),
     );
     dbMocks.saveAllCollections.mockResolvedValue(undefined);
     dbMocks.saveCollection.mockResolvedValue(undefined);
