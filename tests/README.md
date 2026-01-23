@@ -20,7 +20,7 @@ npm run test:coverage
 
 ## Current Status
 
-**Phase 1-3 Complete:** 179 tests passing, 2 skipped, 2 todo
+**Phase 1-3 Complete:** 179 tests passing, 2 skipped, 2 todo. **Phase 5 (E2E) is in progress.**
 
 | Phase                   | Status         | Tests     |
 | ----------------------- | -------------- | --------- |
@@ -28,7 +28,7 @@ npm run test:coverage
 | Phase 2: Integration    | ✅ Complete    | 21 tests  |
 | Phase 3: AI & Hooks     | ✅ Complete    | 19 tests  |
 | Phase 4: Components     | 📋 Not Started | -         |
-| Phase 5: E2E            | 📋 Not Started | -         |
+| Phase 5: E2E            | 🚧 In Progress | 3 specs   |
 
 ## Infrastructure Setup ✅
 
@@ -117,10 +117,12 @@ tests/
 - `tests/components/AuthModal.test.tsx` - Authentication UI
 - `tests/components/ui/*.test.tsx` - Other UI components
 
-### 📋 Phase 5: End-to-End Tests (Not Started)
+### 🚧 Phase 5: End-to-End Tests (In Progress)
 
-- Install Playwright or Cypress
-- `tests/e2e/critical-flows.spec.ts` - Critical user flows
+- Playwright specs live in `tests/e2e/`
+  - `accessibility.spec.ts`
+  - `first-time-user.spec.ts`
+  - `authenticated-user.spec.ts` (requires credentials to run)
 
 ## Writing Tests
 
