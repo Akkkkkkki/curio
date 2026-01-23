@@ -13,6 +13,16 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { FieldDefinition } from '@/types';
 
+// Mock supabase module to prevent issues with auth.getSession() and fake timers
+vi.mock('@/services/supabase', () => ({
+  supabase: null,
+  isSupabaseConfigured: () => false,
+  ensureAuth: async () => null,
+  signUpWithEmail: async () => null,
+  signInWithEmail: async () => null,
+  signOutUser: async () => {},
+}));
+
 async function importGeminiServiceFresh(env: { aiEnabled?: string; apiBaseUrl?: string } = {}) {
   vi.resetModules();
   if (env.aiEnabled !== undefined) vi.stubEnv('VITE_AI_ENABLED', env.aiEnabled);

@@ -1,4 +1,5 @@
 import { FieldDefinition, UserCollection, EnhancementStrength } from '../types';
+import { supabase } from './supabase';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 const AI_ENABLED_ENV = import.meta.env.VITE_AI_ENABLED;
@@ -21,10 +22,22 @@ const postJson = async <T>(
 ): Promise<T> => {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  // Build headers with optional auth token
+  const headers: HeadersInit = { 'Content-Type': 'application/json' };
+  if (supabase) {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (session?.access_token) {
+      headers['Authorization'] = `Bearer ${session.access_token}`;
+    }
+  }
+
   try {
     const response = await fetch(`${API_BASE_URL}${path}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(body),
       signal: controller.signal,
     });
