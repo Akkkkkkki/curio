@@ -24,8 +24,10 @@ const dbMocks = {
   getSeedVersion: vi.fn(),
   setSeedVersion: vi.fn(),
   setRecoveryCallback: vi.fn(),
+  setAssetSyncStatusCallback: vi.fn(),
   setSyncStatusCallback: vi.fn(),
   syncPendingChanges: vi.fn(),
+  syncPendingAssetUploads: vi.fn(),
 };
 
 vi.mock('@/services/db', () => dbMocks);
@@ -63,8 +65,10 @@ describe('hooks/useCollections.ts (Phase 3.3)', () => {
     dbMocks.getSeedVersion.mockResolvedValue(CURRENT_SEED_VERSION);
     dbMocks.setSeedVersion.mockResolvedValue(undefined);
     dbMocks.setRecoveryCallback.mockImplementation(() => {});
+    dbMocks.setAssetSyncStatusCallback.mockImplementation(() => {});
     dbMocks.setSyncStatusCallback.mockImplementation(() => {});
     dbMocks.syncPendingChanges.mockResolvedValue(0);
+    dbMocks.syncPendingAssetUploads.mockResolvedValue(0);
   });
 
   afterEach(() => {

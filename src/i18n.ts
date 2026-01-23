@@ -147,6 +147,8 @@ export const translations = {
     statusSyncError: 'Sync failed: {error}',
     statusPendingSyncs: '{count} change(s) pending sync',
     statusPendingSynced: '{count} pending change(s) synced',
+    statusPhotosWillSync: 'Will sync photos',
+    statusPhotosSynced: '{count} photo(s) synced',
     actionRetry: 'Retry',
     // Auth & Cloud
     login: 'Sign In',
@@ -381,6 +383,8 @@ export const translations = {
     statusSyncError: '同步失败：{error}',
     statusPendingSyncs: '{count} 项更改待同步',
     statusPendingSynced: '{count} 项待同步更改已完成',
+    statusPhotosWillSync: '照片将同步',
+    statusPhotosSynced: '已同步 {count} 张照片',
     actionRetry: '重试',
     // Auth & Cloud
     login: '登录',
