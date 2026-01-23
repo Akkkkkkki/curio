@@ -107,15 +107,19 @@ App Load ← IndexedDB (cache) ←──────── Supabase (source of t
 
 ---
 
-## Remaining Issues (P2/P3 - Not Yet Implemented)
+## P2/P3 Issues & Status
 
-### 5. `loadCollections` Ignores Merge Logic (P2)
+### 5. Cloud refresh overwrote local-only changes (P2) ✅ FIXED
 
-**Problem:** The function overwrites local with cloud instead of merging.
+**Location:** `services/db.ts`
 
-**Note:** The `mergeCollections` function exists but isn't used in `loadCollections()`.
+**Problem:** Refreshing from cloud could overwrite local-only collections/items (e.g., created offline) instead of merging intelligently.
 
-**Status:** Not implemented in this PR. Could be addressed in a future update. (Tracked in [#84](https://github.com/Akkkkkkki/curio/issues/84))
+**Fix Implemented:**
+
+- `loadCollections()` now merges local + cloud via `mergeCollections()`
+- Cloud remains source of truth for what exists, while newer `updated_at`/`created_at` can win locally
+- Local-only collections/items are preserved when they are pending sync (or have no `ownerId` yet)
 
 ---
 
@@ -143,7 +147,7 @@ After implementing fixes, verify:
 - [x] Sync errors display in status bar (P0 #2)
 - [x] Offline changes sync when back online (P1 #1)
 - [x] Concurrent saves don't corrupt data (P1 #2)
-- [ ] Local-only items survive cloud fetch (P2 - not implemented; tracked in [#84](https://github.com/Akkkkkkki/curio/issues/84))
+- [x] Local-only items survive cloud fetch (P2 #5)
 - [ ] Failed asset uploads retry on reconnection (P2 - not implemented; tracked in [#85](https://github.com/Akkkkkkki/curio/issues/85))
 - [ ] Large collections warn about storage limits (P3 - not implemented; tracked in [#83](https://github.com/Akkkkkkki/curio/issues/83))
 

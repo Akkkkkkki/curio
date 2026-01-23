@@ -93,10 +93,10 @@ node scripts/github/create-issues-from-drafts.mjs --dry-run --dir docs/issue-dra
 node scripts/github/create-issues-from-drafts.mjs --skip-existing --dir docs/issue-drafts/<YYYY-MM-DD>
 ```
 
-4. Optional cleanup:
-   - After issues exist on GitHub, you can delete the drafts directory for that batch if you don’t want it in the repo history.
+4. Cleanup (required):
+   - After issues exist on GitHub, **delete the drafts directory for that batch**.
+   - We treat drafts as a temporary staging area, not long-term documentation (issues are the source of truth).
 
 ## Filename rules for drafts
 
 - Avoid `/` in filenames (it creates folders). Prefer `EN-ZH` and `3 of 5`.
-

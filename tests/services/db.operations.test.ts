@@ -71,10 +71,16 @@ function createSupabaseMock() {
   const collectionsUpsert = vi.fn().mockResolvedValue({ error: null });
   const itemsUpsert = vi.fn().mockResolvedValue({ error: null });
   const upload = vi.fn().mockResolvedValue({ data: { path: 'ok' }, error: null });
+  const update = vi.fn(() => {
+    const chain: any = {};
+    chain.eq = vi.fn().mockReturnValue(chain);
+    return chain;
+  });
 
   const from = vi.fn((table: string) => {
     return {
       upsert: table === 'collections' ? collectionsUpsert : itemsUpsert,
+      update,
       // present for completeness; not used directly by these tests
       select: vi.fn().mockReturnThis(),
       or: vi.fn().mockReturnThis(),
@@ -308,9 +314,350 @@ describe('Phase 2.2 — services/db.ts dual-write operations', () => {
     expect(calledPaths).toContain('test-user-id/collections/col-1/item-asset-1/display.jpg');
   });
 
-  it.todo(
-    'saveAsset: cloud upload failure should trigger retry logic (roadmap requirement - not yet implemented)',
-  );
+  it('saveAsset: cloud upload failure queues retry and syncPendingAssetUploads retries successfully', async () => {
+    const { supabase, upload } = createSupabaseMock();
+    upload
+      .mockResolvedValueOnce({ data: null, error: new Error('Upload failed') })
+      .mockResolvedValueOnce({ data: { path: 'ok' }, error: null });
+    const dbMod = await importDbModuleFreshWithSupabaseMock(supabase);
+
+    const db = await dbMod.initDB();
+    openDb = db;
+    await clearStores(db, ['collections', 'assets', 'display', 'settings']);
+
+    const original = new Blob(['orig'], { type: 'image/jpeg' });
+    const display = new Blob(['disp'], { type: 'image/jpeg' });
+
+    await expect(
+      dbMod.saveAsset('col-1', 'item-asset-2', original, display),
+    ).resolves.toBeUndefined();
+
+    const pendingAfterSave = await readFromStore<any[]>(db, 'settings', 'pending_asset_uploads');
+    expect(pendingAfterSave).toEqual([
+      expect.objectContaining({ collectionId: 'col-1', itemId: 'item-asset-2' }),
+    ]);
+
+    upload.mockClear();
+    upload.mockResolvedValue({ data: { path: 'ok' }, error: null });
+
+    await expect(dbMod.syncPendingAssetUploads()).resolves.toBe(1);
+
+    const pendingAfterSync = await readFromStore<any[]>(db, 'settings', 'pending_asset_uploads');
+    expect(pendingAfterSync).toEqual([]);
+    expect(upload).toHaveBeenCalledTimes(2);
+  });
 
   it.todo('exports saveItem(item, session) as a function (roadmap API - not yet implemented)');
+});
+
+describe('deleteCollection', () => {
+  beforeEach(async () => {
+    if (openDb) {
+      openDb.close();
+      openDb = null;
+    }
+  });
+
+  afterEach(() => {
+    if (openDb) {
+      openDb.close();
+      openDb = null;
+    }
+    vi.unstubAllEnvs();
+    vi.clearAllMocks();
+  });
+
+  function createDeleteSupabaseMock() {
+    const collectionsDelete = vi.fn().mockReturnThis();
+    const itemsDelete = vi.fn().mockReturnThis();
+    const storageRemove = vi.fn().mockResolvedValue({ data: [], error: null });
+
+    const eqMock = vi.fn().mockResolvedValue({ error: null });
+    const update = vi.fn(() => {
+      const chain: any = {};
+      chain.eq = vi.fn().mockReturnValue(chain);
+      return chain;
+    });
+
+    const from = vi.fn((table: string) => {
+      return {
+        delete: () => ({
+          eq: eqMock,
+        }),
+        update,
+        upsert: vi.fn().mockResolvedValue({ error: null }),
+        select: vi.fn().mockReturnThis(),
+        or: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        in: vi.fn().mockReturnThis(),
+      };
+    });
+
+    return {
+      supabase: {
+        auth: {
+          getUser: vi
+            .fn()
+            .mockResolvedValue({ data: { user: { id: 'test-user-id' } }, error: null }),
+        },
+        from,
+        storage: {
+          from: vi.fn(() => ({
+            remove: storageRemove,
+            upload: vi.fn().mockResolvedValue({ data: {}, error: null }),
+          })),
+        },
+      },
+      collectionsDelete,
+      itemsDelete,
+      storageRemove,
+      from,
+      eqMock,
+    };
+  }
+
+  it('deleteCollection: removes collection from IndexedDB', async () => {
+    const { supabase } = createDeleteSupabaseMock();
+    const dbMod = await importDbModuleFreshWithSupabaseMock(supabase);
+
+    const db = await dbMod.initDB();
+    openDb = db;
+    await clearStores(db, ['collections', 'assets', 'display', 'settings']);
+
+    const collection: UserCollection = {
+      id: 'col-delete-1',
+      templateId: 'vinyl',
+      name: 'To Delete',
+      icon: '🗑️',
+      customFields: [],
+      items: [],
+      ownerId: 'test-user-id',
+      settings: { displayFields: [], badgeFields: [] },
+    };
+
+    // First save the collection
+    await dbMod.saveCollection(collection);
+
+    // Verify it exists
+    let saved = await readFromStore<UserCollection>(db, 'collections', 'col-delete-1');
+    expect(saved?.id).toBe('col-delete-1');
+
+    // Now delete it
+    await dbMod.deleteCollection(collection);
+
+    // Verify it's gone
+    saved = await readFromStore<UserCollection>(db, 'collections', 'col-delete-1');
+    expect(saved).toBeNull();
+  });
+
+  it('deleteCollection: removes associated assets from IndexedDB', async () => {
+    const { supabase } = createDeleteSupabaseMock();
+    const dbMod = await importDbModuleFreshWithSupabaseMock(supabase);
+
+    const db = await dbMod.initDB();
+    openDb = db;
+    await clearStores(db, ['collections', 'assets', 'display', 'settings']);
+
+    const item: CollectionItem = {
+      id: 'item-to-delete',
+      collectionId: 'col-delete-2',
+      photoUrl: 'asset',
+      title: 'Item with asset',
+      rating: 5,
+      data: {},
+      createdAt: new Date().toISOString(),
+      notes: '',
+    };
+
+    const collection: UserCollection = {
+      id: 'col-delete-2',
+      templateId: 'vinyl',
+      name: 'Collection with assets',
+      icon: '📀',
+      customFields: [],
+      items: [item],
+      ownerId: 'test-user-id',
+      settings: { displayFields: [], badgeFields: [] },
+    };
+
+    // Save collection and assets
+    await dbMod.saveCollection(collection);
+    const original = new Blob(['orig'], { type: 'image/jpeg' });
+    const display = new Blob(['disp'], { type: 'image/jpeg' });
+    await dbMod.saveAsset('col-delete-2', 'item-to-delete', original, display);
+
+    // Verify assets exist
+    let savedOriginal = await readFromStore<Blob>(db, 'assets', 'item-to-delete');
+    let savedDisplay = await readFromStore<Blob>(db, 'display', 'item-to-delete');
+    expect(savedOriginal).toBeTruthy();
+    expect(savedDisplay).toBeTruthy();
+
+    // Delete the collection
+    await dbMod.deleteCollection(collection);
+
+    // Verify assets are gone
+    savedOriginal = await readFromStore<Blob>(db, 'assets', 'item-to-delete');
+    savedDisplay = await readFromStore<Blob>(db, 'display', 'item-to-delete');
+    expect(savedOriginal).toBeNull();
+    expect(savedDisplay).toBeNull();
+  });
+
+  it('deleteCollection: calls Supabase to delete collection from cloud', async () => {
+    const { supabase, from } = createDeleteSupabaseMock();
+    const dbMod = await importDbModuleFreshWithSupabaseMock(supabase);
+
+    const db = await dbMod.initDB();
+    openDb = db;
+    await clearStores(db, ['collections', 'assets', 'display', 'settings']);
+
+    const collection: UserCollection = {
+      id: 'col-delete-cloud',
+      templateId: 'vinyl',
+      name: 'Cloud Delete',
+      icon: '☁️',
+      customFields: [],
+      items: [],
+      ownerId: 'test-user-id',
+      settings: { displayFields: [], badgeFields: [] },
+    };
+
+    await dbMod.saveCollection(collection);
+    await dbMod.deleteCollection(collection);
+
+    // Verify Supabase was called for collections table delete
+    expect(from).toHaveBeenCalledWith('collections');
+  });
+
+  it('deleteCollection: removes assets from Supabase Storage', async () => {
+    const { supabase, storageRemove } = createDeleteSupabaseMock();
+    const dbMod = await importDbModuleFreshWithSupabaseMock(supabase);
+
+    const db = await dbMod.initDB();
+    openDb = db;
+    await clearStores(db, ['collections', 'assets', 'display', 'settings']);
+
+    const item: CollectionItem = {
+      id: 'item-cloud-delete',
+      collectionId: 'col-storage-delete',
+      photoUrl: 'asset',
+      title: 'Item',
+      rating: 3,
+      data: {},
+      createdAt: new Date().toISOString(),
+      notes: '',
+    };
+
+    const collection: UserCollection = {
+      id: 'col-storage-delete',
+      templateId: 'vinyl',
+      name: 'Storage Delete',
+      icon: '🗄️',
+      customFields: [],
+      items: [item],
+      ownerId: 'test-user-id',
+      settings: { displayFields: [], badgeFields: [] },
+    };
+
+    await dbMod.saveCollection(collection);
+    await dbMod.deleteCollection(collection);
+
+    // Verify storage.remove was called with correct paths
+    expect(storageRemove).toHaveBeenCalledTimes(1);
+    const [removedPaths] = storageRemove.mock.calls[0];
+    expect(removedPaths).toContain(
+      'test-user-id/collections/col-storage-delete/item-cloud-delete/original.jpg',
+    );
+    expect(removedPaths).toContain(
+      'test-user-id/collections/col-storage-delete/item-cloud-delete/display.jpg',
+    );
+    expect(removedPaths).toContain(
+      'test-user-id/collections/col-storage-delete/item-cloud-delete/enhanced.jpg',
+    );
+  });
+
+  it('deleteCollection: handles collection with multiple items', async () => {
+    const { supabase, storageRemove } = createDeleteSupabaseMock();
+    const dbMod = await importDbModuleFreshWithSupabaseMock(supabase);
+
+    const db = await dbMod.initDB();
+    openDb = db;
+    await clearStores(db, ['collections', 'assets', 'display', 'settings']);
+
+    const items: CollectionItem[] = [
+      {
+        id: 'item-1',
+        collectionId: 'col-multi',
+        photoUrl: 'asset',
+        title: 'Item 1',
+        rating: 5,
+        data: {},
+        createdAt: new Date().toISOString(),
+        notes: '',
+      },
+      {
+        id: 'item-2',
+        collectionId: 'col-multi',
+        photoUrl: 'asset',
+        title: 'Item 2',
+        rating: 4,
+        data: {},
+        createdAt: new Date().toISOString(),
+        notes: '',
+      },
+      {
+        id: 'item-3',
+        collectionId: 'col-multi',
+        photoUrl: 'asset',
+        title: 'Item 3',
+        rating: 3,
+        data: {},
+        createdAt: new Date().toISOString(),
+        notes: '',
+      },
+    ];
+
+    const collection: UserCollection = {
+      id: 'col-multi',
+      templateId: 'vinyl',
+      name: 'Multi Item Collection',
+      icon: '📚',
+      customFields: [],
+      items,
+      ownerId: 'test-user-id',
+      settings: { displayFields: [], badgeFields: [] },
+    };
+
+    // Save collection and assets for all items
+    await dbMod.saveCollection(collection);
+    for (const item of items) {
+      const original = new Blob(['orig'], { type: 'image/jpeg' });
+      const display = new Blob(['disp'], { type: 'image/jpeg' });
+      await dbMod.saveAsset('col-multi', item.id, original, display);
+    }
+
+    // Verify all assets exist
+    for (const item of items) {
+      const savedOriginal = await readFromStore<Blob>(db, 'assets', item.id);
+      expect(savedOriginal).toBeTruthy();
+    }
+
+    // Delete collection
+    await dbMod.deleteCollection(collection);
+
+    // Verify collection is gone
+    const saved = await readFromStore<UserCollection>(db, 'collections', 'col-multi');
+    expect(saved).toBeNull();
+
+    // Verify all assets are gone
+    for (const item of items) {
+      const savedOriginal = await readFromStore<Blob>(db, 'assets', item.id);
+      const savedDisplay = await readFromStore<Blob>(db, 'display', item.id);
+      expect(savedOriginal).toBeNull();
+      expect(savedDisplay).toBeNull();
+    }
+
+    // Verify storage.remove was called with all 9 paths (3 per item)
+    const [removedPaths] = storageRemove.mock.calls[0];
+    expect(removedPaths).toHaveLength(9);
+  });
 });

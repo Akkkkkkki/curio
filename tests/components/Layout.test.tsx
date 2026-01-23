@@ -402,26 +402,12 @@ describe('Layout Component', () => {
       expect(homeLinks.length).toBeGreaterThanOrEqual(1);
     });
 
-    it('renders explore link in bottom nav when sampleCollectionId is provided', () => {
+    it('renders explore link in bottom nav', () => {
       renderWithProviders(<Layout {...defaultProps} sampleCollectionId="sample-vinyl-1" />);
 
-      expect(screen.getByText('Explore')).toBeInTheDocument();
-    });
-
-    it('renders explore button when no sampleCollectionId', () => {
-      renderWithProviders(<Layout {...defaultProps} onExploreSamples={vi.fn()} />);
-
-      expect(screen.getByText('Explore')).toBeInTheDocument();
-    });
-
-    it('calls onExploreSamples when explore button is clicked', () => {
-      const onExploreSamples = vi.fn();
-      renderWithProviders(<Layout {...defaultProps} onExploreSamples={onExploreSamples} />);
-
-      const exploreButton = screen.getByText('Explore');
-      fireEvent.click(exploreButton);
-
-      expect(onExploreSamples).toHaveBeenCalledTimes(1);
+      const exploreLink = screen.getByRole('link', { name: /explore/i });
+      expect(exploreLink).toBeInTheDocument();
+      expect(exploreLink).toHaveAttribute('href', '#/explore');
     });
   });
 
@@ -498,13 +484,6 @@ describe('Layout Component', () => {
   });
 
   describe('Edge Cases', () => {
-    it('handles undefined onExploreSamples gracefully', () => {
-      // Should not throw when onExploreSamples is not provided
-      expect(() => {
-        renderWithProviders(<Layout {...defaultProps} onExploreSamples={undefined} />);
-      }).not.toThrow();
-    });
-
     it('handles null sampleCollectionId gracefully', () => {
       expect(() => {
         renderWithProviders(<Layout {...defaultProps} sampleCollectionId={null} />);

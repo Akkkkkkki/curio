@@ -86,7 +86,7 @@ describe('ItemCard Component', () => {
         />,
       );
 
-      expect(screen.getByText('Abbey Road')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Abbey Road' })).toBeInTheDocument();
     });
 
     it('renders with data-testid for testing', () => {
@@ -222,8 +222,8 @@ describe('ItemCard Component', () => {
       );
 
       expect(screen.getByText('The Beatles')).toBeInTheDocument();
-      // Album value shouldn't appear since it's undefined
-      expect(screen.queryAllByText('Abbey Road')).toHaveLength(1); // Only title, not field
+      // Album value shouldn't appear since it's undefined - title appears in heading and tooltip
+      expect(screen.getByRole('heading', { name: 'Abbey Road' })).toBeInTheDocument();
     });
 
     it('formats boolean fields correctly', () => {
@@ -532,7 +532,7 @@ describe('ItemCard Component', () => {
 
         const card = screen.getByTestId('item-card');
         expect(card).toBeInTheDocument();
-        expect(screen.getByText('Abbey Road')).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: 'Abbey Road' })).toBeInTheDocument();
       });
 
       it(`applies ${description} styling for ${theme} theme`, () => {
@@ -588,7 +588,7 @@ describe('ItemCard Component', () => {
         />,
       );
 
-      expect(screen.getByText('Abbey Road')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Abbey Road' })).toBeInTheDocument();
     });
 
     it('handles empty badge fields array', () => {
@@ -605,7 +605,7 @@ describe('ItemCard Component', () => {
         />,
       );
 
-      expect(screen.getByText('Abbey Road')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Abbey Road' })).toBeInTheDocument();
       expect(screen.getByText('The Beatles')).toBeInTheDocument();
     });
 
@@ -624,7 +624,7 @@ describe('ItemCard Component', () => {
       );
 
       // Title should still render
-      expect(screen.getByText('Abbey Road')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Abbey Road' })).toBeInTheDocument();
     });
 
     it('handles field not found in fields array', () => {
@@ -662,7 +662,7 @@ describe('ItemCard Component', () => {
         />,
       );
 
-      const titleElement = screen.getByText(longTitle);
+      const titleElement = screen.getByRole('heading', { name: longTitle });
       expect(titleElement).toBeInTheDocument();
       expect(titleElement.className).toContain('line-clamp-1');
     });

@@ -218,6 +218,28 @@ describe('AddItemModal', () => {
         expect(screen.getByText(/enter manually/i)).toBeInTheDocument();
       });
     });
+
+    it('switches to manual entry when "Enter manually" is clicked during analysis', async () => {
+      const user = userEvent.setup();
+      mockAnalyzeImage.mockImplementation(() => new Promise(() => {}));
+
+      renderWithProviders(<AddItemModal {...defaultProps} />);
+
+      const fileInput = screen.getByTestId('add-item-file-input') as HTMLInputElement;
+      const file = new File(['test image content'], 'test.jpg', { type: 'image/jpeg' });
+
+      await waitFor(() => {
+        fireEvent.change(fileInput, { target: { files: [file] } });
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText(/enter manually/i)).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText(/enter manually/i));
+
+      expect(screen.getByText(/Add to Collection/i)).toBeInTheDocument();
+    });
   });
 
   describe('AI Failure Handling (Graceful Degradation)', () => {

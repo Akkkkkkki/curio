@@ -6,7 +6,8 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, '.'),
+      '@': path.resolve(__dirname, './src'),
+      '@tests': path.resolve(__dirname, './tests'),
     },
   },
   test: {
@@ -14,6 +15,8 @@ export default defineConfig({
     environment: 'happy-dom',
     setupFiles: './tests/setup.ts',
     include: ['tests/**/*.test.{ts,tsx}'],
+    // Live integration tests are opt-in (run via `npm run test:live`)
+    exclude: ['tests/live/**'],
     // IndexedDB-heavy integration tests (Phase 2) use a fixed DB name in production code.
     // Running test files in parallel can cause delete/open blocking across suites.
     // Keep the suite deterministic by running with a single worker.
@@ -24,7 +27,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
-      include: ['services/**/*.ts', 'hooks/**/*.ts', 'components/**/*.tsx'],
+      include: ['src/services/**/*.ts', 'src/hooks/**/*.ts', 'src/components/**/*.tsx'],
       exclude: [
         'node_modules/',
         'tests/',
@@ -34,19 +37,19 @@ export default defineConfig({
         '**/i18n.ts',
       ],
       thresholds: {
-        'services/**/*.ts': {
+        'src/services/**/*.ts': {
           lines: 90,
           functions: 90,
           branches: 90,
           statements: 90,
         },
-        'hooks/**/*.ts': {
+        'src/hooks/**/*.ts': {
           lines: 80,
           functions: 80,
           branches: 80,
           statements: 80,
         },
-        'components/**/*.tsx': {
+        'src/components/**/*.tsx': {
           lines: 70,
           functions: 70,
           branches: 70,
