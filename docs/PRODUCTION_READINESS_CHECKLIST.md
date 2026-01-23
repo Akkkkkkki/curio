@@ -3,6 +3,63 @@
 This checklist tracks the minimum bar for a full production launch. Items are grouped by area and
 should be verified (or explicitly waived) before launch. Gaps are tracked in GitHub issues.
 
+## 2026-01-23 Review Addendum (single source of truth)
+
+This section consolidates:
+- The “Production Readiness Checklist” review notes (prioritization + minimal implementation suggestions)
+- The previously drafted issues in `docs/issue-drafts/2026-01-23/`
+
+### Executive summary
+
+- **Closest-to-production areas**: merge strategy + IndexedDB recovery UX + CI coverage are already in good shape.
+- **Highest production risk**: AI gateway hardening (cost/security) and asset durability (uploads + deletes).
+- **Critical missing gap discovered in review**: **offline deletes can resurrect from cloud** (must be fixed for trust).
+
+### Review decisions on the original issue drafts
+
+- **Access gate stays visible**: **Likely already fixed** in current `src/App.tsx` (gate remains until “Explore sample” or sign-in). Keep as a checklist verification item, but the original draft appears stale.
+- **All other 2026-01-23 drafts**: **Agreed** and tracked as GitHub issues below.
+
+### Prioritized launch plan (minimal, no overengineering)
+
+**P0 / must-fix before production**
+- **AI gateway hardening**: restrict CORS + require auth + rate limit. Tracked in [#129](https://github.com/Akkkkkkki/curio/issues/129).
+- **Asset durability**: implement a retry queue for failed storage uploads + user-visible status. Tracked in [#131](https://github.com/Akkkkkkki/curio/issues/131).
+- **Delete consistency**: prevent offline deletes resurrecting from cloud (tombstones + queued deletes). Tracked in [#135](https://github.com/Akkkkkkki/curio/issues/135).
+
+**P1 / strongly recommended for first production month**
+- **Large collections performance strategy** (start with pagination; add virtualization only if needed). Tracked in [#133](https://github.com/Akkkkkkki/curio/issues/133).
+
+**P2 / operational readiness**
+- **Monitoring for AI gateway + sync errors** (start with gateway metrics + a few actionable alerts). Tracked in [#130](https://github.com/Akkkkkkki/curio/issues/130).
+- **Rollback/runbook** for gateway + schema changes. Tracked in [#134](https://github.com/Akkkkkkki/curio/issues/134).
+
+**P3 / polish**
+- **Quota warning** (single threshold-based warning using `navigator.storage.estimate()`). Tracked in [#132](https://github.com/Akkkkkkki/curio/issues/132).
+
+### DB + Storage coverage (current vs recommended)
+
+**Already covered (good)**
+- Unit/integration tests heavily cover IndexedDB merge + dual-write behavior via mocks.
+- CI runs `format:check`, `npm test`, `npm run build`, and Playwright E2E on PRs.
+
+**Not yet covered with real Supabase (recommended before full launch)**
+- Add a **staging Supabase “preflight” smoke** (manual or CI-gated) to validate:
+  - RLS isolation across users
+  - Storage isolation across user folder prefixes
+  - Public sample read behavior (if intended)
+  - “Upload then download on new device/session” happy path
+
+### Issue index (production readiness gaps)
+
+- AI gateway hardening (CORS/auth/rate-limit): [#129](https://github.com/Akkkkkkki/curio/issues/129)
+- AI gateway + sync monitoring: [#130](https://github.com/Akkkkkkki/curio/issues/130)
+- Asset upload retry queue: [#131](https://github.com/Akkkkkkki/curio/issues/131)
+- IndexedDB quota warning: [#132](https://github.com/Akkkkkkki/curio/issues/132)
+- Large collection performance strategy: [#133](https://github.com/Akkkkkkki/curio/issues/133)
+- Rollback/runbook (gateway + schema): [#134](https://github.com/Akkkkkkki/curio/issues/134)
+- Offline deletes resurrecting: [#135](https://github.com/Akkkkkkki/curio/issues/135)
+
 ## Product & UX
 
 - [ ] First-run access gate stays visible until users explicitly choose **Explore sample** or sign in.
@@ -15,6 +72,7 @@ should be verified (or explicitly waived) before launch. Gaps are tracked in Git
 - [ ] IndexedDB corruption recovery notifications are visible.
 - [ ] Sync queue retries metadata updates when back online.
 - [ ] Asset upload retry queue exists for failed uploads.
+- [ ] Deletes do not resurrect when offline (tombstones + queued delete).
 - [ ] Storage quota checks warn users before IndexedDB fills.
 - [ ] Timestamp-based conflict resolution is enabled in production (`VITE_SUPABASE_SYNC_TIMESTAMPS=true`).
 
