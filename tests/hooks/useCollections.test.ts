@@ -17,6 +17,7 @@ import { CURRENT_SEED_VERSION, INITIAL_COLLECTIONS } from '@/services/seedCollec
 const dbMocks = {
   fetchCloudCollections: vi.fn(),
   getLocalCollections: vi.fn(),
+  getPendingSyncIds: vi.fn(),
   hasLocalOnlyData: vi.fn(),
   mergeCollections: vi.fn(),
   requestPersistence: vi.fn(),
@@ -60,6 +61,7 @@ describe('hooks/useCollections.ts (Phase 3.3)', () => {
     dbMocks.requestPersistence.mockResolvedValue(undefined);
     dbMocks.getLocalCollections.mockResolvedValue([]);
     dbMocks.fetchCloudCollections.mockResolvedValue([]);
+    dbMocks.getPendingSyncIds.mockResolvedValue([]);
     dbMocks.hasLocalOnlyData.mockReturnValue(false);
     dbMocks.mergeCollections.mockImplementation((local: UserCollection[], cloud: UserCollection[]) =>
       cloud.length ? cloud : local,
@@ -108,7 +110,7 @@ describe('hooks/useCollections.ts (Phase 3.3)', () => {
     expect(showStatus).toHaveBeenCalledWith('statusSyncPaused', 'error');
   });
 
-  it('happy path: with a user, uses cloud collections, persists them locally, and reports synced', async () => {
+  it('happy path: with a user, merges local+cloud, persists merged snapshot, and reports synced', async () => {
     /**
      * Verifies standard online behavior:
      * - Loads local cache
@@ -122,6 +124,7 @@ describe('hooks/useCollections.ts (Phase 3.3)', () => {
     dbMocks.getLocalCollections.mockResolvedValue(local);
     dbMocks.fetchCloudCollections.mockResolvedValue(cloud);
     dbMocks.hasLocalOnlyData.mockReturnValue(false);
+    dbMocks.getPendingSyncIds.mockResolvedValue([]);
     dbMocks.mergeCollections.mockReturnValue(merged);
 
     const { useCollections } = await import('@/hooks/useCollections');
@@ -235,6 +238,7 @@ describe('hooks/useCollections.ts (Phase 3.3)', () => {
     dbMocks.getLocalCollections.mockResolvedValue(local);
     dbMocks.fetchCloudCollections.mockResolvedValue(cloud);
     dbMocks.hasLocalOnlyData.mockReturnValue(true);
+    dbMocks.getPendingSyncIds.mockResolvedValue(['local-only']);
     dbMocks.mergeCollections.mockReturnValue(merged);
 
     const { useCollections } = await import('@/hooks/useCollections');

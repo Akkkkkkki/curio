@@ -47,6 +47,7 @@ import { Button } from './components/ui/Button';
 import {
   fetchCloudCollections,
   getLocalCollections,
+  getPendingSyncIds,
   hasLocalOnlyData,
   importLocalCollectionsToCloud,
   mergeCollections,
@@ -374,6 +375,7 @@ const AppContent: React.FC = () => {
       localCollections,
       cloudCollections,
       fallbackSampleCollections,
+      mergedCollections,
     }: {
       user: { id: string } | null;
       localCollections: UserCollection[];
@@ -438,7 +440,11 @@ const AppContent: React.FC = () => {
         cloudCollections,
       });
 
-      const mergedCollections = mergeCollections(localCollections, cloudCollections);
+      const pendingSyncIds = await getPendingSyncIds();
+      const mergedCollections = mergeCollections(localCollections, cloudCollections, {
+        includeLocalOnly: (collection) =>
+          !collection.ownerId || pendingSyncIds.includes(collection.id),
+      });
 
       const {
         collections: resolvedCollections,
