@@ -1376,84 +1376,87 @@ const AppContent: React.FC = () => {
     };
 
     return (
-      <div
-        className={`max-w-4xl mx-auto rounded-[2rem] sm:rounded-[4rem] border overflow-hidden animate-in zoom-in-95 duration-500 mb-20 ${detailBaseClasses[theme]}`}
-        onAnimationEnd={(e) => {
-          // Remove animation classes after animation ends to fix fixed positioning in children
-          e.currentTarget.classList.remove('animate-in', 'zoom-in-95', 'duration-500');
-          e.currentTarget.style.animation = 'none';
-        }}
-      >
+      <>
         <div
-          className={`relative ${hasPhoto ? 'aspect-[4/5] sm:aspect-[16/9] md:aspect-[21/9]' : 'h-32 sm:h-48'} bg-stone-950 group transition-all duration-700 ease-in-out`}
+          className={`max-w-4xl mx-auto rounded-[2rem] sm:rounded-[4rem] border overflow-hidden animate-in zoom-in-95 duration-500 mb-20 ${detailBaseClasses[theme]}`}
+          onAnimationEnd={(e) => {
+            // Remove animation classes after animation ends to fix fixed positioning in children
+            e.currentTarget.classList.remove('animate-in', 'zoom-in-95', 'duration-500');
+            e.currentTarget.style.animation = 'none';
+          }}
         >
-          <ItemImage
-            key={imageKey}
-            itemId={item.id}
-            collectionId={collection.id}
-            photoUrl={item.photoUrl}
-            enhancedPath={item.photoEnhancedPath}
-            alt={item.title}
-            type="enhanced"
-            className="w-full h-full object-cover transition-transform duration-[10s] group-hover:scale-110 opacity-80"
-          />
-
-          <div className="absolute inset-0 bg-gradient-to-t from-stone-950/60 to-transparent"></div>
-
-          {!isReadOnly && (
-            <>
-              <div
-                className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${hasPhoto ? 'opacity-100 sm:opacity-0 sm:group-hover:opacity-100' : 'opacity-100'}`}
-              >
-                <button
-                  disabled={isProcessing}
-                  onClick={() => fileInputRef.current?.click()}
-                  className="bg-white/90 hover:bg-white text-stone-900 px-6 sm:px-8 py-2 sm:py-3 rounded-full font-bold shadow-2xl backdrop-blur-md transition-all hover:scale-105 flex items-center gap-2 sm:gap-3 disabled:opacity-50 text-xs sm:text-sm"
-                >
-                  {isProcessing ? (
-                    <Loader2 size={16} className="animate-spin" />
-                  ) : (
-                    <Camera size={16} />
-                  )}
-                  {t('updatePhoto')}
-                </button>
-              </div>
-              <input
-                type="file"
-                ref={fileInputRef}
-                className="hidden"
-                accept="image/*"
-                onChange={handlePhotoUpdate}
-              />
-            </>
-          )}
-
-          <button
-            onClick={() => navigate(-1)}
-            className={`absolute top-4 left-4 sm:top-8 sm:left-8 w-10 h-10 sm:w-14 sm:h-14 backdrop-blur-md rounded-xl sm:rounded-2xl flex items-center justify-center shadow-xl transition-all hover:scale-105 z-10 ${theme === 'vault' ? 'bg-white/10 text-white' : 'bg-white/80 text-stone-800'}`}
+          <div
+            className={`relative ${hasPhoto ? 'aspect-[4/5] sm:aspect-[16/9] md:aspect-[21/9]' : 'h-32 sm:h-48'} bg-stone-950 group transition-all duration-700 ease-in-out`}
           >
-            <ArrowLeft size={20} className="sm:w-6 sm:h-6" />
-          </button>
+            <ItemImage
+              key={imageKey}
+              itemId={item.id}
+              collectionId={collection.id}
+              photoUrl={item.photoUrl}
+              enhancedPath={item.photoEnhancedPath}
+              alt={item.title}
+              type="enhanced"
+              className="w-full h-full object-cover transition-transform duration-[10s] group-hover:scale-110 opacity-80"
+            />
 
-          <div className="absolute top-4 right-4 sm:top-8 sm:right-8 flex gap-2 sm:gap-4 z-10">
-            {/* Enhance Image Button - only show when AI is enabled, not read-only, and has photo */}
-            {aiImageEditEnabled && !isReadOnly && isAssetPhoto && (
-              <button
-                onClick={() => setIsEnhanceOpen(true)}
-                className={`w-10 h-10 sm:w-14 sm:h-14 backdrop-blur-md rounded-xl sm:rounded-2xl flex items-center justify-center shadow-xl transition-all hover:scale-105 ${theme === 'vault' ? 'bg-white/10 text-white' : 'bg-white/80 text-stone-800'}`}
-                title={t('enhanceImage')}
-              >
-                <Sparkles size={20} className="sm:w-6 sm:h-6" />
-              </button>
+            <div className="absolute inset-0 bg-gradient-to-t from-stone-950/60 to-transparent"></div>
+
+            {!isReadOnly && (
+              <>
+                <div
+                  className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${hasPhoto ? 'opacity-100 sm:opacity-0 sm:group-hover:opacity-100' : 'opacity-100'}`}
+                >
+                  <button
+                    disabled={isProcessing}
+                    onClick={() => fileInputRef.current?.click()}
+                    className="bg-white/90 hover:bg-white text-stone-900 px-6 sm:px-8 py-2 sm:py-3 rounded-full font-bold shadow-2xl backdrop-blur-md transition-all hover:scale-105 flex items-center gap-2 sm:gap-3 disabled:opacity-50 text-xs sm:text-sm"
+                  >
+                    {isProcessing ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <Camera size={16} />
+                    )}
+                    {t('updatePhoto')}
+                  </button>
+                </div>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  className="hidden"
+                  accept="image/*"
+                  onChange={handlePhotoUpdate}
+                />
+              </>
             )}
+
             <button
-              onClick={() => setIsExportOpen(true)}
-              className={`w-10 h-10 sm:w-14 sm:h-14 backdrop-blur-md rounded-xl sm:rounded-2xl flex items-center justify-center shadow-xl transition-all hover:scale-105 ${theme === 'vault' ? 'bg-white/10 text-white' : 'bg-white/80 text-stone-800'}`}
-              title={t('exportCard')}
+              onClick={() => navigate(-1)}
+              className={`absolute top-4 left-4 sm:top-8 sm:left-8 w-10 h-10 sm:w-14 sm:h-14 backdrop-blur-md rounded-xl sm:rounded-2xl flex items-center justify-center shadow-xl transition-all hover:scale-105 z-10 ${theme === 'vault' ? 'bg-white/10 text-white' : 'bg-white/80 text-stone-800'}`}
             >
-              <Printer size={20} className="sm:w-6 sm:h-6" />
+              <ArrowLeft size={20} className="sm:w-6 sm:h-6" />
             </button>
-          </div>
+
+            <div className="absolute top-4 right-4 sm:top-8 sm:right-8 flex gap-2 sm:gap-4 z-10">
+              {/* Enhance Image Button - only show when AI is enabled, not read-only, and has photo */}
+              {aiImageEditEnabled && !isReadOnly && isAssetPhoto && (
+                <button
+                  onClick={() => setIsEnhanceOpen(true)}
+                  className={`w-10 h-10 sm:w-14 sm:h-14 backdrop-blur-md rounded-xl sm:rounded-2xl flex items-center justify-center shadow-xl transition-all hover:scale-105 ${theme === 'vault' ? 'bg-white/10 text-white' : 'bg-white/80 text-stone-800'}`}
+                  title={t('enhanceImage')}
+                >
+                  <Sparkles size={20} className="sm:w-6 sm:h-6" />
+                </button>
+              )}
+              <button
+                onClick={() => setIsExportOpen(true)}
+                className={`w-10 h-10 sm:w-14 sm:h-14 backdrop-blur-md rounded-xl sm:rounded-2xl flex items-center justify-center shadow-xl transition-all hover:scale-105 ${theme === 'vault' ? 'bg-white/10 text-white' : 'bg-white/80 text-stone-800'}`}
+                title={t('exportCard')}
+                aria-label={t('exportCard')}
+                data-testid="item-export"
+              >
+                <Printer size={20} className="sm:w-6 sm:h-6" />
+              </button>
+            </div>
         </div>
 
         <div className="p-8 sm:p-12 md:p-20 space-y-10 sm:space-y-12">
@@ -1577,6 +1580,7 @@ const AppContent: React.FC = () => {
             </div>
           </div>
         </div>
+        </div>
         <ExportModal
           isOpen={isExportOpen}
           onClose={() => setIsExportOpen(false)}
@@ -1597,7 +1601,7 @@ const AppContent: React.FC = () => {
             setImageKey((prev) => prev + 1);
           }}
         />
-      </div>
+      </>
     );
   };
 
