@@ -4,6 +4,7 @@ import {
   fetchCloudCollections,
   getLocalCollections,
   hasLocalOnlyData,
+  mergeCollections,
   requestPersistence,
   saveAllCollections,
   saveCollection,
@@ -190,11 +191,10 @@ export const useCollections = ({
         }
       }
 
-      if (!localOnly) {
-        await saveAllCollections(cloudCollections);
-      }
+      const mergedCollections = mergeCollections(localCollections, cloudCollections);
+      await saveAllCollections(mergedCollections);
 
-      setCollections(cloudCollections);
+      setCollections(mergedCollections);
       if (cloudCollections.length + localCollections.length > 0) {
         showStatus(t('statusSynced'), 'success');
       }
