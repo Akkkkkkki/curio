@@ -1,7 +1,10 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { randomUUID } from 'crypto';
 import express from 'express';
+import jwt from 'jsonwebtoken';
+import rateLimit from 'express-rate-limit';
 import { GoogleGenAI, Type } from '@google/genai';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -38,13 +41,115 @@ if (shouldLoadEnvFiles) {
 const app = express();
 const port = process.env.PORT || 8787;
 
+// Security configuration
+const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS || '')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+const JWT_SECRET = process.env.SUPABASE_JWT_SECRET;
+const isProduction = process.env.NODE_ENV === 'production';
+
+// Trust proxy for accurate IP in rate limiting (required for Cloud Run, Vercel, etc.)
+app.set('trust proxy', 1);
+
 app.use(express.json({ limit: '15mb' }));
+
+// Request ID and structured logging middleware
 app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', process.env.CORS_ORIGIN || '*');
+  req.id = randomUUID().slice(0, 8);
+  const start = Date.now();
+
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    const log = {
+      id: req.id,
+      method: req.method,
+      path: req.path,
+      status: res.statusCode,
+      duration,
+      user: req.user?.sub || 'anonymous',
+      ip: req.ip,
+    };
+    console.log(JSON.stringify(log));
+  });
+
+  next();
+});
+
+// CORS middleware with allowlist support
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+
+  if (ALLOWED_ORIGINS.length > 0) {
+    // Production: strict allowlist
+    if (origin && ALLOWED_ORIGINS.includes(origin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+    } else if (origin) {
+      // Origin not in allowlist
+      return res.status(403).json({ error: 'Origin not allowed' });
+    }
+    // No origin header (same-origin or non-browser request) - allow through
+  } else if (!isProduction) {
+    // Development: allow any origin
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  } else {
+    // Production without CORS_ORIGINS configured: reject cross-origin
+    if (origin) {
+      return res.status(403).json({ error: 'CORS not configured for production' });
+    }
+  }
+
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Vary', 'Origin');
+
   if (req.method === 'OPTIONS') return res.sendStatus(204);
   return next();
+});
+
+// JWT authentication middleware
+const requireAuth = (req, res, next) => {
+  // Skip auth in development if no JWT secret configured
+  if (!JWT_SECRET) {
+    if (isProduction) {
+      return res.status(503).json({ error: 'Auth not configured' });
+    }
+    return next(); // Allow in dev without auth
+  }
+
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Missing authorization token' });
+  }
+
+  try {
+    const token = authHeader.slice(7);
+    const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
+    req.user = decoded; // { sub: userId, email, aud, exp, iat }
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: 'Invalid or expired token' });
+  }
+};
+
+// Rate limiting: per-user (10 requests/minute)
+const userLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  keyGenerator: (req) => req.user?.sub || req.ip,
+  message: { error: 'Rate limit exceeded. Please wait before trying again.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Rate limiting: per-IP blast protection (50 requests/minute)
+const ipLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 50,
+  keyGenerator: (req) => req.ip,
+  message: { error: 'Too many requests from this IP.' },
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
 const apiKey = process.env.GEMINI_API_KEY;
@@ -73,7 +178,7 @@ app.get('/api/health', (_req, res) => {
   res.json({ ok: true, geminiConfigured: Boolean(apiKey) });
 });
 
-app.post('/api/gemini/analyze', async (req, res) => {
+app.post('/api/gemini/analyze', ipLimiter, requireAuth, userLimiter, async (req, res) => {
   if (!ai) {
     return res.status(503).json({ error: 'GEMINI_API_KEY is not configured' });
   }
@@ -166,7 +271,7 @@ Requirements:
 Make it beautiful while keeping the item 100% recognizable.`,
 };
 
-app.post('/api/gemini/enhance', async (req, res) => {
+app.post('/api/gemini/enhance', ipLimiter, requireAuth, userLimiter, async (req, res) => {
   if (!ai) {
     return res.status(503).json({ error: 'GEMINI_API_KEY is not configured' });
   }
