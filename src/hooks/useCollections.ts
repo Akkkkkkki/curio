@@ -10,9 +10,12 @@ import {
   getSeedVersion,
   setSeedVersion,
   setRecoveryCallback,
+  setAssetSyncStatusCallback,
   setSyncStatusCallback,
   syncPendingChanges,
+  syncPendingAssetUploads,
   type RecoveryEvent,
+  type AssetSyncStatus,
   type SyncStatus,
 } from '../services/db';
 import type { UserCollection } from '../types';
@@ -93,14 +96,35 @@ export const useCollections = ({
     return () => setSyncStatusCallback(null);
   }, []);
 
+  useEffect(() => {
+    const handleAssetSyncStatus = (status: AssetSyncStatus, details?: { count?: number }) => {
+      const t = tRef.current;
+      const showStatus = showStatusRef.current;
+
+      if (status === 'queued') {
+        showStatus(t('statusPhotosWillSync'), 'warning');
+      } else if (status === 'synced') {
+        const count = details?.count ?? 0;
+        showStatus(t('statusPhotosSynced').replace('{count}', String(count)), 'success');
+      }
+    };
+
+    setAssetSyncStatusCallback(handleAssetSyncStatus);
+    return () => setAssetSyncStatusCallback(null);
+  }, []);
+
   // Sync pending changes when coming back online
   useEffect(() => {
     const handleOnline = async () => {
       const synced = await syncPendingChanges();
+      const assetsSynced = await syncPendingAssetUploads();
       if (synced > 0) {
         const t = tRef.current;
         const showStatus = showStatusRef.current;
         showStatus(t('statusPendingSynced').replace('{count}', String(synced)), 'success');
+        setSyncStatus('synced');
+      }
+      if (assetsSynced > 0) {
         setSyncStatus('synced');
       }
     };
@@ -205,6 +229,7 @@ export const useCollections = ({
         if (synced > 0) {
           showStatus(t('statusPendingSynced').replace('{count}', String(synced)), 'success');
         }
+        await syncPendingAssetUploads();
       }
     } catch (e) {
       console.error('Initialization failed:', e);

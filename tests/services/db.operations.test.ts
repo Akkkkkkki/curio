@@ -314,9 +314,38 @@ describe('Phase 2.2 — services/db.ts dual-write operations', () => {
     expect(calledPaths).toContain('test-user-id/collections/col-1/item-asset-1/display.jpg');
   });
 
-  it.todo(
-    'saveAsset: cloud upload failure should trigger retry logic (roadmap requirement - not yet implemented)',
-  );
+  it('saveAsset: cloud upload failure queues retry and syncPendingAssetUploads retries successfully', async () => {
+    const { supabase, upload } = createSupabaseMock();
+    upload
+      .mockResolvedValueOnce({ data: null, error: new Error('Upload failed') })
+      .mockResolvedValueOnce({ data: { path: 'ok' }, error: null });
+    const dbMod = await importDbModuleFreshWithSupabaseMock(supabase);
+
+    const db = await dbMod.initDB();
+    openDb = db;
+    await clearStores(db, ['collections', 'assets', 'display', 'settings']);
+
+    const original = new Blob(['orig'], { type: 'image/jpeg' });
+    const display = new Blob(['disp'], { type: 'image/jpeg' });
+
+    await expect(
+      dbMod.saveAsset('col-1', 'item-asset-2', original, display),
+    ).resolves.toBeUndefined();
+
+    const pendingAfterSave = await readFromStore<any[]>(db, 'settings', 'pending_asset_uploads');
+    expect(pendingAfterSave).toEqual([
+      expect.objectContaining({ collectionId: 'col-1', itemId: 'item-asset-2' }),
+    ]);
+
+    upload.mockClear();
+    upload.mockResolvedValue({ data: { path: 'ok' }, error: null });
+
+    await expect(dbMod.syncPendingAssetUploads()).resolves.toBe(1);
+
+    const pendingAfterSync = await readFromStore<any[]>(db, 'settings', 'pending_asset_uploads');
+    expect(pendingAfterSync).toEqual([]);
+    expect(upload).toHaveBeenCalledTimes(2);
+  });
 
   it.todo('exports saveItem(item, session) as a function (roadmap API - not yet implemented)');
 });

@@ -16,6 +16,7 @@ type ItemImageStatus = 'none' | 'processing' | 'ready' | 'failed';
 
 // Keys for pending sync tracking
 const PENDING_SYNC_KEY = 'pending_sync_ids';
+const PENDING_ASSET_UPLOADS_KEY = 'pending_asset_uploads';
 
 let dbInstance: IDBDatabase | null = null;
 let dbInitPromise: Promise<IDBDatabase> | null = null;
@@ -51,6 +52,31 @@ export const setSyncStatusCallback = (cb: SyncStatusCallback | null) => {
 
 const notifySyncStatus = (status: SyncStatus, error?: string) => {
   onSyncStatusChange?.(status, error);
+};
+
+export type AssetSyncStatus = 'queued' | 'synced' | 'error';
+
+type AssetSyncStatusCallback = (
+  status: AssetSyncStatus,
+  details?: { count?: number; error?: string },
+) => void;
+let onAssetSyncStatusChange: AssetSyncStatusCallback | null = null;
+
+export const setAssetSyncStatusCallback = (cb: AssetSyncStatusCallback | null) => {
+  onAssetSyncStatusChange = cb;
+};
+
+const notifyAssetSyncStatus = (
+  status: AssetSyncStatus,
+  details?: { count?: number; error?: string },
+) => {
+  onAssetSyncStatusChange?.(status, details);
+};
+
+type PendingAssetUpload = {
+  collectionId: string;
+  itemId: string;
+  createdAt?: string;
 };
 
 // Exported for testing
@@ -303,6 +329,45 @@ const removeFromPendingSync = async (collectionId: string): Promise<void> => {
   tx.objectStore(SETTINGS_STORE).put(filtered, PENDING_SYNC_KEY);
 };
 
+const getPendingAssetUploads = async (): Promise<PendingAssetUpload[]> => {
+  const db = await initDB();
+  return new Promise((resolve) => {
+    const tx = db.transaction(SETTINGS_STORE, 'readonly');
+    const req = tx.objectStore(SETTINGS_STORE).get(PENDING_ASSET_UPLOADS_KEY);
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => resolve([]);
+  });
+};
+
+const addToPendingAssetUploads = async (
+  collectionId: string,
+  itemId: string,
+): Promise<void> => {
+  const db = await initDB();
+  const pending = await getPendingAssetUploads();
+  const exists = pending.some(
+    (entry) => entry.collectionId === collectionId && entry.itemId === itemId,
+  );
+  if (!exists) {
+    pending.push({ collectionId, itemId, createdAt: new Date().toISOString() });
+    const tx = db.transaction(SETTINGS_STORE, 'readwrite');
+    tx.objectStore(SETTINGS_STORE).put(pending, PENDING_ASSET_UPLOADS_KEY);
+  }
+};
+
+const removeFromPendingAssetUploads = async (
+  collectionId: string,
+  itemId: string,
+): Promise<void> => {
+  const db = await initDB();
+  const pending = await getPendingAssetUploads();
+  const filtered = pending.filter(
+    (entry) => !(entry.collectionId === collectionId && entry.itemId === itemId),
+  );
+  const tx = db.transaction(SETTINGS_STORE, 'readwrite');
+  tx.objectStore(SETTINGS_STORE).put(filtered, PENDING_ASSET_UPLOADS_KEY);
+};
+
 export const hasPendingSyncs = async (): Promise<boolean> => {
   const pending = await getPendingSyncIds();
   return pending.length > 0;
@@ -336,6 +401,99 @@ export const syncPendingChanges = async (): Promise<number> => {
       // Collection no longer exists locally, remove from pending
       await removeFromPendingSync(id);
     }
+  }
+
+  return synced;
+};
+
+const readAssetFromStore = async (storeName: string, id: string): Promise<Blob | null> => {
+  const db = await initDB();
+  return new Promise((resolve) => {
+    const transaction = db.transaction(storeName, 'readonly');
+    const store = transaction.objectStore(storeName);
+    const request = store.get(id);
+    request.onsuccess = () => resolve(request.result || null);
+    request.onerror = () => resolve(null);
+  });
+};
+
+const uploadAssetToCloud = async (
+  collectionId: string,
+  itemId: string,
+  original: Blob,
+  display: Blob,
+): Promise<void> => {
+  if (!isSupabaseConfigured() || !supabase) return;
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    throw new Error('No authenticated user session');
+  }
+
+  const basePath = `${user.id}/collections/${collectionId}/${itemId}`;
+  const originalPath = `${basePath}/original.jpg`;
+  const displayPath = `${basePath}/display.jpg`;
+
+  const [originalUpload, displayUpload] = await Promise.all([
+    supabase.storage.from('curio-assets').upload(originalPath, original, {
+      upsert: true,
+      contentType: original.type || 'image/jpeg',
+    }),
+    supabase.storage.from('curio-assets').upload(displayPath, display, {
+      upsert: true,
+      contentType: display.type || 'image/jpeg',
+    }),
+  ]);
+
+  if (originalUpload?.error || displayUpload?.error) {
+    throw new Error(
+      `Storage upload failed: ${originalUpload?.error || displayUpload?.error}`,
+    );
+  }
+
+  await recordItemImage({
+    itemId,
+    role: 'original',
+    storagePath: originalPath,
+    isCurrent: true,
+  });
+  await recordItemImage({
+    itemId,
+    role: 'display',
+    storagePath: displayPath,
+    isCurrent: true,
+  });
+};
+
+export const syncPendingAssetUploads = async (): Promise<number> => {
+  if (!isSupabaseConfigured() || !supabase) return 0;
+  const pendingUploads = await getPendingAssetUploads();
+  if (pendingUploads.length === 0) return 0;
+
+  let synced = 0;
+  for (const { collectionId, itemId } of pendingUploads) {
+    const [original, display] = await Promise.all([
+      readAssetFromStore(ASSETS_STORE, itemId),
+      readAssetFromStore(DISPLAY_STORE, itemId),
+    ]);
+
+    if (!original || !display) {
+      await removeFromPendingAssetUploads(collectionId, itemId);
+      continue;
+    }
+
+    try {
+      await uploadAssetToCloud(collectionId, itemId, original, display);
+      await removeFromPendingAssetUploads(collectionId, itemId);
+      synced++;
+    } catch (e) {
+      console.warn(`Failed to sync pending asset for item ${itemId}:`, e);
+    }
+  }
+
+  if (synced > 0) {
+    notifyAssetSyncStatus('synced', { count: synced });
   }
 
   return synced;
@@ -738,45 +896,12 @@ export const saveAsset = async (
   // Save to Cloud if available
   if (isSupabaseConfigured() && supabase) {
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const basePath = `${user.id}/collections/${collectionId}/${id}`;
-      const originalPath = `${basePath}/original.jpg`;
-      const displayPath = `${basePath}/display.jpg`;
-
-      // Upload in parallel
-      const [originalUpload, displayUpload] = await Promise.all([
-        supabase.storage.from('curio-assets').upload(originalPath, original, {
-          upsert: true,
-          contentType: original.type || 'image/jpeg',
-        }),
-        supabase.storage.from('curio-assets').upload(displayPath, display, {
-          upsert: true,
-          contentType: display.type || 'image/jpeg',
-        }),
-      ]);
-      if (originalUpload?.error || displayUpload?.error) {
-        console.warn('Cloud asset sync failed:', originalUpload?.error || displayUpload?.error);
-        return;
-      }
-
-      await recordItemImage({
-        itemId: id,
-        role: 'original',
-        storagePath: originalPath,
-        isCurrent: true,
-      });
-      await recordItemImage({
-        itemId: id,
-        role: 'display',
-        storagePath: displayPath,
-        isCurrent: true,
-      });
+      await uploadAssetToCloud(collectionId, id, original, display);
+      await removeFromPendingAssetUploads(collectionId, id);
     } catch (e) {
       console.warn('Cloud asset sync failed:', e);
+      await addToPendingAssetUploads(collectionId, id);
+      notifyAssetSyncStatus('queued');
     }
   }
 };

@@ -61,6 +61,7 @@ import {
   initDB,
   setSyncStatusCallback,
   syncPendingChanges,
+  syncPendingAssetUploads,
   extractCurioAssetPath,
   type SyncStatus,
 } from './services/db';
@@ -164,9 +165,11 @@ const AppContent: React.FC = () => {
   const handleRetrySync = useCallback(async () => {
     try {
       const synced = await syncPendingChanges();
+      const assetsSynced = await syncPendingAssetUploads();
       if (synced > 0) {
         showStatus(t('statusPendingSynced').replace('{count}', String(synced)), 'success');
-      } else {
+      }
+      if (synced === 0 && assetsSynced === 0) {
         showStatus(t('statusWillSync'), 'warning');
       }
     } catch (e) {
