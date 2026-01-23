@@ -491,12 +491,6 @@ const AppContent: React.FC = () => {
     refreshCollections();
   }, [authReady, isSupabaseReady, refreshCollections]);
 
-  useEffect(() => {
-    if (!user && collections.some((c) => c.isPublic)) {
-      setAllowPublicBrowse(true);
-    }
-  }, [collections, user]);
-
   const handleImportLocal = async () => {
     setImportState('running');
     setImportMessage(null);
@@ -1615,9 +1609,7 @@ const AppContent: React.FC = () => {
 
   const isAuthenticated = Boolean(user);
   const sampleCollection = useMemo(() => collections.find((c) => c.isPublic), [collections]);
-  const hasPublicCollections = useMemo(() => collections.some((c) => c.isPublic), [collections]);
-  const showAccessGate =
-    !isSupabaseReady || (!isAuthenticated && !allowPublicBrowse && !hasPublicCollections);
+  const showAccessGate = !isSupabaseReady || (!isAuthenticated && !allowPublicBrowse);
   const isExploreRoute = location.pathname === '/explore';
   const shouldShowAccessGate = showAccessGate && !isExploreRoute;
   const fallbackSampleCollectionId = fallbackSampleCollections[0]?.id ?? null;

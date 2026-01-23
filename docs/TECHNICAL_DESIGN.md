@@ -206,3 +206,13 @@ Key columns added for the public sample flow:
 
 - **Theming:** `theme.tsx` exposes a `ThemeProvider` / `useTheme` hook that persists the selected theme (Gallery, Vault, Atelier) in IndexedDB and is consumed by modals (`AddItemModal`, `AuthModal`, `CreateCollectionModal`, `FilterModal`) for consistent surfaces.
 - **Feedback:** A lightweight `StatusToast` component in `App.tsx` surfaces save/sync/import success and error states so users see clear outcomes even during transient network issues.
+
+## 9. Production readiness gaps (shortlist)
+
+These are known gaps that should be closed before a full production launch. They are tracked in issues and
+expanded in the production readiness checklist.
+
+- **Asset upload retry queue** and **storage quota warnings** in IndexedDB (see `docs/INDEXEDDB_RELIABILITY.md`).
+- **AI gateway hardening** (CORS restrictions, auth/signed requests, rate limiting).
+- **Operational monitoring** for the AI gateway and sync error rates (metrics + alerting).
+- **Documentation alignment** so testing status reflects actual E2E coverage.
