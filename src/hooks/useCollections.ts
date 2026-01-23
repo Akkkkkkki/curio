@@ -99,7 +99,10 @@ export const useCollections = ({
   }, []);
 
   useEffect(() => {
-    const handleAssetSyncStatus = (status: AssetSyncStatus, details?: { count?: number }) => {
+    const handleAssetSyncStatus = (
+      status: AssetSyncStatus,
+      details?: { count?: number; error?: string },
+    ) => {
       const t = tRef.current;
       const showStatus = showStatusRef.current;
 
@@ -108,6 +111,9 @@ export const useCollections = ({
       } else if (status === 'synced') {
         const count = details?.count ?? 0;
         showStatus(t('statusPhotosSynced').replace('{count}', String(count)), 'success');
+      } else if (status === 'error') {
+        const errorMessage = details?.error || t('statusSyncPaused');
+        showStatus(t('statusPhotosSyncFailed').replace('{error}', errorMessage), 'error');
       }
     };
 

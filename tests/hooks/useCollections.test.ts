@@ -203,6 +203,31 @@ describe('hooks/useCollections.ts (Phase 3.3)', () => {
     expect(result.current.loadError).toBeNull();
   });
 
+  it('surfaces asset upload failures via status toasts', async () => {
+    let assetStatusCallback: ((status: any, details?: any) => void) | null = null;
+    dbMocks.setAssetSyncStatusCallback.mockImplementation((cb) => {
+      assetStatusCallback = cb;
+    });
+
+    const { useCollections } = await import('@/hooks/useCollections');
+    renderHook(() =>
+      useCollections({
+        user: { id: 'u1' } as any,
+        isAdmin: false,
+        isSupabaseReady: true,
+        fallbackSampleCollections,
+        t,
+        showStatus,
+      }),
+    );
+
+    await waitFor(() => expect(dbMocks.setAssetSyncStatusCallback).toHaveBeenCalled());
+    expect(assetStatusCallback).toBeTruthy();
+
+    assetStatusCallback?.('error', { error: 'Upload failed' });
+    expect(showStatus).toHaveBeenCalledWith('statusPhotosSyncFailed', 'error');
+  });
+
   it('edge case: signed-out user with no data uses fallback sample collections', async () => {
     /**
      * Verifies unauthenticated first-use behavior:
