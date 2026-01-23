@@ -1,440 +1,165 @@
-/**
- * Unit test for "On This Day" logic with cascading fallbacks
- *
- * Tests the computation of history items that match with priority order:
- * 1. Same Month/Day from Prior Year
- * 2. Same Day from Prior Month (days 1-28 only)
- * 3. Same Day from Prior Week
- */
-
 import { describe, it, expect } from 'vitest';
+import { getOnThisDayItems } from '@/utils/onThisDay';
 import { CollectionItem } from '@/types';
 
-/**
- * Simulates the "On This Day" logic from App.tsx stats computation
- * with cascading fallback logic
- */
-function findHistoryItem(allItems: CollectionItem[]): CollectionItem | undefined {
-  const now = new Date();
-  let historyItem: CollectionItem | undefined;
+const makeLocalDate = (year: number, month: number, day: number, hour = 12, minute = 0) =>
+  new Date(year, month, day, hour, minute, 0, 0);
 
-  // 1. Try: Same Month/Day from Prior Year
-  historyItem = allItems.find((i) => {
-    const d = new Date(i.createdAt);
-    return (
-      d.getDate() === now.getDate() &&
-      d.getMonth() === now.getMonth() &&
-      d.getFullYear() < now.getFullYear()
-    );
-  });
-
-  // 2. Fallback: Same Day from Prior Month (days 1-28 only)
-  if (!historyItem && now.getDate() <= 28) {
-    const priorMonth = new Date(now);
-    priorMonth.setMonth(now.getMonth() - 1);
-
-    historyItem = allItems.find((i) => {
-      const d = new Date(i.createdAt);
-      return (
-        d.getDate() === now.getDate() &&
-        d.getMonth() === priorMonth.getMonth() &&
-        d.getFullYear() === priorMonth.getFullYear()
-      );
-    });
-  }
-
-  // 3. Fallback: Same Day from Prior Week
-  if (!historyItem) {
-    const priorWeek = new Date(now);
-    priorWeek.setDate(now.getDate() - 7);
-
-    historyItem = allItems.find((i) => {
-      const d = new Date(i.createdAt);
-      return (
-        d.getDate() === priorWeek.getDate() &&
-        d.getMonth() === priorWeek.getMonth() &&
-        d.getFullYear() === priorWeek.getFullYear()
-      );
-    });
-  }
-
-  return historyItem;
-}
+const makeItem = (overrides: Partial<CollectionItem> & { id: string; createdAt: string }) => ({
+  id: overrides.id,
+  collectionId: 'col-1',
+  photoUrl: 'blob:test',
+  title: overrides.title ?? 'Test Item',
+  rating: 5,
+  notes: '',
+  data: {},
+  createdAt: overrides.createdAt,
+  updatedAt: overrides.updatedAt ?? overrides.createdAt,
+  ...overrides,
+});
 
 describe('On This Day Logic', () => {
-  it('returns undefined when there are no matching items', () => {
+  it('returns empty when there are no matching items', () => {
     const items: CollectionItem[] = [];
-    const result = findHistoryItem(items);
-    expect(result).toBeUndefined();
+    const result = getOnThisDayItems(items, makeLocalDate(2026, 0, 17));
+    expect(result).toEqual([]);
   });
 
-  it('returns undefined when items exist but none match current date from previous years', () => {
-    const today = new Date();
-    const differentDate = new Date(today);
-    differentDate.setDate(today.getDate() + 1); // Different day
-
-    const items: CollectionItem[] = [
-      {
+  it('excludes items that do not match the current month/day', () => {
+    const now = makeLocalDate(2026, 0, 17);
+    const items = [
+      makeItem({
         id: 'item-1',
-        collectionId: 'col-1',
-        photoUrl: 'blob:test',
-        title: 'Test Item',
-        rating: 5,
-        notes: '',
-        data: {},
-        createdAt: differentDate.toISOString(),
-        updatedAt: differentDate.toISOString(),
-      },
+        createdAt: makeLocalDate(2025, 0, 18).toISOString(),
+      }),
     ];
 
-    const result = findHistoryItem(items);
-    expect(result).toBeUndefined();
+    const result = getOnThisDayItems(items, now);
+    expect(result).toEqual([]);
   });
 
-  it('returns item created on same month/day in a previous year', () => {
-    const today = new Date();
-    const lastYear = new Date(today);
-    lastYear.setFullYear(today.getFullYear() - 1);
-
-    const items: CollectionItem[] = [
-      {
+  it('includes items created on the same month/day in previous years', () => {
+    const now = makeLocalDate(2026, 0, 17);
+    const items = [
+      makeItem({
         id: 'item-1',
-        collectionId: 'col-1',
-        photoUrl: 'blob:test',
-        title: 'Last Year Item',
-        rating: 5,
-        notes: '',
-        data: {},
-        createdAt: lastYear.toISOString(),
-        updatedAt: lastYear.toISOString(),
-      },
+        createdAt: makeLocalDate(2025, 0, 17).toISOString(),
+      }),
     ];
 
-    const result = findHistoryItem(items);
-    expect(result).toBeDefined();
-    expect(result?.id).toBe('item-1');
+    const result = getOnThisDayItems(items, now);
+    expect(result.map((item) => item.id)).toEqual(['item-1']);
   });
 
-  it('returns undefined for items created on same date but current year', () => {
-    const today = new Date();
-
-    const items: CollectionItem[] = [
-      {
+  it('excludes items created on the same month/day in the current year', () => {
+    const now = makeLocalDate(2026, 0, 17);
+    const items = [
+      makeItem({
         id: 'item-1',
-        collectionId: 'col-1',
-        photoUrl: 'blob:test',
-        title: 'Today Item',
-        rating: 5,
-        notes: '',
-        data: {},
-        createdAt: today.toISOString(),
-        updatedAt: today.toISOString(),
-      },
+        createdAt: makeLocalDate(2026, 0, 17).toISOString(),
+      }),
     ];
 
-    const result = findHistoryItem(items);
-    expect(result).toBeUndefined();
+    const result = getOnThisDayItems(items, now);
+    expect(result).toEqual([]);
   });
 
-  it('returns the first matching item when multiple exist from previous years', () => {
-    const today = new Date();
-    const twoYearsAgo = new Date(today);
-    twoYearsAgo.setFullYear(today.getFullYear() - 2);
-    const oneYearAgo = new Date(today);
-    oneYearAgo.setFullYear(today.getFullYear() - 1);
+  it('falls back to prior month when no prior year matches (day <= 28)', () => {
+    const now = makeLocalDate(2026, 0, 17);
+    const priorMonth = makeLocalDate(2025, 11, 17);
+    const items = [
+      makeItem({
+        id: 'item-prior-month',
+        createdAt: priorMonth.toISOString(),
+      }),
+    ];
 
-    const items: CollectionItem[] = [
-      {
+    const result = getOnThisDayItems(items, now);
+    expect(result.map((item) => item.id)).toEqual(['item-prior-month']);
+  });
+
+  it('falls back to prior week when prior year and month are empty', () => {
+    const now = makeLocalDate(2026, 0, 17);
+    const priorWeek = makeLocalDate(2026, 0, 10);
+    const items = [
+      makeItem({
+        id: 'item-prior-week',
+        createdAt: priorWeek.toISOString(),
+      }),
+    ];
+
+    const result = getOnThisDayItems(items, now);
+    expect(result.map((item) => item.id)).toEqual(['item-prior-week']);
+  });
+
+  it('skips prior month fallback for days after 28', () => {
+    const now = makeLocalDate(2026, 0, 31);
+    const priorMonth = makeLocalDate(2025, 11, 31);
+    const items = [
+      makeItem({
+        id: 'item-prior-month',
+        createdAt: priorMonth.toISOString(),
+      }),
+    ];
+
+    const result = getOnThisDayItems(items, now);
+    expect(result).toEqual([]);
+  });
+
+  it('orders matches by newest year, then newest timestamp', () => {
+    const now = makeLocalDate(2026, 0, 17);
+    const items = [
+      makeItem({
         id: 'item-1',
-        collectionId: 'col-1',
-        photoUrl: 'blob:test',
+        createdAt: makeLocalDate(2024, 0, 17, 9).toISOString(),
         title: 'Two Years Ago',
-        rating: 5,
-        notes: '',
-        data: {},
-        createdAt: twoYearsAgo.toISOString(),
-        updatedAt: twoYearsAgo.toISOString(),
-      },
-      {
+      }),
+      makeItem({
         id: 'item-2',
-        collectionId: 'col-1',
-        photoUrl: 'blob:test',
-        title: 'One Year Ago',
-        rating: 5,
-        notes: '',
-        data: {},
-        createdAt: oneYearAgo.toISOString(),
-        updatedAt: oneYearAgo.toISOString(),
-      },
+        createdAt: makeLocalDate(2025, 0, 17, 8).toISOString(),
+        title: 'Last Year Morning',
+      }),
+      makeItem({
+        id: 'item-3',
+        createdAt: makeLocalDate(2025, 0, 17, 18).toISOString(),
+        title: 'Last Year Evening',
+      }),
     ];
 
-    const result = findHistoryItem(items);
-    expect(result).toBeDefined();
-    expect(result?.id).toBe('item-1'); // First match
+    const result = getOnThisDayItems(items, now);
+    expect(result.map((item) => item.id)).toEqual(['item-3', 'item-2', 'item-1']);
   });
 
-  describe('Fallback: Same Day Prior Month (days 1-28)', () => {
-    it('returns item from same day of prior month when no prior year match (day 15)', () => {
-      // Use a fixed date to ensure stable test behavior
-      const testDate = new Date(2026, 0, 15); // January 15, 2026
-      const priorMonth = new Date(2025, 11, 15); // December 15, 2025
+  it('uses a stable tie-breaker for identical timestamps', () => {
+    const now = makeLocalDate(2026, 0, 17);
+    const createdAt = makeLocalDate(2025, 0, 17).toISOString();
+    const items = [
+      makeItem({ id: 'item-b', createdAt }),
+      makeItem({ id: 'item-a', createdAt }),
+    ];
 
-      const items: CollectionItem[] = [
-        {
-          id: 'item-prior-month',
-          collectionId: 'col-1',
-          photoUrl: 'blob:test',
-          title: 'Prior Month Item',
-          rating: 5,
-          notes: '',
-          data: {},
-          createdAt: priorMonth.toISOString(),
-          updatedAt: priorMonth.toISOString(),
-        },
-      ];
-
-      // Mock the current date for this test
-      const originalDate = Date;
-      global.Date = class extends Date {
-        constructor(...args: any[]) {
-          if (args.length === 0) {
-            super(testDate);
-          } else {
-            super(...args);
-          }
-        }
-      } as any;
-
-      const result = findHistoryItem(items);
-
-      // Restore original Date
-      global.Date = originalDate;
-
-      expect(result).toBeDefined();
-      expect(result?.id).toBe('item-prior-month');
-    });
-
-    it('skips prior month fallback for days > 28', () => {
-      const testDate = new Date(2026, 0, 31); // January 31, 2026
-      const priorMonth = new Date(2025, 11, 31); // December 31, 2025
-
-      const items: CollectionItem[] = [
-        {
-          id: 'item-prior-month',
-          collectionId: 'col-1',
-          photoUrl: 'blob:test',
-          title: 'Prior Month Item',
-          rating: 5,
-          notes: '',
-          data: {},
-          createdAt: priorMonth.toISOString(),
-          updatedAt: priorMonth.toISOString(),
-        },
-      ];
-
-      const originalDate = Date;
-      global.Date = class extends Date {
-        constructor(...args: any[]) {
-          if (args.length === 0) {
-            super(testDate);
-          } else {
-            super(...args);
-          }
-        }
-      } as any;
-
-      const result = findHistoryItem(items);
-
-      global.Date = originalDate;
-
-      // Should skip prior month fallback and try prior week instead
-      // Since prior week doesn't match, result should be undefined
-      expect(result).toBeUndefined();
-    });
-
-    it('prioritizes prior year over prior month', () => {
-      const testDate = new Date(2026, 0, 15); // January 15, 2026
-      const priorYear = new Date(2025, 0, 15); // January 15, 2025
-      const priorMonth = new Date(2025, 11, 15); // December 15, 2025
-
-      const items: CollectionItem[] = [
-        {
-          id: 'item-prior-month',
-          collectionId: 'col-1',
-          photoUrl: 'blob:test',
-          title: 'Prior Month Item',
-          rating: 5,
-          notes: '',
-          data: {},
-          createdAt: priorMonth.toISOString(),
-          updatedAt: priorMonth.toISOString(),
-        },
-        {
-          id: 'item-prior-year',
-          collectionId: 'col-1',
-          photoUrl: 'blob:test',
-          title: 'Prior Year Item',
-          rating: 5,
-          notes: '',
-          data: {},
-          createdAt: priorYear.toISOString(),
-          updatedAt: priorYear.toISOString(),
-        },
-      ];
-
-      const originalDate = Date;
-      global.Date = class extends Date {
-        constructor(...args: any[]) {
-          if (args.length === 0) {
-            super(testDate);
-          } else {
-            super(...args);
-          }
-        }
-      } as any;
-
-      const result = findHistoryItem(items);
-
-      global.Date = originalDate;
-
-      expect(result).toBeDefined();
-      expect(result?.id).toBe('item-prior-year'); // Prior year takes priority
-    });
+    const result = getOnThisDayItems(items, now);
+    expect(result.map((item) => item.id)).toEqual(['item-a', 'item-b']);
   });
 
-  describe('Fallback: Same Day Prior Week', () => {
-    it('returns item from same day of prior week when no other matches', () => {
-      const testDate = new Date(2026, 0, 17); // January 17, 2026 (Friday)
-      const priorWeek = new Date(2026, 0, 10); // January 10, 2026 (Friday, 7 days ago)
+  it('handles times near midnight without rolling the day', () => {
+    const now = makeLocalDate(2026, 0, 17, 1, 0);
+    const items = [
+      makeItem({
+        id: 'item-early',
+        createdAt: makeLocalDate(2025, 0, 17, 0, 1).toISOString(),
+      }),
+      makeItem({
+        id: 'item-late',
+        createdAt: makeLocalDate(2025, 0, 17, 23, 59).toISOString(),
+      }),
+      makeItem({
+        id: 'item-prior-day',
+        createdAt: makeLocalDate(2025, 0, 16, 23, 59).toISOString(),
+      }),
+    ];
 
-      const items: CollectionItem[] = [
-        {
-          id: 'item-prior-week',
-          collectionId: 'col-1',
-          photoUrl: 'blob:test',
-          title: 'Prior Week Item',
-          rating: 5,
-          notes: '',
-          data: {},
-          createdAt: priorWeek.toISOString(),
-          updatedAt: priorWeek.toISOString(),
-        },
-      ];
-
-      const originalDate = Date;
-      global.Date = class extends Date {
-        constructor(...args: any[]) {
-          if (args.length === 0) {
-            super(testDate);
-          } else {
-            super(...args);
-          }
-        }
-      } as any;
-
-      const result = findHistoryItem(items);
-
-      global.Date = originalDate;
-
-      expect(result).toBeDefined();
-      expect(result?.id).toBe('item-prior-week');
-    });
-
-    it('prioritizes prior year and prior month over prior week', () => {
-      const testDate = new Date(2026, 0, 15); // January 15, 2026
-      const priorYear = new Date(2025, 0, 15); // January 15, 2025
-      const priorMonth = new Date(2025, 11, 15); // December 15, 2025
-      const priorWeek = new Date(2026, 0, 8); // January 8, 2026
-
-      const items: CollectionItem[] = [
-        {
-          id: 'item-prior-week',
-          collectionId: 'col-1',
-          photoUrl: 'blob:test',
-          title: 'Prior Week Item',
-          rating: 5,
-          notes: '',
-          data: {},
-          createdAt: priorWeek.toISOString(),
-          updatedAt: priorWeek.toISOString(),
-        },
-        {
-          id: 'item-prior-month',
-          collectionId: 'col-1',
-          photoUrl: 'blob:test',
-          title: 'Prior Month Item',
-          rating: 5,
-          notes: '',
-          data: {},
-          createdAt: priorMonth.toISOString(),
-          updatedAt: priorMonth.toISOString(),
-        },
-        {
-          id: 'item-prior-year',
-          collectionId: 'col-1',
-          photoUrl: 'blob:test',
-          title: 'Prior Year Item',
-          rating: 5,
-          notes: '',
-          data: {},
-          createdAt: priorYear.toISOString(),
-          updatedAt: priorYear.toISOString(),
-        },
-      ];
-
-      const originalDate = Date;
-      global.Date = class extends Date {
-        constructor(...args: any[]) {
-          if (args.length === 0) {
-            super(testDate);
-          } else {
-            super(...args);
-          }
-        }
-      } as any;
-
-      const result = findHistoryItem(items);
-
-      global.Date = originalDate;
-
-      expect(result).toBeDefined();
-      expect(result?.id).toBe('item-prior-year'); // Prior year takes highest priority
-    });
-
-    it('returns undefined when no fallback matches', () => {
-      const testDate = new Date(2026, 0, 17); // January 17, 2026
-      const randomDate = new Date(2025, 5, 20); // June 20, 2025 (no match)
-
-      const items: CollectionItem[] = [
-        {
-          id: 'item-random',
-          collectionId: 'col-1',
-          photoUrl: 'blob:test',
-          title: 'Random Item',
-          rating: 5,
-          notes: '',
-          data: {},
-          createdAt: randomDate.toISOString(),
-          updatedAt: randomDate.toISOString(),
-        },
-      ];
-
-      const originalDate = Date;
-      global.Date = class extends Date {
-        constructor(...args: any[]) {
-          if (args.length === 0) {
-            super(testDate);
-          } else {
-            super(...args);
-          }
-        }
-      } as any;
-
-      const result = findHistoryItem(items);
-
-      global.Date = originalDate;
-
-      expect(result).toBeUndefined();
-    });
+    const result = getOnThisDayItems(items, now);
+    expect(result.map((item) => item.id)).toEqual(['item-late', 'item-early']);
   });
 });
