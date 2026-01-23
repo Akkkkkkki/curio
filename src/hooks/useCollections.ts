@@ -4,6 +4,7 @@ import {
   fetchCloudCollections,
   getLocalCollections,
   getPendingSyncIds,
+  getPendingDeletes,
   hasLocalOnlyData,
   mergeCollections,
   requestPersistence,
@@ -16,6 +17,7 @@ import {
   setSyncStatusCallback,
   syncPendingChanges,
   syncPendingAssetUploads,
+  syncPendingDeletes,
   type RecoveryEvent,
   type AssetSyncStatus,
   type SyncStatus,
@@ -126,13 +128,14 @@ export const useCollections = ({
     const handleOnline = async () => {
       const synced = await syncPendingChanges();
       const assetsSynced = await syncPendingAssetUploads();
+      const deletesSynced = await syncPendingDeletes();
       if (synced > 0) {
         const t = tRef.current;
         const showStatus = showStatusRef.current;
         showStatus(t('statusPendingSynced').replace('{count}', String(synced)), 'success');
         setSyncStatus('synced');
       }
-      if (assetsSynced > 0) {
+      if (assetsSynced > 0 || deletesSynced > 0) {
         setSyncStatus('synced');
       }
     };
@@ -222,10 +225,14 @@ export const useCollections = ({
         }
       }
 
-      const pendingSyncIds = await getPendingSyncIds();
+      const [pendingSyncIds, pendingDeletes] = await Promise.all([
+        getPendingSyncIds(),
+        getPendingDeletes(),
+      ]);
       const mergedCollections = mergeCollections(localCollections, cloudCollections, {
         includeLocalOnly: (collection) =>
           !collection.ownerId || pendingSyncIds.includes(collection.id),
+        pendingDeletes,
       });
 
       await saveAllCollections(mergedCollections);
@@ -241,6 +248,7 @@ export const useCollections = ({
           showStatus(t('statusPendingSynced').replace('{count}', String(synced)), 'success');
         }
         await syncPendingAssetUploads();
+        await syncPendingDeletes();
       }
     } catch (e) {
       console.error('Initialization failed:', e);

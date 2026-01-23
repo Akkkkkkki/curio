@@ -25,7 +25,7 @@ interface AddItemModalProps {
   onSave: (
     collectionId: string,
     item: Omit<CollectionItem, 'id' | 'createdAt' | 'updatedAt'>,
-  ) => void;
+  ) => void | Promise<void>;
 }
 
 interface BatchItem {
@@ -71,6 +71,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
   const [batchItems, setBatchItems] = useState<BatchItem[]>([]);
   const [formData, setFormData] = useState(createEmptyForm());
   const [error, setError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -122,6 +123,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
       setBatchItems([]);
       setFormData(createEmptyForm());
       setError(null);
+      setIsSaving(false);
       analysisRunId.current += 1;
     }
   }, [isOpen, collections]);
@@ -338,32 +340,48 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     }
   };
 
-  const handleSave = () => {
-    if (!currentCollection) return;
-    onSave(currentCollection.id, {
-      collectionId: currentCollection.id,
-      photoUrl: imagePreview || '',
-      title: formData.title || 'Untitled',
-      rating: formData.rating || 0,
-      notes: formData.notes || '',
-      data: formData.data || {},
-    });
-    onClose();
+  const handleSave = async () => {
+    if (!currentCollection || isSaving) return;
+    setIsSaving(true);
+    try {
+      await onSave(currentCollection.id, {
+        collectionId: currentCollection.id,
+        photoUrl: imagePreview || '',
+        title: formData.title || 'Untitled',
+        rating: formData.rating || 0,
+        notes: formData.notes || '',
+        data: formData.data || {},
+      });
+      onClose();
+    } catch (e) {
+      console.error('Save failed:', e);
+      setError(t('statusSyncPaused'));
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleBatchSave = () => {
-    if (!currentCollection) return;
-    batchItems.forEach((item) => {
-      onSave(currentCollection.id, {
-        collectionId: currentCollection.id,
-        photoUrl: item.image,
-        title: item.title || 'Untitled',
-        rating: item.rating || 0,
-        notes: item.notes || '',
-        data: item.data || {},
-      });
-    });
-    onClose();
+  const handleBatchSave = async () => {
+    if (!currentCollection || isSaving) return;
+    setIsSaving(true);
+    try {
+      for (const item of batchItems) {
+        await onSave(currentCollection.id, {
+          collectionId: currentCollection.id,
+          photoUrl: item.image,
+          title: item.title || 'Untitled',
+          rating: item.rating || 0,
+          notes: item.notes || '',
+          data: item.data || {},
+        });
+      }
+      onClose();
+    } catch (e) {
+      console.error('Batch save failed:', e);
+      setError(t('statusSyncPaused'));
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const renderStepper = () => (
@@ -633,10 +651,10 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
         className="w-full"
         size="lg"
         onClick={handleBatchSave}
-        icon={<ArrowRight size={18} />}
-        disabled={batchItems.length === 0}
+        icon={isSaving ? <Loader2 size={18} className="animate-spin" /> : <ArrowRight size={18} />}
+        disabled={batchItems.length === 0 || isSaving}
       >
-        Archive {batchItems.length} Artifacts
+        {isSaving ? t('analyzingPhoto').split('...')[0] : `Archive ${batchItems.length} Artifacts`}
       </Button>
     </div>
   );
@@ -750,8 +768,14 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
         </div>
       </div>
 
-      <Button className="w-full" size="lg" onClick={handleSave} icon={<Check size={18} />}>
-        {t('addToCollection')}
+      <Button
+        className="w-full"
+        size="lg"
+        onClick={handleSave}
+        icon={isSaving ? <Loader2 size={18} className="animate-spin" /> : <Check size={18} />}
+        disabled={isSaving}
+      >
+        {isSaving ? t('analyzingPhoto').split('...')[0] : t('addToCollection')}
       </Button>
     </div>
   );

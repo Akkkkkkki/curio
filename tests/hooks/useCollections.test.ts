@@ -18,6 +18,7 @@ const dbMocks = {
   fetchCloudCollections: vi.fn(),
   getLocalCollections: vi.fn(),
   getPendingSyncIds: vi.fn(),
+  getPendingDeletes: vi.fn(),
   hasLocalOnlyData: vi.fn(),
   mergeCollections: vi.fn(),
   requestPersistence: vi.fn(),
@@ -30,6 +31,7 @@ const dbMocks = {
   setSyncStatusCallback: vi.fn(),
   syncPendingChanges: vi.fn(),
   syncPendingAssetUploads: vi.fn(),
+  syncPendingDeletes: vi.fn(),
 };
 
 vi.mock('@/services/db', () => dbMocks);
@@ -62,6 +64,7 @@ describe('hooks/useCollections.ts (Phase 3.3)', () => {
     dbMocks.getLocalCollections.mockResolvedValue([]);
     dbMocks.fetchCloudCollections.mockResolvedValue([]);
     dbMocks.getPendingSyncIds.mockResolvedValue([]);
+    dbMocks.getPendingDeletes.mockResolvedValue([]);
     dbMocks.hasLocalOnlyData.mockReturnValue(false);
     dbMocks.mergeCollections.mockImplementation(
       (local: UserCollection[], cloud: UserCollection[]) => (cloud.length ? cloud : local),
@@ -75,6 +78,7 @@ describe('hooks/useCollections.ts (Phase 3.3)', () => {
     dbMocks.setSyncStatusCallback.mockImplementation(() => {});
     dbMocks.syncPendingChanges.mockResolvedValue(0);
     dbMocks.syncPendingAssetUploads.mockResolvedValue(0);
+    dbMocks.syncPendingDeletes.mockResolvedValue(0);
   });
 
   afterEach(() => {
