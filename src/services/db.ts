@@ -77,7 +77,13 @@ type PendingAssetUpload = {
   collectionId: string;
   itemId: string;
   createdAt?: string;
+  attemptCount?: number;
+  lastError?: string;
+  nextRetryAt?: string;
 };
+
+const ASSET_UPLOAD_BACKOFF_BASE_MS = 30_000;
+const ASSET_UPLOAD_BACKOFF_MAX_MS = 10 * 60_000;
 
 // Exported for testing
 export const compareTimestamps = (a?: string, b?: string) => {
@@ -346,10 +352,46 @@ const addToPendingAssetUploads = async (collectionId: string, itemId: string): P
     (entry) => entry.collectionId === collectionId && entry.itemId === itemId,
   );
   if (!exists) {
-    pending.push({ collectionId, itemId, createdAt: new Date().toISOString() });
+    pending.push({
+      collectionId,
+      itemId,
+      createdAt: new Date().toISOString(),
+      attemptCount: 0,
+    });
     const tx = db.transaction(SETTINGS_STORE, 'readwrite');
     tx.objectStore(SETTINGS_STORE).put(pending, PENDING_ASSET_UPLOADS_KEY);
   }
+};
+
+const getAssetUploadBackoffMs = (attemptCount: number): number => {
+  if (attemptCount <= 0) return ASSET_UPLOAD_BACKOFF_BASE_MS;
+  const backoff = ASSET_UPLOAD_BACKOFF_BASE_MS * Math.pow(2, attemptCount - 1);
+  return Math.min(backoff, ASSET_UPLOAD_BACKOFF_MAX_MS);
+};
+
+const markPendingAssetUploadFailure = async (
+  collectionId: string,
+  itemId: string,
+  errorMessage?: string,
+): Promise<void> => {
+  const db = await initDB();
+  const pending = await getPendingAssetUploads();
+  const now = Date.now();
+  const updated = pending.map((entry) => {
+    if (entry.collectionId === collectionId && entry.itemId === itemId) {
+      const nextAttempt = (entry.attemptCount ?? 0) + 1;
+      const delayMs = getAssetUploadBackoffMs(nextAttempt);
+      return {
+        ...entry,
+        attemptCount: nextAttempt,
+        lastError: errorMessage || entry.lastError,
+        nextRetryAt: new Date(now + delayMs).toISOString(),
+      };
+    }
+    return entry;
+  });
+  const tx = db.transaction(SETTINGS_STORE, 'readwrite');
+  tx.objectStore(SETTINGS_STORE).put(updated, PENDING_ASSET_UPLOADS_KEY);
 };
 
 const removeFromPendingAssetUploads = async (
@@ -466,8 +508,19 @@ export const syncPendingAssetUploads = async (): Promise<number> => {
   const pendingUploads = await getPendingAssetUploads();
   if (pendingUploads.length === 0) return 0;
 
+  const now = Date.now();
+  const dueUploads = pendingUploads.filter((entry) => {
+    if (!entry.nextRetryAt) return true;
+    const retryAt = new Date(entry.nextRetryAt).getTime();
+    return Number.isNaN(retryAt) || retryAt <= now;
+  });
+  if (dueUploads.length === 0) {
+    return 0;
+  }
+
   let synced = 0;
-  for (const { collectionId, itemId } of pendingUploads) {
+  let lastErrorMessage: string | null = null;
+  for (const { collectionId, itemId } of dueUploads) {
     const [original, display] = await Promise.all([
       readAssetFromStore(ASSETS_STORE, itemId),
       readAssetFromStore(DISPLAY_STORE, itemId),
@@ -484,11 +537,17 @@ export const syncPendingAssetUploads = async (): Promise<number> => {
       synced++;
     } catch (e) {
       console.warn(`Failed to sync pending asset for item ${itemId}:`, e);
+      const errorMessage = e instanceof Error ? e.message : 'Unknown upload error';
+      await markPendingAssetUploadFailure(collectionId, itemId, errorMessage);
+      lastErrorMessage = errorMessage;
     }
   }
 
   if (synced > 0) {
     notifyAssetSyncStatus('synced', { count: synced });
+  }
+  if (lastErrorMessage) {
+    notifyAssetSyncStatus('error', { error: lastErrorMessage });
   }
 
   return synced;
@@ -896,6 +955,8 @@ export const saveAsset = async (
     } catch (e) {
       console.warn('Cloud asset sync failed:', e);
       await addToPendingAssetUploads(collectionId, id);
+      const errorMessage = e instanceof Error ? e.message : 'Unknown upload error';
+      await markPendingAssetUploadFailure(collectionId, id, errorMessage);
       notifyAssetSyncStatus('queued');
     }
   }

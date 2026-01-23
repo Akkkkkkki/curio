@@ -150,6 +150,7 @@ export const translations = {
     statusPendingSynced: '{count} pending change(s) synced',
     statusPhotosWillSync: 'Will sync photos',
     statusPhotosSynced: '{count} photo(s) synced',
+    statusPhotosSyncFailed: 'Photo upload failed. Will retry automatically. ({error})',
     actionRetry: 'Retry',
     // Auth & Cloud
     login: 'Sign In',
@@ -387,6 +388,7 @@ export const translations = {
     statusPendingSynced: '{count} 项待同步更改已完成',
     statusPhotosWillSync: '照片将同步',
     statusPhotosSynced: '已同步 {count} 张照片',
+    statusPhotosSyncFailed: '照片上传失败，将自动重试。({error})',
     actionRetry: '重试',
     // Auth & Cloud
     login: '登录',

@@ -314,7 +314,7 @@ describe('Phase 2.2 — services/db.ts dual-write operations', () => {
     expect(calledPaths).toContain('test-user-id/collections/col-1/item-asset-1/display.jpg');
   });
 
-  it('saveAsset: cloud upload failure queues retry and syncPendingAssetUploads retries successfully', async () => {
+  it('saveAsset: cloud upload failure queues retry and syncPendingAssetUploads retries after backoff', async () => {
     const { supabase, upload } = createSupabaseMock();
     upload
       .mockResolvedValueOnce({ data: null, error: new Error('Upload failed') })
@@ -334,11 +334,36 @@ describe('Phase 2.2 — services/db.ts dual-write operations', () => {
 
     const pendingAfterSave = await readFromStore<any[]>(db, 'settings', 'pending_asset_uploads');
     expect(pendingAfterSave).toEqual([
-      expect.objectContaining({ collectionId: 'col-1', itemId: 'item-asset-2' }),
+      expect.objectContaining({
+        collectionId: 'col-1',
+        itemId: 'item-asset-2',
+        attemptCount: 1,
+        nextRetryAt: expect.any(String),
+      }),
     ]);
 
     upload.mockClear();
     upload.mockResolvedValue({ data: { path: 'ok' }, error: null });
+
+    await expect(dbMod.syncPendingAssetUploads()).resolves.toBe(0);
+    expect(upload).not.toHaveBeenCalled();
+
+    const tx = db.transaction('settings', 'readwrite');
+    const nextRetryAt = new Date(Date.now() - 1000).toISOString();
+    tx.objectStore('settings').put(
+      [
+        {
+          ...pendingAfterSave[0],
+          nextRetryAt,
+        },
+      ],
+      'pending_asset_uploads',
+    );
+    await new Promise((resolve) => {
+      tx.oncomplete = () => resolve(null);
+      tx.onerror = () => resolve(null);
+      tx.onabort = () => resolve(null);
+    });
 
     await expect(dbMod.syncPendingAssetUploads()).resolves.toBe(1);
 
