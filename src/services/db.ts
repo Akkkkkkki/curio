@@ -339,10 +339,7 @@ const getPendingAssetUploads = async (): Promise<PendingAssetUpload[]> => {
   });
 };
 
-const addToPendingAssetUploads = async (
-  collectionId: string,
-  itemId: string,
-): Promise<void> => {
+const addToPendingAssetUploads = async (collectionId: string, itemId: string): Promise<void> => {
   const db = await initDB();
   const pending = await getPendingAssetUploads();
   const exists = pending.some(
@@ -447,9 +444,7 @@ const uploadAssetToCloud = async (
   ]);
 
   if (originalUpload?.error || displayUpload?.error) {
-    throw new Error(
-      `Storage upload failed: ${originalUpload?.error || displayUpload?.error}`,
-    );
+    throw new Error(`Storage upload failed: ${originalUpload?.error || displayUpload?.error}`);
   }
 
   await recordItemImage({
