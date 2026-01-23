@@ -133,10 +133,7 @@ describe('On This Day Logic', () => {
   it('uses a stable tie-breaker for identical timestamps', () => {
     const now = makeLocalDate(2026, 0, 17);
     const createdAt = makeLocalDate(2025, 0, 17).toISOString();
-    const items = [
-      makeItem({ id: 'item-b', createdAt }),
-      makeItem({ id: 'item-a', createdAt }),
-    ];
+    const items = [makeItem({ id: 'item-b', createdAt }), makeItem({ id: 'item-a', createdAt })];
 
     const result = getOnThisDayItems(items, now);
     expect(result.map((item) => item.id)).toEqual(['item-a', 'item-b']);

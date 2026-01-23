@@ -23,8 +23,7 @@ export const getOnThisDayItems = (
       .filter((item) => {
         const createdAt = new Date(item.createdAt);
         if (Number.isNaN(createdAt.getTime())) return false;
-        const matchesDay =
-          createdAt.getDate() === date && createdAt.getMonth() === month;
+        const matchesDay = createdAt.getDate() === date && createdAt.getMonth() === month;
         if (!matchesDay) return false;
         return requirePriorYear ? createdAt.getFullYear() < year : createdAt.getFullYear() === year;
       })

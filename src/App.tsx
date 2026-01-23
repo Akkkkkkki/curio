@@ -756,7 +756,9 @@ const AppContent: React.FC = () => {
           </div>
         )}
         {/* Bento Grid Hero */}
-        <section className={`grid grid-cols-1 gap-6 ${historyItems.length ? 'md:grid-cols-3' : ''}`}>
+        <section
+          className={`grid grid-cols-1 gap-6 ${historyItems.length ? 'md:grid-cols-3' : ''}`}
+        >
           <div
             className={`${historyItems.length ? 'md:col-span-2' : ''} relative overflow-hidden rounded-[2rem] sm:rounded-[2.25rem] min-h-[280px] sm:min-h-[360px] flex items-center shadow-xl border transition-all duration-700 ${themeBaseClasses[theme]} group`}
           >
@@ -848,7 +850,9 @@ const AppContent: React.FC = () => {
                           className="w-full text-left rounded-xl border border-stone-200/60 bg-white/70 px-3 py-2 text-xs sm:text-sm shadow-sm transition hover:border-amber-200 hover:bg-amber-50/60"
                         >
                           <div className="flex items-center justify-between gap-2">
-                            <span className="truncate font-medium text-stone-700">{item.title}</span>
+                            <span className="truncate font-medium text-stone-700">
+                              {item.title}
+                            </span>
                             <span className="text-[11px] uppercase tracking-wide text-stone-400">
                               {itemYear}
                             </span>
