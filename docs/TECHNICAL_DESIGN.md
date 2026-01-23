@@ -37,6 +37,38 @@ Curated sample collections live in the same tables and are flagged with `is_publ
 - **Cloud Fallback**: If an asset is missing locally (e.g., on a new device), it is pulled from Supabase Storage and cached back into IndexedDB.
 - **Normalization**: Private collections store images as Blobs (IndexedDB + Supabase Storage). Public sample collections use direct public URLs (e.g., `public/assets/...`) so every user can view them.
 
+## 3.1 Image variants (original / display / enhanced / poster)
+
+Curio stores multiple image “variants” per item so AI work is recoverable and the UI stays fast.
+
+### Storage
+
+- **Supabase Storage bucket**: `curio-assets` (private)
+- **Object naming**: user-prefixed paths (e.g., `<user_id>/<item_id>_original.jpg`, `<user_id>/<item_id>_display.jpg`, `<user_id>/<item_id>_enhanced.jpg`)
+- **Local cache**: assets are also cached as Blobs in IndexedDB for offline/latency
+
+### Database model
+
+We support both:
+
+- `items.photo_original_path`, `items.photo_display_path`, `items.photo_enhanced_path` as “current pointers” (simple and backwards compatible), and
+- `item_images` as the canonical history/metadata table for versions.
+
+`item_images` captures:
+
+- **role**: `original` | `display` | `enhanced` | `thumbnail` | `poster`
+- **status**: `none` | `processing` | `ready` | `failed`
+- **storage_path**: path in `curio-assets`
+- **source_image_id**: optional link to the input image version
+- **recipe**: JSON metadata for debugging + cost tracking (provider/model, prompt/template version, mode/strength, timestamps, error details, optional input hash)
+- **is_current**: enforced unique per `(item_id, role)` so we can swap the “current” enhanced/poster while retaining history
+
+### Lifecycle requirements (non-blocking + recoverable)
+
+- Item creation always produces **original** + **display** (enhancement is optional).
+- “Enhance image” creates a new `item_images` row (role `enhanced`, status transitions), uploads the output, and updates `items.photo_enhanced_path` plus `is_current` pointers.
+- If enhancement fails, the item remains saved with original/display; `item_images.status = 'failed'` preserves the failure reason in `recipe`.
+
 ## 4. UI Synchronization Feedback
 
 - **Status Indicator**: Signed in / signed out / cloud required states shown in the header.
@@ -133,6 +165,17 @@ The client composes requests as `${VITE_API_BASE_URL}<path>` where `<path>` incl
 
 - **Local dev**: set `VITE_API_BASE_URL=http://localhost:8787` and run `npm run server`
 - **Production**: leave `VITE_API_BASE_URL` unset to use same-origin `/api/*` (Vercel rewrites / handlers provide the gateway)
+
+### Production hardening requirements (must-have)
+
+In production, the AI gateway must be treated as a cost + abuse surface:
+
+- **Auth required**: gateway requests must require `Authorization: Bearer <Supabase access token>` and validate the token server-side (reject missing/invalid tokens with 401).
+- **Rate limiting**: enforce per-user (preferred) and/or per-IP limits and return clear 429 responses for client recovery messaging.
+- **CORS allowlist**: if the gateway is exposed cross-origin, restrict origins via an allowlist (no wildcard in production) and handle preflight correctly.
+- **Logging**: emit structured request logs (route, status, latency, request id, user id/hashed). Never log images.
+
+These requirements are tracked in: [#129](https://github.com/Akkkkkkki/curio/issues/129).
 
 ## 8.1 AI feature flags (design-time requirements)
 

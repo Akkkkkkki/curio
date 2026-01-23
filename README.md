@@ -21,12 +21,9 @@ This repo intentionally keeps documentation **small, current, and non-duplicativ
 - **Product**: `docs/PRODUCT_DESIGN.md`
 - **Architecture**: `docs/TECHNICAL_DESIGN.md`
 - **Operational reliability**: `docs/INDEXEDDB_RELIABILITY.md`
-- **Design requirements (new work)**: `docs/DESIGN_REQUIREMENTS_ai_image_features_and_capture_simplification.md`
-- **Design proposals / reviews (legacy pointer)**: `docs/DESIGN_REVIEW_image_enhancement_and_theme_strategy.md`
 - **Testing**: `docs/TESTING.md` (quick how-to) and `tests/README.md` (details)
 - **Production readiness**: `docs/PRODUCTION_READINESS_CHECKLIST.md`
 - **Issue filing**: `docs/GITHUB_ISSUES_PROTOCOL.md`
-- **Historical reviews**: `docs/PRODUCT_REVIEW_FEEDBACK_20260113.md` (reference; tracking happens in GitHub)
 
 ## MVP Product Behavior (5-minute time-to-value)
 
@@ -75,6 +72,13 @@ This app calls an AI gateway for image analysis:
 - **Production (Vercel)**: leave `VITE_API_BASE_URL` unset so the client uses same-origin `/api/*` (and Vercel routes it according to `vercel.json`)
 
 If you don’t want AI locally, set `VITE_AI_ENABLED=false` (the app will fall back to manual entry).
+
+#### Production note (auth + limits)
+
+In production, the AI gateway is expected to require **Supabase bearer auth** and enforce **rate limiting** (see the production readiness checklist / issue `#129`). Practically:
+
+- You generally need to be **signed in** for AI requests to succeed.
+- Curio remains usable without AI — metadata extraction falls back to **manual entry** when AI is unavailable or blocked.
 
 The Gemini proxy expects (local dev only):
 

@@ -92,6 +92,112 @@ Curio’s AI image work should be **explicitly optional**, **recoverable**, and 
 
 When using Google’s Gemini image-to-image models (Nano Banana), we should follow and link to the official API guidance: [Gemini image editing](https://ai.google.dev/gemini-api/docs/image-generation#gemini-image-editing).
 
+## 2.2 Mobile-first capture simplification (consolidated requirements)
+
+This section consolidates prior standalone design docs into a single durable source of truth.
+
+### Goals
+
+- **Make “Add item” effortless on mobile**: fast time-to-save; avoids “wizard” feel.
+- **Recoverable AI**: AI can be slow/fail; saving never blocks; progress never lost.
+- **Progressive disclosure**: show only what’s needed to save; reveal advanced fields when desired.
+
+### Default capture surface (single-screen)
+
+- **Primary action**: add photo (camera or upload)
+- **Always available**: title, key template fields, rating (optional), Save
+- **Secondary / optional**: notes, “More details”/technical spec, batch mode (discoverable, not primary)
+
+### Non-blocking AI autofill behavior
+
+- Starts automatically after photo selection (when enabled)
+- Fills the form **in place** (no additional step required)
+- Must **not overwrite** fields the user already edited
+- On failure: show a small “AI unavailable — continue manually” message and keep the user on the same screen
+
+### Mobile UX requirements (must-have)
+
+- **Sticky primary action**: Save is always reachable without scrolling to the bottom
+- **Sectioned form**: basic info + key fields + additional details + notes
+- **Keyboard ergonomics**: sensible Next/Done, correct input types, no jumpy layout when AI updates
+- **Clear AI state**: subtle “filling in…” indicator; no blocking spinners as the only signal
+
+## 2.3 AI image-to-image editing (Enhance + Poster) — trust + cost
+
+Curio treats these as separate capabilities from metadata extraction:
+
+- **Metadata extraction**: image → structured fields (core, low-risk)
+- **Image-to-image**: image → enhanced image (higher-cost/risk; always explicit)
+
+### Phased rollout
+
+- **Phase 1: Enhance image (clean / presentable)**  
+  Outcome-first CTA: “Enhance image”. Generates **one** result, with before/after comparison, Accept/Keep original, and explicit “Try again”.
+- **Phase 2: Poster / ad (creative)**  
+  CTA: “Create poster”. Generates **one** result, optional style presets, explicit “Try again”. Typography imperfections are an expected V1 risk.
+
+### Two user-facing intents (make it explicit)
+
+- **Catalog / Documentation (default)**: accurate + clean, conservative changes
+- **Showcase / Aesthetic (opt-in)**: studio + pretty, more opinionated polish
+
+### Quality rubric (acceptance + QA)
+
+Score output \(0–2\) per dimension (total /12):
+
+1. **Subject prominence**
+2. **Legibility (if text exists)**
+3. **Exposure & dynamic range**
+4. **Color & white balance**
+5. **Geometry correctness**
+6. **Background cleanliness**
+
+Definition of “enhancement success” (Catalog mode):
+
+- Total score increases by **≥ 3 points**, and
+- **Geometry never worsens**, and
+- **Color does not materially drift** (human-obvious drift is a failure).
+
+### Trust boundaries (what enhancement may change)
+
+- **Generally safe**: straighten/crop, exposure/contrast, white balance, moderate denoise (text-safe), mild background declutter, bounded perspective correction
+- **Risky (opt-in or warn)**: aggressive relighting that changes material feel, heavy “beautify”, reconstruction of obscured text
+- **Forbidden by default**: changing/recreating logos/labels/serial numbers, altering colorways/edition markers, reshaping the object, adding new props/elements
+
+### Export / sharing note
+
+Some providers may embed provenance watermarks (e.g., SynthID). If a generated asset is exported/shared, the UI should be explicit that it’s generated and may include a watermark.
+
+### Cost guardrails (must-have)
+
+- **No multi-variant by default**: one generation per explicit user action
+- **Cheap-by-default**: default model/quality is routine-friendly; “High quality” is an explicit choice where needed
+- **Budget + rate limiting policy**: prevent accidental loops; enforce per-user limits (tracked in GitHub)
+
+### Open questions (track in GitHub)
+
+- Where does “Enhance image” live: during capture vs on item detail?
+- Should enhancement be allowed for public/sample collections (or only via “copy to my collection”)?
+- Do we need a paid tier or hard limits for image-to-image usage?
+- Export UX expectations given potential provenance watermarks.
+
+## 6. UX review findings (2026-01-13) — consolidated summary
+
+This is a short synthesis of the 2026-01-13 external UX review. Action items should be tracked in GitHub Issues (not duplicated in docs).
+
+### Critical reliability issues to protect the MVP
+
+- **Data persistence across language toggles**: switching EN/ZH must not load separate datasets or appear to “erase” items.
+- **Add-item save reliability**: successful completion must reliably produce a visible item + consistent counts.
+
+### UX friction points (high-signal)
+
+- **Hidden scrolling in add-item**: avoid narrow internal scrollbars and “missing fields” failure modes.
+- **No feedback after key actions**: show clear confirmation after add/save and reliable error states when something fails.
+- **Unclear icon meaning**: tooltips/labels for non-obvious actions (some are tracked: [#68](https://github.com/Akkkkkkki/curio/issues/68), [#95](https://github.com/Akkkkkkki/curio/issues/95)).
+- **Metadata editing**: users need an edit path on item detail without delete-and-readd.
+- **Vocal Guide readiness**: if disabled/non-functional, hide or mark “coming soon” to avoid confusion.
+
 ### Card readability
 
 - Long titles are discoverable via **hover/focus tooltips** on collection and item cards (so we keep cards scannable while preserving full text).

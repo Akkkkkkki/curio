@@ -6,6 +6,7 @@ should be verified (or explicitly waived) before launch. Gaps are tracked in Git
 ## 2026-01-23 Review Addendum (single source of truth)
 
 This section consolidates:
+
 - The “Production Readiness Checklist” review notes (prioritization + minimal implementation suggestions)
 - The previously drafted issues in `docs/issue-drafts/2026-01-23/`
 
@@ -23,27 +24,33 @@ This section consolidates:
 ### Prioritized launch plan (minimal, no overengineering)
 
 **P0 / must-fix before production**
+
 - **AI gateway hardening**: restrict CORS + require auth + rate limit. Tracked in [#129](https://github.com/Akkkkkkki/curio/issues/129).
 - **Asset durability**: implement a retry queue for failed storage uploads + user-visible status. Tracked in [#131](https://github.com/Akkkkkkki/curio/issues/131).
 - **Delete consistency**: prevent offline deletes resurrecting from cloud (tombstones + queued deletes). Tracked in [#135](https://github.com/Akkkkkkki/curio/issues/135).
 
 **P1 / strongly recommended for first production month**
+
 - **Large collections performance strategy** (start with pagination; add virtualization only if needed). Tracked in [#133](https://github.com/Akkkkkkki/curio/issues/133).
 
 **P2 / operational readiness**
+
 - **Monitoring for AI gateway + sync errors** (start with gateway metrics + a few actionable alerts). Tracked in [#130](https://github.com/Akkkkkkki/curio/issues/130).
 - **Rollback/runbook** for gateway + schema changes. Tracked in [#134](https://github.com/Akkkkkkki/curio/issues/134).
 
 **P3 / polish**
+
 - **Quota warning** (single threshold-based warning using `navigator.storage.estimate()`). Tracked in [#132](https://github.com/Akkkkkkki/curio/issues/132).
 
 ### DB + Storage coverage (current vs recommended)
 
 **Already covered (good)**
+
 - Unit/integration tests heavily cover IndexedDB merge + dual-write behavior via mocks.
 - CI runs `format:check`, `npm test`, `npm run build`, and Playwright E2E on PRs.
 
 **Not yet covered with real Supabase (recommended before full launch)**
+
 - Add a **staging Supabase “preflight” smoke** (manual or CI-gated) to validate:
   - RLS isolation across users
   - Storage isolation across user folder prefixes
@@ -59,6 +66,15 @@ This section consolidates:
 - Large collection performance strategy: [#133](https://github.com/Akkkkkkki/curio/issues/133)
 - Rollback/runbook (gateway + schema): [#134](https://github.com/Akkkkkkki/curio/issues/134)
 - Offline deletes resurrecting: [#135](https://github.com/Akkkkkkki/curio/issues/135)
+
+### Implementation plans (P0/P1)
+
+Canonical implementation plans are maintained directly in the issue threads (to avoid stale duplicated docs):
+
+- P0 AI gateway hardening plan: [#129](https://github.com/Akkkkkkki/curio/issues/129)
+- P0 asset upload retry queue plan: [#131](https://github.com/Akkkkkkki/curio/issues/131)
+- P1 large-collection performance plan: [#133](https://github.com/Akkkkkkki/curio/issues/133)
+- P0 offline delete tombstones plan: [#135](https://github.com/Akkkkkkki/curio/issues/135)
 
 ## Product & UX
 
