@@ -87,6 +87,18 @@ test.describe('First-Time User Experience', () => {
     await expect(titleInput).toHaveValue('Kind of Blue');
   });
 
+  test('should open export modal from item detail', async ({ page }) => {
+    await ensureSampleBrowse(page);
+    await sampleVinylCard(page).click();
+    await expect(page.getByTestId('items-grid')).toBeVisible();
+
+    await page.getByTestId('item-card').first().click();
+    await expect(page).toHaveURL(/#\/collection\/.*\/item\//);
+
+    await page.getByTestId('item-export').click();
+    await expect(page.getByRole('heading', { name: 'Export Card' })).toBeVisible();
+  });
+
   test('should prompt for auth when starting “Add your first item”', async ({ page }) => {
     await page.goto('/');
     const accessGate = page.getByTestId('access-gate');

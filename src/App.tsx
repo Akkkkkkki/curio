@@ -1376,203 +1376,207 @@ const AppContent: React.FC = () => {
     };
 
     return (
-      <div
-        className={`max-w-4xl mx-auto rounded-[2rem] sm:rounded-[4rem] border overflow-hidden animate-in zoom-in-95 duration-500 mb-20 ${detailBaseClasses[theme]}`}
-        onAnimationEnd={(e) => {
-          // Remove animation classes after animation ends to fix fixed positioning in children
-          e.currentTarget.classList.remove('animate-in', 'zoom-in-95', 'duration-500');
-          e.currentTarget.style.animation = 'none';
-        }}
-      >
+      <>
         <div
-          className={`relative ${hasPhoto ? 'aspect-[4/5] sm:aspect-[16/9] md:aspect-[21/9]' : 'h-32 sm:h-48'} bg-stone-950 group transition-all duration-700 ease-in-out`}
+          className={`max-w-4xl mx-auto rounded-[2rem] sm:rounded-[4rem] border overflow-hidden animate-in zoom-in-95 duration-500 mb-20 ${detailBaseClasses[theme]}`}
+          onAnimationEnd={(e) => {
+            // Remove animation classes after animation ends to fix fixed positioning in children
+            e.currentTarget.classList.remove('animate-in', 'zoom-in-95', 'duration-500');
+            e.currentTarget.style.animation = 'none';
+          }}
         >
-          <ItemImage
-            key={imageKey}
-            itemId={item.id}
-            collectionId={collection.id}
-            photoUrl={item.photoUrl}
-            enhancedPath={item.photoEnhancedPath}
-            alt={item.title}
-            type="enhanced"
-            className="w-full h-full object-cover transition-transform duration-[10s] group-hover:scale-110 opacity-80"
-          />
-
-          <div className="absolute inset-0 bg-gradient-to-t from-stone-950/60 to-transparent"></div>
-
-          {!isReadOnly && (
-            <>
-              <div
-                className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${hasPhoto ? 'opacity-100 sm:opacity-0 sm:group-hover:opacity-100' : 'opacity-100'}`}
-              >
-                <button
-                  disabled={isProcessing}
-                  onClick={() => fileInputRef.current?.click()}
-                  className="bg-white/90 hover:bg-white text-stone-900 px-6 sm:px-8 py-2 sm:py-3 rounded-full font-bold shadow-2xl backdrop-blur-md transition-all hover:scale-105 flex items-center gap-2 sm:gap-3 disabled:opacity-50 text-xs sm:text-sm"
-                >
-                  {isProcessing ? (
-                    <Loader2 size={16} className="animate-spin" />
-                  ) : (
-                    <Camera size={16} />
-                  )}
-                  {t('updatePhoto')}
-                </button>
-              </div>
-              <input
-                type="file"
-                ref={fileInputRef}
-                className="hidden"
-                accept="image/*"
-                onChange={handlePhotoUpdate}
-              />
-            </>
-          )}
-
-          <button
-            onClick={() => navigate(-1)}
-            className={`absolute top-4 left-4 sm:top-8 sm:left-8 w-10 h-10 sm:w-14 sm:h-14 backdrop-blur-md rounded-xl sm:rounded-2xl flex items-center justify-center shadow-xl transition-all hover:scale-105 z-10 ${theme === 'vault' ? 'bg-white/10 text-white' : 'bg-white/80 text-stone-800'}`}
+          <div
+            className={`relative ${hasPhoto ? 'aspect-[4/5] sm:aspect-[16/9] md:aspect-[21/9]' : 'h-32 sm:h-48'} bg-stone-950 group transition-all duration-700 ease-in-out`}
           >
-            <ArrowLeft size={20} className="sm:w-6 sm:h-6" />
-          </button>
+            <ItemImage
+              key={imageKey}
+              itemId={item.id}
+              collectionId={collection.id}
+              photoUrl={item.photoUrl}
+              enhancedPath={item.photoEnhancedPath}
+              alt={item.title}
+              type="enhanced"
+              className="w-full h-full object-cover transition-transform duration-[10s] group-hover:scale-110 opacity-80"
+            />
 
-          <div className="absolute top-4 right-4 sm:top-8 sm:right-8 flex gap-2 sm:gap-4 z-10">
-            {/* Enhance Image Button - only show when AI is enabled, not read-only, and has photo */}
-            {aiImageEditEnabled && !isReadOnly && isAssetPhoto && (
-              <button
-                onClick={() => setIsEnhanceOpen(true)}
-                className={`w-10 h-10 sm:w-14 sm:h-14 backdrop-blur-md rounded-xl sm:rounded-2xl flex items-center justify-center shadow-xl transition-all hover:scale-105 ${theme === 'vault' ? 'bg-white/10 text-white' : 'bg-white/80 text-stone-800'}`}
-                title={t('enhanceImage')}
-              >
-                <Sparkles size={20} className="sm:w-6 sm:h-6" />
-              </button>
-            )}
-            <button
-              onClick={() => setIsExportOpen(true)}
-              className={`w-10 h-10 sm:w-14 sm:h-14 backdrop-blur-md rounded-xl sm:rounded-2xl flex items-center justify-center shadow-xl transition-all hover:scale-105 ${theme === 'vault' ? 'bg-white/10 text-white' : 'bg-white/80 text-stone-800'}`}
-              title={t('exportCard')}
-            >
-              <Printer size={20} className="sm:w-6 sm:h-6" />
-            </button>
-          </div>
-        </div>
+            <div className="absolute inset-0 bg-gradient-to-t from-stone-950/60 to-transparent"></div>
 
-        <div className="p-8 sm:p-12 md:p-20 space-y-10 sm:space-y-12">
-          {isReadOnly && (
-            <div
-              className={`flex items-center gap-3 p-4 rounded-2xl border ${theme === 'vault' ? 'bg-white/5 border-white/10' : 'bg-stone-50 border-stone-100'}`}
-            >
-              <div className="p-2 rounded-xl bg-amber-50 text-amber-700 shadow-inner">
-                <Lock size={16} />
-              </div>
-              <div>
-                <p
-                  className={`text-sm font-semibold ${theme === 'vault' ? 'text-white' : 'text-stone-900'}`}
-                >
-                  {t('readOnlyMode')}
-                </p>
-                <p className="text-xs text-stone-500">{t('readOnlyItemDesc')}</p>
-              </div>
-            </div>
-          )}
-          <div className="flex flex-col md:flex-row justify-between items-start gap-8 sm:gap-12">
-            <div className="flex-1 w-full">
-              <input
-                type="text"
-                className={`${typographyClasses.titleDisplay} mb-4 sm:mb-6 w-full bg-transparent border-b-2 border-transparent focus:border-amber-100 outline-none transition-all placeholder:italic ${theme === 'vault' ? 'text-white' : 'text-stone-900'} ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
-                value={item.title}
-                onChange={(e) => updateItem(collection.id, item.id, { title: e.target.value })}
-                placeholder="..."
-                disabled={isReadOnly}
-              />
-              <div className="flex items-center gap-2">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <button
-                    key={star}
-                    onClick={() => updateItem(collection.id, item.id, { rating: star })}
-                    className={`transition-transform ${isReadOnly ? 'cursor-not-allowed opacity-70' : 'hover:scale-125'}`}
-                    disabled={isReadOnly}
-                  >
-                    <span className="text-2xl sm:text-4xl">
-                      {star <= item.rating ? (
-                        <span className="text-amber-500">★</span>
-                      ) : (
-                        <span className="text-amber-500/20">★</span>
-                      )}
-                    </span>
-                  </button>
-                ))}
-                <span className={`ml-3 sm:ml-4 ${typographyClasses.label} text-stone-300`}>
-                  {t('registryQuality')}
-                </span>
-                {isReadOnly && (
-                  <span className="ml-2 text-[12px] text-amber-500 font-semibold">
-                    {t('readOnlyControls')}
-                  </span>
-                )}
-              </div>
-            </div>
             {!isReadOnly && (
-              <button
-                onClick={handleDelete}
-                className="text-stone-200 hover:text-red-400 transition-colors p-3 sm:p-4 rounded-full hover:bg-red-50 shrink-0"
-              >
-                <Trash2 size={20} className="sm:w-6 sm:h-6" />
-              </button>
+              <>
+                <div
+                  className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${hasPhoto ? 'opacity-100 sm:opacity-0 sm:group-hover:opacity-100' : 'opacity-100'}`}
+                >
+                  <button
+                    disabled={isProcessing}
+                    onClick={() => fileInputRef.current?.click()}
+                    className="bg-white/90 hover:bg-white text-stone-900 px-6 sm:px-8 py-2 sm:py-3 rounded-full font-bold shadow-2xl backdrop-blur-md transition-all hover:scale-105 flex items-center gap-2 sm:gap-3 disabled:opacity-50 text-xs sm:text-sm"
+                  >
+                    {isProcessing ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <Camera size={16} />
+                    )}
+                    {t('updatePhoto')}
+                  </button>
+                </div>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  className="hidden"
+                  accept="image/*"
+                  onChange={handlePhotoUpdate}
+                />
+              </>
             )}
+
+            <button
+              onClick={() => navigate(-1)}
+              className={`absolute top-4 left-4 sm:top-8 sm:left-8 w-10 h-10 sm:w-14 sm:h-14 backdrop-blur-md rounded-xl sm:rounded-2xl flex items-center justify-center shadow-xl transition-all hover:scale-105 z-10 ${theme === 'vault' ? 'bg-white/10 text-white' : 'bg-white/80 text-stone-800'}`}
+            >
+              <ArrowLeft size={20} className="sm:w-6 sm:h-6" />
+            </button>
+
+            <div className="absolute top-4 right-4 sm:top-8 sm:right-8 flex gap-2 sm:gap-4 z-10">
+              {/* Enhance Image Button - only show when AI is enabled, not read-only, and has photo */}
+              {aiImageEditEnabled && !isReadOnly && isAssetPhoto && (
+                <button
+                  onClick={() => setIsEnhanceOpen(true)}
+                  className={`w-10 h-10 sm:w-14 sm:h-14 backdrop-blur-md rounded-xl sm:rounded-2xl flex items-center justify-center shadow-xl transition-all hover:scale-105 ${theme === 'vault' ? 'bg-white/10 text-white' : 'bg-white/80 text-stone-800'}`}
+                  title={t('enhanceImage')}
+                >
+                  <Sparkles size={20} className="sm:w-6 sm:h-6" />
+                </button>
+              )}
+              <button
+                onClick={() => setIsExportOpen(true)}
+                className={`w-10 h-10 sm:w-14 sm:h-14 backdrop-blur-md rounded-xl sm:rounded-2xl flex items-center justify-center shadow-xl transition-all hover:scale-105 ${theme === 'vault' ? 'bg-white/10 text-white' : 'bg-white/80 text-stone-800'}`}
+                title={t('exportCard')}
+                aria-label={t('exportCard')}
+                data-testid="item-export"
+              >
+                <Printer size={20} className="sm:w-6 sm:h-6" />
+              </button>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 sm:gap-16">
-            <div className="lg:col-span-2 space-y-6">
-              <div className={`flex flex-wrap items-center gap-3 ${accentColorClasses[theme]}`}>
-                <Quote size={18} fill="currentColor" className="opacity-20 sm:w-5 sm:h-5" />
-                <dt
-                  className={`min-w-0 ${typographyClasses.label} ${labelColorClasses[theme]} break-words`}
-                >
-                  {t('archiveNarrative')}
-                </dt>
+          <div className="p-8 sm:p-12 md:p-20 space-y-10 sm:space-y-12">
+            {isReadOnly && (
+              <div
+                className={`flex items-center gap-3 p-4 rounded-2xl border ${theme === 'vault' ? 'bg-white/5 border-white/10' : 'bg-stone-50 border-stone-100'}`}
+              >
+                <div className="p-2 rounded-xl bg-amber-50 text-amber-700 shadow-inner">
+                  <Lock size={16} />
+                </div>
+                <div>
+                  <p
+                    className={`text-sm font-semibold ${theme === 'vault' ? 'text-white' : 'text-stone-900'}`}
+                  >
+                    {t('readOnlyMode')}
+                  </p>
+                  <p className="text-xs text-stone-500">{t('readOnlyItemDesc')}</p>
+                </div>
               </div>
-              <textarea
-                className={`w-full p-6 sm:p-8 rounded-2xl sm:rounded-[2.5rem] italic border font-serif text-xl sm:text-2xl leading-relaxed min-h-[200px] sm:min-h-[240px] focus:ring-8 focus:ring-amber-500/5 focus:border-amber-100 outline-none transition-all shadow-inner placeholder:text-stone-200 ${theme === 'vault' ? 'bg-white/5 border-white/5 text-white' : 'bg-stone-50/50 border-stone-100 text-stone-800'} ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
-                value={item.notes}
-                onChange={(e) => updateItem(collection.id, item.id, { notes: e.target.value })}
-                placeholder={t('provenancePlaceholder')}
-                disabled={isReadOnly}
-              />
+            )}
+            <div className="flex flex-col md:flex-row justify-between items-start gap-8 sm:gap-12">
+              <div className="flex-1 w-full">
+                <input
+                  type="text"
+                  className={`${typographyClasses.titleDisplay} mb-4 sm:mb-6 w-full bg-transparent border-b-2 border-transparent focus:border-amber-100 outline-none transition-all placeholder:italic ${theme === 'vault' ? 'text-white' : 'text-stone-900'} ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                  value={item.title}
+                  onChange={(e) => updateItem(collection.id, item.id, { title: e.target.value })}
+                  placeholder="..."
+                  disabled={isReadOnly}
+                />
+                <div className="flex items-center gap-2">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      onClick={() => updateItem(collection.id, item.id, { rating: star })}
+                      className={`transition-transform ${isReadOnly ? 'cursor-not-allowed opacity-70' : 'hover:scale-125'}`}
+                      disabled={isReadOnly}
+                    >
+                      <span className="text-2xl sm:text-4xl">
+                        {star <= item.rating ? (
+                          <span className="text-amber-500">★</span>
+                        ) : (
+                          <span className="text-amber-500/20">★</span>
+                        )}
+                      </span>
+                    </button>
+                  ))}
+                  <span className={`ml-3 sm:ml-4 ${typographyClasses.label} text-stone-300`}>
+                    {t('registryQuality')}
+                  </span>
+                  {isReadOnly && (
+                    <span className="ml-2 text-[12px] text-amber-500 font-semibold">
+                      {t('readOnlyControls')}
+                    </span>
+                  )}
+                </div>
+              </div>
+              {!isReadOnly && (
+                <button
+                  onClick={handleDelete}
+                  className="text-stone-200 hover:text-red-400 transition-colors p-3 sm:p-4 rounded-full hover:bg-red-50 shrink-0"
+                >
+                  <Trash2 size={20} className="sm:w-6 sm:h-6" />
+                </button>
+              )}
             </div>
 
-            <div className="space-y-8 sm:space-y-10">
-              <dt
-                className={`${typographyClasses.label} pb-3 sm:pb-4 border-b break-words leading-tight ${theme === 'vault' ? 'text-stone-500 border-white/5' : `${labelColorClasses[theme]} ${dividerClasses[theme]}`}`}
-              >
-                {t('technicalSpec')}
-              </dt>
-              <div className="grid grid-cols-2 lg:grid-cols-1 gap-6 sm:gap-8">
-                {collection.customFields.map((field) => {
-                  const val = item.data[field.id];
-                  const label = getLabel(field.id);
-                  return (
-                    <div key={field.id} className="group">
-                      <dt
-                        className={`${typographyClasses.label} text-stone-300 mb-1 sm:mb-2 group-hover:text-amber-500 transition-colors break-words leading-tight`}
-                      >
-                        {label}
-                      </dt>
-                      <input
-                        className={`${typographyClasses.title} w-full bg-transparent border-none p-0 outline-none focus:text-amber-900 focus:ring-0 transition-colors placeholder:text-stone-100 ${theme === 'vault' ? 'text-white' : 'text-stone-900'} ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
-                        value={val || ''}
-                        placeholder="—"
-                        onChange={(e) => {
-                          const newData = {
-                            ...item.data,
-                            [field.id]: e.target.value,
-                          };
-                          updateItem(collection.id, item.id, { data: newData });
-                        }}
-                        disabled={isReadOnly}
-                      />
-                    </div>
-                  );
-                })}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 sm:gap-16">
+              <div className="lg:col-span-2 space-y-6">
+                <div className={`flex flex-wrap items-center gap-3 ${accentColorClasses[theme]}`}>
+                  <Quote size={18} fill="currentColor" className="opacity-20 sm:w-5 sm:h-5" />
+                  <dt
+                    className={`min-w-0 ${typographyClasses.label} ${labelColorClasses[theme]} break-words`}
+                  >
+                    {t('archiveNarrative')}
+                  </dt>
+                </div>
+                <textarea
+                  className={`w-full p-6 sm:p-8 rounded-2xl sm:rounded-[2.5rem] italic border font-serif text-xl sm:text-2xl leading-relaxed min-h-[200px] sm:min-h-[240px] focus:ring-8 focus:ring-amber-500/5 focus:border-amber-100 outline-none transition-all shadow-inner placeholder:text-stone-200 ${theme === 'vault' ? 'bg-white/5 border-white/5 text-white' : 'bg-stone-50/50 border-stone-100 text-stone-800'} ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                  value={item.notes}
+                  onChange={(e) => updateItem(collection.id, item.id, { notes: e.target.value })}
+                  placeholder={t('provenancePlaceholder')}
+                  disabled={isReadOnly}
+                />
+              </div>
+
+              <div className="space-y-8 sm:space-y-10">
+                <dt
+                  className={`${typographyClasses.label} pb-3 sm:pb-4 border-b break-words leading-tight ${theme === 'vault' ? 'text-stone-500 border-white/5' : `${labelColorClasses[theme]} ${dividerClasses[theme]}`}`}
+                >
+                  {t('technicalSpec')}
+                </dt>
+                <div className="grid grid-cols-2 lg:grid-cols-1 gap-6 sm:gap-8">
+                  {collection.customFields.map((field) => {
+                    const val = item.data[field.id];
+                    const label = getLabel(field.id);
+                    return (
+                      <div key={field.id} className="group">
+                        <dt
+                          className={`${typographyClasses.label} text-stone-300 mb-1 sm:mb-2 group-hover:text-amber-500 transition-colors break-words leading-tight`}
+                        >
+                          {label}
+                        </dt>
+                        <input
+                          className={`${typographyClasses.title} w-full bg-transparent border-none p-0 outline-none focus:text-amber-900 focus:ring-0 transition-colors placeholder:text-stone-100 ${theme === 'vault' ? 'text-white' : 'text-stone-900'} ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                          value={val || ''}
+                          placeholder="—"
+                          onChange={(e) => {
+                            const newData = {
+                              ...item.data,
+                              [field.id]: e.target.value,
+                            };
+                            updateItem(collection.id, item.id, { data: newData });
+                          }}
+                          disabled={isReadOnly}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           </div>
@@ -1597,7 +1601,7 @@ const AppContent: React.FC = () => {
             setImageKey((prev) => prev + 1);
           }}
         />
-      </div>
+      </>
     );
   };
 
