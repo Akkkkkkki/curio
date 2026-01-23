@@ -124,6 +124,7 @@ export const translations = {
     lockCollection: 'Biometric Lock Collection',
     onThisDay: 'On This Day',
     historyTitle: 'Archive Archeology',
+    onThisDayMore: 'And {count} more',
     // Added viewHistory key to resolve App.tsx type error
     viewHistory: 'Relive Memory',
     themeSelection: 'App Aesthetic',
@@ -361,6 +362,7 @@ export const translations = {
     lockCollection: '生物识别锁定馆藏',
     onThisDay: '档案考古',
     historyTitle: '历史上的今天',
+    onThisDayMore: '还有 {count} 项',
     // Added viewHistory key to resolve App.tsx type error
     viewHistory: '重温记忆',
     themeSelection: '应用美学主题',

@@ -20,6 +20,7 @@ import { CreateCollectionModal } from './components/CreateCollectionModal';
 import { AuthModal } from './components/AuthModal';
 import { UserCollection, CollectionItem, AppTheme } from './types';
 import { TEMPLATES } from './constants';
+import { getOnThisDayItems } from './utils/onThisDay';
 import {
   Plus,
   SlidersHorizontal,
@@ -666,56 +667,15 @@ const AppContent: React.FC = () => {
     const featured =
       allItems.length > 0 ? allItems[Math.floor(Math.random() * allItems.length)] : null;
 
-    // Archeology: Find item added on this day in past with cascading fallbacks
-    const now = new Date();
-    let historyItem: CollectionItem | undefined;
-
-    // 1. Try: Same Month/Day from Prior Year
-    historyItem = allItems.find((i) => {
-      const d = new Date(i.createdAt);
-      return (
-        d.getDate() === now.getDate() &&
-        d.getMonth() === now.getMonth() &&
-        d.getFullYear() < now.getFullYear()
-      );
-    });
-
-    // 2. Fallback: Same Day from Prior Month (days 1-28 only)
-    if (!historyItem && now.getDate() <= 28) {
-      const priorMonth = new Date(now);
-      priorMonth.setMonth(now.getMonth() - 1);
-
-      historyItem = allItems.find((i) => {
-        const d = new Date(i.createdAt);
-        return (
-          d.getDate() === now.getDate() &&
-          d.getMonth() === priorMonth.getMonth() &&
-          d.getFullYear() === priorMonth.getFullYear()
-        );
-      });
-    }
-
-    // 3. Fallback: Same Day from Prior Week
-    if (!historyItem) {
-      const priorWeek = new Date(now);
-      priorWeek.setDate(now.getDate() - 7);
-
-      historyItem = allItems.find((i) => {
-        const d = new Date(i.createdAt);
-        return (
-          d.getDate() === priorWeek.getDate() &&
-          d.getMonth() === priorWeek.getMonth() &&
-          d.getFullYear() === priorWeek.getFullYear()
-        );
-      });
-    }
+    // Archeology: Find items created on this day in prior years (local date)
+    const historyItems = getOnThisDayItems(allItems);
 
     return {
       totalItems,
       avgRating,
       totalCollections: statCollections.length,
       featured,
-      historyItem,
+      historyItems,
     };
   }, [collections]);
 
@@ -735,6 +695,10 @@ const AppContent: React.FC = () => {
         c.name.toLowerCase().includes(normalizedSearch) ||
         c.items.some((i) => i.title.toLowerCase().includes(normalizedSearch)),
     );
+    const historyItems = stats.historyItems;
+    const historyPreview = historyItems.slice(0, 3);
+    const historyOverflow = historyItems.length - historyPreview.length;
+    const primaryHistoryItem = historyItems[0];
 
     if (isLoading)
       return (
@@ -795,9 +759,11 @@ const AppContent: React.FC = () => {
           </div>
         )}
         {/* Bento Grid Hero */}
-        <section className={`grid grid-cols-1 gap-6 ${stats.historyItem ? 'md:grid-cols-3' : ''}`}>
+        <section
+          className={`grid grid-cols-1 gap-6 ${historyItems.length ? 'md:grid-cols-3' : ''}`}
+        >
           <div
-            className={`${stats.historyItem ? 'md:col-span-2' : ''} relative overflow-hidden rounded-[2rem] sm:rounded-[2.25rem] min-h-[280px] sm:min-h-[360px] flex items-center shadow-xl border transition-all duration-700 ${themeBaseClasses[theme]} group`}
+            className={`${historyItems.length ? 'md:col-span-2' : ''} relative overflow-hidden rounded-[2rem] sm:rounded-[2.25rem] min-h-[280px] sm:min-h-[360px] flex items-center shadow-xl border transition-all duration-700 ${themeBaseClasses[theme]} group`}
           >
             {stats.featured && (
               <div className="absolute inset-0 opacity-30 group-hover:opacity-25 transition-opacity duration-700">
@@ -844,7 +810,7 @@ const AppContent: React.FC = () => {
           </div>
 
           {/* Archeology Bento Card */}
-          {stats.historyItem && (
+          {primaryHistoryItem && (
             <div
               className={`relative overflow-hidden rounded-[2rem] p-6 sm:p-7 border flex flex-col justify-between transition-all duration-500 ${themeBaseClasses[theme]} shadow-md`}
             >
@@ -859,10 +825,10 @@ const AppContent: React.FC = () => {
               <div className="space-y-4">
                 <div className="aspect-square rounded-2xl overflow-hidden bg-stone-100 shadow-inner">
                   <ItemImage
-                    itemId={stats.historyItem.id}
-                    collectionId={stats.historyItem.collectionId}
-                    photoUrl={stats.historyItem.photoUrl}
-                    enhancedPath={stats.historyItem.photoEnhancedPath}
+                    itemId={primaryHistoryItem.id}
+                    collectionId={primaryHistoryItem.collectionId}
+                    photoUrl={primaryHistoryItem.photoUrl}
+                    enhancedPath={primaryHistoryItem.photoEnhancedPath}
                     type="enhanced"
                     className="w-full h-full object-cover"
                   />
@@ -870,21 +836,52 @@ const AppContent: React.FC = () => {
                 <div>
                   <p className={`${typographyClasses.labelMuted} mb-1`}>{t('historyTitle')}</p>
                   <h4 className={`${typographyClasses.title} leading-tight truncate`}>
-                    {stats.historyItem.title}
+                    {primaryHistoryItem.title}
                   </h4>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-full"
-                  onClick={() =>
-                    navigate(
-                      `/collection/${stats.historyItem.collectionId}/item/${stats.historyItem.id}`,
-                    )
-                  }
-                >
-                  {t('viewHistory') || 'Relive Memory'}
-                </Button>
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    {historyPreview.map((item) => {
+                      const itemYear = new Date(item.createdAt).getFullYear();
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() =>
+                            navigate(`/collection/${item.collectionId}/item/${item.id}`)
+                          }
+                          className="w-full text-left rounded-xl border border-stone-200/60 bg-white/70 px-3 py-2 text-xs sm:text-sm shadow-sm transition hover:border-amber-200 hover:bg-amber-50/60"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="truncate font-medium text-stone-700">
+                              {item.title}
+                            </span>
+                            <span className="text-[11px] uppercase tracking-wide text-stone-400">
+                              {itemYear}
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {historyOverflow > 0 && (
+                    <p className="text-xs text-stone-400">
+                      {t('onThisDayMore', { count: historyOverflow })}
+                    </p>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full"
+                    onClick={() =>
+                      navigate(
+                        `/collection/${primaryHistoryItem.collectionId}/item/${primaryHistoryItem.id}`,
+                      )
+                    }
+                  >
+                    {t('viewHistory') || 'Relive Memory'}
+                  </Button>
+                </div>
               </div>
             </div>
           )}
