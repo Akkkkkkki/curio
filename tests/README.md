@@ -8,6 +8,10 @@ This directory contains the complete testing infrastructure for Curio, following
 # Run tests once
 npm test
 
+# Smoke tests (fast, high-signal subsets)
+npm run test:smoke
+npm run test:e2e:smoke
+
 # Run tests in watch mode
 npm run test:watch
 

@@ -20,6 +20,10 @@ npm test
 npm run test:watch
 npm run test:coverage
 
+# Smoke tests (fast, high-signal subsets)
+npm run test:smoke
+npm run test:e2e:smoke
+
 # Live integration smoke tests (real network/services)
 # Requires the Gemini proxy to be running and configured (see below).
 npm run test:live

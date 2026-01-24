@@ -57,7 +57,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
         el.querySelectorAll<HTMLElement>(
           'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
         ),
-      ).filter((n) => n.offsetParent !== null);
+      ).filter((n: HTMLElement) => n.offsetParent !== null);
     };
 
     const onKeyDown = (e: KeyboardEvent) => {
@@ -72,8 +72,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
       if (focusable.length === 0) return;
 
       const active = document.activeElement as HTMLElement | null;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
+      const first = focusable[0] as HTMLElement;
+      const last = focusable[focusable.length - 1] as HTMLElement;
 
       if (e.shiftKey) {
         if (!active || active === first) {
