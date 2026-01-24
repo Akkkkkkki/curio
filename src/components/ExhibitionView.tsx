@@ -28,7 +28,7 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
 
   return (
     <div className="fixed inset-0 z-[90] isolate bg-stone-950 text-white flex flex-col animate-in fade-in duration-500 overflow-hidden pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)] pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)]">
-      <header className="p-6 sm:p-8 flex justify-between items-center bg-gradient-to-b from-stone-950/80 to-transparent sticky top-0 z-10">
+      <header className="p-6 sm:p-8 flex justify-between items-center bg-gradient-to-b from-stone-950 via-stone-950/90 to-transparent z-10 flex-shrink-0">
         <div>
           <h2 className="text-[10px] font-mono tracking-[0.2em] uppercase opacity-40 mb-0.5">
             {collection.name}
@@ -45,7 +45,7 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
         </button>
       </header>
 
-      <div className="relative flex flex-col sm:flex-row items-center justify-center px-6 sm:px-12 py-8 sm:py-12 gap-8 sm:gap-16">
+      <div className="flex-1 min-h-0 relative flex flex-col sm:flex-row items-center justify-center px-6 sm:px-12 py-4 sm:py-8 gap-8 sm:gap-16">
         <button
           onClick={prev}
           className="absolute left-4 sm:left-12 top-1/2 -translate-y-1/2 w-10 h-10 sm:w-16 sm:h-16 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition-all hover:scale-110 z-10"
@@ -103,7 +103,7 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
         </button>
       </div>
 
-      <footer className="p-6 sm:p-12 flex justify-center sticky bottom-0 bg-gradient-to-t from-stone-950 to-transparent">
+      <footer className="p-6 sm:p-12 flex justify-center bg-gradient-to-t from-stone-950 via-stone-950/90 to-transparent flex-shrink-0">
         <div className="flex gap-1.5 sm:gap-2">
           {collection.items.slice(0, 10).map((_, i) => (
             <button
