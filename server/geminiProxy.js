@@ -75,7 +75,7 @@ const percentile = (values, percentileValue) => {
   return sorted[Math.max(0, Math.min(index, sorted.length - 1))];
 };
 
-const summarizeMetrics = () => {
+export const summarizeMetrics = () => {
   const summary = {};
   metrics.forEach((value, route) => {
     summary[route] = {
@@ -89,6 +89,10 @@ const summarizeMetrics = () => {
     };
   });
   return summary;
+};
+
+export const resetMetrics = () => {
+  metrics.clear();
 };
 
 // Security configuration
@@ -111,7 +115,7 @@ app.use((req, res, next) => {
 
   res.on('finish', () => {
     const duration = Date.now() - start;
-    if (METRICS_ROUTES.has(req.path)) {
+    if (req.method !== 'OPTIONS' && METRICS_ROUTES.has(req.path)) {
       recordMetric(req.path, res.statusCode, duration);
     }
     const log = {

@@ -16,6 +16,21 @@ The gateway exports an in-memory JSON payload for:
 - p50/p95 latency (milliseconds)
 - Error count / error rate (HTTP status >= 400)
 
+### How to use it
+
+1. **Pull metrics on an interval** (e.g., cron job, uptime check, or platform scheduler).
+2. **Store them in your monitoring system** (Datadog, Grafana, CloudWatch, etc.).
+3. **Alert on the thresholds below** to catch outages and slowdowns.
+
+Example pull:
+
+```bash
+curl https://<your-host>/api/metrics
+```
+
+> **Note:** Metrics are stored in memory, so they reset on deploys/restarts. Use periodic
+> scraping if you want historical trend data.
+
 **Example**
 
 ```json
@@ -49,6 +64,17 @@ Look for:
 
 These logs include timestamps and the prior state so failures and recoveries can be charted in
 log-based dashboards.
+
+### How to use it
+
+- **Create a log-based metric** that counts `sync_status_error` and `sync_status_recovered`.
+- **Alert on error spikes** (e.g., `sync_status_error` > 5/minute).
+- **Dashboard recovery rate** by comparing recoveries to errors.
+
+## Testing
+
+- `tests/server/gatewayMetrics.test.ts` verifies that `/api/metrics` captures request counts and
+  latency percentiles for `/api/health`.
 
 ## Ownership & on-call
 
