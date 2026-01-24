@@ -1,4 +1,4 @@
-import React, { Component, ReactNode } from 'react';
+import React, { ReactNode } from 'react';
 import { AlertCircle, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface Props {
@@ -12,7 +12,7 @@ interface State {
   showDetails: boolean;
 }
 
-export class ErrorBoundary extends Component<Props, State> {
+export class ErrorBoundary extends React.Component<Props, State> {
   constructor(props: Props) {
     super(props);
     this.state = {
