@@ -111,6 +111,7 @@ app.use(express.json({ limit: '15mb' }));
 // Request ID and structured logging middleware
 app.use((req, res, next) => {
   req.id = randomUUID().slice(0, 8);
+  res.setHeader('x-request-id', req.id);
   const start = Date.now();
 
   res.on('finish', () => {
@@ -119,12 +120,17 @@ app.use((req, res, next) => {
       recordMetric(req.path, res.statusCode, duration);
     }
     const log = {
-      id: req.id,
+      event: 'api_request',
+      ts: new Date().toISOString(),
+      route: req.path,
       method: req.method,
-      path: req.path,
       status: res.statusCode,
-      duration,
-      user: req.user?.sub || 'anonymous',
+      durationMs: duration,
+      ok: res.statusCode < 400,
+      requestId: req.id,
+      deployment: process.env.NODE_ENV || 'unknown',
+      commitSha: process.env.VERCEL_GIT_COMMIT_SHA || null,
+      userId: req.user?.sub || null,
       ip: req.ip,
     };
     console.log(JSON.stringify(log));

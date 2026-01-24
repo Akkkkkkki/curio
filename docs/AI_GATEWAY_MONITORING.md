@@ -34,6 +34,41 @@ curl https://<your-host>/api/metrics
 > **Note:** Metrics are stored in memory, so they reset on deploys/restarts/cold starts. Use
 > periodic scraping if you want historical trend data.
 
+## “Do it now”: log-based metrics (recommended for preview + prod)
+
+Because serverless functions do not reliably share memory across routes or invocations, the
+fastest way to get usable monitoring in preview/prod is to emit one structured JSON log line per
+request. Vercel captures these logs automatically, and they can be forwarded to Datadog/Grafana/etc.
+
+Every AI gateway request now emits:
+
+```json
+{
+  "event": "api_request",
+  "ts": "2026-01-24T22:46:35.225Z",
+  "route": "/api/gemini/analyze",
+  "method": "POST",
+  "status": 200,
+  "durationMs": 1234,
+  "ok": true,
+  "requestId": "req_7f3a...",
+  "deployment": "preview",
+  "commitSha": "abc123",
+  "provider": "google",
+  "model": "gemini-2.5-flash",
+  "errorName": null,
+  "errorMessage": null
+}
+```
+
+**How to use it:**
+
+1. Make a request to `/api/gemini/analyze`, `/api/gemini/enhance`, or `/api/health`.
+2. Open **Vercel → Deployment → Runtime Logs** and filter for `event":"api_request"`.
+3. Create log-based metrics for request volume, error rate, and latency percentiles.
+
+This works immediately in preview and production without additional infrastructure.
+
 **Example**
 
 ```json
@@ -78,6 +113,23 @@ log-based dashboards.
 
 - `tests/server/gatewayMetrics.test.ts` verifies that `/api/metrics` captures request counts and
   latency percentiles for `/api/health` in the local proxy server.
+
+## “Later”: shared metrics store (KV/Redis)
+
+If you want `/api/metrics` to be accurate across Vercel instances and durable across restarts,
+store counters and latency buckets in a shared store (Vercel KV / Redis). Suggested design:
+
+- **Write path:** increment per-route counters and histogram buckets per request.
+- **Read path:** aggregate per-minute buckets into p50/p95 latencies and error rates.
+- **TTL:** expire per-minute keys after 7–14 days to prevent unbounded growth.
+- **Security:** protect `/api/metrics` behind auth or a Vercel protection token.
+
+**Example keys (per minute):**
+
+- `metrics:{route}:{YYYYMMDDHHmm}` → `count`, `errorCount`, `latencyBuckets`.
+
+This approach yields approximate percentiles (good for alerts/dashboards) while keeping write
+overhead low.
 
 ## Ownership & on-call
 
