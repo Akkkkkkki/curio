@@ -44,6 +44,7 @@ import {
   X,
 } from 'lucide-react';
 import { Button } from './components/ui/Button';
+import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import {
   fetchCloudCollections,
   getLocalCollections,
@@ -1863,11 +1864,13 @@ export const App: React.FC = () => {
   return (
     <ThemeProvider>
       <LanguageProvider>
-        <HashRouter>
-          <AppContent />
-        </HashRouter>
-        <SpeedInsights />
-        <Analytics />
+        <ErrorBoundary>
+          <HashRouter>
+            <AppContent />
+          </HashRouter>
+          <SpeedInsights />
+          <Analytics />
+        </ErrorBoundary>
       </LanguageProvider>
     </ThemeProvider>
   );

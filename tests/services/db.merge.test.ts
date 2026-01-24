@@ -313,6 +313,175 @@ describe('Phase 2.1 — services/db.ts merge logic', () => {
     });
   });
 
+  describe('mergeItems with pending deletes', () => {
+    it('filters out items that are pending deletion', async () => {
+      const mod = await importDbModuleFresh();
+
+      const localItems: any[] = [];
+      const cloudItems = [
+        {
+          id: 'item-1',
+          collectionId: 'col-1',
+          photoUrl: 'photo.jpg',
+          title: 'Should be deleted',
+          rating: 3,
+          data: {},
+          createdAt: isoAt(0),
+          updatedAt: isoAt(1),
+          notes: '',
+        },
+        {
+          id: 'item-2',
+          collectionId: 'col-1',
+          photoUrl: 'photo2.jpg',
+          title: 'Should remain',
+          rating: 4,
+          data: {},
+          createdAt: isoAt(0),
+          updatedAt: isoAt(1),
+          notes: '',
+        },
+      ];
+
+      const pendingDeletes = [{ collectionId: 'col-1', itemId: 'item-1', createdAt: isoAt(2) }];
+
+      const merged = mod.mergeItems(localItems, cloudItems, { pendingDeletes });
+      expect(merged).toHaveLength(1);
+      expect(merged[0].id).toBe('item-2');
+    });
+
+    it('does not resurrect cloud items pending deletion', async () => {
+      const mod = await importDbModuleFresh();
+
+      // User deleted item locally while offline, now cloud still has it
+      const localItems: any[] = []; // Item was removed from local
+      const cloudItems = [
+        {
+          id: 'deleted-item',
+          collectionId: 'col-1',
+          photoUrl: 'photo.jpg',
+          title: 'Deleted offline',
+          rating: 3,
+          data: {},
+          createdAt: isoAt(0),
+          updatedAt: isoAt(1),
+          notes: '',
+        },
+      ];
+
+      // The delete is pending because cloud sync failed
+      const pendingDeletes = [
+        { collectionId: 'col-1', itemId: 'deleted-item', createdAt: isoAt(2) },
+      ];
+
+      const merged = mod.mergeItems(localItems, cloudItems, { pendingDeletes });
+      // Item should NOT come back
+      expect(merged).toHaveLength(0);
+    });
+
+    it('also filters pending deletes from local-only items', async () => {
+      const mod = await importDbModuleFresh();
+
+      const localItems = [
+        {
+          id: 'local-item-to-delete',
+          collectionId: 'col-1',
+          photoUrl: 'local.jpg',
+          title: 'Local item pending delete',
+          rating: 2,
+          data: {},
+          createdAt: isoAt(1),
+          notes: '',
+        },
+      ];
+      const cloudItems: any[] = [];
+
+      const pendingDeletes = [
+        { collectionId: 'col-1', itemId: 'local-item-to-delete', createdAt: isoAt(2) },
+      ];
+
+      const merged = mod.mergeItems(localItems, cloudItems, { pendingDeletes });
+      expect(merged).toHaveLength(0);
+    });
+  });
+
+  describe('mergeCollections with pending deletes', () => {
+    it('passes pending deletes to mergeItems for each collection', async () => {
+      const mod = await importDbModuleFresh();
+
+      const local = [
+        {
+          id: 'col-1',
+          templateId: 'vinyl',
+          name: 'Test Collection',
+          icon: '🎵',
+          customFields: [],
+          items: [
+            {
+              id: 'item-1',
+              collectionId: 'col-1',
+              title: 'To Delete',
+              rating: 3,
+              data: {},
+              createdAt: isoAt(0),
+              updatedAt: isoAt(1),
+            },
+            {
+              id: 'item-2',
+              collectionId: 'col-1',
+              title: 'To Keep',
+              rating: 4,
+              data: {},
+              createdAt: isoAt(0),
+              updatedAt: isoAt(1),
+            },
+          ],
+          settings: { displayFields: [], badgeFields: [] },
+          updatedAt: isoAt(1),
+        },
+      ];
+
+      const cloud = [
+        {
+          id: 'col-1',
+          templateId: 'vinyl',
+          name: 'Test Collection',
+          icon: '🎵',
+          customFields: [],
+          items: [
+            {
+              id: 'item-1',
+              collectionId: 'col-1',
+              title: 'To Delete',
+              rating: 3,
+              data: {},
+              createdAt: isoAt(0),
+              updatedAt: isoAt(1),
+            },
+            {
+              id: 'item-2',
+              collectionId: 'col-1',
+              title: 'To Keep',
+              rating: 4,
+              data: {},
+              createdAt: isoAt(0),
+              updatedAt: isoAt(1),
+            },
+          ],
+          settings: { displayFields: [], badgeFields: [] },
+          updatedAt: isoAt(1),
+        },
+      ];
+
+      const pendingDeletes = [{ collectionId: 'col-1', itemId: 'item-1', createdAt: isoAt(2) }];
+
+      const merged = mod.mergeCollections(local as any, cloud as any, { pendingDeletes });
+      expect(merged).toHaveLength(1);
+      expect(merged[0].items).toHaveLength(1);
+      expect(merged[0].items[0].id).toBe('item-2');
+    });
+  });
+
   describe('Property tests: no data loss for local-only records', () => {
     it('100 randomized scenarios never lose local-only records', async () => {
       const mod = await importDbModuleFresh();
