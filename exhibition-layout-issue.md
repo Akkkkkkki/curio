@@ -3,6 +3,7 @@
 ## Issue Summary
 
 The Exhibition View component has critical mobile layout issues causing poor UX:
+
 1. **Excessive black background** above and below item content
 2. **Overlapping elements** - content overlaps with header/collection title
 3. **Unnecessary scrolling** required to view full item details
@@ -10,12 +11,14 @@ The Exhibition View component has critical mobile layout issues causing poor UX:
 ## Visual Evidence
 
 ### Problem Screenshots
+
 - User has to scroll extensively to see content
 - Image appears too small and not centered properly
 - Massive black empty space above and below the actual content
 - Header/title area overlaps with content background
 
 ### Expected Behavior
+
 - Content should fill viewport efficiently without excessive empty space
 - No scrolling required to view a single item
 - Clean separation between header and content
@@ -73,20 +76,25 @@ Waste: ~20-25vh empty black space
 ### Key Changes
 
 #### 1. Vertical Alignment Strategy
+
 ```diff
 - justify-center
 + justify-start sm:justify-center
 ```
+
 **Why:** On mobile, content flows from top instead of being centered in a tall container
 
 #### 2. Image Size Optimization
+
 ```diff
 - max-h-[40vh]
 + max-h-[55vh]
 ```
+
 **Why:** Larger image fills more viewport space, reducing empty areas
 
 #### 3. Spacing Compression (Mobile Only)
+
 ```diff
 Header:
 - p-6
@@ -108,6 +116,7 @@ Footer:
 - p-6
 + py-4 px-6
 ```
+
 **Why:** Tighter spacing creates more compact, efficient layout on mobile
 
 ### After Fix:
@@ -142,6 +151,7 @@ Waste: ~5vh (minimal, acceptable)
 ## Testing Recommendations
 
 ### Manual Testing
+
 - [ ] Test on iOS Safari (iPhone 12, 13, 14, 15)
 - [ ] Test on Android Chrome (various screen sizes)
 - [ ] Test landscape orientation
@@ -149,11 +159,13 @@ Waste: ~5vh (minimal, acceptable)
 - [ ] Test with different collection types (different field counts)
 
 ### Automated Testing
+
 - [ ] Add visual regression tests for Exhibition View
 - [ ] Test different viewport sizes (320px, 375px, 390px, 428px widths)
 - [ ] Verify no scrolling required for standard content
 
 ### Edge Cases to Verify
+
 - [ ] Very long item titles (3+ lines)
 - [ ] Items with no notes/description
 - [ ] Items with no custom field data
@@ -164,11 +176,13 @@ Waste: ~5vh (minimal, acceptable)
 ## Design Principles Applied
 
 ### Mobile-First Constraints (from CLAUDE.md)
+
 ✅ **Delight before auth** - Exhibition mode works pre-login
 ✅ **Explicit outcomes** - Clear visual presentation without confusion
 ✅ **Recoverable AI** - Not AI-related, but layout doesn't block user actions
 
 ### Responsive Design Patterns
+
 1. **Content-first on mobile** - Let content determine layout, not abstract containers
 2. **Progressive enhancement** - Mobile gets compact layout, desktop gets spacious centered layout
 3. **Touch-friendly spacing** - 4-unit gaps minimum for touch targets
@@ -177,12 +191,14 @@ Waste: ~5vh (minimal, acceptable)
 ## Future Improvements
 
 ### Short-term (Next Sprint)
+
 - [ ] Add fade-in animation when transitioning between items
 - [ ] Consider adjusting title font size dynamically based on length
 - [ ] Add swipe gestures for next/prev navigation
 - [ ] Optimize footer pagination dots for collections with many items
 
 ### Long-term (Future Iterations)
+
 - [ ] Implement pinch-to-zoom on exhibition images
 - [ ] Add fullscreen image view mode
 - [ ] Consider lazy loading for image transitions
@@ -217,6 +233,6 @@ Needs review by: Design team + Mobile developers
 
 ---
 
-*Created: 2026-01-24*
-*Branch: `claude/fix-exhibition-item-layout-JGzWi`*
-*Status: Pending review*
+_Created: 2026-01-24_
+_Branch: `claude/fix-exhibition-item-layout-JGzWi`_
+_Status: Pending review_
