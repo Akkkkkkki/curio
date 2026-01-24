@@ -25,8 +25,7 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
 
   const item = collection.items[index];
   const next = () => setIndex((i) => (i + 1) % collection.items.length);
-  const prev = () =>
-    setIndex((i) => (i - 1 + collection.items.length) % collection.items.length);
+  const prev = () => setIndex((i) => (i - 1 + collection.items.length) % collection.items.length);
 
   const content = (
     <div className="fixed inset-0 z-[9999] bg-stone-950 text-white animate-in fade-in duration-500 grid grid-rows-[auto_1fr_auto] pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)] pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)]">
