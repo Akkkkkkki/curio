@@ -53,12 +53,37 @@ export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'error' | 'offline';
 
 type SyncStatusCallback = (status: SyncStatus, error?: string) => void;
 let onSyncStatusChange: SyncStatusCallback | null = null;
+let lastSyncStatus: SyncStatus | null = null;
 
 export const setSyncStatusCallback = (cb: SyncStatusCallback | null) => {
   onSyncStatusChange = cb;
 };
 
 const notifySyncStatus = (status: SyncStatus, error?: string) => {
+  if (lastSyncStatus !== status) {
+    const timestamp = new Date().toISOString();
+    if (status === 'error') {
+      console.info(
+        JSON.stringify({
+          event: 'sync_status_error',
+          status,
+          previousStatus: lastSyncStatus,
+          error: error || null,
+          timestamp,
+        }),
+      );
+    } else if (lastSyncStatus === 'error' && status === 'synced') {
+      console.info(
+        JSON.stringify({
+          event: 'sync_status_recovered',
+          status,
+          previousStatus: lastSyncStatus,
+          timestamp,
+        }),
+      );
+    }
+    lastSyncStatus = status;
+  }
   onSyncStatusChange?.(status, error);
 };
 

@@ -41,6 +41,56 @@ if (shouldLoadEnvFiles) {
 const app = express();
 const port = process.env.PORT || 8787;
 
+const MAX_LATENCY_SAMPLES = 1000;
+const METRICS_ROUTES = new Set(['/api/health', '/api/gemini/analyze', '/api/gemini/enhance']);
+const metrics = new Map();
+
+const ensureMetric = (route) => {
+  if (!metrics.has(route)) {
+    metrics.set(route, {
+      count: 0,
+      errorCount: 0,
+      durations: [],
+    });
+  }
+  return metrics.get(route);
+};
+
+const recordMetric = (route, status, durationMs) => {
+  const metric = ensureMetric(route);
+  metric.count += 1;
+  if (status >= 400) {
+    metric.errorCount += 1;
+  }
+  metric.durations.push(durationMs);
+  if (metric.durations.length > MAX_LATENCY_SAMPLES) {
+    metric.durations.shift();
+  }
+};
+
+const percentile = (values, percentileValue) => {
+  if (!values.length) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const index = Math.ceil((percentileValue / 100) * sorted.length) - 1;
+  return sorted[Math.max(0, Math.min(index, sorted.length - 1))];
+};
+
+const summarizeMetrics = () => {
+  const summary = {};
+  metrics.forEach((value, route) => {
+    summary[route] = {
+      requestCount: value.count,
+      errorCount: value.errorCount,
+      errorRate: value.count ? value.errorCount / value.count : 0,
+      latencyMs: {
+        p50: percentile(value.durations, 50),
+        p95: percentile(value.durations, 95),
+      },
+    };
+  });
+  return summary;
+};
+
 // Security configuration
 const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS || '')
   .split(',')
@@ -61,6 +111,9 @@ app.use((req, res, next) => {
 
   res.on('finish', () => {
     const duration = Date.now() - start;
+    if (METRICS_ROUTES.has(req.path)) {
+      recordMetric(req.path, res.statusCode, duration);
+    }
     const log = {
       id: req.id,
       method: req.method,
@@ -176,6 +229,13 @@ const mapFieldTypeToSchemaType = (type) => {
 
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true, geminiConfigured: Boolean(apiKey) });
+});
+
+app.get('/api/metrics', (_req, res) => {
+  res.json({
+    generatedAt: new Date().toISOString(),
+    routes: summarizeMetrics(),
+  });
 });
 
 app.post('/api/gemini/analyze', ipLimiter, requireAuth, userLimiter, async (req, res) => {
