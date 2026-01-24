@@ -22,14 +22,17 @@ The gateway exports an in-memory JSON payload for:
 2. **Store them in your monitoring system** (Datadog, Grafana, CloudWatch, etc.).
 3. **Alert on the thresholds below** to catch outages and slowdowns.
 
+These metrics are available both in the local proxy server and in Vercel serverless deployments.
+Each runtime tracks its own in-memory counters, so scrape frequently if you want a holistic view.
+
 Example pull:
 
 ```bash
 curl https://<your-host>/api/metrics
 ```
 
-> **Note:** Metrics are stored in memory, so they reset on deploys/restarts. Use periodic
-> scraping if you want historical trend data.
+> **Note:** Metrics are stored in memory, so they reset on deploys/restarts/cold starts. Use
+> periodic scraping if you want historical trend data.
 
 **Example**
 
@@ -74,7 +77,7 @@ log-based dashboards.
 ## Testing
 
 - `tests/server/gatewayMetrics.test.ts` verifies that `/api/metrics` captures request counts and
-  latency percentiles for `/api/health`.
+  latency percentiles for `/api/health` in the local proxy server.
 
 ## Ownership & on-call
 

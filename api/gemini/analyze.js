@@ -1,4 +1,5 @@
 import { GoogleGenAI, Type } from '@google/genai';
+import { attachMetrics } from '../_metrics.js';
 
 // Model for metadata extraction (vision/text analysis)
 const GEMINI_ANALYZE_MODEL = process.env.GEMINI_ANALYZE_MODEL || 'gemini-2.5-flash';
@@ -19,6 +20,7 @@ const mapFieldTypeToSchemaType = (type) => {
 };
 
 export default async function handler(req, res) {
+  attachMetrics(req, res, '/api/gemini/analyze');
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'Method Not Allowed' });

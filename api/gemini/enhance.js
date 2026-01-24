@@ -1,4 +1,5 @@
 import { GoogleGenAI } from '@google/genai';
+import { attachMetrics } from '../_metrics.js';
 
 // Model for image generation/enhancement
 const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image';
@@ -33,6 +34,7 @@ Make it beautiful while keeping the item 100% recognizable.`,
 };
 
 export default async function handler(req, res) {
+  attachMetrics(req, res, '/api/gemini/enhance');
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'Method Not Allowed' });
