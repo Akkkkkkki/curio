@@ -27,7 +27,7 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
   const prev = () => setIndex((i) => (i - 1 + collection.items.length) % collection.items.length);
 
   return (
-    <div className="fixed inset-0 z-[90] isolate bg-stone-950 text-white flex flex-col animate-in fade-in duration-500 overflow-y-auto sm:overflow-hidden pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)] pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)]">
+    <div className="fixed inset-0 z-[90] isolate bg-stone-950 text-white flex flex-col animate-in fade-in duration-500 overflow-hidden pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)] pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)]">
       <header className="p-6 sm:p-8 flex justify-between items-center bg-gradient-to-b from-stone-950/80 to-transparent sticky top-0 z-10">
         <div>
           <h2 className="text-[10px] font-mono tracking-[0.2em] uppercase opacity-40 mb-0.5">
@@ -45,7 +45,7 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
         </button>
       </header>
 
-      <div className="flex-1 relative flex flex-col sm:flex-row items-center justify-center px-6 sm:px-12 pb-12 gap-8 sm:gap-16">
+      <div className="relative flex flex-col sm:flex-row items-center justify-center px-6 sm:px-12 py-8 sm:py-12 gap-8 sm:gap-16">
         <button
           onClick={prev}
           className="absolute left-4 sm:left-12 top-1/2 -translate-y-1/2 w-10 h-10 sm:w-16 sm:h-16 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition-all hover:scale-110 z-10"
@@ -54,7 +54,7 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
         </button>
 
         <div className="max-w-4xl w-full grid grid-cols-1 md:grid-cols-2 gap-8 sm:gap-16 items-center animate-in zoom-in-95 duration-700">
-          <div className="aspect-[3/4] sm:aspect-[3/4] rounded-2xl sm:rounded-[3rem] overflow-hidden shadow-2xl border border-white/10 group relative max-h-[40vh] sm:max-h-none">
+          <div className="aspect-[3/4] sm:aspect-[3/4] rounded-2xl sm:rounded-[3rem] overflow-hidden shadow-2xl border border-white/10 group relative max-h-[40vh] sm:max-h-none mx-auto w-full max-w-sm sm:max-w-none">
             <ItemImage
               itemId={item.id}
               photoUrl={item.photoUrl}
