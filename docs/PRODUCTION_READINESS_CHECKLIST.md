@@ -129,8 +129,8 @@ Canonical implementation plans are maintained directly in the issue threads (to 
 
 ## Observability & Operations
 
-- [ ] AI gateway metrics (request count, latency, error rate) are exported and monitored.
-- [ ] Sync error rates are visible (client + server monitoring) with actionable alerting.
+- [x] AI gateway metrics (request count, latency, error rate) are exported and monitored. See `docs/AI_GATEWAY_MONITORING.md`.
+- [x] Sync error rates are visible (client + server monitoring) with actionable alerting. See `docs/AI_GATEWAY_MONITORING.md`.
 - [ ] Quota/rate-limit errors have user-facing recovery messaging.
 
 ## Testing & CI

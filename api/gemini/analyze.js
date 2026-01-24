@@ -1,4 +1,6 @@
 import { GoogleGenAI, Type } from '@google/genai';
+import { attachMetrics } from '../_metrics.js';
+import { attachRequestLogger, recordApiError } from '../_requestLogging.js';
 
 // Model for metadata extraction (vision/text analysis)
 const GEMINI_ANALYZE_MODEL = process.env.GEMINI_ANALYZE_MODEL || 'gemini-2.5-flash';
@@ -19,18 +21,27 @@ const mapFieldTypeToSchemaType = (type) => {
 };
 
 export default async function handler(req, res) {
+  attachRequestLogger(req, res, {
+    route: '/api/gemini/analyze',
+    provider: 'google',
+    model: GEMINI_ANALYZE_MODEL,
+  });
+  attachMetrics(req, res, '/api/gemini/analyze');
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
+    recordApiError(res, { name: 'MethodNotAllowed', message: 'Method Not Allowed' });
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
+    recordApiError(res, { name: 'MissingApiKey', message: 'GEMINI_API_KEY is not configured' });
     return res.status(503).json({ error: 'GEMINI_API_KEY is not configured' });
   }
 
   const { imageBase64, fields } = req.body || {};
   if (!imageBase64 || !Array.isArray(fields)) {
+    recordApiError(res, { name: 'BadRequest', message: 'Missing imageBase64 or fields' });
     return res.status(400).json({ error: 'Missing imageBase64 or fields' });
   }
 
@@ -84,6 +95,11 @@ export default async function handler(req, res) {
       data: data || {},
     });
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'AI analysis failed';
+    recordApiError(res, {
+      name: error instanceof Error && error.name ? error.name : 'AIAnalysisFailed',
+      message: errorMessage,
+    });
     console.error('AI Analysis Failed:', error);
     return res.status(500).json({ error: 'AI analysis failed' });
   }

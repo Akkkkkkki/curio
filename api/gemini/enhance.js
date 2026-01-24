@@ -1,4 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
+import { attachMetrics } from '../_metrics.js';
+import { attachRequestLogger, recordApiError } from '../_requestLogging.js';
 
 // Model for image generation/enhancement
 const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image';
@@ -33,23 +35,33 @@ Make it beautiful while keeping the item 100% recognizable.`,
 };
 
 export default async function handler(req, res) {
+  attachRequestLogger(req, res, {
+    route: '/api/gemini/enhance',
+    provider: 'google',
+    model: GEMINI_IMAGE_MODEL,
+  });
+  attachMetrics(req, res, '/api/gemini/enhance');
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
+    recordApiError(res, { name: 'MethodNotAllowed', message: 'Method Not Allowed' });
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
+    recordApiError(res, { name: 'MissingApiKey', message: 'GEMINI_API_KEY is not configured' });
     return res.status(503).json({ error: 'GEMINI_API_KEY is not configured' });
   }
 
   const { imageBase64, strength = 'subtle' } = req.body || {};
   if (!imageBase64) {
+    recordApiError(res, { name: 'BadRequest', message: 'Missing imageBase64' });
     return res.status(400).json({ error: 'Missing imageBase64' });
   }
 
   const validStrengths = ['subtle', 'beautified'];
   if (!validStrengths.includes(strength)) {
+    recordApiError(res, { name: 'BadRequest', message: 'Invalid strength' });
     return res.status(400).json({ error: 'Invalid strength. Must be "subtle" or "beautified"' });
   }
 
@@ -113,27 +125,36 @@ export default async function handler(req, res) {
     // Extract detailed error info
     let errorMessage = 'Unknown error';
     let statusCode = 500;
+    let errorName = 'ImageEnhancementFailed';
 
     if (error instanceof Error) {
       errorMessage = error.message;
+      if (error.name) {
+        errorName = error.name;
+      }
 
       // Check for specific Gemini API errors
       if (error.message.includes('API key')) {
         errorMessage = 'Invalid or missing API key';
         statusCode = 503;
+        errorName = 'InvalidApiKey';
       } else if (error.message.includes('quota') || error.message.includes('rate')) {
         errorMessage = 'API rate limit exceeded. Please try again later.';
         statusCode = 429;
+        errorName = 'RateLimitExceeded';
       } else if (error.message.includes('safety') || error.message.includes('blocked')) {
         errorMessage = 'Image was blocked by safety filters. Try a different photo.';
         statusCode = 400;
+        errorName = 'SafetyBlocked';
       } else if (error.message.includes('not found') || error.message.includes('404')) {
         errorMessage =
           'Model not available. The image generation model may not be enabled for this API key.';
         statusCode = 503;
+        errorName = 'ModelNotAvailable';
       }
     }
 
+    recordApiError(res, { name: errorName, message: errorMessage });
     return res.status(statusCode).json({
       error: 'Image enhancement failed',
       details: errorMessage,
