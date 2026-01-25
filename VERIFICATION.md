@@ -19,7 +19,7 @@ Before you begin, ensure you have the following installed:
 First, you need to install the project dependencies and prepare the native projects.
 
 ```bash
-# 1. Install all npm dependencies
+# 1. Install/update all npm dependencies to ensure compatibility
 npm install
 
 # 2. Build the web app for production
