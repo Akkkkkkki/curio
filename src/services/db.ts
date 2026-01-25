@@ -20,10 +20,23 @@ const PENDING_ASSET_UPLOADS_KEY = 'pending_asset_uploads';
 const PENDING_DELETE_KEY = 'pending_deletes';
 
 // Pending delete entry: tracks items that need to be deleted from cloud
-export type PendingDelete = {
+export type PendingDelete =
+  | {
+      type: 'item';
+      collectionId: string;
+      itemId: string;
+      createdAt: string; // ISO timestamp when delete was first attempted
+    }
+  | {
+      type: 'collection';
+      collectionId: string;
+      createdAt: string; // ISO timestamp when delete was first attempted
+    };
+
+type LegacyPendingDelete = {
   collectionId: string;
   itemId: string;
-  createdAt: string; // ISO timestamp when delete was first attempted
+  createdAt: string;
 };
 
 let dbInstance: IDBDatabase | null = null;
@@ -151,7 +164,9 @@ export const mergeItems = (
 ) => {
   const { preserveLocalOnly = true, pendingDeletes = [] } = options;
   // Create a set of item IDs that are pending deletion (deleted locally but not yet synced)
-  const pendingDeleteIds = new Set(pendingDeletes.map((d) => d.itemId));
+  const pendingDeleteIds = new Set(
+    pendingDeletes.filter((d) => d.type === 'item').map((d) => d.itemId),
+  );
 
   // Cloud is the source of truth for what items EXIST
   // Local can have newer data for items that exist in cloud
@@ -199,30 +214,41 @@ export const mergeCollections = (
   const { includeLocalOnly = () => true, pendingDeletes = [] } = options;
   // Cloud is the source of truth for what collections EXIST
   const localMap = new Map(localCollections.map((col) => [col.id, normalizeCollection(col)]));
+  const pendingCollectionDeletes = new Set(
+    pendingDeletes.filter((d) => d.type === 'collection').map((d) => d.collectionId),
+  );
   const cloudIds = new Set(cloudCollections.map((col) => col.id));
 
   // Start with cloud collections (ensures deleted collections don't come back)
-  const merged = cloudCollections.map((cloudCol) => {
-    const localCol = localMap.get(cloudCol.id);
-    if (!localCol) {
-      return normalizeCollection(cloudCol);
-    }
-    const localStamp = localCol.updatedAt;
-    const cloudStamp = cloudCol.updatedAt;
-    const useLocal = compareTimestamps(localStamp, cloudStamp) > 0;
-    const base = useLocal ? localCol : cloudCol;
-    // Filter pending deletes to only those for this collection
-    const collectionPendingDeletes = pendingDeletes.filter((d) => d.collectionId === cloudCol.id);
-    const mergedItems = mergeItems(localCol.items, cloudCol.items, {
-      preserveLocalOnly: includeLocalOnly(localCol),
-      pendingDeletes: collectionPendingDeletes,
+  const merged = cloudCollections
+    .filter((cloudCol) => !pendingCollectionDeletes.has(cloudCol.id))
+    .map((cloudCol) => {
+      const localCol = localMap.get(cloudCol.id);
+      if (!localCol) {
+        return normalizeCollection(cloudCol);
+      }
+      const localStamp = localCol.updatedAt;
+      const cloudStamp = cloudCol.updatedAt;
+      const useLocal = compareTimestamps(localStamp, cloudStamp) > 0;
+      const base = useLocal ? localCol : cloudCol;
+      // Filter pending deletes to only those for this collection
+      const collectionPendingDeletes = pendingDeletes.filter(
+        (d) => d.type === 'item' && d.collectionId === cloudCol.id,
+      );
+      const mergedItems = mergeItems(localCol.items, cloudCol.items, {
+        preserveLocalOnly: includeLocalOnly(localCol),
+        pendingDeletes: collectionPendingDeletes,
+      });
+      return { ...normalizeCollection(base), items: mergedItems };
     });
-    return { ...normalizeCollection(base), items: mergedItems };
-  });
 
   // Add local-only collections that haven't been synced yet
   localCollections.forEach((localCol) => {
-    if (!cloudIds.has(localCol.id) && includeLocalOnly(localCol)) {
+    if (
+      !cloudIds.has(localCol.id) &&
+      includeLocalOnly(localCol) &&
+      !pendingCollectionDeletes.has(localCol.id)
+    ) {
       merged.push(normalizeCollection(localCol));
     }
   });
@@ -601,35 +627,68 @@ export const syncPendingAssetUploads = async (): Promise<number> => {
 // P0 Fix: Pending Delete Queue (prevents deleted items from resurrecting)
 // ============================================================================
 
+const normalizePendingDeletes = (pending: (PendingDelete | LegacyPendingDelete)[]) =>
+  pending.map((entry) => {
+    if ('type' in entry) {
+      return entry;
+    }
+    return {
+      type: 'item',
+      collectionId: entry.collectionId,
+      itemId: entry.itemId,
+      createdAt: entry.createdAt,
+    } as PendingDelete;
+  });
+
 export const getPendingDeletes = async (): Promise<PendingDelete[]> => {
   const db = await initDB();
   return new Promise((resolve) => {
     const tx = db.transaction(SETTINGS_STORE, 'readonly');
     const req = tx.objectStore(SETTINGS_STORE).get(PENDING_DELETE_KEY);
-    req.onsuccess = () => resolve((req.result as PendingDelete[]) || []);
+    req.onsuccess = () => resolve(normalizePendingDeletes((req.result as PendingDelete[]) || []));
     req.onerror = () => resolve([]);
   });
 };
 
-export const addToPendingDeletes = async (collectionId: string, itemId: string): Promise<void> => {
+export const addToPendingDeletes = async (entry: PendingDelete): Promise<void> => {
   const db = await initDB();
   const pending = await getPendingDeletes();
   // Avoid duplicates
-  if (pending.some((d) => d.collectionId === collectionId && d.itemId === itemId)) {
-    return;
+  if (entry.type === 'item') {
+    if (
+      pending.some(
+        (d) =>
+          d.type === 'item' && d.collectionId === entry.collectionId && d.itemId === entry.itemId,
+      )
+    ) {
+      return;
+    }
   }
-  pending.push({ collectionId, itemId, createdAt: new Date().toISOString() });
+  if (entry.type === 'collection') {
+    if (pending.some((d) => d.type === 'collection' && d.collectionId === entry.collectionId)) {
+      return;
+    }
+  }
+  pending.push({ ...entry, createdAt: entry.createdAt ?? new Date().toISOString() });
   const tx = db.transaction(SETTINGS_STORE, 'readwrite');
   tx.objectStore(SETTINGS_STORE).put(pending, PENDING_DELETE_KEY);
 };
 
 export const removeFromPendingDeletes = async (
   collectionId: string,
-  itemId: string,
+  itemId?: string,
 ): Promise<void> => {
   const db = await initDB();
   const pending = await getPendingDeletes();
-  const filtered = pending.filter((d) => !(d.collectionId === collectionId && d.itemId === itemId));
+  const filtered = pending.filter((d) => {
+    if (d.type === 'collection') {
+      return d.collectionId !== collectionId;
+    }
+    if (!itemId) {
+      return d.collectionId !== collectionId;
+    }
+    return !(d.collectionId === collectionId && d.itemId === itemId);
+  });
   const tx = db.transaction(SETTINGS_STORE, 'readwrite');
   tx.objectStore(SETTINGS_STORE).put(filtered, PENDING_DELETE_KEY);
 };
@@ -640,22 +699,31 @@ export const syncPendingDeletes = async (): Promise<number> => {
   if (pendingDeletes.length === 0) return 0;
 
   let synced = 0;
-  for (const { collectionId, itemId } of pendingDeletes) {
+  for (const entry of pendingDeletes) {
     try {
       const {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) continue;
 
-      const { error } = await supabase
-        .from('items')
-        .delete()
-        .eq('id', itemId)
-        .eq('collection_id', collectionId);
+      if (entry.type === 'collection') {
+        const { error } = await supabase.from('collections').delete().eq('id', entry.collectionId);
 
-      if (!error) {
-        await removeFromPendingDeletes(collectionId, itemId);
-        synced++;
+        if (!error) {
+          await removeFromPendingDeletes(entry.collectionId);
+          synced++;
+        }
+      } else {
+        const { error } = await supabase
+          .from('items')
+          .delete()
+          .eq('id', entry.itemId)
+          .eq('collection_id', entry.collectionId);
+
+        if (!error) {
+          await removeFromPendingDeletes(entry.collectionId, entry.itemId);
+          synced++;
+        }
       }
     } catch {
       // Continue with next delete, will retry later
@@ -1439,7 +1507,12 @@ export const deleteAsset = async (collectionId: string, id: string): Promise<voi
 
 export const deleteCloudItem = async (collectionId: string, itemId: string): Promise<void> => {
   // Always queue the delete first to prevent resurrection if we go offline
-  await addToPendingDeletes(collectionId, itemId);
+  await addToPendingDeletes({
+    type: 'item',
+    collectionId,
+    itemId,
+    createdAt: new Date().toISOString(),
+  });
 
   if (!isSupabaseConfigured() || !supabase) return;
 
@@ -1471,6 +1544,12 @@ export const deleteCloudItem = async (collectionId: string, itemId: string): Pro
 
 export const deleteCollection = async (collection: UserCollection): Promise<void> => {
   const db = await initDB();
+
+  await addToPendingDeletes({
+    type: 'collection',
+    collectionId: collection.id,
+    createdAt: new Date().toISOString(),
+  });
 
   // 1. Delete all local assets for items in this collection
   const itemIds = collection.items.map((item) => item.id);
@@ -1520,6 +1599,8 @@ export const deleteCollection = async (collection: UserCollection): Promise<void
 
       if (colError) {
         console.warn('Cloud collection deletion failed:', colError);
+      } else {
+        await removeFromPendingDeletes(collection.id);
       }
 
       // Delete assets from storage
