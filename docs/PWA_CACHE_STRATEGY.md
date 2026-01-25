@@ -8,12 +8,12 @@
 
 ## Service worker behavior
 
-| Request type | Strategy | Rationale |
-| --- | --- | --- |
-| HTML navigations (`/`, `/index.html`, route refresh) | **Network-first** with cache fallback | Guarantees refreshed HTML points to the latest hashed assets. |
-| Static assets (`/assets/*.js`, `/assets/*.css`, fonts) | **Stale-while-revalidate** | Fast loads, with background updates. |
-| Shell assets (manifest + icons) | **Cache-first** | Rarely change and safe to cache. |
-| API/auth/Supabase requests | **Network-only** | Never cache dynamic data. |
+| Request type                                           | Strategy                              | Rationale                                                     |
+| ------------------------------------------------------ | ------------------------------------- | ------------------------------------------------------------- |
+| HTML navigations (`/`, `/index.html`, route refresh)   | **Network-first** with cache fallback | Guarantees refreshed HTML points to the latest hashed assets. |
+| Static assets (`/assets/*.js`, `/assets/*.css`, fonts) | **Stale-while-revalidate**            | Fast loads, with background updates.                          |
+| Shell assets (manifest + icons)                        | **Cache-first**                       | Rarely change and safe to cache.                              |
+| API/auth/Supabase requests                             | **Network-only**                      | Never cache dynamic data.                                     |
 
 ## Cache versioning
 

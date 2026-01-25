@@ -17,21 +17,26 @@ app or a platform-native shell. This proposal outlines options, cost, and mainte
 ### Option A: Keep PWA, minimal service worker (recommended baseline)
 
 **Description**
+
 - Keep installability.
 - Maintain a minimal SW: network-first for HTML, stale-while-revalidate for assets, network-only for data.
 
 **Benefits**
+
 - Lowest engineering effort.
 - Preserves current install flow.
 
 **Risks**
+
 - Still needs SW monitoring and periodic cache/version audits.
 
 **Effort estimate**
+
 - Initial: 1–2 days (already covered by Phase 1–2).
 - Ongoing: ~0.5–1 day per quarter for maintenance + QA.
 
 **Cost drivers**
+
 - QA time on every deploy.
 - SW update regressions.
 
@@ -40,21 +45,26 @@ app or a platform-native shell. This proposal outlines options, cost, and mainte
 ### Option B: Disable PWA (standard web app)
 
 **Description**
+
 - Remove SW registration and serve as a standard SPA.
 - No offline support or installability.
 
 **Benefits**
+
 - Simplest deploy model.
 - Minimal risk of blank screens due to cache.
 
 **Risks**
+
 - Loss of install prompt and offline experience.
 
 **Effort estimate**
+
 - Initial: 0.5–1 day.
 - Ongoing: minimal.
 
 **Cost drivers**
+
 - Product decision on removing PWA features.
 
 ---
@@ -62,21 +72,26 @@ app or a platform-native shell. This proposal outlines options, cost, and mainte
 ### Option C: Move to native shell (Capacitor / React Native / Tauri)
 
 **Description**
+
 - Wrap the web app in a native shell for installability and a more predictable update pipeline.
 
 **Benefits**
+
 - Better control over updates and offline.
 - Can access native APIs if needed.
 
 **Risks**
+
 - Higher maintenance.
 - App store distribution adds overhead.
 
 **Effort estimate**
+
 - Initial: 3–6 weeks depending on scope and platform coverage.
 - Ongoing: 1–2 days per release for native builds + store reviews.
 
 **Cost drivers**
+
 - Platform build automation.
 - Release management and review cycles.
 
@@ -85,20 +100,25 @@ app or a platform-native shell. This proposal outlines options, cost, and mainte
 ### Option D: PWA with Workbox + comprehensive telemetry
 
 **Description**
+
 - Use Workbox precaching, runtime caching, and robust telemetry (Sentry + SW logs).
 
 **Benefits**
+
 - Strongest PWA reliability for complex apps.
 - Clear debugging signals.
 
 **Risks**
+
 - Highest complexity on the web-only path.
 
 **Effort estimate**
+
 - Initial: 4–7 days.
 - Ongoing: 1–2 days per quarter for policy updates + QA.
 
 **Cost drivers**
+
 - SW policy drift across deployments.
 - Additional monitoring + logging infrastructure.
 
