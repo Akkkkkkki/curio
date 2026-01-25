@@ -1,11 +1,5 @@
-const CACHE_NAME = 'curio-shell-v2';
-const SHELL_ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.webmanifest',
-  '/icon-192.svg',
-  '/icon-512.svg',
-];
+const CACHE_NAME = 'curio-shell-v3';
+const SHELL_ASSETS = ['/manifest.webmanifest', '/icon-192.svg', '/icon-512.svg'];
 
 // URLs that should NEVER be cached (API, auth, dynamic data)
 const NEVER_CACHE_PATTERNS = [
@@ -26,6 +20,14 @@ const shouldNeverCache = (url) => {
 const isShellAsset = (url) => {
   const pathname = new URL(url).pathname;
   return SHELL_ASSETS.includes(pathname);
+};
+
+const isHtmlNavigation = (request) => {
+  if (request.mode === 'navigate') {
+    return true;
+  }
+  const acceptHeader = request.headers.get('accept');
+  return acceptHeader ? acceptHeader.includes('text/html') : false;
 };
 
 // Check if this is a static asset (JS, CSS, fonts, static images)
@@ -71,6 +73,24 @@ self.addEventListener('fetch', (event) => {
   // NEVER cache Supabase, API, or dynamic data - always fetch from network
   if (shouldNeverCache(url)) {
     event.respondWith(fetch(event.request));
+    return;
+  }
+
+  // For HTML navigation: network-first so refresh always gets the latest build.
+  if (isHtmlNavigation(event.request)) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response && response.ok) {
+            const responseClone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseClone);
+            });
+          }
+          return response;
+        })
+        .catch(() => caches.match(event.request)),
+    );
     return;
   }
 

@@ -37,6 +37,7 @@ npm run test:e2e:debug
 - **Unit/component tests**: `tests/`
   - Mocks: `tests/mocks/`
   - Utilities/fixtures: `tests/utils/`
+  - PWA cache strategy checks: `tests/unit/pwaCaching.test.ts`
 - **E2E tests**: `tests/e2e/`
 - **Live integration smoke tests**: `tests/live/`
 
