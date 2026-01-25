@@ -343,7 +343,9 @@ describe('Phase 2.1 — services/db.ts merge logic', () => {
         },
       ];
 
-      const pendingDeletes = [{ collectionId: 'col-1', itemId: 'item-1', createdAt: isoAt(2) }];
+      const pendingDeletes = [
+        { type: 'item', collectionId: 'col-1', itemId: 'item-1', createdAt: isoAt(2) },
+      ];
 
       const merged = mod.mergeItems(localItems, cloudItems, { pendingDeletes });
       expect(merged).toHaveLength(1);
@@ -371,7 +373,7 @@ describe('Phase 2.1 — services/db.ts merge logic', () => {
 
       // The delete is pending because cloud sync failed
       const pendingDeletes = [
-        { collectionId: 'col-1', itemId: 'deleted-item', createdAt: isoAt(2) },
+        { type: 'item', collectionId: 'col-1', itemId: 'deleted-item', createdAt: isoAt(2) },
       ];
 
       const merged = mod.mergeItems(localItems, cloudItems, { pendingDeletes });
@@ -397,7 +399,12 @@ describe('Phase 2.1 — services/db.ts merge logic', () => {
       const cloudItems: any[] = [];
 
       const pendingDeletes = [
-        { collectionId: 'col-1', itemId: 'local-item-to-delete', createdAt: isoAt(2) },
+        {
+          type: 'item',
+          collectionId: 'col-1',
+          itemId: 'local-item-to-delete',
+          createdAt: isoAt(2),
+        },
       ];
 
       const merged = mod.mergeItems(localItems, cloudItems, { pendingDeletes });
@@ -473,12 +480,51 @@ describe('Phase 2.1 — services/db.ts merge logic', () => {
         },
       ];
 
-      const pendingDeletes = [{ collectionId: 'col-1', itemId: 'item-1', createdAt: isoAt(2) }];
+      const pendingDeletes = [
+        { type: 'item', collectionId: 'col-1', itemId: 'item-1', createdAt: isoAt(2) },
+      ];
 
       const merged = mod.mergeCollections(local as any, cloud as any, { pendingDeletes });
       expect(merged).toHaveLength(1);
       expect(merged[0].items).toHaveLength(1);
       expect(merged[0].items[0].id).toBe('item-2');
+    });
+
+    it('filters out collections pending delete', async () => {
+      const mod = await importDbModuleFresh();
+
+      const local = [
+        {
+          id: 'col-1',
+          templateId: 'vinyl',
+          name: 'Local Collection',
+          icon: '🎵',
+          customFields: [],
+          items: [],
+          settings: { displayFields: [], badgeFields: [] },
+          updatedAt: isoAt(1),
+        },
+      ];
+
+      const cloud = [
+        {
+          id: 'col-1',
+          templateId: 'vinyl',
+          name: 'Cloud Collection',
+          icon: '🎵',
+          customFields: [],
+          items: [],
+          settings: { displayFields: [], badgeFields: [] },
+          updatedAt: isoAt(2),
+        },
+      ];
+
+      const pendingDeletes = [
+        { type: 'collection', collectionId: 'col-1', createdAt: isoAt(3) },
+      ];
+
+      const merged = mod.mergeCollections(local as any, cloud as any, { pendingDeletes });
+      expect(merged).toHaveLength(0);
     });
   });
 
