@@ -1,7 +1,7 @@
 /**
  * Phase 3.3: hooks/useCollections.ts — Collection Management Tests
  *
- * Success criteria (from docs/TESTING_ROADMAP.md Phase 3):
+ * Success criteria:
  * - Collection fetching handles offline/online transitions
  * - First-time admin seeding behavior works
  * - Offline mode falls back to local cache

@@ -1,5 +1,7 @@
 # Testing
 
+> **See also:** [`tests/README.md`](../tests/README.md) for detailed test infrastructure, directory structure, and writing tests.
+
 Curio uses **Vitest** for unit/component tests and **Playwright** for end-to-end tests.
 
 ## Test philosophy (recommended)

@@ -132,7 +132,7 @@ GEMINI_IMAGE_MODEL=gemini-2.5-flash-image
 - `services/geminiService.ts` - Image analysis and audio guide AI integration
 - `services/supabase.ts` - Authentication (email/password) and client configuration
 - `services/imageProcessor.ts` - Image resizing and optimization (original + display)
-- `services/seedCollections.ts` - Public sample data (Vinyl Vault with 4 items)
+- `src/services/seedCollections.ts` - Public sample data (Vinyl Vault with 4 items)
 
 **Hooks:**
 
@@ -390,7 +390,7 @@ Configured in vite.config.ts and tsconfig.json.
 2. Define `icon` (emoji), `accentColor` (Tailwind class), and `fields` (FieldDefinition[])
 3. Specify `displayFields` and `badgeFields` for card UI
 4. The Gemini proxy automatically handles new field types via `mapFieldTypeToSchemaType()`
-5. If it's a public sample, update `services/seedCollections.ts` and increment `CURRENT_SEED_VERSION`
+5. If it's a public sample, update `src/services/seedCollections.ts` and increment `CURRENT_SEED_VERSION`
 
 ### Modifying Sync Logic
 

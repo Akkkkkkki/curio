@@ -1,7 +1,7 @@
 /**
  * Phase 3.2: hooks/useAuthState.ts — Auth State Management Tests
  *
- * Success criteria (from docs/TESTING_ROADMAP.md Phase 3):
+ * Success criteria:
  * - Hooks maintain correct state through auth lifecycle
  * - Initial loading state, auth state change updates, sign out clears user
  * - Edge case: rapid sign-in/out cycles
