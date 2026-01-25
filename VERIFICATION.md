@@ -56,9 +56,9 @@ This will launch Xcode and open the `ios` project.
 1.  Once the app is running, click the "**Add your first item**" button.
 2.  The "Add Item" modal will appear.
 3.  Click the "**Take Photo**" button.
-    *   Since this is a simulator, a sample image will be displayed. This confirms the native camera API is working.
+    - Since this is a simulator, a sample image will be displayed. This confirms the native camera API is working.
 4.  Click the "**Upload Photo**" button.
-    *   The photo gallery will open with sample images. Select one to confirm that gallery access is working.
+    - The photo gallery will open with sample images. Select one to confirm that gallery access is working.
 
 ---
 
@@ -88,9 +88,9 @@ This will launch Android Studio and open the `android` project.
 1.  Once the app is running, click the "**Add your first item**" button.
 2.  The "Add Item" modal will appear.
 3.  Click the "**Take Photo**" button.
-    *   The emulator will open a simulated camera view. This confirms the native camera API is working.
+    - The emulator will open a simulated camera view. This confirms the native camera API is working.
 4.  Click the "**Upload Photo**" button.
-    *   The photo gallery will open. Select an image to confirm that gallery access is working.
+    - The photo gallery will open. Select an image to confirm that gallery access is working.
 
 ---
 
