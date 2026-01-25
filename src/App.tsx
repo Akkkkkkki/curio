@@ -92,6 +92,11 @@ import {
 } from './theme';
 import { StatusToast, StatusTone } from './components/StatusToast';
 import { CURRENT_SEED_VERSION, INITIAL_COLLECTIONS } from './services/seedCollections';
+import {
+  STORAGE_QUOTA_CHECK_INTERVAL_MS,
+  STORAGE_QUOTA_WARNING_THRESHOLD_BYTES,
+  STORAGE_QUOTA_WARNING_THRESHOLD_RATIO,
+} from './config';
 
 const AppContent: React.FC = () => {
   const { t, language, setLanguage } = useTranslation();
@@ -134,6 +139,7 @@ const AppContent: React.FC = () => {
   const saveTimeoutRef = useRef<Record<string, any>>({});
   const statusTimeoutRef = useRef<number | null>(null);
   const pendingSyncToastRef = useRef(false);
+  const hasQuotaWarningRef = useRef(false);
   const isSupabaseReady = isSupabaseConfigured();
   const fallbackSampleCollections = useMemo(
     () =>
@@ -166,6 +172,30 @@ const AppContent: React.FC = () => {
     [],
   );
 
+  const checkStorageQuota = useCallback(async () => {
+    if (!navigator.storage?.estimate) return;
+    try {
+      const { quota, usage } = await navigator.storage.estimate();
+      if (typeof quota !== 'number' || typeof usage !== 'number') return;
+      if (quota <= 0) return;
+      const remaining = quota - usage;
+      const remainingRatio = remaining / quota;
+      const isLow =
+        remaining <= STORAGE_QUOTA_WARNING_THRESHOLD_BYTES ||
+        remainingRatio <= STORAGE_QUOTA_WARNING_THRESHOLD_RATIO;
+      if (isLow && !hasQuotaWarningRef.current) {
+        showStatus(t('statusStorageNearLimit'), 'warning');
+        hasQuotaWarningRef.current = true;
+        return;
+      }
+      if (!isLow && hasQuotaWarningRef.current) {
+        hasQuotaWarningRef.current = false;
+      }
+    } catch (error) {
+      console.warn('Storage quota check failed:', error);
+    }
+  }, [showStatus, t]);
+
   const handleRetrySync = useCallback(async () => {
     try {
       const synced = await syncPendingChanges();
@@ -184,6 +214,14 @@ const AppContent: React.FC = () => {
       });
     }
   }, [showStatus, t]);
+
+  useEffect(() => {
+    checkStorageQuota();
+    const intervalId = window.setInterval(() => {
+      checkStorageQuota();
+    }, STORAGE_QUOTA_CHECK_INTERVAL_MS);
+    return () => window.clearInterval(intervalId);
+  }, [checkStorageQuota]);
 
   useEffect(() => {
     tRef.current = t;
@@ -559,6 +597,7 @@ const AppContent: React.FC = () => {
       try {
         const { original, display } = await processImage(itemData.photoUrl);
         await saveAsset(collectionId, itemId, original, display);
+        await checkStorageQuota();
         hasPhoto = true;
       } catch (e) {
         console.error('Image processing failed', e);
@@ -1387,6 +1426,7 @@ const AppContent: React.FC = () => {
             } else {
               const { original, display } = await processImage(base64);
               await saveAsset(collection.id, item.id, original, display);
+              await checkStorageQuota();
               updateItem(collection.id, item.id, {
                 photoUrl: 'asset',
                 photoEnhancedPath: undefined,

@@ -138,6 +138,7 @@ export const translations = {
     statusWillSync: 'Will sync / retrying',
     statusImportComplete: 'Imported from local storage',
     statusImportFailed: 'Import failed',
+    statusStorageNearLimit: 'Storage is almost full. Sync, remove items, or reduce image sizes.',
     // IndexedDB Recovery Messages
     localCacheCorrupted:
       'Local cache was corrupted and has been reset. Your cloud data will reload.',
@@ -377,6 +378,7 @@ export const translations = {
     statusWillSync: '将同步 / 正在重试',
     statusImportComplete: '本地数据已导入',
     statusImportFailed: '导入失败，请重试。',
+    statusStorageNearLimit: '存储空间接近用尽。请同步、清理藏品或缩小图片。',
     // IndexedDB Recovery Messages
     localCacheCorrupted: '本地缓存已损坏并已重置。云端数据将重新加载。',
     localCacheRecovered: '本地缓存已从云端恢复。',

@@ -62,6 +62,11 @@ VITE_VOICE_GUIDE_ENABLED=false
 
 # Timestamp-based conflict resolution (requires columns in supabase/1_schema.sql)
 VITE_SUPABASE_SYNC_TIMESTAMPS=true
+
+# Local storage quota warning
+VITE_STORAGE_QUOTA_WARNING_THRESHOLD_BYTES=52428800
+VITE_STORAGE_QUOTA_WARNING_THRESHOLD_RATIO=0.1
+VITE_STORAGE_QUOTA_CHECK_INTERVAL_MS=600000
 ```
 
 ### AI (Gemini)
