@@ -27,6 +27,18 @@ When making UX/product changes, preserve these constraints:
 - **Read-only clarity:** Public/sample collections must be clearly labeled read-only for non-admins, and edit affordances must be disabled consistently.
 - **Explicit outcomes:** Surface clear feedback for “Saved”, “Synced”, and “Will sync / retrying” states so users trust the system.
 
+## Mandatory before finishing any change (format + clean diff)
+
+1. Run: `npm run format:write` (or `npm run format`)
+2. Run: `npm run format:check` (must pass)
+3. Ensure: `git diff` is clean (no formatting leftovers)
+
+If you cannot run commands, you MUST:
+
+- keep existing code style consistent
+- avoid reflowing long lines manually
+- do not change whitespace-only unless necessary
+
 ## Commands
 
 ### Development
