@@ -127,7 +127,7 @@ App Load ← IndexedDB (cache) ←──────── Supabase (source of t
 
 **Problem:** If cloud upload fails, asset is stuck local-only with no retry mechanism.
 
-**Status:** Not implemented in this PR. Similar queue mechanism could be added for assets. (Tracked in [#85](https://github.com/Akkkkkkki/curio/issues/85))
+**Status:** Implemented via an IndexedDB-backed pending upload queue with retries on reconnect/startup and exponential backoff (see `services/db.ts`).
 
 ---
 
@@ -148,7 +148,7 @@ After implementing fixes, verify:
 - [x] Offline changes sync when back online (P1 #1)
 - [x] Concurrent saves don't corrupt data (P1 #2)
 - [x] Local-only items survive cloud fetch (P2 #5)
-- [ ] Failed asset uploads retry on reconnection (P2 - not implemented; tracked in [#85](https://github.com/Akkkkkkki/curio/issues/85))
+- [x] Failed asset uploads retry on reconnection (P2 - implemented with IndexedDB pending queue + backoff).
 - [ ] Large collections warn about storage limits (P3 - not implemented; tracked in [#83](https://github.com/Akkkkkkki/curio/issues/83))
 
 ---
