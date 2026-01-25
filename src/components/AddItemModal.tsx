@@ -232,7 +232,9 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
       }
     } catch (error) {
       console.error('Error picking from gallery:', error);
-      setError(t('galleryError', 'Could not access photo gallery. Please ensure permissions are granted.'));
+      setError(
+        t('galleryError', 'Could not access photo gallery. Please ensure permissions are granted.'),
+      );
     }
   };
 
@@ -521,19 +523,10 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
         </p>
       </div>
       <div className="flex flex-col gap-2 sm:gap-3">
-        <Button
-          variant="secondary"
-          onClick={takePicture}
-          size="lg"
-          icon={<CameraIcon size={18} />}
-        >
+        <Button variant="secondary" onClick={takePicture} size="lg" icon={<CameraIcon size={18} />}>
           {t('takePhoto')}
         </Button>
-        <Button
-          onClick={pickFromGallery}
-          size="lg"
-          icon={<Upload size={18} />}
-        >
+        <Button onClick={pickFromGallery} size="lg" icon={<Upload size={18} />}>
           {imagePreview ? t('changePhoto') : t('uploadPhoto')}
         </Button>
         <Button
