@@ -980,10 +980,10 @@ const AppContent: React.FC = () => {
     const [activeFilters, setActiveFilters] = useState<Record<string, string>>({});
     const [isExhibitionOpen, setIsExhibitionOpen] = useState(false);
     const [isDeleteCollectionModalOpen, setIsDeleteCollectionModalOpen] = useState(false);
-    const [visibleCount, setVisibleCount] = useState(120);
+    const [visibleCount, setVisibleCount] = useState(60);
 
-    const PAGINATION_THRESHOLD = 500;
-    const PAGE_SIZE = 120;
+    const PAGINATION_THRESHOLD = 120;
+    const PAGE_SIZE = 60;
 
     if (!collection) return <Navigate to="/" replace />;
     const isReadOnly = Boolean(collection.isPublic) && !isAdmin;
