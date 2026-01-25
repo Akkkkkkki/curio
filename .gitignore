@@ -33,3 +33,25 @@ tests/e2e/test-results
 *.njsproj
 *.sln
 *.sw?
+
+# Native app build artifacts (Capacitor)
+android/app/build/
+android/.gradle/
+android/.idea/
+android/local.properties
+android/capacitor-cordova-android-plugins/build/
+ios/App/Pods/
+ios/App/App.xcworkspace/xcuserdata/
+ios/App/App.xcodeproj/xcuserdata/
+ios/App/App.xcodeproj/project.xcworkspace/xcuserdata/
+ios/DerivedData/
+*.xcuserstate
+
+# Release signing (never commit these)
+*.keystore
+*.jks
+*.p12
+*.mobileprovision
+
+# Capacitor generated assets source (keep in assets/, ignore copies)
+# The actual source PNGs in assets/ should be committed
