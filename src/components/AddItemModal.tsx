@@ -703,7 +703,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
           {imagePreview ? (
             <img src={imagePreview} className="w-full h-full object-cover" />
           ) : (
-            <Camera className="w-full h-full p-4 sm:p-6 text-stone-200" />
+            <CameraIcon className="w-full h-full p-4 sm:p-6 text-stone-200" />
           )}
         </div>
         <div className="flex-1">

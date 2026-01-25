@@ -5,15 +5,6 @@ App/App/public
 DerivedData
 xcuserdata
 
-# Xcode workspace metadata inside .xcodeproj (generated; safe to ignore)
-**/project.xcworkspace/contents.xcworkspacedata
-**/project.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
-
-# Xcode user-state files
-*.xcuserstate
-*.xccheckout
-*.xcscmblueprint
-
 # Cordova plugins for Capacitor
 capacitor-cordova-ios-plugins
 
