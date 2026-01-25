@@ -1,7 +1,7 @@
 /**
  * Phase 3.1: services/geminiService.ts — AI Analysis Tests
  *
- * Success criteria (from docs/TESTING_ROADMAP.md):
+ * Success criteria:
  * - Non-blocking failures: UI remains functional if AI fails
  * - Timeout handling: User can proceed without AI (timeout returns null)
  * - Schema validation: Response matches FieldDefinition[] structure

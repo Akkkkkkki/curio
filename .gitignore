@@ -55,3 +55,7 @@ ios/DerivedData/
 
 # Capacitor generated assets source (keep in assets/, ignore copies)
 # The actual source PNGs in assets/ should be committed
+
+# Alternative package manager lock files (project uses npm)
+pnpm-lock.yaml
+yarn.lock

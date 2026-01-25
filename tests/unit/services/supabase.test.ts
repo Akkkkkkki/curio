@@ -3,7 +3,7 @@
  *
  * Module under test: services/supabase.ts
  *
- * Goals (from TESTING_ROADMAP.md):
+ * Goals:
  * - Validate sign-up/sign-in/sign-out helpers with minimal mocking.
  * - Ensure expected error cases are surfaced (duplicate email, weak password, invalid credentials, etc.).
  *

@@ -139,7 +139,7 @@ Notes:
 ### Seed Data Structure (Sample Content)
 
 Seed data is the default sample content every new user sees. In this project it is defined in
-`services/seedCollections.ts` and used by `App.tsx` to populate the sample collection when the database
+`src/services/seedCollections.ts` and used by `App.tsx` to populate the sample collection when the database
 is empty and the current user is an admin.
 
 Why this structure:
@@ -157,7 +157,7 @@ Why this structure:
 To add new sample items:
 
 1. Add the image file to `public/assets/`.
-2. Add or update the item entry in `services/seedCollections.ts` with `photoUrl: 'assets/<filename>'`.
+2. Add or update the item entry in `src/services/seedCollections.ts` with `photoUrl: 'assets/<filename>'`.
 
 ## Notes
 

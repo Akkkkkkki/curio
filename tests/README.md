@@ -1,6 +1,8 @@
 # Curio Testing Infrastructure
 
-This directory contains the complete testing infrastructure for Curio, following the phased approach outlined in `docs/TESTING_ROADMAP.md`.
+> **Quick start:** See [`docs/TESTING.md`](../docs/TESTING.md) for a concise overview of test commands and philosophy.
+
+This directory contains the complete testing infrastructure for Curio.
 
 ## Quick Start
 
@@ -194,6 +196,4 @@ happy-dom doesn't fully support Canvas 2D context. For image processing tests:
 2. **Upload retry logic**: Not yet implemented for saveAsset (tracked as todo test)
 3. **Graceful AI degradation**: geminiService throws errors instead of returning null on failure
 4. **Component tests**: Phase 4 not started
-5. **E2E tests**: Phase 5 not started
-
-See `docs/TESTING_PROGRESS.md` for detailed progress tracking.
+5. **E2E tests**: Phase 5 in progress
