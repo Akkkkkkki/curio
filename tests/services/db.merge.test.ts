@@ -519,9 +519,7 @@ describe('Phase 2.1 — services/db.ts merge logic', () => {
         },
       ];
 
-      const pendingDeletes = [
-        { type: 'collection', collectionId: 'col-1', createdAt: isoAt(3) },
-      ];
+      const pendingDeletes = [{ type: 'collection', collectionId: 'col-1', createdAt: isoAt(3) }];
 
       const merged = mod.mergeCollections(local as any, cloud as any, { pendingDeletes });
       expect(merged).toHaveLength(0);

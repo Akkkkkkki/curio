@@ -645,8 +645,7 @@ export const getPendingDeletes = async (): Promise<PendingDelete[]> => {
   return new Promise((resolve) => {
     const tx = db.transaction(SETTINGS_STORE, 'readonly');
     const req = tx.objectStore(SETTINGS_STORE).get(PENDING_DELETE_KEY);
-    req.onsuccess = () =>
-      resolve(normalizePendingDeletes((req.result as PendingDelete[]) || []));
+    req.onsuccess = () => resolve(normalizePendingDeletes((req.result as PendingDelete[]) || []));
     req.onerror = () => resolve([]);
   });
 };
@@ -658,7 +657,8 @@ export const addToPendingDeletes = async (entry: PendingDelete): Promise<void> =
   if (entry.type === 'item') {
     if (
       pending.some(
-        (d) => d.type === 'item' && d.collectionId === entry.collectionId && d.itemId === entry.itemId,
+        (d) =>
+          d.type === 'item' && d.collectionId === entry.collectionId && d.itemId === entry.itemId,
       )
     ) {
       return;
@@ -707,10 +707,7 @@ export const syncPendingDeletes = async (): Promise<number> => {
       if (!user) continue;
 
       if (entry.type === 'collection') {
-        const { error } = await supabase
-          .from('collections')
-          .delete()
-          .eq('id', entry.collectionId);
+        const { error } = await supabase.from('collections').delete().eq('id', entry.collectionId);
 
         if (!error) {
           await removeFromPendingDeletes(entry.collectionId);
