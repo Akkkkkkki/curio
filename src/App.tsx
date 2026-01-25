@@ -980,30 +980,50 @@ const AppContent: React.FC = () => {
     const [activeFilters, setActiveFilters] = useState<Record<string, string>>({});
     const [isExhibitionOpen, setIsExhibitionOpen] = useState(false);
     const [isDeleteCollectionModalOpen, setIsDeleteCollectionModalOpen] = useState(false);
+    const [visibleCount, setVisibleCount] = useState(60);
+
+    const PAGINATION_THRESHOLD = 120;
+    const PAGE_SIZE = 60;
 
     if (!collection) return <Navigate to="/" replace />;
     const isReadOnly = Boolean(collection.isPublic) && !isAdmin;
     const isSample = Boolean(collection.isPublic) || collection.id.startsWith('sample');
     const canAddItems = !isReadOnly;
 
-    const filteredItems = collection.items.filter((item) => {
-      const term = filter.toLowerCase();
-      const matchesSearch =
-        !term ||
-        item.title.toLowerCase().includes(term) ||
-        item.notes?.toLowerCase().includes(term) ||
-        (Object.values(item.data) as any[]).some((val) => String(val).toLowerCase().includes(term));
-      const matchesFilters = (Object.entries(activeFilters) as [string, string][]).every(
-        ([key, value]) => {
-          if (!value) return true;
-          if (key === 'rating') return item.rating >= parseInt(value);
-          const itemVal = item.data[key];
-          if (itemVal === undefined || itemVal === null) return false;
-          return String(itemVal).toLowerCase().includes(value.toLowerCase());
-        },
-      );
-      return matchesSearch && matchesFilters;
-    });
+    const filteredItems = useMemo(() => {
+      return collection.items.filter((item) => {
+        const term = filter.toLowerCase();
+        const matchesSearch =
+          !term ||
+          item.title.toLowerCase().includes(term) ||
+          item.notes?.toLowerCase().includes(term) ||
+          (Object.values(item.data) as any[]).some((val) =>
+            String(val).toLowerCase().includes(term),
+          );
+        const matchesFilters = (Object.entries(activeFilters) as [string, string][]).every(
+          ([key, value]) => {
+            if (!value) return true;
+            if (key === 'rating') return item.rating >= parseInt(value);
+            const itemVal = item.data[key];
+            if (itemVal === undefined || itemVal === null) return false;
+            return String(itemVal).toLowerCase().includes(value.toLowerCase());
+          },
+        );
+        return matchesSearch && matchesFilters;
+      });
+    }, [collection.items, filter, activeFilters]);
+
+    useEffect(() => {
+      setVisibleCount(PAGE_SIZE);
+    }, [collection.id, filter, activeFilters]);
+
+    const shouldPaginate = filteredItems.length > PAGINATION_THRESHOLD;
+    const visibleItems = shouldPaginate ? filteredItems.slice(0, visibleCount) : filteredItems;
+    const canLoadMore = shouldPaginate && visibleCount < filteredItems.length;
+
+    const handleLoadMore = () => {
+      setVisibleCount((prev) => Math.min(prev + PAGE_SIZE, filteredItems.length));
+    };
 
     const activeFilterCount = Object.values(activeFilters).filter(Boolean).length;
     const activeFilterEntries = Object.entries(activeFilters).filter(([, value]) => value);
@@ -1252,30 +1272,49 @@ const AppContent: React.FC = () => {
             )}
           </div>
         ) : (
-          <div
-            className={`${
-              viewMode === 'grid'
-                ? 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 sm:gap-8'
-                : 'columns-1 sm:columns-2 md:columns-3 lg:columns-4 [column-gap:1.5rem] sm:[column-gap:2rem]'
-            } w-full`}
-            data-testid="items-grid"
-          >
-            {filteredItems.map((item) => (
+          <>
+            <div
+              className={`${
+                viewMode === 'grid'
+                  ? 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 sm:gap-8'
+                  : 'columns-1 sm:columns-2 md:columns-3 lg:columns-4 [column-gap:1.5rem] sm:[column-gap:2rem]'
+              } w-full`}
+              data-testid="items-grid"
+            >
+              {visibleItems.map((item) => (
+                <div
+                  key={item.id}
+                  className={`break-inside-avoid ${viewMode === 'waterfall' ? 'mb-8 inline-block w-full align-top' : ''}`}
+                >
+                  <ItemCard
+                    item={item}
+                    fields={collection.customFields}
+                    displayFields={collection.settings.displayFields}
+                    badgeFields={collection.settings.badgeFields}
+                    onClick={() => navigate(`/collection/${collection.id}/item/${item.id}`)}
+                    layout={viewMode === 'grid' ? 'grid' : 'masonry'}
+                  />
+                </div>
+              ))}
+            </div>
+            {shouldPaginate && (
               <div
-                key={item.id}
-                className={`break-inside-avoid ${viewMode === 'waterfall' ? 'mb-8 inline-block w-full align-top' : ''}`}
+                className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border px-5 py-4 shadow-sm ${theme === 'vault' ? 'bg-white/5 border-white/10 text-white/70' : 'bg-white/70 border-stone-100 text-stone-500'}`}
               >
-                <ItemCard
-                  item={item}
-                  fields={collection.customFields}
-                  displayFields={collection.settings.displayFields}
-                  badgeFields={collection.settings.badgeFields}
-                  onClick={() => navigate(`/collection/${collection.id}/item/${item.id}`)}
-                  layout={viewMode === 'grid' ? 'grid' : 'masonry'}
-                />
+                <span className="text-sm font-semibold">
+                  Showing {visibleItems.length} of {filteredItems.length} items
+                </span>
+                <Button
+                  variant="outline"
+                  className={`${theme === 'vault' ? 'bg-stone-900 text-white border-white/10' : 'bg-white'} w-full sm:w-auto`}
+                  onClick={handleLoadMore}
+                  disabled={!canLoadMore}
+                >
+                  {canLoadMore ? 'Load more' : 'All items loaded'}
+                </Button>
               </div>
-            ))}
-          </div>
+            )}
+          </>
         )}
 
         <FilterModal
