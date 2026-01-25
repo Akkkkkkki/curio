@@ -140,7 +140,7 @@ error
 #### Notes / quirks (today)
 
 - Follow-up “Synced / Will sync / Sync failed” toasts are shown only when the initiating action sets a “pending sync toast” flag (e.g., add-item / create-collection). Debounced edits may sync without showing a toast.
-- Image asset uploads (`saveAsset`) are separate from metadata sync and do not currently participate in the pending-queue / retry UX.
+- Image asset uploads (`saveAsset`) queue failed uploads in IndexedDB and retry automatically on reconnect/startup (see `services/db.ts`).
 
 ## 4.1 Home “On This Day” selection logic
 
