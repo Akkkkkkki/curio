@@ -27,6 +27,21 @@ When making UX/product changes, preserve these constraints:
 - **Read-only clarity:** Public/sample collections must be clearly labeled read-only for non-admins, and edit affordances must be disabled consistently.
 - **Explicit outcomes:** Surface clear feedback for “Saved”, “Synced”, and “Will sync / retrying” states so users trust the system.
 
+## Mandatory before finishing any change (format + tests + build + clean git state)
+
+1. Run: `npm run format:write` (or `npm run format`)
+2. Run: `npm run format:check` (must pass)
+3. Run: `npm test` (must pass)
+4. Run: `npm run build` (must pass)
+5. Run: `npm run test:e2e` (must pass; first-time setup may require `npx playwright install chromium`)
+6. Ensure: `git diff` and `git status --porcelain` are clean (no formatting leftovers / untracked artifacts)
+
+If you cannot run commands, you MUST:
+
+- keep existing code style consistent
+- avoid reflowing long lines manually
+- do not change whitespace-only unless necessary
+
 ## Commands
 
 ### Development
@@ -40,6 +55,7 @@ npm run preview      # Preview production build
 npm test             # Run unit/component tests (Vitest)
 npm run test:e2e      # Run E2E tests (Playwright)
 npm run format       # Format code with Prettier
+npm run format:write # Format code with Prettier (alias)
 npm run format:check # Check formatting without changes
 ```
 

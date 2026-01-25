@@ -47,6 +47,17 @@ Curio’s MVP is designed so a new user can get meaningful value within **5 minu
 4. Run the app (Vite):
    `npm run dev`
 
+### Checks (required for PRs)
+
+Before opening a PR (and before pushing, if possible):
+
+1. Run: `npm run format:write` (or `npm run format`)
+2. Run: `npm run format:check` (must pass)
+3. Run: `npm test` (must pass)
+4. Run: `npm run build` (must pass)
+5. Run: `npm run test:e2e` (must pass; first-time setup may require `npx playwright install chromium`)
+6. Ensure: `git diff` and `git status --porcelain` are clean (no formatting leftovers / untracked artifacts)
+
 ## Environment Variables
 
 Create a `.env.local` at the project root:
