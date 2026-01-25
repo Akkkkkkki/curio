@@ -138,8 +138,7 @@ export const translations = {
     statusWillSync: 'Will sync / retrying',
     statusImportComplete: 'Imported from local storage',
     statusImportFailed: 'Import failed',
-    statusStorageNearLimit:
-      'Storage is almost full. Sync, remove items, or reduce image sizes.',
+    statusStorageNearLimit: 'Storage is almost full. Sync, remove items, or reduce image sizes.',
     // IndexedDB Recovery Messages
     localCacheCorrupted:
       'Local cache was corrupted and has been reset. Your cloud data will reload.',
