@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 // Added Plus icon to the lucide-react imports
 import {
-  Camera,
+  Camera as CameraIcon,
   Upload,
   X,
   Loader2,
@@ -12,6 +12,7 @@ import {
   Trash2,
   Plus,
 } from 'lucide-react';
+import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { UserCollection, CollectionItem } from '../types';
 import { analyzeImage, refreshAiEnabled } from '../services/geminiService';
 import { Button } from './ui/Button';
@@ -73,8 +74,6 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  const cameraInputRef = useRef<HTMLInputElement>(null);
-  const galleryInputRef = useRef<HTMLInputElement>(null);
   const batchInputRef = useRef<HTMLInputElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const lastFocusedElementRef = useRef<HTMLElement | null>(null);
@@ -195,18 +194,47 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     setStep('verify');
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setError(null);
-      setFormData(createEmptyForm());
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64 = reader.result as string;
-        setImagePreview(base64);
-        analyze(base64);
-      };
-      reader.readAsDataURL(file);
+  const takePicture = async () => {
+    try {
+      const image = await Camera.getPhoto({
+        quality: 90,
+        allowEditing: false,
+        resultType: CameraResultType.DataUrl,
+        source: CameraSource.Camera,
+      });
+
+      if (image.dataUrl) {
+        setError(null);
+        setFormData(createEmptyForm());
+        setImagePreview(image.dataUrl);
+        analyze(image.dataUrl);
+      }
+    } catch (error) {
+      console.error('Error taking picture:', error);
+      setError(t('cameraError', 'Could not access camera. Please ensure permissions are granted.'));
+    }
+  };
+
+  const pickFromGallery = async () => {
+    try {
+      const image = await Camera.getPhoto({
+        quality: 90,
+        allowEditing: false,
+        resultType: CameraResultType.DataUrl,
+        source: CameraSource.Photos,
+      });
+
+      if (image.dataUrl) {
+        setError(null);
+        setFormData(createEmptyForm());
+        setImagePreview(image.dataUrl);
+        analyze(image.dataUrl);
+      }
+    } catch (error) {
+      console.error('Error picking from gallery:', error);
+      setError(
+        t('galleryError', 'Could not access photo gallery. Please ensure permissions are granted.'),
+      );
     }
   };
 
@@ -471,7 +499,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
         <div className="relative">
           <div
             className="w-32 h-32 sm:w-40 sm:h-40 rounded-full bg-stone-50 border-2 border-dashed border-stone-200 flex flex-col items-center justify-center text-stone-400 group hover:border-amber-400 hover:bg-amber-50 transition-all cursor-pointer overflow-hidden"
-            onClick={() => galleryInputRef.current?.click()}
+            onClick={pickFromGallery}
           >
             {imagePreview ? (
               <img src={imagePreview} className="w-full h-full object-cover" alt="Preview" />
@@ -495,19 +523,10 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
         </p>
       </div>
       <div className="flex flex-col gap-2 sm:gap-3">
-        <Button
-          variant="secondary"
-          onClick={() => cameraInputRef.current?.click()}
-          size="lg"
-          icon={<Camera size={18} />}
-        >
+        <Button variant="secondary" onClick={takePicture} size="lg" icon={<CameraIcon size={18} />}>
           {t('takePhoto')}
         </Button>
-        <Button
-          onClick={() => galleryInputRef.current?.click()}
-          size="lg"
-          icon={<Upload size={18} />}
-        >
+        <Button onClick={pickFromGallery} size="lg" icon={<Upload size={18} />}>
           {imagePreview ? t('changePhoto') : t('uploadPhoto')}
         </Button>
         <Button
@@ -524,23 +543,6 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
           {t('skipManual')}
         </button>
       </div>
-      <input
-        type="file"
-        ref={cameraInputRef}
-        data-testid="add-item-camera-input"
-        className="hidden"
-        accept="image/*"
-        capture="environment"
-        onChange={handleFileChange}
-      />
-      <input
-        type="file"
-        ref={galleryInputRef}
-        data-testid="add-item-file-input"
-        className="hidden"
-        accept="image/*"
-        onChange={handleFileChange}
-      />
       <input
         type="file"
         ref={batchInputRef}
@@ -701,7 +703,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
           {imagePreview ? (
             <img src={imagePreview} className="w-full h-full object-cover" />
           ) : (
-            <Camera className="w-full h-full p-4 sm:p-6 text-stone-200" />
+            <CameraIcon className="w-full h-full p-4 sm:p-6 text-stone-200" />
           )}
         </div>
         <div className="flex-1">

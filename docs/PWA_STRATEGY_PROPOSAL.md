@@ -1,5 +1,7 @@
 # PWA Strategy Proposal (Phase 3)
 
+> **Decision (2025-01):** Option C (Capacitor native shell) was selected and implemented. See `docs/NATIVE_APP_RELEASE_PLAN.md` for current status. The web PWA remains functional but native app distribution is the primary focus for mobile.
+
 ## Executive summary
 
 The current PWA approach delivers offline support and installability but risks stale caches that can block users
