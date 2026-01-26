@@ -21,14 +21,14 @@ interface ItemCardProps {
   layout?: 'grid' | 'masonry';
 }
 
-export const ItemCard: React.FC<ItemCardProps> = ({
+export const ItemCard: React.FC<ItemCardProps> = React.memo(function ItemCard({
   item,
   fields,
   displayFields,
   badgeFields,
   onClick,
   layout = 'grid',
-}) => {
+}) {
   const { t } = useTranslation();
   const { theme } = useTheme();
   const cardSurface = cardSurfaceClasses[theme];
@@ -155,4 +155,4 @@ export const ItemCard: React.FC<ItemCardProps> = ({
       </div>
     </div>
   );
-};
+});
