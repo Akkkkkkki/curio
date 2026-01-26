@@ -646,7 +646,44 @@ const AppContent: React.FC = () => {
     );
   };
 
-  const handleCreateCollection = (templateId: string, name: string, icon: string) => {
+  const buildFieldId = (label: string, used: Set<string>) => {
+    const base = label
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '') || 'tag';
+    let id = base;
+    let index = 2;
+    while (used.has(id)) {
+      id = `${base}_${index}`;
+      index += 1;
+    }
+    used.add(id);
+    return id;
+  };
+
+  const buildTagFields = (tags: string[]) => {
+    const used = new Set<string>();
+    return tags.map((tag) => {
+      const label = tag.trim().replace(/\s+/g, ' ');
+      return {
+        id: buildFieldId(label, used),
+        label,
+        type: 'text' as const,
+      };
+    });
+  };
+
+  const handleCreateCollection = ({
+    templateId,
+    name,
+    icon,
+    tags,
+  }: {
+    templateId?: string;
+    name: string;
+    icon?: string;
+    tags?: string[];
+  }) => {
     if (!isAuthenticated) {
       setPendingAuthAction('create-collection');
       setIsAuthModalOpen(true);
@@ -656,19 +693,28 @@ const AppContent: React.FC = () => {
     pendingSyncToastRef.current = true;
     if (!isSupabaseReady) pendingSyncToastRef.current = false;
     const template = TEMPLATES.find((t) => t.id === templateId) || TEMPLATES[0];
+    const normalizedTags = tags?.map((tag) => tag.trim()).filter(Boolean) ?? [];
+    const isTagBased = normalizedTags.length > 0;
+    const tagFields = isTagBased ? buildTagFields(normalizedTags) : template.fields;
+    const displayFields = isTagBased
+      ? tagFields.slice(0, 2).map((field) => field.id)
+      : template.displayFields;
+    const badgeFields = isTagBased
+      ? tagFields.slice(2).map((field) => field.id)
+      : template.badgeFields;
     const newCol: UserCollection = {
       id: Math.random().toString(36).substr(2, 9),
       templateId: template.id,
       name: name,
       icon: icon || template.icon,
-      customFields: template.fields,
+      customFields: tagFields,
       items: [],
       isPublic: false,
       ownerId: user?.id,
       updatedAt: new Date().toISOString(),
       settings: {
-        displayFields: template.displayFields,
-        badgeFields: template.badgeFields,
+        displayFields,
+        badgeFields,
       },
     };
     setCollections((prev) => {
@@ -1908,6 +1954,7 @@ const AppContent: React.FC = () => {
               isOpen={isCreateCollectionOpen}
               onClose={() => setIsCreateCollectionOpen(false)}
               onCreate={handleCreateCollection}
+              onAddFirstItem={() => setIsAddModalOpen(true)}
             />
             {isVoiceGuideEnabled && activeCollectionForGuide && (
               <MuseumGuide

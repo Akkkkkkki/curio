@@ -48,6 +48,15 @@ export const CollectionCard: React.FC<CollectionCardProps> = ({
       : 'shadow-[0_6px_18px_rgba(15,23,42,0.08)] hover:shadow-[0_12px_26px_rgba(15,23,42,0.14)]';
 
   const displayIcon = collection.icon || template.icon;
+  const templateFieldIds = new Set(template.fields.map((field) => field.id));
+  const isCustomTags =
+    collection.customFields.length > 0 &&
+    (collection.customFields.length !== template.fields.length ||
+      collection.customFields.some((field) => !templateFieldIds.has(field.id)));
+  const tagPreview = isCustomTags
+    ? collection.customFields.slice(0, 3).map((field) => field.label).join(' • ')
+    : '';
+  const descriptionText = tagPreview ? `${t('tagsLabel')}: ${tagPreview}` : template.description;
 
   return (
     <div
@@ -103,7 +112,7 @@ export const CollectionCard: React.FC<CollectionCardProps> = ({
         <p
           className={`${mutedText} ${typographyClasses.body} mt-1 sm:mt-2 line-clamp-2 max-w-[90%]`}
         >
-          {template.description}
+          {descriptionText}
         </p>
       </div>
 

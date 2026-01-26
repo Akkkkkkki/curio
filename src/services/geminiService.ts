@@ -122,6 +122,22 @@ export const analyzeImage = async (
   }
 };
 
+export const suggestCollectionTags = async (description: string): Promise<string[] | null> => {
+  try {
+    if (!(await refreshAiEnabled())) {
+      return null;
+    }
+    const result = await postJson<{ tags: string[] }>('/api/gemini/suggest-tags', { description });
+    if (!result || !Array.isArray(result.tags)) {
+      return null;
+    }
+    return result.tags;
+  } catch (error) {
+    console.warn('Tag suggestions failed:', error);
+    return null;
+  }
+};
+
 export interface EnhanceImageResult {
   enhancedImageBase64: string;
   metadata: {

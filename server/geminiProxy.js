@@ -42,7 +42,12 @@ const app = express();
 const port = process.env.PORT || 8787;
 
 const MAX_LATENCY_SAMPLES = 1000;
-const METRICS_ROUTES = new Set(['/api/health', '/api/gemini/analyze', '/api/gemini/enhance']);
+const METRICS_ROUTES = new Set([
+  '/api/health',
+  '/api/gemini/analyze',
+  '/api/gemini/enhance',
+  '/api/gemini/suggest-tags',
+]);
 const metrics = new Map();
 
 const ensureMetric = (route) => {
@@ -309,6 +314,64 @@ app.post('/api/gemini/analyze', ipLimiter, requireAuth, userLimiter, async (req,
   } catch (error) {
     console.error('AI Analysis Failed:', error);
     return res.status(500).json({ error: 'AI analysis failed' });
+  }
+});
+
+app.post('/api/gemini/suggest-tags', ipLimiter, requireAuth, userLimiter, async (req, res) => {
+  if (!ai) {
+    return res.status(503).json({ error: 'GEMINI_API_KEY is not configured' });
+  }
+
+  const { description } = req.body || {};
+  if (!description || typeof description !== 'string') {
+    return res.status(400).json({ error: 'Missing description' });
+  }
+
+  const maxTags = 6;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: GEMINI_ANALYZE_MODEL,
+      contents: {
+        parts: [
+          {
+            text: `You are helping suggest simple tags for a personal collection.\nFavor short, everyday labels. Avoid technical jargon.\nReturn 4–6 tags maximum. Use the current app language.\nCollection: ${description}`,
+          },
+        ],
+      },
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            tags: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING },
+            },
+          },
+        },
+      },
+    });
+
+    const result = JSON.parse(response.text || '{}');
+    const rawTags = Array.isArray(result?.tags) ? result.tags : [];
+    const tags = [];
+    const seen = new Set();
+    for (const raw of rawTags) {
+      if (typeof raw !== 'string') continue;
+      const cleaned = raw.trim().replace(/^[-*•\\d.\\s]+/, '');
+      if (!cleaned) continue;
+      const key = cleaned.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      tags.push(cleaned.slice(0, 32));
+      if (tags.length >= maxTags) break;
+    }
+
+    return res.json({ tags });
+  } catch (error) {
+    console.error('Tag suggestion failed:', error);
+    return res.status(500).json({ error: 'Tag suggestion failed' });
   }
 });
 
