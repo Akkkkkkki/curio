@@ -16,7 +16,7 @@ interface CreateCollectionPayload {
 interface CreateCollectionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCreate: (payload: CreateCollectionPayload) => void;
+  onCreate: (payload: CreateCollectionPayload) => boolean;
   onAddFirstItem: () => void;
 }
 
@@ -146,7 +146,8 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
     const templateId = selectedTemplate?.id || TEMPLATES[0].id;
     const icon = selectedTemplate?.icon || TEMPLATES[0].icon;
     const tags = selectedTemplate ? undefined : selectedTags;
-    onCreate({ name: collectionName.trim(), icon, templateId, tags });
+    const created = onCreate({ name: collectionName.trim(), icon, templateId, tags });
+    if (!created) return;
     setStep('success');
   };
 

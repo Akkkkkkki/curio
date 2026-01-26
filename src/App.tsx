@@ -683,12 +683,12 @@ const AppContent: React.FC = () => {
     name: string;
     icon?: string;
     tags?: string[];
-  }) => {
+  }): boolean => {
     if (!isAuthenticated) {
       setPendingAuthAction('create-collection');
       setIsAuthModalOpen(true);
       setIsCreateCollectionOpen(false);
-      return;
+      return false;
     }
     pendingSyncToastRef.current = true;
     if (!isSupabaseReady) pendingSyncToastRef.current = false;
@@ -723,6 +723,7 @@ const AppContent: React.FC = () => {
       return updated;
     });
     showStatus(t('statusSaved'), 'success');
+    return true;
   };
 
   const deleteItem = (collectionId: string, itemId: string) => {
