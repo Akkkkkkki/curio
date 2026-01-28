@@ -647,10 +647,11 @@ const AppContent: React.FC = () => {
   };
 
   const buildFieldId = (label: string, used: Set<string>) => {
-    const base = label
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '_')
-      .replace(/^_+|_+$/g, '') || 'tag';
+    const base =
+      label
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '') || 'tag';
     let id = base;
     let index = 2;
     while (used.has(id)) {
@@ -712,10 +713,6 @@ const AppContent: React.FC = () => {
       isPublic: false,
       ownerId: user?.id,
       updatedAt: new Date().toISOString(),
-      settings: {
-        displayFields,
-        badgeFields,
-      },
     };
     setCollections((prev) => {
       const updated = [...prev, newCol];
@@ -1375,8 +1372,6 @@ const AppContent: React.FC = () => {
                   <ItemCard
                     item={item}
                     fields={collection.customFields}
-                    displayFields={collection.settings.displayFields}
-                    badgeFields={collection.settings.badgeFields}
                     onClick={() => navigate(`/collection/${collection.id}/item/${item.id}`)}
                     layout={viewMode === 'grid' ? 'grid' : 'masonry'}
                   />

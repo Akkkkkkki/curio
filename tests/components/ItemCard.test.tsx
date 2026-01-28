@@ -31,21 +31,36 @@ vi.mock('@/components/ItemImage', () => ({
   ),
 }));
 
-// Test data
+// Test data - fields now include displayMode to determine display/badge/detail visibility
 const mockFields: FieldDefinition[] = [
-  { id: 'artist', label: 'Artist', type: 'text', required: true },
-  { id: 'album', label: 'Album', type: 'text', required: true },
-  { id: 'year', label: 'Release Year', type: 'text', required: false },
+  { id: 'artist', label: 'Artist', type: 'text', displayMode: 'primary' },
+  { id: 'album', label: 'Album', type: 'text', displayMode: 'primary' },
+  { id: 'year', label: 'Release Year', type: 'text', displayMode: 'badge' },
   {
     id: 'condition',
     label: 'Condition',
     type: 'select',
     options: ['Mint', 'Good', 'Fair'],
-    required: false,
+    displayMode: 'badge',
   },
-  { id: 'is_favorite', label: 'Favorite', type: 'boolean', required: false },
-  { id: 'cacao_percent', label: 'Cacao %', type: 'number', required: false },
+  { id: 'is_favorite', label: 'Favorite', type: 'boolean', displayMode: 'detail' },
+  { id: 'cacao_percent', label: 'Cacao %', type: 'number', displayMode: 'detail' },
 ];
+
+// Helper to create fields with specific displayModes for testing
+const createFieldsWithModes = (
+  primaryIds: string[] = [],
+  badgeIds: string[] = [],
+): FieldDefinition[] => {
+  return mockFields.map((f) => ({
+    ...f,
+    displayMode: primaryIds.includes(f.id)
+      ? ('primary' as const)
+      : badgeIds.includes(f.id)
+        ? ('badge' as const)
+        : ('detail' as const),
+  }));
+};
 
 const createMockItem = (overrides: Partial<CollectionItem> = {}): CollectionItem => ({
   id: 'test-item-1',
@@ -76,15 +91,7 @@ describe('ItemCard Component', () => {
       const item = createMockItem();
       const onClick = vi.fn();
 
-      renderWithProviders(
-        <ItemCard
-          item={item}
-          fields={mockFields}
-          displayFields={['artist', 'album']}
-          badgeFields={['year']}
-          onClick={onClick}
-        />,
-      );
+      renderWithProviders(<ItemCard item={item} fields={mockFields} onClick={onClick} />);
 
       expect(screen.getByRole('heading', { name: 'Abbey Road' })).toBeInTheDocument();
     });
@@ -93,15 +100,7 @@ describe('ItemCard Component', () => {
       const item = createMockItem();
       const onClick = vi.fn();
 
-      renderWithProviders(
-        <ItemCard
-          item={item}
-          fields={mockFields}
-          displayFields={['artist']}
-          badgeFields={[]}
-          onClick={onClick}
-        />,
-      );
+      renderWithProviders(<ItemCard item={item} fields={mockFields} onClick={onClick} />);
 
       const card = screen.getByTestId('item-card');
       expect(card).toBeInTheDocument();
@@ -113,15 +112,7 @@ describe('ItemCard Component', () => {
       const item = createMockItem({ title: 'Test Album' });
       const onClick = vi.fn();
 
-      renderWithProviders(
-        <ItemCard
-          item={item}
-          fields={mockFields}
-          displayFields={[]}
-          badgeFields={[]}
-          onClick={onClick}
-        />,
-      );
+      renderWithProviders(<ItemCard item={item} fields={mockFields} onClick={onClick} />);
 
       const image = screen.getByTestId('mock-item-image');
       expect(image).toHaveAttribute('aria-label', 'Test Album');
@@ -133,15 +124,7 @@ describe('ItemCard Component', () => {
       const item = createMockItem({ rating: 5 });
       const onClick = vi.fn();
 
-      renderWithProviders(
-        <ItemCard
-          item={item}
-          fields={mockFields}
-          displayFields={[]}
-          badgeFields={[]}
-          onClick={onClick}
-        />,
-      );
+      renderWithProviders(<ItemCard item={item} fields={mockFields} onClick={onClick} />);
 
       expect(screen.getByText('5')).toBeInTheDocument();
     });
@@ -150,15 +133,7 @@ describe('ItemCard Component', () => {
       const item = createMockItem({ rating: 0 });
       const onClick = vi.fn();
 
-      renderWithProviders(
-        <ItemCard
-          item={item}
-          fields={mockFields}
-          displayFields={[]}
-          badgeFields={[]}
-          onClick={onClick}
-        />,
-      );
+      renderWithProviders(<ItemCard item={item} fields={mockFields} onClick={onClick} />);
 
       // Rating badge should not exist - the component conditionally renders rating > 0
       // Query for any text "0" that appears with a star icon nearby
@@ -172,15 +147,7 @@ describe('ItemCard Component', () => {
       const item = createMockItem({ id: `item-${rating}`, rating });
       const onClick = vi.fn();
 
-      renderWithProviders(
-        <ItemCard
-          item={item}
-          fields={mockFields}
-          displayFields={[]}
-          badgeFields={[]}
-          onClick={onClick}
-        />,
-      );
+      renderWithProviders(<ItemCard item={item} fields={mockFields} onClick={onClick} />);
 
       expect(screen.getByText(rating.toString())).toBeInTheDocument();
     });
@@ -190,16 +157,10 @@ describe('ItemCard Component', () => {
     it('renders display fields with labels and values', () => {
       const item = createMockItem();
       const onClick = vi.fn();
+      // Use helper to set artist and album as primary (display) fields
+      const fieldsWithDisplay = createFieldsWithModes(['artist', 'album'], []);
 
-      renderWithProviders(
-        <ItemCard
-          item={item}
-          fields={mockFields}
-          displayFields={['artist', 'album']}
-          badgeFields={[]}
-          onClick={onClick}
-        />,
-      );
+      renderWithProviders(<ItemCard item={item} fields={fieldsWithDisplay} onClick={onClick} />);
 
       expect(screen.getByText('The Beatles')).toBeInTheDocument();
       expect(screen.getByText('The Album')).toBeInTheDocument();
@@ -210,16 +171,9 @@ describe('ItemCard Component', () => {
         data: { artist: 'The Beatles' }, // album is missing
       });
       const onClick = vi.fn();
+      const fieldsWithDisplay = createFieldsWithModes(['artist', 'album'], []);
 
-      renderWithProviders(
-        <ItemCard
-          item={item}
-          fields={mockFields}
-          displayFields={['artist', 'album']}
-          badgeFields={[]}
-          onClick={onClick}
-        />,
-      );
+      renderWithProviders(<ItemCard item={item} fields={fieldsWithDisplay} onClick={onClick} />);
 
       expect(screen.getByText('The Beatles')).toBeInTheDocument();
       // Album value shouldn't appear since it's undefined - title appears in heading and tooltip
@@ -231,16 +185,9 @@ describe('ItemCard Component', () => {
         data: { is_favorite: true },
       });
       const onClick = vi.fn();
+      const fieldsWithDisplay = createFieldsWithModes(['is_favorite'], []);
 
-      renderWithProviders(
-        <ItemCard
-          item={item}
-          fields={mockFields}
-          displayFields={['is_favorite']}
-          badgeFields={[]}
-          onClick={onClick}
-        />,
-      );
+      renderWithProviders(<ItemCard item={item} fields={fieldsWithDisplay} onClick={onClick} />);
 
       expect(screen.getByText('Yes')).toBeInTheDocument();
     });
@@ -250,16 +197,9 @@ describe('ItemCard Component', () => {
         data: { cacao_percent: 72 },
       });
       const onClick = vi.fn();
+      const fieldsWithDisplay = createFieldsWithModes(['cacao_percent'], []);
 
-      renderWithProviders(
-        <ItemCard
-          item={item}
-          fields={mockFields}
-          displayFields={['cacao_percent']}
-          badgeFields={[]}
-          onClick={onClick}
-        />,
-      );
+      renderWithProviders(<ItemCard item={item} fields={fieldsWithDisplay} onClick={onClick} />);
 
       expect(screen.getByText('72%')).toBeInTheDocument();
     });
@@ -271,16 +211,10 @@ describe('ItemCard Component', () => {
         data: { year: '1969', condition: 'Mint' },
       });
       const onClick = vi.fn();
+      // Use helper to set year and condition as badge fields
+      const fieldsWithBadges = createFieldsWithModes([], ['year', 'condition']);
 
-      renderWithProviders(
-        <ItemCard
-          item={item}
-          fields={mockFields}
-          displayFields={[]}
-          badgeFields={['year', 'condition']}
-          onClick={onClick}
-        />,
-      );
+      renderWithProviders(<ItemCard item={item} fields={fieldsWithBadges} onClick={onClick} />);
 
       expect(screen.getByText('1969')).toBeInTheDocument();
       expect(screen.getByText('Mint')).toBeInTheDocument();
@@ -291,16 +225,9 @@ describe('ItemCard Component', () => {
         data: { year: '1969' }, // condition is missing
       });
       const onClick = vi.fn();
+      const fieldsWithBadges = createFieldsWithModes([], ['year', 'condition']);
 
-      renderWithProviders(
-        <ItemCard
-          item={item}
-          fields={mockFields}
-          displayFields={[]}
-          badgeFields={['year', 'condition']}
-          onClick={onClick}
-        />,
-      );
+      renderWithProviders(<ItemCard item={item} fields={fieldsWithBadges} onClick={onClick} />);
 
       expect(screen.getByText('1969')).toBeInTheDocument();
       expect(screen.queryByText('Mint')).not.toBeInTheDocument();
@@ -312,15 +239,7 @@ describe('ItemCard Component', () => {
       const item = createMockItem();
       const onClick = vi.fn();
 
-      renderWithProviders(
-        <ItemCard
-          item={item}
-          fields={mockFields}
-          displayFields={[]}
-          badgeFields={[]}
-          onClick={onClick}
-        />,
-      );
+      renderWithProviders(<ItemCard item={item} fields={mockFields} onClick={onClick} />);
 
       fireEvent.click(screen.getByTestId('item-card'));
       expect(onClick).toHaveBeenCalledTimes(1);
@@ -330,15 +249,7 @@ describe('ItemCard Component', () => {
       const item = createMockItem();
       const onClick = vi.fn();
 
-      renderWithProviders(
-        <ItemCard
-          item={item}
-          fields={mockFields}
-          displayFields={[]}
-          badgeFields={[]}
-          onClick={onClick}
-        />,
-      );
+      renderWithProviders(<ItemCard item={item} fields={mockFields} onClick={onClick} />);
 
       const card = screen.getByTestId('item-card');
       fireEvent.keyDown(card, { key: 'Enter' });
@@ -349,15 +260,7 @@ describe('ItemCard Component', () => {
       const item = createMockItem();
       const onClick = vi.fn();
 
-      renderWithProviders(
-        <ItemCard
-          item={item}
-          fields={mockFields}
-          displayFields={[]}
-          badgeFields={[]}
-          onClick={onClick}
-        />,
-      );
+      renderWithProviders(<ItemCard item={item} fields={mockFields} onClick={onClick} />);
 
       const card = screen.getByTestId('item-card');
       fireEvent.keyDown(card, { key: ' ' });
@@ -368,15 +271,7 @@ describe('ItemCard Component', () => {
       const item = createMockItem();
       const onClick = vi.fn();
 
-      renderWithProviders(
-        <ItemCard
-          item={item}
-          fields={mockFields}
-          displayFields={[]}
-          badgeFields={[]}
-          onClick={onClick}
-        />,
-      );
+      renderWithProviders(<ItemCard item={item} fields={mockFields} onClick={onClick} />);
 
       const card = screen.getByTestId('item-card');
       fireEvent.keyDown(card, { key: 'Tab' });
@@ -391,15 +286,7 @@ describe('ItemCard Component', () => {
       const item = createMockItem();
       const onClick = vi.fn();
 
-      renderWithProviders(
-        <ItemCard
-          item={item}
-          fields={mockFields}
-          displayFields={[]}
-          badgeFields={[]}
-          onClick={onClick}
-        />,
-      );
+      renderWithProviders(<ItemCard item={item} fields={mockFields} onClick={onClick} />);
 
       const card = screen.getByTestId('item-card');
       expect(card).toHaveAttribute('role', 'button');
@@ -409,15 +296,7 @@ describe('ItemCard Component', () => {
       const item = createMockItem();
       const onClick = vi.fn();
 
-      renderWithProviders(
-        <ItemCard
-          item={item}
-          fields={mockFields}
-          displayFields={[]}
-          badgeFields={[]}
-          onClick={onClick}
-        />,
-      );
+      renderWithProviders(<ItemCard item={item} fields={mockFields} onClick={onClick} />);
 
       const card = screen.getByTestId('item-card');
       expect(card).toHaveAttribute('tabIndex', '0');
@@ -427,15 +306,7 @@ describe('ItemCard Component', () => {
       const item = createMockItem();
       const onClick = vi.fn();
 
-      renderWithProviders(
-        <ItemCard
-          item={item}
-          fields={mockFields}
-          displayFields={[]}
-          badgeFields={[]}
-          onClick={onClick}
-        />,
-      );
+      renderWithProviders(<ItemCard item={item} fields={mockFields} onClick={onClick} />);
 
       const card = screen.getByTestId('item-card');
       card.focus();
@@ -448,15 +319,7 @@ describe('ItemCard Component', () => {
       const item = createMockItem();
       const onClick = vi.fn();
 
-      renderWithProviders(
-        <ItemCard
-          item={item}
-          fields={mockFields}
-          displayFields={[]}
-          badgeFields={[]}
-          onClick={onClick}
-        />,
-      );
+      renderWithProviders(<ItemCard item={item} fields={mockFields} onClick={onClick} />);
 
       const card = screen.getByTestId('item-card');
       expect(card.className).toContain('h-full');
@@ -467,14 +330,7 @@ describe('ItemCard Component', () => {
       const onClick = vi.fn();
 
       renderWithProviders(
-        <ItemCard
-          item={item}
-          fields={mockFields}
-          displayFields={[]}
-          badgeFields={[]}
-          onClick={onClick}
-          layout="grid"
-        />,
+        <ItemCard item={item} fields={mockFields} onClick={onClick} layout="grid" />,
       );
 
       const card = screen.getByTestId('item-card');
@@ -486,14 +342,7 @@ describe('ItemCard Component', () => {
       const onClick = vi.fn();
 
       renderWithProviders(
-        <ItemCard
-          item={item}
-          fields={mockFields}
-          displayFields={[]}
-          badgeFields={[]}
-          onClick={onClick}
-          layout="masonry"
-        />,
+        <ItemCard item={item} fields={mockFields} onClick={onClick} layout="masonry" />,
       );
 
       const card = screen.getByTestId('item-card');
@@ -520,15 +369,7 @@ describe('ItemCard Component', () => {
         const item = createMockItem();
         const onClick = vi.fn();
 
-        renderWithProviders(
-          <ItemCard
-            item={item}
-            fields={mockFields}
-            displayFields={['artist']}
-            badgeFields={['year']}
-            onClick={onClick}
-          />,
-        );
+        renderWithProviders(<ItemCard item={item} fields={mockFields} onClick={onClick} />);
 
         const card = screen.getByTestId('item-card');
         expect(card).toBeInTheDocument();
@@ -539,15 +380,7 @@ describe('ItemCard Component', () => {
         const item = createMockItem();
         const onClick = vi.fn();
 
-        renderWithProviders(
-          <ItemCard
-            item={item}
-            fields={mockFields}
-            displayFields={['artist']}
-            badgeFields={['year']}
-            onClick={onClick}
-          />,
-        );
+        renderWithProviders(<ItemCard item={item} fields={mockFields} onClick={onClick} />);
 
         const card = screen.getByTestId('item-card');
         expect(card.className).toMatch(bgPattern);
@@ -557,15 +390,7 @@ describe('ItemCard Component', () => {
         const item = createMockItem();
         const onClick = vi.fn();
 
-        renderWithProviders(
-          <ItemCard
-            item={item}
-            fields={mockFields}
-            displayFields={[]}
-            badgeFields={[]}
-            onClick={onClick}
-          />,
-        );
+        renderWithProviders(<ItemCard item={item} fields={mockFields} onClick={onClick} />);
 
         fireEvent.click(screen.getByTestId('item-card'));
         expect(onClick).toHaveBeenCalledTimes(1);
@@ -574,36 +399,24 @@ describe('ItemCard Component', () => {
   });
 
   describe('Edge Cases', () => {
-    it('handles empty display fields array', () => {
+    it('handles fields with no primary displayMode (empty display fields)', () => {
       const item = createMockItem();
       const onClick = vi.fn();
+      // All fields are 'detail' mode, so no display fields
+      const fieldsAllDetail = createFieldsWithModes([], []);
 
-      renderWithProviders(
-        <ItemCard
-          item={item}
-          fields={mockFields}
-          displayFields={[]}
-          badgeFields={[]}
-          onClick={onClick}
-        />,
-      );
+      renderWithProviders(<ItemCard item={item} fields={fieldsAllDetail} onClick={onClick} />);
 
       expect(screen.getByRole('heading', { name: 'Abbey Road' })).toBeInTheDocument();
     });
 
-    it('handles empty badge fields array', () => {
+    it('handles fields with no badge displayMode (empty badge fields)', () => {
       const item = createMockItem();
       const onClick = vi.fn();
+      // Only artist is primary, no badges
+      const fieldsNoBadges = createFieldsWithModes(['artist'], []);
 
-      renderWithProviders(
-        <ItemCard
-          item={item}
-          fields={mockFields}
-          displayFields={['artist']}
-          badgeFields={[]}
-          onClick={onClick}
-        />,
-      );
+      renderWithProviders(<ItemCard item={item} fields={fieldsNoBadges} onClick={onClick} />);
 
       expect(screen.getByRole('heading', { name: 'Abbey Road' })).toBeInTheDocument();
       expect(screen.getByText('The Beatles')).toBeInTheDocument();
@@ -613,37 +426,25 @@ describe('ItemCard Component', () => {
       const item = createMockItem({ data: {} });
       const onClick = vi.fn();
 
-      renderWithProviders(
-        <ItemCard
-          item={item}
-          fields={mockFields}
-          displayFields={['artist', 'album']}
-          badgeFields={['year']}
-          onClick={onClick}
-        />,
-      );
+      renderWithProviders(<ItemCard item={item} fields={mockFields} onClick={onClick} />);
 
       // Title should still render
       expect(screen.getByRole('heading', { name: 'Abbey Road' })).toBeInTheDocument();
     });
 
-    it('handles field not found in fields array', () => {
+    it('handles field value in data but field not defined in fields array', () => {
       const item = createMockItem({
         data: { unknown_field: 'Some value' },
       });
       const onClick = vi.fn();
+      // Create a field with unknown_field as primary - but it won't have a matching definition
+      const fieldsWithUnknown: FieldDefinition[] = [
+        { id: 'unknown_field', label: 'Unknown', type: 'text', displayMode: 'primary' },
+      ];
 
-      renderWithProviders(
-        <ItemCard
-          item={item}
-          fields={mockFields}
-          displayFields={['unknown_field']}
-          badgeFields={[]}
-          onClick={onClick}
-        />,
-      );
+      renderWithProviders(<ItemCard item={item} fields={fieldsWithUnknown} onClick={onClick} />);
 
-      // Should render the value even if field definition not found
+      // Should render the value since field definition exists
       expect(screen.getByText('Some value')).toBeInTheDocument();
     });
 
@@ -652,15 +453,7 @@ describe('ItemCard Component', () => {
       const item = createMockItem({ title: longTitle });
       const onClick = vi.fn();
 
-      renderWithProviders(
-        <ItemCard
-          item={item}
-          fields={mockFields}
-          displayFields={[]}
-          badgeFields={[]}
-          onClick={onClick}
-        />,
-      );
+      renderWithProviders(<ItemCard item={item} fields={mockFields} onClick={onClick} />);
 
       const titleElement = screen.getByRole('heading', { name: longTitle });
       expect(titleElement).toBeInTheDocument();

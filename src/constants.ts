@@ -1,5 +1,8 @@
 import { CollectionTemplate, FieldDefinition } from './types';
 
+/** Template ID for user-defined custom collections */
+export const CUSTOM_TEMPLATE_ID = 'custom';
+
 export const FIELD_TYPES: { type: string; label: string }[] = [
   { type: 'text', label: 'Short Text' },
   { type: 'long_text', label: 'Long Text' },
@@ -18,13 +21,11 @@ export const TEMPLATES: CollectionTemplate[] = [
     description: 'Archive miscellaneous items like tickets, stamps, and curious finds.',
     accentColor: 'stone',
     fields: [
-      { id: 'brand', label: 'Brand/Maker', type: 'text' },
-      { id: 'category', label: 'Category', type: 'text' },
-      { id: 'date', label: 'Date Acquired', type: 'date' },
-      { id: 'location', label: 'Location', type: 'text' },
+      { id: 'brand', label: 'Brand/Maker', type: 'text', displayMode: 'primary' },
+      { id: 'category', label: 'Category', type: 'text', displayMode: 'badge' },
+      { id: 'date', label: 'Date Acquired', type: 'date', displayMode: 'primary' },
+      { id: 'location', label: 'Location', type: 'text', displayMode: 'detail' },
     ],
-    displayFields: ['brand', 'date'],
-    badgeFields: ['category'],
   },
   {
     id: 'chocolate',
@@ -33,20 +34,19 @@ export const TEMPLATES: CollectionTemplate[] = [
     description: 'Track terroir, cocoa percentages, and nuanced flavor profiles.',
     accentColor: 'orange',
     fields: [
-      { id: 'brand', label: 'Chocolatier', type: 'text' },
-      { id: 'cocoa_percent', label: 'Cocoa %', type: 'number' },
-      { id: 'origin', label: 'Origin / Estate', type: 'text' },
-      { id: 'flavor_notes', label: 'Tasting Notes', type: 'text' },
+      { id: 'brand', label: 'Chocolatier', type: 'text', displayMode: 'primary' },
+      { id: 'cocoa_percent', label: 'Cocoa %', type: 'number', displayMode: 'primary' },
+      { id: 'origin', label: 'Origin / Estate', type: 'text', displayMode: 'badge' },
+      { id: 'flavor_notes', label: 'Tasting Notes', type: 'text', displayMode: 'detail' },
       {
         id: 'type',
         label: 'Type',
         type: 'select',
         options: ['Dark', 'Milk', 'White', 'Inclusion', 'Ruby', 'Raw'],
+        displayMode: 'badge',
       },
-      { id: 'batch', label: 'Batch No.', type: 'text' },
+      { id: 'batch', label: 'Batch No.', type: 'text', displayMode: 'detail' },
     ],
-    displayFields: ['brand', 'cocoa_percent'],
-    badgeFields: ['type', 'origin'],
   },
   {
     id: 'vinyl',
@@ -55,15 +55,16 @@ export const TEMPLATES: CollectionTemplate[] = [
     description: 'Organize your analog sound library by artist, pressings, and quality.',
     accentColor: 'indigo',
     fields: [
-      { id: 'artist', label: 'Artist', type: 'text' },
-      { id: 'label', label: 'Label', type: 'text' },
-      { id: 'year', label: 'Release Year', type: 'number' },
-      { id: 'genre', label: 'Genre', type: 'text' },
+      { id: 'artist', label: 'Artist', type: 'text', displayMode: 'primary' },
+      { id: 'label', label: 'Label', type: 'text', displayMode: 'detail' },
+      { id: 'year', label: 'Release Year', type: 'number', displayMode: 'primary' },
+      { id: 'genre', label: 'Genre', type: 'text', displayMode: 'badge' },
       {
         id: 'speed',
         label: 'Speed',
         type: 'select',
         options: ['33 1/3 RPM', '45 RPM', '78 RPM'],
+        displayMode: 'detail',
       },
       {
         id: 'condition',
@@ -77,10 +78,9 @@ export const TEMPLATES: CollectionTemplate[] = [
           'Good (G)',
           'Fair (F)',
         ],
+        displayMode: 'badge',
       },
     ],
-    displayFields: ['artist', 'year'],
-    badgeFields: ['genre', 'condition'],
   },
   {
     id: 'perfume',
@@ -89,8 +89,8 @@ export const TEMPLATES: CollectionTemplate[] = [
     description: 'Manage your fragrances, olfactive notes, and perfumery houses.',
     accentColor: 'rose',
     fields: [
-      { id: 'house', label: 'Fragrance House', type: 'text' },
-      { id: 'nose', label: 'Perfumer (Nose)', type: 'text' },
+      { id: 'house', label: 'Fragrance House', type: 'text', displayMode: 'primary' },
+      { id: 'nose', label: 'Perfumer (Nose)', type: 'text', displayMode: 'detail' },
       {
         id: 'concentration',
         label: 'Concentration',
@@ -103,19 +103,19 @@ export const TEMPLATES: CollectionTemplate[] = [
           'Eau de Cologne',
           'Body Mist',
         ],
+        displayMode: 'primary',
       },
-      { id: 'notes_top', label: 'Top Notes', type: 'text' },
-      { id: 'notes_heart', label: 'Heart Notes', type: 'text' },
-      { id: 'notes_base', label: 'Base Notes', type: 'text' },
+      { id: 'notes_top', label: 'Top Notes', type: 'text', displayMode: 'detail' },
+      { id: 'notes_heart', label: 'Heart Notes', type: 'text', displayMode: 'detail' },
+      { id: 'notes_base', label: 'Base Notes', type: 'text', displayMode: 'detail' },
       {
         id: 'season',
         label: 'Best Season',
         type: 'select',
         options: ['Spring', 'Summer', 'Autumn', 'Winter', 'All Year'],
+        displayMode: 'badge',
       },
     ],
-    displayFields: ['house', 'concentration'],
-    badgeFields: ['season'],
   },
   {
     id: 'sneakers',
@@ -124,15 +124,13 @@ export const TEMPLATES: CollectionTemplate[] = [
     description: 'Curate your footwear rotation and limited colorways.',
     accentColor: 'emerald',
     fields: [
-      { id: 'brand', label: 'Brand', type: 'text' },
-      { id: 'model', label: 'Model', type: 'text' },
-      { id: 'colorway', label: 'Colorway', type: 'text' },
-      { id: 'size', label: 'Size (US)', type: 'number' },
-      { id: 'style_code', label: 'Style Code', type: 'text' },
-      { id: 'deadstock', label: 'Deadstock', type: 'boolean' },
+      { id: 'brand', label: 'Brand', type: 'text', displayMode: 'badge' },
+      { id: 'model', label: 'Model', type: 'text', displayMode: 'primary' },
+      { id: 'colorway', label: 'Colorway', type: 'text', displayMode: 'badge' },
+      { id: 'size', label: 'Size (US)', type: 'number', displayMode: 'primary' },
+      { id: 'style_code', label: 'Style Code', type: 'text', displayMode: 'detail' },
+      { id: 'deadstock', label: 'Deadstock', type: 'boolean', displayMode: 'detail' },
     ],
-    displayFields: ['model', 'size'],
-    badgeFields: ['brand', 'colorway'],
   },
   {
     id: 'spirits',
@@ -141,18 +139,17 @@ export const TEMPLATES: CollectionTemplate[] = [
     description: 'Document rare bottles, vintages, and distillation details.',
     accentColor: 'amber',
     fields: [
-      { id: 'brand', label: 'Distillery', type: 'text' },
+      { id: 'brand', label: 'Distillery', type: 'text', displayMode: 'primary' },
       {
         id: 'type',
         label: 'Spirit Type',
         type: 'select',
         options: ['Whisky', 'Gin', 'Rum', 'Tequila', 'Mezcal', 'Cognac', 'Vodka'],
+        displayMode: 'badge',
       },
-      { id: 'age', label: 'Age Statement', type: 'text' },
-      { id: 'abv', label: 'ABV %', type: 'number' },
-      { id: 'region', label: 'Region', type: 'text' },
+      { id: 'age', label: 'Age Statement', type: 'text', displayMode: 'primary' },
+      { id: 'abv', label: 'ABV %', type: 'number', displayMode: 'detail' },
+      { id: 'region', label: 'Region', type: 'text', displayMode: 'badge' },
     ],
-    displayFields: ['brand', 'age'],
-    badgeFields: ['type', 'region'],
   },
 ];

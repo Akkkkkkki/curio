@@ -54,7 +54,10 @@ export const CollectionCard: React.FC<CollectionCardProps> = ({
     (collection.customFields.length !== template.fields.length ||
       collection.customFields.some((field) => !templateFieldIds.has(field.id)));
   const tagPreview = isCustomTags
-    ? collection.customFields.slice(0, 3).map((field) => field.label).join(' • ')
+    ? collection.customFields
+        .slice(0, 3)
+        .map((field) => field.label)
+        .join(' • ')
     : '';
   const descriptionText = tagPreview ? `${t('tagsLabel')}: ${tagPreview}` : template.description;
 

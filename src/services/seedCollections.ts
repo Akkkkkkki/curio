@@ -116,9 +116,5 @@ export const INITIAL_COLLECTIONS: UserCollection[] = [
       },
     ],
     updatedAt: SEED_TIMESTAMP,
-    settings: {
-      displayFields: ['artist', 'label', 'year'],
-      badgeFields: ['genre', 'condition'],
-    },
   },
 ];

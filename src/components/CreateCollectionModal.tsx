@@ -246,7 +246,10 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
         <Button variant="ghost" onClick={handleClose}>
           {t('cancel')}
         </Button>
-        <Button onClick={handleContinueFromEntry} disabled={!selectedTemplate && !suggestedTags.length}>
+        <Button
+          onClick={handleContinueFromEntry}
+          disabled={!selectedTemplate && !suggestedTags.length}
+        >
           {t('continue')}
         </Button>
       </div>
@@ -266,7 +269,9 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
         >
           {t('creatingSuggestions')}
         </h3>
-        <p className={`text-sm ${mutedText}`}>{t('creatingSuggestionsFor', { item: description.trim() })}</p>
+        <p className={`text-sm ${mutedText}`}>
+          {t('creatingSuggestionsFor', { item: description.trim() })}
+        </p>
       </div>
       <Button variant="ghost" size="sm" onClick={handleClose}>
         {t('cancel')}

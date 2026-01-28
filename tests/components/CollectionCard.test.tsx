@@ -31,7 +31,6 @@ const createMockCollection = (overrides: Partial<UserCollection> = {}): UserColl
   customFields: [],
   items: [],
   ownerId: 'test-user-id',
-  settings: { displayFields: [], badgeFields: [] },
   updatedAt: new Date('2024-01-01').toISOString(),
   ...overrides,
 });

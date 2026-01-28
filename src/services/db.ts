@@ -881,7 +881,6 @@ const mapCloudCollections = (cols: any[], items: any[]): UserCollection[] => {
       icon: c.icon,
       customFields: template ? template.fields : [],
       items: colItems,
-      settings: c.settings || { displayFields: [], badgeFields: [] },
       seedKey: c.seed_key,
       updatedAt: c.updated_at,
     });
@@ -970,7 +969,6 @@ const saveCollectionToCloud = async (collection: UserCollection): Promise<void> 
     template_id: collection.templateId,
     name: collection.name,
     icon: collection.icon,
-    settings: collection.settings,
     seed_key: collection.seedKey,
     is_public: Boolean(collection.isPublic),
   };
