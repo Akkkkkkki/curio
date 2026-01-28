@@ -5,6 +5,12 @@
 - **Storage**: Supabase (PostgreSQL + Auth + Storage) as source of truth, IndexedDB as cache.
 - **AI Inference**: Gemini-3-flash-preview via a server-side proxy (local dev: `server/geminiProxy.js`; deploy: same-origin `/api/*` via Vercel rewrites and/or `api/*` handlers) to keep API keys off the client.
 
+### See also
+
+- **IndexedDB reliability**: `docs/ops/INDEXEDDB_RELIABILITY.md`
+- **AI gateway monitoring**: `docs/ops/AI_GATEWAY_MONITORING.md`
+- **PWA caching**: `docs/ops/PWA_CACHE_STRATEGY.md`
+
 ## 1.1 MVP UX Requirements (Time-to-Value)
 
 To ensure users gain value within the first **5 minutes**, the system must support the following product behaviors:

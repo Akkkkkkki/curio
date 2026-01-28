@@ -30,6 +30,18 @@ This repo intentionally keeps documentation **small, current, and non-duplicativ
 - **Plans**: `docs/plan/` (execution plans)
 - **Archive**: `docs/archive/` (point-in-time reports)
 
+### Onboarding essentials
+
+- **Product + UX constraints**: `docs/PRODUCT_DESIGN.md` (5-minute time-to-value rules)
+- **System architecture + data flow**: `docs/TECHNICAL_DESIGN.md`
+- **Sync reliability expectations**: `docs/ops/INDEXEDDB_RELIABILITY.md`
+- **Testing workflow**: `docs/TESTING.md` and `tests/README.md`
+- **Issue protocol**: `docs/GITHUB_ISSUES_PROTOCOL.md`
+
+### What’s in flight
+
+- See active execution plans in `docs/plan/`
+
 ## MVP Product Behavior (5-minute time-to-value)
 
 Curio’s MVP is designed so a new user can get meaningful value within **5 minutes**:
