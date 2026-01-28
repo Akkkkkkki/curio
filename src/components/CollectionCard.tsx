@@ -18,11 +18,11 @@ interface CollectionCardProps {
   matchBadge?: string;
 }
 
-export const CollectionCard: React.FC<CollectionCardProps> = ({
+export const CollectionCard: React.FC<CollectionCardProps> = React.memo(function CollectionCard({
   collection,
   onClick,
   matchBadge,
-}) => {
+}) {
   const { t } = useTranslation();
   const { theme } = useTheme();
   const template = TEMPLATES.find((t) => t.id === collection.templateId) || TEMPLATES[0];
@@ -133,4 +133,4 @@ export const CollectionCard: React.FC<CollectionCardProps> = ({
       </div>
     </div>
   );
-};
+});

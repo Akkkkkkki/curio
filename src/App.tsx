@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import type { User } from '@supabase/supabase-js';
 import {
   HashRouter,
   Routes,
@@ -78,6 +79,7 @@ import { FilterModal } from './components/FilterModal';
 import { EnhanceImageModal } from './components/EnhanceImageModal';
 import { refreshAiImageEditEnabled, isAiImageEditEnabled } from './services/geminiService';
 import { DeleteCollectionModal } from './components/DeleteCollectionModal';
+import { DeleteItemModal } from './components/DeleteItemModal';
 import { LanguageProvider, useTranslation } from './i18n';
 import { supabase, isSupabaseConfigured, signOutUser } from './services/supabase';
 import {
@@ -105,7 +107,7 @@ const AppContent: React.FC = () => {
   const [collections, setCollections] = useState<UserCollection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [authReady, setAuthReady] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -742,25 +744,22 @@ const AppContent: React.FC = () => {
 
   const deleteItem = (collectionId: string, itemId: string) => {
     if (!canEditCollection(collectionId)) return false;
-    if (confirm(t('deleteConfirm'))) {
-      setCollections((prev) =>
-        prev.map((c) => {
-          if (c.id === collectionId) {
-            const newC = {
-              ...c,
-              items: c.items.filter((i) => i.id !== itemId),
-            };
-            saveCollection(newC);
-            deleteAsset(collectionId, itemId);
-            void deleteCloudItem(collectionId, itemId);
-            return newC;
-          }
-          return c;
-        }),
-      );
-      return true;
-    }
-    return false;
+    setCollections((prev) =>
+      prev.map((c) => {
+        if (c.id === collectionId) {
+          const newC = {
+            ...c,
+            items: c.items.filter((i) => i.id !== itemId),
+          };
+          saveCollection(newC);
+          deleteAsset(collectionId, itemId);
+          void deleteCloudItem(collectionId, itemId);
+          return newC;
+        }
+        return c;
+      }),
+    );
+    return true;
   };
 
   const stats = useMemo(() => {
@@ -1442,6 +1441,7 @@ const AppContent: React.FC = () => {
     const navigate = useNavigate();
     const [isExportOpen, setIsExportOpen] = useState(false);
     const [isEnhanceOpen, setIsEnhanceOpen] = useState(false);
+    const [isDeleteItemModalOpen, setIsDeleteItemModalOpen] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
     const [aiImageEditEnabled, setAiImageEditEnabled] = useState(false);
     const [imageKey, setImageKey] = useState(0); // Used to force re-render of ItemImage after enhancement
@@ -1460,10 +1460,13 @@ const AppContent: React.FC = () => {
 
     const handleDelete = () => {
       if (isReadOnly) return;
-      if (confirm(t('deleteConfirm'))) {
-        if (deleteItem(collection.id, item.id)) {
-          navigate(`/collection/${collection.id}`);
-        }
+      setIsDeleteItemModalOpen(true);
+    };
+
+    const handleConfirmDelete = () => {
+      if (deleteItem(collection.id, item.id)) {
+        setIsDeleteItemModalOpen(false);
+        navigate(`/collection/${collection.id}`);
       }
     };
 
@@ -1766,6 +1769,12 @@ const AppContent: React.FC = () => {
             setImageKey((prev) => prev + 1);
           }}
         />
+        <DeleteItemModal
+          isOpen={isDeleteItemModalOpen}
+          item={item}
+          onClose={() => setIsDeleteItemModalOpen(false)}
+          onConfirm={handleConfirmDelete}
+        />
       </>
     );
   };
@@ -1979,8 +1988,12 @@ const AppContent: React.FC = () => {
           </>
         )}
       </Layout>
-      {status && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
+      <div
+        role="status"
+        aria-live="polite"
+        className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none"
+      >
+        {status && (
           <StatusToast
             message={status.message}
             tone={status.tone}
@@ -1988,8 +2001,8 @@ const AppContent: React.FC = () => {
             onAction={status.onAction}
             onDismiss={() => setStatus(null)}
           />
-        </div>
-      )}
+        )}
+      </div>
       <AuthModal
         isOpen={isAuthModalOpen}
         onClose={handleAuthClose}

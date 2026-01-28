@@ -160,4 +160,4 @@ export const ItemCard: React.FC<ItemCardProps> = ({ item, fields, onClick, layou
       </div>
     </div>
   );
-};
+});
