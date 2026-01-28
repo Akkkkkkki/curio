@@ -18,8 +18,8 @@ import { ItemCard } from './components/ItemCard';
 import { AddItemModal } from './components/AddItemModal';
 import { CreateCollectionModal } from './components/CreateCollectionModal';
 import { AuthModal } from './components/AuthModal';
-import { UserCollection, CollectionItem, AppTheme } from './types';
-import { TEMPLATES } from './constants';
+import { UserCollection, CollectionItem, AppTheme, FieldDefinition } from './types';
+import { CUSTOM_TEMPLATE_ID, TEMPLATES } from './constants';
 import { getOnThisDayItems } from './utils/onThisDay';
 import {
   Plus,
@@ -651,7 +651,7 @@ const AppContent: React.FC = () => {
       label
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '_')
-        .replace(/^_+|_+$/g, '') || 'tag';
+        .replace(/^_+|_+$/g, '') || 'field';
     let id = base;
     let index = 2;
     while (used.has(id)) {
@@ -662,14 +662,27 @@ const AppContent: React.FC = () => {
     return id;
   };
 
-  const buildTagFields = (tags: string[]) => {
+  const buildCustomFields = (
+    fields: string[],
+    pinnedFields: string[],
+    templateFields: FieldDefinition[] | null,
+  ) => {
     const used = new Set<string>();
-    return tags.map((tag) => {
-      const label = tag.trim().replace(/\s+/g, ' ');
+    const pinnedSet = new Set(pinnedFields.map((field) => field.trim().toLowerCase()));
+    return fields.map((field) => {
+      const label = field.trim().replace(/\s+/g, ' ');
+      const templateMatch = templateFields?.find(
+        (templateField) => templateField.label.toLowerCase() === label.toLowerCase(),
+      );
+      const baseField = templateMatch
+        ? { ...templateMatch }
+        : { id: '', label, type: 'text' as const, displayMode: 'detail' as const };
+      const id = templateMatch?.id || buildFieldId(label, used);
       return {
-        id: buildFieldId(label, used),
+        ...baseField,
+        id,
         label,
-        type: 'text' as const,
+        displayMode: pinnedSet.has(label.toLowerCase()) ? 'primary' : 'detail',
       };
     });
   };
@@ -678,12 +691,16 @@ const AppContent: React.FC = () => {
     templateId,
     name,
     icon,
-    tags,
+    fields,
+    pinnedFields,
+    description,
   }: {
     templateId?: string;
     name: string;
     icon?: string;
-    tags?: string[];
+    fields: string[];
+    pinnedFields: string[];
+    description?: string;
   }): boolean => {
     if (!isAuthenticated) {
       setPendingAuthAction('create-collection');
@@ -693,26 +710,26 @@ const AppContent: React.FC = () => {
     }
     pendingSyncToastRef.current = true;
     if (!isSupabaseReady) pendingSyncToastRef.current = false;
-    const template = TEMPLATES.find((t) => t.id === templateId) || TEMPLATES[0];
-    const normalizedTags = tags?.map((tag) => tag.trim()).filter(Boolean) ?? [];
-    const isTagBased = normalizedTags.length > 0;
-    const tagFields = isTagBased ? buildTagFields(normalizedTags) : template.fields;
-    const displayFields = isTagBased
-      ? tagFields.slice(0, 2).map((field) => field.id)
-      : template.displayFields;
-    const badgeFields = isTagBased
-      ? tagFields.slice(2).map((field) => field.id)
-      : template.badgeFields;
+    const template = TEMPLATES.find((t) => t.id === templateId) || null;
+    const normalizedFields = fields.map((field) => field.trim()).filter(Boolean);
+    const normalizedPinned = pinnedFields.map((field) => field.trim()).filter(Boolean);
+    const customFields = buildCustomFields(
+      normalizedFields,
+      normalizedPinned,
+      template?.fields ?? null,
+    );
+    const newTemplateId = template ? template.id : CUSTOM_TEMPLATE_ID;
     const newCol: UserCollection = {
       id: Math.random().toString(36).substr(2, 9),
-      templateId: template.id,
+      templateId: newTemplateId,
       name: name,
-      icon: icon || template.icon,
-      customFields: tagFields,
+      icon: icon || template?.icon || TEMPLATES[0].icon,
+      customFields,
       items: [],
       isPublic: false,
       ownerId: user?.id,
       updatedAt: new Date().toISOString(),
+      collectionDescription: description?.trim() || undefined,
     };
     setCollections((prev) => {
       const updated = [...prev, newCol];

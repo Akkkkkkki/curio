@@ -64,7 +64,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
   collections,
   onSave,
 }) => {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const { theme } = useTheme();
   const [step, setStep] = useState<FlowStep>('select-type');
   const [selectedCollectionId, setSelectedCollectionId] = useState<string>('');
@@ -277,7 +277,13 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
       for (const image of images) {
         const base64Data = image.split(',')[1];
         try {
-          const result = await analyzeImage(base64Data, collection.customFields);
+          const result = await analyzeImage(base64Data, collection.customFields, {
+            collectionContext: {
+              name: collection.name,
+              description: collection.collectionDescription,
+            },
+            locale: language,
+          });
           analyzed.push(
             createBatchItem(image, {
               title: result.title || '',
@@ -351,7 +357,13 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     setStep('analyzing');
     try {
       const base64Data = base64.split(',')[1];
-      const result = await analyzeImage(base64Data, currentCollection.customFields);
+      const result = await analyzeImage(base64Data, currentCollection.customFields, {
+        collectionContext: {
+          name: currentCollection.name,
+          description: currentCollection.collectionDescription,
+        },
+        locale: language,
+      });
       if (analysisRunId.current !== runId) return;
       setFormData({
         title: result.title || '',

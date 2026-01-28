@@ -883,6 +883,7 @@ const mapCloudCollections = (cols: any[], items: any[]): UserCollection[] => {
       items: colItems,
       seedKey: c.seed_key,
       updatedAt: c.updated_at,
+      collectionDescription: c.settings?.collectionDescription,
     });
   });
 };
@@ -972,6 +973,11 @@ const saveCollectionToCloud = async (collection: UserCollection): Promise<void> 
     seed_key: collection.seedKey,
     is_public: Boolean(collection.isPublic),
   };
+  if (collection.collectionDescription) {
+    collectionPayload.settings = {
+      collectionDescription: collection.collectionDescription,
+    };
+  }
   if (SUPABASE_SYNC_TIMESTAMPS && collection.updatedAt) {
     collectionPayload.updated_at = collection.updatedAt;
   }

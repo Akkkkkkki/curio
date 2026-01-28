@@ -59,7 +59,7 @@ export const CollectionCard: React.FC<CollectionCardProps> = ({
         .map((field) => field.label)
         .join(' • ')
     : '';
-  const descriptionText = tagPreview ? `${t('tagsLabel')}: ${tagPreview}` : template.description;
+  const descriptionText = tagPreview ? `${t('fieldsLabel')}: ${tagPreview}` : template.description;
 
   return (
     <div

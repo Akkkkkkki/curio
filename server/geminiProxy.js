@@ -46,7 +46,7 @@ const METRICS_ROUTES = new Set([
   '/api/health',
   '/api/gemini/analyze',
   '/api/gemini/enhance',
-  '/api/gemini/suggest-tags',
+  '/api/gemini/suggest-fields',
 ]);
 const metrics = new Map();
 
@@ -258,7 +258,7 @@ app.post('/api/gemini/analyze', ipLimiter, requireAuth, userLimiter, async (req,
     return res.status(503).json({ error: 'GEMINI_API_KEY is not configured' });
   }
 
-  const { imageBase64, fields } = req.body || {};
+  const { imageBase64, fields, collectionContext, locale } = req.body || {};
   if (!imageBase64 || !Array.isArray(fields)) {
     return res.status(400).json({ error: 'Missing imageBase64 or fields' });
   }
@@ -285,13 +285,27 @@ app.post('/api/gemini/analyze', ipLimiter, requireAuth, userLimiter, async (req,
   });
 
   try {
+    const contextLines = [];
+    if (collectionContext?.name) {
+      contextLines.push(`- Name: "${collectionContext.name}"`);
+    }
+    if (collectionContext?.description) {
+      contextLines.push(`- User's description: "${collectionContext.description}"`);
+    }
+    if (locale) {
+      contextLines.push(`- Language: ${locale}`);
+    }
+    const contextBlock = contextLines.length
+      ? `\n\nCollection context:\n${contextLines.join('\n')}`
+      : '';
+
     const response = await ai.models.generateContent({
       model: GEMINI_ANALYZE_MODEL,
       contents: {
         parts: [
           { inlineData: { mimeType: 'image/jpeg', data: imageBase64 } },
           {
-            text: 'Analyze this image of a collectible item. Extract metadata based on the provided schema. Be precise. If a field cannot be determined, leave it null.',
+            text: `Analyze this image of a collectible item.${contextBlock}\n\nExtract metadata for the provided fields. Match the user's language and style when possible. If a field cannot be determined, leave it null.`,
           },
         ],
       },
@@ -317,17 +331,17 @@ app.post('/api/gemini/analyze', ipLimiter, requireAuth, userLimiter, async (req,
   }
 });
 
-app.post('/api/gemini/suggest-tags', ipLimiter, requireAuth, userLimiter, async (req, res) => {
+app.post('/api/gemini/suggest-fields', ipLimiter, requireAuth, userLimiter, async (req, res) => {
   if (!ai) {
     return res.status(503).json({ error: 'GEMINI_API_KEY is not configured' });
   }
 
-  const { description } = req.body || {};
+  const { description, locale = 'en' } = req.body || {};
   if (!description || typeof description !== 'string') {
     return res.status(400).json({ error: 'Missing description' });
   }
 
-  const maxTags = 6;
+  const maxFields = 6;
 
   try {
     const response = await ai.models.generateContent({
@@ -335,7 +349,7 @@ app.post('/api/gemini/suggest-tags', ipLimiter, requireAuth, userLimiter, async 
       contents: {
         parts: [
           {
-            text: `You are helping suggest simple tags for a personal collection.\nFavor short, everyday labels. Avoid technical jargon.\nReturn 4–6 tags maximum. Use the current app language.\nCollection: ${description}`,
+            text: `You are helping suggest metadata fields for a personal collection app.\n\nUser's language: ${locale}\nThe user wants to collect: "${description}"\n\nSuggest 4–6 short field names that would be useful for cataloging these items.\n\nRules:\n- Use simple, everyday labels (e.g., "Year" not "Year of Manufacture")\n- Match the user's language (${locale})\n- Focus on attributes a collector would actually track\n- NEVER suggest: "Notes", "Description", "Title", "Name", "Rating", "Diary", "Comments"\n\nReturn JSON: { \"fields\": [...] }`,
           },
         ],
       },
@@ -344,7 +358,7 @@ app.post('/api/gemini/suggest-tags', ipLimiter, requireAuth, userLimiter, async 
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            tags: {
+            fields: {
               type: Type.ARRAY,
               items: { type: Type.STRING },
             },
@@ -354,24 +368,24 @@ app.post('/api/gemini/suggest-tags', ipLimiter, requireAuth, userLimiter, async 
     });
 
     const result = JSON.parse(response.text || '{}');
-    const rawTags = Array.isArray(result?.tags) ? result.tags : [];
-    const tags = [];
+    const rawFields = Array.isArray(result?.fields) ? result.fields : [];
+    const fields = [];
     const seen = new Set();
-    for (const raw of rawTags) {
+    for (const raw of rawFields) {
       if (typeof raw !== 'string') continue;
       const cleaned = raw.trim().replace(/^[-*•\\d.\\s]+/, '');
       if (!cleaned) continue;
       const key = cleaned.toLowerCase();
       if (seen.has(key)) continue;
       seen.add(key);
-      tags.push(cleaned.slice(0, 32));
-      if (tags.length >= maxTags) break;
+      fields.push(cleaned.slice(0, 32));
+      if (fields.length >= maxFields) break;
     }
 
-    return res.json({ tags });
+    return res.json({ fields });
   } catch (error) {
-    console.error('Tag suggestion failed:', error);
-    return res.status(500).json({ error: 'Tag suggestion failed' });
+    console.error('Field suggestion failed:', error);
+    return res.status(500).json({ error: 'Field suggestion failed' });
   }
 });
 

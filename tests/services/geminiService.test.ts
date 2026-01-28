@@ -223,6 +223,51 @@ describe('services/geminiService.ts - analyzeImage (Phase 3.1)', () => {
   });
 });
 
+describe('services/geminiService.ts - suggestCollectionFields', () => {
+  beforeEach(() => {
+    vi.unstubAllEnvs();
+    vi.stubEnv('VITE_API_BASE_URL', 'http://localhost:8787');
+    vi.stubEnv('VITE_AI_ENABLED', 'true');
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+    vi.clearAllMocks();
+  });
+
+  it('posts description + locale to /gemini/suggest-fields and returns fields', async () => {
+    const fetchSpy = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url =
+        typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      if (url.endsWith('/gemini/suggest-fields')) {
+        expect(init?.method).toBe('POST');
+        const body = JSON.parse(String(init?.body ?? 'null'));
+        expect(body).toMatchObject({ description: 'Vintage postcards', locale: 'en' });
+        return createOkJsonResponse({ fields: ['Era', 'Country'] });
+      }
+      return createOkJsonResponse({ geminiConfigured: true });
+    });
+    vi.stubGlobal('fetch', fetchSpy);
+
+    const mod = await importGeminiServiceFresh();
+    const result = await mod.suggestCollectionFields('Vintage postcards', 'en');
+    expect(result).toEqual(['Era', 'Country']);
+  });
+
+  it('returns null when AI is disabled', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(createOkJsonResponse({ geminiConfigured: false })),
+    );
+    const mod = await importGeminiServiceFresh({ aiEnabled: 'false' });
+
+    const result = await mod.suggestCollectionFields('Vintage postcards', 'en');
+    expect(result).toBeNull();
+  });
+});
+
 describe('services/geminiService.ts - AI availability', () => {
   beforeEach(() => {
     vi.unstubAllEnvs();
