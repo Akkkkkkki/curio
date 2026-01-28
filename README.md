@@ -20,16 +20,15 @@ This repo intentionally keeps documentation **small, current, and non-duplicativ
 
 - **Product**: `docs/PRODUCT_DESIGN.md`
 - **Architecture**: `docs/TECHNICAL_DESIGN.md`
-- **Operational reliability**: `docs/INDEXEDDB_RELIABILITY.md`
 - **Testing**: `docs/TESTING.md` (quick how-to) and `tests/README.md` (details)
 - **Issue filing**: `docs/GITHUB_ISSUES_PROTOCOL.md`
 
-### Other docs (organized index)
+### Other docs (organized)
 
-- **Doc index**: `docs/README.md`
-- **Operations**: `docs/AI_GATEWAY_MONITORING.md`, `docs/PWA_CACHE_STRATEGY.md`
+- **Operations**: `docs/ops/AI_GATEWAY_MONITORING.md`, `docs/ops/INDEXEDDB_RELIABILITY.md`, `docs/ops/PWA_CACHE_STRATEGY.md`
 - **Release**: `docs/GOOGLE_PLAY_SUBMISSION_GUIDE.md`
-- **Plans**: `docs/plan/`
+- **Plans**: `docs/plan/` (execution plans)
+- **Archive**: `docs/archive/` (point-in-time reports)
 
 ## MVP Product Behavior (5-minute time-to-value)
 

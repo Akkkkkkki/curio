@@ -17,7 +17,7 @@ This document analyzes the IndexedDB design in Curio, identifies UX gaps that ca
 
 ```
 User Action → IndexedDB (immediate) → Supabase (debounced 1500ms)
-                                            ↓
+                                           ↓
 App Load ← IndexedDB (cache) ←──────── Supabase (source of truth)
 ```
 

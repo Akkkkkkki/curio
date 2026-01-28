@@ -129,8 +129,8 @@ Canonical implementation plans are maintained directly in the issue threads (to 
 
 ## Observability & Operations
 
-- [x] AI gateway metrics (request count, latency, error rate) are exported and monitored. See `docs/AI_GATEWAY_MONITORING.md`.
-- [x] Sync error rates are visible (client + server monitoring) with actionable alerting. See `docs/AI_GATEWAY_MONITORING.md`.
+- [x] AI gateway metrics (request count, latency, error rate) are exported and monitored. See `docs/ops/AI_GATEWAY_MONITORING.md`.
+- [x] Sync error rates are visible (client + server monitoring) with actionable alerting. See `docs/ops/AI_GATEWAY_MONITORING.md`.
 - [ ] Quota/rate-limit errors have user-facing recovery messaging.
 
 ## Testing & CI
@@ -224,6 +224,6 @@ _These are tracked in GitHub issues but listed here for visibility:_
 
 ## Notes
 
-- Reliability work is tracked in `docs/INDEXEDDB_RELIABILITY.md`.
+- Reliability work is tracked in `docs/ops/INDEXEDDB_RELIABILITY.md`.
 - Product expectations and system architecture are defined in `docs/TECHNICAL_DESIGN.md`.
 - UX review feedback from 2026-01-13 is consolidated in `docs/PRODUCT_DESIGN.md` (Section 6).

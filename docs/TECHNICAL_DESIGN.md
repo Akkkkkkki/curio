@@ -82,7 +82,7 @@ We support both:
   - `synced` → toast **Synced**
   - `offline` → toast **Will sync / retrying**
   - `error` → toast **Sync failed** (with retry action when online)
-- Pending changes can be retried via a queued sync mechanism (see `docs/INDEXEDDB_RELIABILITY.md` for the deeper operational details).
+- Pending changes can be retried via a queued sync mechanism (see `docs/ops/INDEXEDDB_RELIABILITY.md` for the deeper operational details).
 
 ### Sync status definitions & transitions (state diagrams)
 
@@ -255,7 +255,7 @@ Key columns added for the public sample flow:
 These are known gaps that should be closed before a full production launch. They are tracked in issues and
 expanded in the production readiness checklist.
 
-- **Asset upload retry queue** and **storage quota warnings** in IndexedDB (see `docs/INDEXEDDB_RELIABILITY.md`).
+- **Asset upload retry queue** and **storage quota warnings** in IndexedDB (see `docs/ops/INDEXEDDB_RELIABILITY.md`).
 - **AI gateway hardening** (CORS restrictions, auth/signed requests, rate limiting).
 - **Operational monitoring** for the AI gateway and sync error rates (metrics + alerting).
 - **Documentation alignment** so testing status reflects actual E2E coverage.
