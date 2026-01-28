@@ -129,8 +129,6 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
     if (!isOpen) resetState();
   }, [isOpen]);
 
-  if (!isOpen) return null;
-
   const nameFallback = selectedTemplate?.name || t('newArchive');
   const displayName = collectionName.trim() || description.trim() || nameFallback;
 
@@ -360,6 +358,8 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
       setIsIconPickerOpen(false);
     }
   }, [step, isIconPickerOpen]);
+
+  if (!isOpen) return null;
 
   const renderEntry = () => (
     <div className="space-y-6">
