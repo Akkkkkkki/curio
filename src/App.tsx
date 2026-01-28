@@ -1084,12 +1084,8 @@ const AppContent: React.FC = () => {
     const PAGINATION_THRESHOLD = 120;
     const PAGE_SIZE = 60;
 
-    if (!collection) return <Navigate to="/" replace />;
-    const isReadOnly = Boolean(collection.isPublic) && !isAdmin;
-    const isSample = Boolean(collection.isPublic) || collection.id.startsWith('sample');
-    const canAddItems = !isReadOnly;
-
     const filteredItems = useMemo(() => {
+      if (!collection) return [];
       return collection.items.filter((item) => {
         const term = filter.toLowerCase();
         const matchesSearch =
@@ -1110,11 +1106,12 @@ const AppContent: React.FC = () => {
         );
         return matchesSearch && matchesFilters;
       });
-    }, [collection.items, filter, activeFilters]);
+    }, [collection, filter, activeFilters]);
 
     useEffect(() => {
+      if (!collection) return;
       setVisibleCount(PAGE_SIZE);
-    }, [collection.id, filter, activeFilters]);
+    }, [collection?.id, filter, activeFilters]);
 
     const shouldPaginate = filteredItems.length > PAGINATION_THRESHOLD;
     const visibleItems = shouldPaginate ? filteredItems.slice(0, visibleCount) : filteredItems;
@@ -1131,7 +1128,7 @@ const AppContent: React.FC = () => {
       const fieldKey = `label_${fieldId}` as any;
       const translated = t(fieldKey);
       if (translated === fieldKey) {
-        return collection.customFields.find((f) => f.id === fieldId)?.label || fieldId;
+        return collection?.customFields.find((f) => f.id === fieldId)?.label || fieldId;
       }
       return translated;
     };
@@ -1159,6 +1156,11 @@ const AppContent: React.FC = () => {
         showStatus('Failed to delete collection', 'error');
       }
     };
+
+    if (!collection) return <Navigate to="/" replace />;
+    const isReadOnly = Boolean(collection.isPublic) && !isAdmin;
+    const isSample = Boolean(collection.isPublic) || collection.id.startsWith('sample');
+    const canAddItems = !isReadOnly;
 
     return (
       <div className="space-y-10 animate-in slide-in-from-bottom-4 duration-500">
