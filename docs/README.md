@@ -9,7 +9,6 @@ Forward-looking designs and one-off reports are clearly labeled below.
 - **Architecture**: `TECHNICAL_DESIGN.md`
 - **Operational reliability**: `INDEXEDDB_RELIABILITY.md`
 - **Testing**: `TESTING.md` and `../tests/README.md`
-- **Production readiness**: `PRODUCTION_READINESS_CHECKLIST.md`
 - **Issue filing**: `GITHUB_ISSUES_PROTOCOL.md`
 
 ## Operations
@@ -21,10 +20,11 @@ Forward-looking designs and one-off reports are clearly labeled below.
 
 - **Google Play submission guide**: `GOOGLE_PLAY_SUBMISSION_GUIDE.md`
 
-## Design specs (forward-looking, not yet implemented)
+## Plans (execution, temporary)
 
-- **Flexible collection creation**: `DESIGN_flexible_collection_creation.md`
-- **AI image features + capture simplification**: `DESIGN_REQUIREMENTS_ai_image_features_and_capture_simplification.md`
+- **Production readiness checklist**: `plan/PRODUCTION_READINESS_CHECKLIST.md`
+- **Flexible collection creation**: `plan/DESIGN_flexible_collection_creation.md`
+- **AI image features + capture simplification**: `plan/DESIGN_REQUIREMENTS_ai_image_features_and_capture_simplification.md`
 
 ## Archived reports (point-in-time)
 

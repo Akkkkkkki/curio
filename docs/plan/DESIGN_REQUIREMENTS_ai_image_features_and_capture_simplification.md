@@ -197,7 +197,7 @@ Score output 0–2 per dimension (total /12):
 
 Definition of “enhancement success” (Catalog mode):
 
-- Total score increases by **≥ 3 points**, AND
+- Total score increases by **>= 3 points**, AND
 - **Geometry never worsens**, AND
 - **Color does not materially drift** (tolerance to be defined later; start with “human-obvious drift” as failure).
 

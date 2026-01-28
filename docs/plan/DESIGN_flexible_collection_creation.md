@@ -48,7 +48,7 @@ Allow users to create collections with **custom metadata fields** through a guid
 | Goal                     | Measure                                                |
 | ------------------------ | ------------------------------------------------------ |
 | Fast creation            | User can create a meaningful collection in <30 seconds |
-| Low cognitive load       | Users make ≤5 decisions total                          |
+| Low cognitive load       | Users make <=5 decisions total                         |
 | Flexibility              | User can define any metadata they care about           |
 | AI assist when helpful   | Optional suggestions; never required                   |
 | Good card scannability   | Cards show 1-2 useful fields                           |
@@ -85,12 +85,12 @@ Allow users to create collections with **custom metadata fields** through a guid
 │                                                                 │
 │                              [Cancel]  [Continue →]             │
 └─────────────────────────────────────────────────────────────────┘
-                                  │
-                    ┌─────────────┴─────────────┐
-                    │                           │
-           (description entered)        (preset selected)
-                    │                           │
-                    ▼                           │
+                                 │
+                   ┌─────────────┴─────────────┐
+                   │                           │
+          (description entered)        (preset selected)
+                   │                           │
+                   ▼                           │
 ┌─────────────────────────────┐                │
 │       LOADING SCREEN        │                │
 │                             │                │
@@ -99,8 +99,8 @@ Allow users to create collections with **custom metadata fields** through a guid
 │                             │                │
 │         [Cancel]            │                │
 └─────────────────────────────┘                │
-                    │                           │
-                    ▼                           │
+                   │                           │
+                   ▼                           │
 ┌─────────────────────────────────────────────────────────────────┐
 │                      FIELDS SCREEN                              │
 │                                                                 │
@@ -128,9 +128,9 @@ Allow users to create collections with **custom metadata fields** through a guid
 │                                                                 │
 │                              [← Back]  [Continue →]             │
 └─────────────────────────────────────────────────────────────────┘
-                    │                           │
-                    └─────────────┬─────────────┘
-                                  ▼
+                   │                           │
+                   └─────────────┬─────────────┘
+                                 ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                      PREVIEW SCREEN                             │
 │                                                                 │
@@ -151,8 +151,8 @@ Allow users to create collections with **custom metadata fields** through a guid
 │                                                                 │
 │                         [← Back]  [Create Collection ✓]         │
 └─────────────────────────────────────────────────────────────────┘
-                                  │
-                                  ▼
+                                 │
+                                 ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                      SUCCESS SCREEN                             │
 │                                                                 │
@@ -814,7 +814,7 @@ CreateCollectionModal/
 │   ├── FieldRow.tsx            # Selected field with pin/remove
 │   └── CollectionPreviewCard.tsx
 └── hooks/
-    └── useFieldSuggestions.ts  # API call + retry logic
+   └── useFieldSuggestions.ts  # API call + retry logic
 ```
 
 ---
@@ -822,34 +822,34 @@ CreateCollectionModal/
 ## Appendix C: State Machine
 
 ```
-                    ┌─────────┐
-                    │  IDLE   │ (modal closed)
-                    └────┬────┘
-                         │ open
-                         ▼
-                    ┌─────────┐
-            ┌───────│  ENTRY  │───────┐
-            │       └────┬────┘       │
-            │            │            │
-     preset selected    description   cancel
-            │            │            │
-            │            ▼            │
-            │       ┌─────────┐       │
-            │       │ LOADING │───────┤ (cancel/timeout/fail×2)
-            │       └────┬────┘       │
-            │            │ success    │
-            │            ▼            │
-            │       ┌─────────┐       │
-            │  ┌────│ FIELDS  │───────┤ (back)
-            │  │    └────┬────┘       │
-            │  │         │ continue   │
-            │  │         ▼            │
-            │  │    ┌─────────┐       │
-            └──┼───►│ PREVIEW │───────┤ (back)
-               │    └────┬────┘       │
-               │         │ create     │
-               │         ▼            │
-               │    ┌─────────┐       │
-               └────│ SUCCESS │───────┘ (close)
-                    └─────────┘
+                   ┌─────────┐
+                   │  IDLE   │ (modal closed)
+                   └────┬────┘
+                        │ open
+                        ▼
+                   ┌─────────┐
+           ┌───────│  ENTRY  │───────┐
+           │       └────┬────┘       │
+           │            │            │
+    preset selected    description   cancel
+           │            │            │
+           │            ▼            │
+           │       ┌─────────┐       │
+           │       │ LOADING │───────┤ (cancel/timeout/fail×2)
+           │       └────┬────┘       │
+           │            │ success    │
+           │            ▼            │
+           │       ┌─────────┐       │
+           │  ┌────│ FIELDS  │───────┤ (back)
+           │  │    └────┬────┘       │
+           │  │         │ continue   │
+           │  │         ▼            │
+           │  │    ┌─────────┐       │
+           └──┼───►│ PREVIEW │───────┤ (back)
+              │    └────┬────┘       │
+              │         │ create     │
+              │         ▼            │
+              │    ┌─────────┐       │
+              └────│ SUCCESS │───────┘ (close)
+                   └─────────┘
 ```

@@ -22,7 +22,6 @@ This repo intentionally keeps documentation **small, current, and non-duplicativ
 - **Architecture**: `docs/TECHNICAL_DESIGN.md`
 - **Operational reliability**: `docs/INDEXEDDB_RELIABILITY.md`
 - **Testing**: `docs/TESTING.md` (quick how-to) and `tests/README.md` (details)
-- **Production readiness**: `docs/PRODUCTION_READINESS_CHECKLIST.md`
 - **Issue filing**: `docs/GITHUB_ISSUES_PROTOCOL.md`
 
 ### Other docs (organized index)
@@ -30,6 +29,7 @@ This repo intentionally keeps documentation **small, current, and non-duplicativ
 - **Doc index**: `docs/README.md`
 - **Operations**: `docs/AI_GATEWAY_MONITORING.md`, `docs/PWA_CACHE_STRATEGY.md`
 - **Release**: `docs/GOOGLE_PLAY_SUBMISSION_GUIDE.md`
+- **Plans**: `docs/plan/`
 
 ## MVP Product Behavior (5-minute time-to-value)
 
