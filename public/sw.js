@@ -1,4 +1,4 @@
-const CACHE_NAME = 'curio-shell-v3';
+const CACHE_NAME = 'curio-shell-v4';
 const SHELL_ASSETS = ['/manifest.webmanifest', '/icon-192.svg', '/icon-512.svg'];
 
 // URLs that should NEVER be cached (API, auth, dynamic data)
@@ -70,6 +70,17 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Skip non-http(s) schemes (chrome-extension://, file://, etc.) - cannot cache these
+  try {
+    const urlObj = new URL(url);
+    if (!['http:', 'https:'].includes(urlObj.protocol)) {
+      return; // Let browser handle non-http(s) requests normally
+    }
+  } catch (e) {
+    // Invalid URL, skip caching
+    return;
+  }
+
   // NEVER cache Supabase, API, or dynamic data - always fetch from network
   if (shouldNeverCache(url)) {
     event.respondWith(fetch(event.request));
@@ -84,7 +95,9 @@ self.addEventListener('fetch', (event) => {
           if (response && response.ok) {
             const responseClone = response.clone();
             caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, responseClone);
+              cache.put(event.request, responseClone).catch(() => {
+                // Silently ignore cache put failures (e.g., for chrome-extension URLs)
+              });
             });
           }
           return response;
@@ -105,7 +118,9 @@ self.addEventListener('fetch', (event) => {
           if (response.ok) {
             const responseClone = response.clone();
             caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, responseClone);
+              cache.put(event.request, responseClone).catch(() => {
+                // Silently ignore cache put failures (e.g., for chrome-extension URLs)
+              });
             });
           }
           return response;
@@ -123,7 +138,9 @@ self.addEventListener('fetch', (event) => {
           if (response.ok) {
             const responseClone = response.clone();
             caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, responseClone);
+              cache.put(event.request, responseClone).catch(() => {
+                // Silently ignore cache put failures (e.g., for chrome-extension URLs)
+              });
             });
           }
           return response;

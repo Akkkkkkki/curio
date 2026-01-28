@@ -1192,8 +1192,17 @@ export const getAsset = async (
         transaction.objectStore(storeName).put(data, id);
         return data;
       }
+      // Suppress expected 404/400 errors for missing assets (not an error condition)
+      if (error && error.statusCode && [400, 404].includes(error.statusCode)) {
+        // Asset doesn't exist in cloud - this is expected for new items or deleted assets
+        return null;
+      }
     } catch (e) {
-      console.warn('Cloud asset download failed:', e);
+      // Only log unexpected errors, not expected 404/400 from missing assets
+      const err = e as any;
+      if (!err?.statusCode || ![400, 404].includes(err.statusCode)) {
+        console.warn('Cloud asset download failed:', e);
+      }
     }
   }
 
@@ -1328,12 +1337,19 @@ export const getEnhancedAsset = async (
         transaction.objectStore(ENHANCED_STORE).put(data, id);
         return data;
       }
-      // Silently return null for missing files (expected for items without enhancement)
+      // Suppress expected 404/400 errors for missing enhanced assets (not an error condition)
+      if (error && error.statusCode && [400, 404].includes(error.statusCode)) {
+        // Enhanced asset doesn't exist in cloud - this is expected for items without enhancement
+        return null;
+      }
     } catch (e) {
-      // Only log unexpected errors, not "file not found" which is expected
-      const errorMessage = e instanceof Error ? e.message : String(e);
-      if (!errorMessage.includes('404') && !errorMessage.includes('not found')) {
-        console.warn('Cloud enhanced asset download failed:', e);
+      // Only log unexpected errors, not expected 404/400 from missing assets
+      const err = e as any;
+      if (!err?.statusCode || ![400, 404].includes(err.statusCode)) {
+        const errorMessage = e instanceof Error ? e.message : String(e);
+        if (!errorMessage.includes('404') && !errorMessage.includes('not found')) {
+          console.warn('Cloud enhanced asset download failed:', e);
+        }
       }
     }
   }

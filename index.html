@@ -6,6 +6,28 @@
     <meta name="theme-color" content="#f5f5f4" />
     <title>Curio - Personal Museum</title>
     <link rel="manifest" href="/manifest.webmanifest" />
+    <script>
+      // Suppress Tailwind CDN production warning - CDN is intentionally used for this project
+      const originalWarn = console.warn;
+      const originalError = console.error;
+      const shouldSuppress = (args) =>
+        args &&
+        args[0] &&
+        typeof args[0] === 'string' &&
+        (args[0].includes('Tailwind') || args[0].includes('CDN'));
+      console.warn = function (...args) {
+        if (shouldSuppress(args)) {
+          return;
+        }
+        originalWarn.apply(console, args);
+      };
+      console.error = function (...args) {
+        if (shouldSuppress(args)) {
+          return;
+        }
+        originalError.apply(console, args);
+      };
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
