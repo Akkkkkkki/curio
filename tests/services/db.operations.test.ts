@@ -173,7 +173,14 @@ describe('Phase 2.2 — services/db.ts dual-write operations', () => {
       templateId: 'vinyl',
       name: 'My Collection',
       icon: '🎵',
-      customFields: [],
+      customFields: [
+        {
+          id: 'artist',
+          label: 'Artist',
+          type: 'text',
+          displayMode: 'primary',
+        },
+      ],
       items: [item],
       ownerId: 'test-user-id',
       updatedAt: new Date('2024-01-03T00:00:00Z').toISOString(),
@@ -201,6 +208,9 @@ describe('Phase 2.2 — services/db.ts dual-write operations', () => {
       name: 'My Collection',
       icon: '🎵',
       is_public: false,
+      settings: {
+        customFields: collection.customFields,
+      },
     });
     expect(collectionPayload.updated_at).toBeDefined();
 

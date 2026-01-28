@@ -1,4 +1,4 @@
-import { UserCollection, CollectionItem } from '../types';
+import { UserCollection, CollectionItem, FieldDefinition } from '../types';
 import { supabase, isSupabaseConfigured } from './supabase';
 import { TEMPLATES } from '../constants';
 
@@ -142,6 +142,22 @@ export const compareTimestamps = (a?: string, b?: string) => {
   if (Number.isNaN(aTime)) return -1;
   if (Number.isNaN(bTime)) return 1;
   return aTime - bTime;
+};
+
+const isFieldDefinition = (field: any): field is FieldDefinition => {
+  if (!field || typeof field !== 'object') return false;
+  return (
+    typeof field.id === 'string' &&
+    typeof field.label === 'string' &&
+    typeof field.type === 'string' &&
+    typeof field.displayMode === 'string'
+  );
+};
+
+const normalizeCustomFields = (fields?: any[] | null): FieldDefinition[] | null => {
+  if (!Array.isArray(fields)) return null;
+  const cleaned = fields.filter(isFieldDefinition);
+  return cleaned.length > 0 ? cleaned : null;
 };
 
 const normalizeCollection = (collection: UserCollection): UserCollection => {
@@ -871,6 +887,7 @@ const mapCloudCollections = (cols: any[], items: any[]): UserCollection[] => {
       });
 
     const template = TEMPLATES.find((t) => t.id === c.template_id);
+    const settingsFields = normalizeCustomFields(c.settings?.customFields);
 
     return normalizeCollection({
       id: c.id,
@@ -879,7 +896,7 @@ const mapCloudCollections = (cols: any[], items: any[]): UserCollection[] => {
       templateId: c.template_id,
       name: c.name,
       icon: c.icon,
-      customFields: template ? template.fields : [],
+      customFields: settingsFields || template?.fields || [],
       items: colItems,
       seedKey: c.seed_key,
       updatedAt: c.updated_at,
@@ -973,10 +990,15 @@ const saveCollectionToCloud = async (collection: UserCollection): Promise<void> 
     seed_key: collection.seedKey,
     is_public: Boolean(collection.isPublic),
   };
+  const settingsPayload: Record<string, any> = {};
   if (collection.collectionDescription) {
-    collectionPayload.settings = {
-      collectionDescription: collection.collectionDescription,
-    };
+    settingsPayload.collectionDescription = collection.collectionDescription;
+  }
+  if (collection.customFields?.length) {
+    settingsPayload.customFields = collection.customFields;
+  }
+  if (Object.keys(settingsPayload).length > 0) {
+    collectionPayload.settings = settingsPayload;
   }
   if (SUPABASE_SYNC_TIMESTAMPS && collection.updatedAt) {
     collectionPayload.updated_at = collection.updatedAt;

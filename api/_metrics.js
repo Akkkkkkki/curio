@@ -1,5 +1,10 @@
 const MAX_LATENCY_SAMPLES = 1000;
-const METRICS_ROUTES = new Set(['/api/health', '/api/gemini/analyze', '/api/gemini/enhance']);
+const METRICS_ROUTES = new Set([
+  '/api/health',
+  '/api/gemini/analyze',
+  '/api/gemini/enhance',
+  '/api/gemini/suggest-fields',
+]);
 const metrics = new Map();
 
 const ensureMetric = (route) => {

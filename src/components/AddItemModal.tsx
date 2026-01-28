@@ -166,6 +166,13 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
       const active = document.activeElement as HTMLElement | null;
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
+      const isInside = active ? focusable.includes(active) : false;
+
+      if (!isInside) {
+        e.preventDefault();
+        (e.shiftKey ? last : first).focus();
+        return;
+      }
 
       if (e.shiftKey) {
         if (!active || active === first) {
@@ -284,6 +291,11 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
             },
             locale: language,
           });
+          if (!result) {
+            setError(t('analysisFallback'));
+            analyzed.push(createBatchItem(image));
+            continue;
+          }
           analyzed.push(
             createBatchItem(image, {
               title: result.title || '',
@@ -364,6 +376,11 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
         },
         locale: language,
       });
+      if (!result) {
+        setError(t('analysisFallback'));
+        setStep('verify');
+        return;
+      }
       if (analysisRunId.current !== runId) return;
       setFormData({
         title: result.title || '',
