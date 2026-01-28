@@ -104,9 +104,15 @@ export const refreshAiImageEditEnabled = async (): Promise<boolean> => {
 
 export const isAiImageEditEnabled = () => aiImageEditEnabledCache === true;
 
+type CollectionContext = {
+  name?: string;
+  description?: string;
+};
+
 export const analyzeImage = async (
   base64Image: string,
   fields: FieldDefinition[],
+  options: { collectionContext?: CollectionContext; locale?: string } = {},
 ): Promise<{ title: string; data: Record<string, any>; notes: string } | null> => {
   // Graceful degradation: return null if AI is disabled or on any failure
   // This allows the UI to remain functional and let users proceed without AI
@@ -114,10 +120,37 @@ export const analyzeImage = async (
     if (!(await refreshAiEnabled())) {
       return null;
     }
-    return await postJson('/api/gemini/analyze', { imageBase64: base64Image, fields });
+    return await postJson('/api/gemini/analyze', {
+      imageBase64: base64Image,
+      fields,
+      collectionContext: options.collectionContext,
+      locale: options.locale,
+    });
   } catch (error) {
     // Log for debugging but don't block the user
     console.warn('AI analysis failed:', error);
+    return null;
+  }
+};
+
+export const suggestCollectionFields = async (
+  description: string,
+  locale?: string,
+): Promise<string[] | null> => {
+  try {
+    if (!(await refreshAiEnabled())) {
+      return null;
+    }
+    const result = await postJson<{ fields: string[] }>('/api/gemini/suggest-fields', {
+      description,
+      locale,
+    });
+    if (!result || !Array.isArray(result.fields)) {
+      return null;
+    }
+    return result.fields;
+  } catch (error) {
+    console.warn('Field suggestions failed:', error);
     return null;
   }
 };

@@ -173,10 +173,16 @@ describe('Phase 2.2 — services/db.ts dual-write operations', () => {
       templateId: 'vinyl',
       name: 'My Collection',
       icon: '🎵',
-      customFields: [],
+      customFields: [
+        {
+          id: 'artist',
+          label: 'Artist',
+          type: 'text',
+          displayMode: 'primary',
+        },
+      ],
       items: [item],
       ownerId: 'test-user-id',
-      settings: { displayFields: [], badgeFields: [] },
       updatedAt: new Date('2024-01-03T00:00:00Z').toISOString(),
     };
 
@@ -202,6 +208,9 @@ describe('Phase 2.2 — services/db.ts dual-write operations', () => {
       name: 'My Collection',
       icon: '🎵',
       is_public: false,
+      settings: {
+        customFields: collection.customFields,
+      },
     });
     expect(collectionPayload.updated_at).toBeDefined();
 
@@ -242,7 +251,6 @@ describe('Phase 2.2 — services/db.ts dual-write operations', () => {
       customFields: [],
       items: [],
       ownerId: 'test-user-id',
-      settings: { displayFields: [], badgeFields: [] },
       updatedAt: new Date('2024-01-03T00:00:00Z').toISOString(),
     };
 
@@ -271,7 +279,6 @@ describe('Phase 2.2 — services/db.ts dual-write operations', () => {
       name: 'Missing id',
       customFields: [],
       items: [],
-      settings: { displayFields: [], badgeFields: [] },
     };
 
     await expect(dbMod.saveCollection(invalid)).rejects.toBeTruthy();
@@ -457,7 +464,6 @@ describe('deleteCollection', () => {
       customFields: [],
       items: [],
       ownerId: 'test-user-id',
-      settings: { displayFields: [], badgeFields: [] },
     };
 
     // First save the collection
@@ -502,7 +508,6 @@ describe('deleteCollection', () => {
       customFields: [],
       items: [item],
       ownerId: 'test-user-id',
-      settings: { displayFields: [], badgeFields: [] },
     };
 
     // Save collection and assets
@@ -543,7 +548,6 @@ describe('deleteCollection', () => {
       customFields: [],
       items: [],
       ownerId: 'test-user-id',
-      settings: { displayFields: [], badgeFields: [] },
     };
 
     await dbMod.saveCollection(collection);
@@ -580,7 +584,6 @@ describe('deleteCollection', () => {
       customFields: [],
       items: [item],
       ownerId: 'test-user-id',
-      settings: { displayFields: [], badgeFields: [] },
     };
 
     await dbMod.saveCollection(collection);
@@ -649,7 +652,6 @@ describe('deleteCollection', () => {
       customFields: [],
       items,
       ownerId: 'test-user-id',
-      settings: { displayFields: [], badgeFields: [] },
     };
 
     // Save collection and assets for all items

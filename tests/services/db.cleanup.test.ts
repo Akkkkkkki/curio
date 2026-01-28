@@ -139,7 +139,6 @@ describe('Phase 2.3 — services/db.ts cleanup utilities', () => {
             notes: '',
           },
         ],
-        settings: { displayFields: [], badgeFields: [] },
       },
     ];
 
@@ -215,7 +214,6 @@ describe('Phase 2.3 — services/db.ts cleanup utilities', () => {
           createdAt: new Date().toISOString(),
           notes: '',
         })),
-        settings: { displayFields: [], badgeFields: [] },
       },
     ];
 

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { CollectionItem, FieldDefinition } from '../types';
 import { Star } from 'lucide-react';
 import { ItemImage } from './ItemImage';
@@ -15,8 +15,6 @@ import {
 interface ItemCardProps {
   item: CollectionItem;
   fields: FieldDefinition[];
-  displayFields: string[];
-  badgeFields: string[];
   onClick: () => void;
   layout?: 'grid' | 'masonry';
 }
@@ -24,11 +22,23 @@ interface ItemCardProps {
 export const ItemCard: React.FC<ItemCardProps> = React.memo(function ItemCard({
   item,
   fields,
-  displayFields,
-  badgeFields,
   onClick,
   layout = 'grid',
 }) {
+  // Derive display and badge fields from displayMode on each field
+  const { displayFields, badgeFields } = useMemo(() => {
+    const display: string[] = [];
+    const badge: string[] = [];
+    for (const field of fields) {
+      if (field.displayMode === 'primary') {
+        display.push(field.id);
+      } else if (field.displayMode === 'badge') {
+        badge.push(field.id);
+      }
+    }
+    return { displayFields: display, badgeFields: badge };
+  }, [fields]);
+
   const { t } = useTranslation();
   const { theme } = useTheme();
   const cardSurface = cardSurfaceClasses[theme];

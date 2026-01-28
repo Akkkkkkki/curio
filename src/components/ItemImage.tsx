@@ -182,9 +182,21 @@ export const ItemImage: React.FC<ItemImageProps> = ({
     );
   }
 
+  // Prevent React error #310: never pass empty string or invalid URL to img src
+  if (!finalSrc || finalSrc.trim() === '') {
+    return (
+      <div
+        className={`flex flex-col items-center justify-center bg-stone-100 text-stone-300 ${className} min-h-[100px]`}
+      >
+        <Camera size={32} className="opacity-10 mb-2" />
+        <span className="text-[10px] font-bold uppercase tracking-widest opacity-30">No Photo</span>
+      </div>
+    );
+  }
+
   return (
     <img
-      src={finalSrc || ''}
+      src={finalSrc}
       alt={alt}
       className={`object-cover ${className}`}
       loading="lazy"

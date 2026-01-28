@@ -19,8 +19,8 @@ import { ItemCard } from './components/ItemCard';
 import { AddItemModal } from './components/AddItemModal';
 import { CreateCollectionModal } from './components/CreateCollectionModal';
 import { AuthModal } from './components/AuthModal';
-import { UserCollection, CollectionItem, AppTheme } from './types';
-import { TEMPLATES } from './constants';
+import { UserCollection, CollectionItem, AppTheme, FieldDefinition } from './types';
+import { CUSTOM_TEMPLATE_ID, TEMPLATES } from './constants';
 import { getOnThisDayItems } from './utils/onThisDay';
 import {
   Plus,
@@ -648,30 +648,90 @@ const AppContent: React.FC = () => {
     );
   };
 
-  const handleCreateCollection = (templateId: string, name: string, icon: string) => {
+  const buildFieldId = (label: string, used: Set<string>) => {
+    const base =
+      label
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '') || 'field';
+    let id = base;
+    let index = 2;
+    while (used.has(id)) {
+      id = `${base}_${index}`;
+      index += 1;
+    }
+    used.add(id);
+    return id;
+  };
+
+  const buildCustomFields = (
+    fields: string[],
+    pinnedFields: string[],
+    templateFields: FieldDefinition[] | null,
+  ) => {
+    const used = new Set<string>();
+    const pinnedSet = new Set(pinnedFields.map((field) => field.trim().toLowerCase()));
+    return fields.map((field) => {
+      const label = field.trim().replace(/\s+/g, ' ');
+      const templateMatch = templateFields?.find(
+        (templateField) => templateField.label.toLowerCase() === label.toLowerCase(),
+      );
+      const baseField = templateMatch
+        ? { ...templateMatch }
+        : { id: '', label, type: 'text' as const, displayMode: 'detail' as const };
+      const id = templateMatch?.id || buildFieldId(label, used);
+      return {
+        ...baseField,
+        id,
+        label,
+        displayMode: pinnedSet.has(label.toLowerCase()) ? 'primary' : 'detail',
+      };
+    });
+  };
+
+  const handleCreateCollection = ({
+    templateId,
+    name,
+    icon,
+    fields,
+    pinnedFields,
+    description,
+  }: {
+    templateId?: string;
+    name: string;
+    icon?: string;
+    fields: string[];
+    pinnedFields: string[];
+    description?: string;
+  }): boolean => {
     if (!isAuthenticated) {
       setPendingAuthAction('create-collection');
       setIsAuthModalOpen(true);
       setIsCreateCollectionOpen(false);
-      return;
+      return false;
     }
     pendingSyncToastRef.current = true;
     if (!isSupabaseReady) pendingSyncToastRef.current = false;
-    const template = TEMPLATES.find((t) => t.id === templateId) || TEMPLATES[0];
+    const template = TEMPLATES.find((t) => t.id === templateId) || null;
+    const normalizedFields = fields.map((field) => field.trim()).filter(Boolean);
+    const normalizedPinned = pinnedFields.map((field) => field.trim()).filter(Boolean);
+    const customFields = buildCustomFields(
+      normalizedFields,
+      normalizedPinned,
+      template?.fields ?? null,
+    );
+    const newTemplateId = template ? template.id : CUSTOM_TEMPLATE_ID;
     const newCol: UserCollection = {
       id: Math.random().toString(36).substr(2, 9),
-      templateId: template.id,
+      templateId: newTemplateId,
       name: name,
-      icon: icon || template.icon,
-      customFields: template.fields,
+      icon: icon || template?.icon || TEMPLATES[0].icon,
+      customFields,
       items: [],
       isPublic: false,
       ownerId: user?.id,
       updatedAt: new Date().toISOString(),
-      settings: {
-        displayFields: template.displayFields,
-        badgeFields: template.badgeFields,
-      },
+      collectionDescription: description?.trim() || undefined,
     };
     setCollections((prev) => {
       const updated = [...prev, newCol];
@@ -679,6 +739,7 @@ const AppContent: React.FC = () => {
       return updated;
     });
     showStatus(t('statusSaved'), 'success');
+    return true;
   };
 
   const deleteItem = (collectionId: string, itemId: string) => {
@@ -1023,12 +1084,8 @@ const AppContent: React.FC = () => {
     const PAGINATION_THRESHOLD = 120;
     const PAGE_SIZE = 60;
 
-    if (!collection) return <Navigate to="/" replace />;
-    const isReadOnly = Boolean(collection.isPublic) && !isAdmin;
-    const isSample = Boolean(collection.isPublic) || collection.id.startsWith('sample');
-    const canAddItems = !isReadOnly;
-
     const filteredItems = useMemo(() => {
+      if (!collection) return [];
       return collection.items.filter((item) => {
         const term = filter.toLowerCase();
         const matchesSearch =
@@ -1049,11 +1106,12 @@ const AppContent: React.FC = () => {
         );
         return matchesSearch && matchesFilters;
       });
-    }, [collection.items, filter, activeFilters]);
+    }, [collection, filter, activeFilters]);
 
     useEffect(() => {
+      if (!collection) return;
       setVisibleCount(PAGE_SIZE);
-    }, [collection.id, filter, activeFilters]);
+    }, [collection?.id, filter, activeFilters]);
 
     const shouldPaginate = filteredItems.length > PAGINATION_THRESHOLD;
     const visibleItems = shouldPaginate ? filteredItems.slice(0, visibleCount) : filteredItems;
@@ -1070,7 +1128,7 @@ const AppContent: React.FC = () => {
       const fieldKey = `label_${fieldId}` as any;
       const translated = t(fieldKey);
       if (translated === fieldKey) {
-        return collection.customFields.find((f) => f.id === fieldId)?.label || fieldId;
+        return collection?.customFields.find((f) => f.id === fieldId)?.label || fieldId;
       }
       return translated;
     };
@@ -1098,6 +1156,11 @@ const AppContent: React.FC = () => {
         showStatus('Failed to delete collection', 'error');
       }
     };
+
+    if (!collection) return <Navigate to="/" replace />;
+    const isReadOnly = Boolean(collection.isPublic) && !isAdmin;
+    const isSample = Boolean(collection.isPublic) || collection.id.startsWith('sample');
+    const canAddItems = !isReadOnly;
 
     return (
       <div className="space-y-10 animate-in slide-in-from-bottom-4 duration-500">
@@ -1327,8 +1390,6 @@ const AppContent: React.FC = () => {
                   <ItemCard
                     item={item}
                     fields={collection.customFields}
-                    displayFields={collection.settings.displayFields}
-                    badgeFields={collection.settings.badgeFields}
                     onClick={() => navigate(`/collection/${collection.id}/item/${item.id}`)}
                     layout={viewMode === 'grid' ? 'grid' : 'masonry'}
                   />
@@ -1917,6 +1978,7 @@ const AppContent: React.FC = () => {
               isOpen={isCreateCollectionOpen}
               onClose={() => setIsCreateCollectionOpen(false)}
               onCreate={handleCreateCollection}
+              onAddFirstItem={() => setIsAddModalOpen(true)}
             />
             {isVoiceGuideEnabled && activeCollectionForGuide && (
               <MuseumGuide

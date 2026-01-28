@@ -2,12 +2,21 @@ export type FieldType = 'text' | 'long_text' | 'number' | 'date' | 'boolean' | '
 
 export type AppTheme = 'gallery' | 'vault' | 'atelier';
 
+/**
+ * Display mode determines where a field appears:
+ * - 'primary': Shown on item cards and collection cards (max 2)
+ * - 'badge': Shown as small pills on item cards
+ * - 'detail': Shown only on item detail page
+ */
+export type FieldDisplayMode = 'primary' | 'badge' | 'detail';
+
 export interface FieldDefinition {
   id: string;
   label: string;
   type: FieldType;
   options?: string[]; // For select types
   required?: boolean;
+  displayMode: FieldDisplayMode; // Where this field appears in the UI
 }
 
 export interface CollectionTemplate {
@@ -16,9 +25,7 @@ export interface CollectionTemplate {
   icon: string; // Emoji or icon name
   description: string;
   accentColor: string; // Tailwind class partial e.g. 'amber'
-  fields: FieldDefinition[];
-  displayFields: string[]; // IDs of fields to show on card
-  badgeFields: string[]; // IDs of fields to show as badges
+  fields: FieldDefinition[]; // Each field has displayMode - no separate displayFields/badgeFields
 }
 
 export interface CollectionItem {
@@ -37,19 +44,16 @@ export interface CollectionItem {
 
 export interface UserCollection {
   id: string;
-  templateId: string; // Reference to base template type
+  templateId: string; // Reference to base template type, or 'custom' for user-defined
   name: string;
   icon?: string; // Custom icon for the collection
-  customFields: FieldDefinition[]; // Users can add more fields
+  customFields: FieldDefinition[]; // Users can add more fields (each has displayMode)
   items: CollectionItem[];
   isLocked?: boolean; // Vault lock feature
   isPublic?: boolean; // Public sample collection
   ownerId?: string; // Supabase user_id for the owner
   updatedAt?: string;
-  settings: {
-    displayFields: string[];
-    badgeFields: string[];
-  };
+  collectionDescription?: string; // User's description for AI context
   seedKey?: string; // Stability for versioned seeding
 }
 

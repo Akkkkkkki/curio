@@ -45,7 +45,6 @@ function minimalCollection(overrides: Partial<UserCollection> = {}): UserCollect
     customFields: [],
     items: [],
     updatedAt: new Date().toISOString(),
-    settings: { displayFields: [], badgeFields: [] },
     ...overrides,
   } as UserCollection;
 }

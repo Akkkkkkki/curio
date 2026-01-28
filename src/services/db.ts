@@ -1,4 +1,4 @@
-import { UserCollection, CollectionItem } from '../types';
+import { UserCollection, CollectionItem, FieldDefinition } from '../types';
 import { supabase, isSupabaseConfigured } from './supabase';
 import { TEMPLATES } from '../constants';
 
@@ -142,6 +142,22 @@ export const compareTimestamps = (a?: string, b?: string) => {
   if (Number.isNaN(aTime)) return -1;
   if (Number.isNaN(bTime)) return 1;
   return aTime - bTime;
+};
+
+const isFieldDefinition = (field: any): field is FieldDefinition => {
+  if (!field || typeof field !== 'object') return false;
+  return (
+    typeof field.id === 'string' &&
+    typeof field.label === 'string' &&
+    typeof field.type === 'string' &&
+    typeof field.displayMode === 'string'
+  );
+};
+
+const normalizeCustomFields = (fields?: any[] | null): FieldDefinition[] | null => {
+  if (!Array.isArray(fields)) return null;
+  const cleaned = fields.filter(isFieldDefinition);
+  return cleaned.length > 0 ? cleaned : null;
 };
 
 const normalizeCollection = (collection: UserCollection): UserCollection => {
@@ -871,6 +887,7 @@ const mapCloudCollections = (cols: any[], items: any[]): UserCollection[] => {
       });
 
     const template = TEMPLATES.find((t) => t.id === c.template_id);
+    const settingsFields = normalizeCustomFields(c.settings?.customFields);
 
     return normalizeCollection({
       id: c.id,
@@ -879,11 +896,11 @@ const mapCloudCollections = (cols: any[], items: any[]): UserCollection[] => {
       templateId: c.template_id,
       name: c.name,
       icon: c.icon,
-      customFields: template ? template.fields : [],
+      customFields: settingsFields || template?.fields || [],
       items: colItems,
-      settings: c.settings || { displayFields: [], badgeFields: [] },
       seedKey: c.seed_key,
       updatedAt: c.updated_at,
+      collectionDescription: c.settings?.collectionDescription,
     });
   });
 };
@@ -970,10 +987,19 @@ const saveCollectionToCloud = async (collection: UserCollection): Promise<void> 
     template_id: collection.templateId,
     name: collection.name,
     icon: collection.icon,
-    settings: collection.settings,
     seed_key: collection.seedKey,
     is_public: Boolean(collection.isPublic),
   };
+  const settingsPayload: Record<string, any> = {};
+  if (collection.collectionDescription) {
+    settingsPayload.collectionDescription = collection.collectionDescription;
+  }
+  if (collection.customFields?.length) {
+    settingsPayload.customFields = collection.customFields;
+  }
+  if (Object.keys(settingsPayload).length > 0) {
+    collectionPayload.settings = settingsPayload;
+  }
   if (SUPABASE_SYNC_TIMESTAMPS && collection.updatedAt) {
     collectionPayload.updated_at = collection.updatedAt;
   }
@@ -1188,8 +1214,17 @@ export const getAsset = async (
         transaction.objectStore(storeName).put(data, id);
         return data;
       }
+      // Suppress expected 404/400 errors for missing assets (not an error condition)
+      if (error && error.statusCode && [400, 404].includes(error.statusCode)) {
+        // Asset doesn't exist in cloud - this is expected for new items or deleted assets
+        return null;
+      }
     } catch (e) {
-      console.warn('Cloud asset download failed:', e);
+      // Only log unexpected errors, not expected 404/400 from missing assets
+      const err = e as any;
+      if (!err?.statusCode || ![400, 404].includes(err.statusCode)) {
+        console.warn('Cloud asset download failed:', e);
+      }
     }
   }
 
@@ -1324,12 +1359,19 @@ export const getEnhancedAsset = async (
         transaction.objectStore(ENHANCED_STORE).put(data, id);
         return data;
       }
-      // Silently return null for missing files (expected for items without enhancement)
+      // Suppress expected 404/400 errors for missing enhanced assets (not an error condition)
+      if (error && error.statusCode && [400, 404].includes(error.statusCode)) {
+        // Enhanced asset doesn't exist in cloud - this is expected for items without enhancement
+        return null;
+      }
     } catch (e) {
-      // Only log unexpected errors, not "file not found" which is expected
-      const errorMessage = e instanceof Error ? e.message : String(e);
-      if (!errorMessage.includes('404') && !errorMessage.includes('not found')) {
-        console.warn('Cloud enhanced asset download failed:', e);
+      // Only log unexpected errors, not expected 404/400 from missing assets
+      const err = e as any;
+      if (!err?.statusCode || ![400, 404].includes(err.statusCode)) {
+        const errorMessage = e instanceof Error ? e.message : String(e);
+        if (!errorMessage.includes('404') && !errorMessage.includes('not found')) {
+          console.warn('Cloud enhanced asset download failed:', e);
+        }
       }
     }
   }

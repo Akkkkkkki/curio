@@ -51,7 +51,6 @@ describe('Phase 2.1 — services/db.ts merge logic', () => {
           icon: '🎵',
           customFields: [],
           items: [],
-          settings: { displayFields: [], badgeFields: [] },
           updatedAt: isoAt(1),
         },
       ];
@@ -64,7 +63,6 @@ describe('Phase 2.1 — services/db.ts merge logic', () => {
           icon: '☁️',
           customFields: [],
           items: [],
-          settings: { displayFields: [], badgeFields: [] },
           updatedAt: isoAt(2),
         },
       ];
@@ -86,7 +84,6 @@ describe('Phase 2.1 — services/db.ts merge logic', () => {
           icon: '🎵',
           customFields: [],
           items: [],
-          settings: { displayFields: [], badgeFields: [] },
           updatedAt: isoAt(10),
         },
       ];
@@ -99,7 +96,6 @@ describe('Phase 2.1 — services/db.ts merge logic', () => {
           icon: '☁️',
           customFields: [],
           items: [],
-          settings: { displayFields: [], badgeFields: [] },
           updatedAt: isoAt(2),
         },
       ];
@@ -129,7 +125,6 @@ describe('Phase 2.1 — services/db.ts merge logic', () => {
           icon: '🗑️',
           customFields: [],
           items: [],
-          settings: { displayFields: [], badgeFields: [] },
           updatedAt: isoAt(1),
           ownerId: 'user-123', // Has ownerId = was synced before
         },
@@ -157,7 +152,6 @@ describe('Phase 2.1 — services/db.ts merge logic', () => {
           icon: '📴',
           customFields: [],
           items: [],
-          settings: { displayFields: [], badgeFields: [] },
           updatedAt: isoAt(1),
         },
       ];
@@ -183,7 +177,6 @@ describe('Phase 2.1 — services/db.ts merge logic', () => {
           name: 'Local Only',
           customFields: [],
           items: [],
-          settings: { displayFields: [], badgeFields: [] },
           updatedAt: isoAt(1),
         },
       ];
@@ -195,7 +188,6 @@ describe('Phase 2.1 — services/db.ts merge logic', () => {
           name: 'Cloud Collection',
           customFields: [],
           items: [],
-          settings: { displayFields: [], badgeFields: [] },
           updatedAt: isoAt(2),
         },
       ];
@@ -443,7 +435,6 @@ describe('Phase 2.1 — services/db.ts merge logic', () => {
               updatedAt: isoAt(1),
             },
           ],
-          settings: { displayFields: [], badgeFields: [] },
           updatedAt: isoAt(1),
         },
       ];
@@ -475,7 +466,6 @@ describe('Phase 2.1 — services/db.ts merge logic', () => {
               updatedAt: isoAt(1),
             },
           ],
-          settings: { displayFields: [], badgeFields: [] },
           updatedAt: isoAt(1),
         },
       ];
@@ -501,7 +491,6 @@ describe('Phase 2.1 — services/db.ts merge logic', () => {
           icon: '🎵',
           customFields: [],
           items: [],
-          settings: { displayFields: [], badgeFields: [] },
           updatedAt: isoAt(1),
         },
       ];
@@ -514,7 +503,6 @@ describe('Phase 2.1 — services/db.ts merge logic', () => {
           icon: '🎵',
           customFields: [],
           items: [],
-          settings: { displayFields: [], badgeFields: [] },
           updatedAt: isoAt(2),
         },
       ];
@@ -549,7 +537,6 @@ describe('Phase 2.1 — services/db.ts merge logic', () => {
           name: `Local Only ${idx}`,
           customFields: [],
           items: [],
-          settings: { displayFields: [], badgeFields: [] },
           updatedAt: isoAt(1),
         }));
 
@@ -559,7 +546,6 @@ describe('Phase 2.1 — services/db.ts merge logic', () => {
           name: `Shared Local ${idx}`,
           customFields: [],
           items: [],
-          settings: { displayFields: [], badgeFields: [] },
           updatedAt: isoAt(2 + Math.floor(r() * 3)),
         }));
 

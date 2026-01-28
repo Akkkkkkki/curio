@@ -64,7 +64,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
   collections,
   onSave,
 }) => {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const { theme } = useTheme();
   const [step, setStep] = useState<FlowStep>('select-type');
   const [selectedCollectionId, setSelectedCollectionId] = useState<string>('');
@@ -166,6 +166,13 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
       const active = document.activeElement as HTMLElement | null;
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
+      const isInside = active ? focusable.includes(active) : false;
+
+      if (!isInside) {
+        e.preventDefault();
+        (e.shiftKey ? last : first).focus();
+        return;
+      }
 
       if (e.shiftKey) {
         if (!active || active === first) {
@@ -277,7 +284,18 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
       for (const image of images) {
         const base64Data = image.split(',')[1];
         try {
-          const result = await analyzeImage(base64Data, collection.customFields);
+          const result = await analyzeImage(base64Data, collection.customFields, {
+            collectionContext: {
+              name: collection.name,
+              description: collection.collectionDescription,
+            },
+            locale: language,
+          });
+          if (!result) {
+            setError(t('analysisFallback'));
+            analyzed.push(createBatchItem(image));
+            continue;
+          }
           analyzed.push(
             createBatchItem(image, {
               title: result.title || '',
@@ -351,7 +369,18 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     setStep('analyzing');
     try {
       const base64Data = base64.split(',')[1];
-      const result = await analyzeImage(base64Data, currentCollection.customFields);
+      const result = await analyzeImage(base64Data, currentCollection.customFields, {
+        collectionContext: {
+          name: currentCollection.name,
+          description: currentCollection.collectionDescription,
+        },
+        locale: language,
+      });
+      if (!result) {
+        setError(t('analysisFallback'));
+        setStep('verify');
+        return;
+      }
       if (analysisRunId.current !== runId) return;
       setFormData({
         title: result.title || '',
