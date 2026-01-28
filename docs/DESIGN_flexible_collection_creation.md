@@ -5,6 +5,9 @@
 > **Last Updated:** 2026-01-27
 > **Supersedes:** `docs/DESIGN_field-first_collection_creation.md` (to be deleted)
 
+This is a forward-looking design spec. For current behavior and MVP constraints, see
+`docs/PRODUCT_DESIGN.md`.
+
 ---
 
 ## 1. Overview & Motivation

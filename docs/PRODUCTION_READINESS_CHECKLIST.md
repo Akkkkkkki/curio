@@ -226,4 +226,4 @@ _These are tracked in GitHub issues but listed here for visibility:_
 
 - Reliability work is tracked in `docs/INDEXEDDB_RELIABILITY.md`.
 - Product expectations and system architecture are defined in `docs/TECHNICAL_DESIGN.md`.
-- UX review feedback from 2026-01-13 is in `docs/PRODUCT_REVIEW_FEEDBACK_20260113.md`.
+- UX review feedback from 2026-01-13 is consolidated in `docs/PRODUCT_DESIGN.md` (Section 6).

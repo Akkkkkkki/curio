@@ -49,16 +49,17 @@
 
 ---
 
-## One canonical doc policy (team workflow)
+## Scope & relationship to canonical docs
 
-This file is the **single canonical design doc** for the topics below:
+This is a **forward-looking design spec** for:
 
 - Simplifying item capture UX (mobile-first)
 - AI metadata extraction behavior (non-blocking)
 - AI image-to-image features (cost-aware, phased rollout)
 - Photo variant storage requirements
 
-Legacy content from `docs/DESIGN_REVIEW_image_enhancement_and_theme_strategy.md` has been merged into this doc to avoid parallel/duplicated guidance.
+Current behavior and product constraints remain canonical in `docs/PRODUCT_DESIGN.md`.
+Legacy content from `docs/DESIGN_REVIEW_image_enhancement_and_theme_strategy.md` has been merged here to avoid duplication.
 
 ---
 

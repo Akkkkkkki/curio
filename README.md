@@ -25,6 +25,12 @@ This repo intentionally keeps documentation **small, current, and non-duplicativ
 - **Production readiness**: `docs/PRODUCTION_READINESS_CHECKLIST.md`
 - **Issue filing**: `docs/GITHUB_ISSUES_PROTOCOL.md`
 
+### Other docs (organized index)
+
+- **Doc index**: `docs/README.md`
+- **Operations**: `docs/AI_GATEWAY_MONITORING.md`, `docs/PWA_CACHE_STRATEGY.md`
+- **Release**: `docs/GOOGLE_PLAY_SUBMISSION_GUIDE.md`
+
 ## MVP Product Behavior (5-minute time-to-value)
 
 Curio’s MVP is designed so a new user can get meaningful value within **5 minutes**:
