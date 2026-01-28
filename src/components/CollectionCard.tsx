@@ -59,7 +59,12 @@ export const CollectionCard: React.FC<CollectionCardProps> = React.memo(function
         .map((field) => field.label)
         .join(' • ')
     : '';
-  const descriptionText = tagPreview ? `${t('fieldsLabel')}: ${tagPreview}` : template.description;
+  const trimmedDescription = collection.collectionDescription?.trim();
+  const descriptionText = trimmedDescription
+    ? trimmedDescription
+    : tagPreview
+      ? `${t('fieldsLabel')}: ${tagPreview}`
+      : template.description;
 
   return (
     <div
