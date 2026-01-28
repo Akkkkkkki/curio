@@ -19,7 +19,12 @@ interface ItemCardProps {
   layout?: 'grid' | 'masonry';
 }
 
-export const ItemCard: React.FC<ItemCardProps> = ({ item, fields, onClick, layout = 'grid' }) => {
+export const ItemCard: React.FC<ItemCardProps> = React.memo(function ItemCard({
+  item,
+  fields,
+  onClick,
+  layout = 'grid',
+}) {
   // Derive display and badge fields from displayMode on each field
   const { displayFields, badgeFields } = useMemo(() => {
     const display: string[] = [];
