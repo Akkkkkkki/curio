@@ -2203,6 +2203,7 @@ const AppContent: React.FC = () => {
           localUpdatedAt: localItem.updatedAt || localItem.createdAt,
           cloudUpdatedAt: cloudItem.updatedAt || cloudItem.createdAt,
           localPayload: localItem,
+          cloudPayload: cloudItem,
         };
       }
       const cloudCollection = conflict.cloud as UserCollection;
@@ -2217,6 +2218,7 @@ const AppContent: React.FC = () => {
         localUpdatedAt: localCollection.updatedAt || localCollection.createdAt,
         cloudUpdatedAt: cloudCollection.updatedAt || cloudCollection.createdAt,
         localPayload: localCollection,
+        cloudPayload: cloudCollection,
       };
     });
   }, [conflicts, t]);

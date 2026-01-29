@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, GitMerge, Cloud, Laptop } from 'lucide-react';
+import { X, GitMerge, Cloud, Laptop, ArrowRight } from 'lucide-react';
 import { useTranslation } from '../i18n';
 import { useTheme, panelSurfaceClasses, overlaySurfaceClasses } from '../theme';
 
@@ -13,6 +13,7 @@ export type ConflictEntry = {
   localUpdatedAt?: string;
   cloudUpdatedAt?: string;
   localPayload: any;
+  cloudPayload: any;
 };
 
 interface ConflictResolutionModalProps {
@@ -22,6 +23,36 @@ interface ConflictResolutionModalProps {
   onKeepCloud: (conflictId: string) => void;
   onUseLocal: (conflict: ConflictEntry) => void;
 }
+
+const formatTime = (isoString?: string) => {
+  if (!isoString) return '—';
+  const date = new Date(isoString);
+  return new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: 'numeric',
+    second: 'numeric',
+  }).format(date);
+};
+
+const getChangedFields = (local: any, cloud: any, type: 'item' | 'collection') => {
+  const changes: string[] = [];
+  if (type === 'item') {
+    if (local.title !== cloud.title) changes.push('Title');
+    if (local.rating !== cloud.rating) changes.push('Rating');
+    if (local.notes !== cloud.notes) changes.push('Notes');
+    // Simple check for data fields
+    const localData = JSON.stringify(local.data || {});
+    const cloudData = JSON.stringify(cloud.data || {});
+    if (localData !== cloudData) changes.push('Details');
+  } else {
+    if (local.name !== cloud.name) changes.push('Name');
+    if (local.icon !== cloud.icon) changes.push('Icon');
+    if (local.description !== cloud.description) changes.push('Description');
+  }
+  return changes;
+};
 
 export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = ({
   isOpen,
@@ -81,58 +112,102 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
           {conflicts.length === 0 && (
             <div className="text-sm text-stone-500">{t('conflictEmpty')}</div>
           )}
-          {conflicts.map((conflict) => (
-            <div
-              key={conflict.id}
-              className={`rounded-2xl border p-4 space-y-3 ${theme === 'vault' ? 'border-white/10 bg-white/5' : 'border-stone-100 bg-white'}`}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-stone-400">
-                    {conflict.type === 'item' ? t('conflictItem') : t('conflictCollection')}
-                  </p>
-                  <p
-                    className={`text-base font-semibold ${theme === 'vault' ? 'text-white' : 'text-stone-800'}`}
-                  >
-                    {conflict.cloudLabel}
-                  </p>
-                </div>
-                <div className="text-[11px] text-stone-400 text-right">
-                  {conflict.cloudUpdatedAt || conflict.localUpdatedAt ? (
-                    <>
-                      <div>
-                        {t('conflictCloudUpdated')} {conflict.cloudUpdatedAt || '—'}
-                      </div>
-                      <div>
-                        {t('conflictLocalUpdated')} {conflict.localUpdatedAt || '—'}
-                      </div>
-                    </>
-                  ) : null}
-                </div>
-              </div>
+          {conflicts.map((conflict) => {
+            const localTime = new Date(conflict.localUpdatedAt || 0).getTime();
+            const cloudTime = new Date(conflict.cloudUpdatedAt || 0).getTime();
+            const isLocalNewer = localTime > cloudTime;
+            const isCloudNewer = cloudTime > localTime;
+            const changes = getChangedFields(
+              conflict.localPayload,
+              conflict.cloudPayload,
+              conflict.type,
+            );
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <button
-                  onClick={() => onKeepCloud(conflict.id)}
-                  className="flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold border border-amber-200 bg-amber-50 text-amber-900 hover:bg-amber-100 transition-colors"
-                >
-                  <Cloud size={16} />
-                  {t('keepCloud')}
-                </button>
-                <button
-                  onClick={() => onUseLocal(conflict)}
-                  className={`flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold border ${
-                    theme === 'vault'
-                      ? 'border-white/10 bg-white/5 text-white hover:bg-white/10'
-                      : 'border-stone-200 bg-white text-stone-700 hover:bg-stone-50'
-                  }`}
-                >
-                  <Laptop size={16} />
-                  {t('useLocal')}
-                </button>
+            return (
+              <div
+                key={conflict.id}
+                className={`rounded-2xl border p-4 space-y-4 ${theme === 'vault' ? 'border-white/10 bg-white/5' : 'border-stone-100 bg-white'}`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 bg-stone-100 px-1.5 py-0.5 rounded">
+                        {conflict.type === 'item' ? t('conflictItem') : t('conflictCollection')}
+                      </span>
+                      {changes.length > 0 && (
+                        <span className="text-[10px] text-amber-600 font-medium">
+                          Changed: {changes.join(', ')}
+                        </span>
+                      )}
+                    </div>
+                    <p
+                      className={`text-base font-bold ${theme === 'vault' ? 'text-white' : 'text-stone-800'}`}
+                    >
+                      {conflict.cloudLabel}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Cloud Option */}
+                  <div
+                    className={`relative p-3 rounded-xl border ${isCloudNewer ? 'border-amber-200 bg-amber-50/50' : theme === 'vault' ? 'border-white/5 bg-white/5' : 'border-stone-100 bg-stone-50/50'}`}
+                  >
+                    {isCloudNewer && (
+                      <div className="absolute -top-2 left-3 px-2 py-0.5 bg-amber-500 text-white text-[10px] font-bold uppercase tracking-wider rounded-full shadow-sm">
+                        Newer
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2 mb-2 text-stone-500">
+                      <Cloud size={14} />
+                      <span className="text-xs font-semibold">{t('cloudVersion')}</span>
+                    </div>
+                    <div className="text-xs font-medium mb-3">
+                      {formatTime(conflict.cloudUpdatedAt)}
+                    </div>
+                    <button
+                      onClick={() => onKeepCloud(conflict.id)}
+                      className={`w-full py-2 rounded-lg text-xs font-bold transition-colors ${
+                        isCloudNewer
+                          ? 'bg-amber-500 text-white hover:bg-amber-600 shadow-sm'
+                          : 'bg-white border border-stone-200 text-stone-600 hover:bg-stone-50'
+                      }`}
+                    >
+                      {t('keepCloud')}
+                    </button>
+                  </div>
+
+                  {/* Local Option */}
+                  <div
+                    className={`relative p-3 rounded-xl border ${isLocalNewer ? 'border-amber-200 bg-amber-50/50' : theme === 'vault' ? 'border-white/5 bg-white/5' : 'border-stone-100 bg-stone-50/50'}`}
+                  >
+                    {isLocalNewer && (
+                      <div className="absolute -top-2 left-3 px-2 py-0.5 bg-amber-500 text-white text-[10px] font-bold uppercase tracking-wider rounded-full shadow-sm">
+                        Newer
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2 mb-2 text-stone-500">
+                      <Laptop size={14} />
+                      <span className="text-xs font-semibold">{t('localVersion')}</span>
+                    </div>
+                    <div className="text-xs font-medium mb-3">
+                      {formatTime(conflict.localUpdatedAt)}
+                    </div>
+                    <button
+                      onClick={() => onUseLocal(conflict)}
+                      className={`w-full py-2 rounded-lg text-xs font-bold transition-colors ${
+                        isLocalNewer
+                          ? 'bg-amber-500 text-white hover:bg-amber-600 shadow-sm'
+                          : 'bg-white border border-stone-200 text-stone-600 hover:bg-stone-50'
+                      }`}
+                    >
+                      {t('useLocal')}
+                    </button>
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>
