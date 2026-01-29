@@ -69,6 +69,9 @@ export const translations = {
     skipManual: 'Skip and add manually',
     enterManually: 'Enter manually',
     aiUnavailableManual: 'AI analysis is unavailable. Please fill in the details manually.',
+    aiLowConfidenceTitle: 'Limited Information Extracted',
+    aiLowConfidenceDesc:
+      "We couldn't identify many details. The photo might be blurry or the item unclear. You can retry with a better photo or fill in the details manually.",
     analysisFallback: 'Analysis failed. Continue with manual entry.',
     addToCollection: 'Add to Collection',
     rating: 'Rating',
@@ -404,6 +407,9 @@ export const translations = {
     skipManual: '跳过并手动添加',
     enterManually: '手动填写',
     aiUnavailableManual: 'AI 分析不可用，请手动填写。',
+    aiLowConfidenceTitle: '提取信息有限',
+    aiLowConfidenceDesc:
+      '我们无法识别太多细节。照片可能模糊或物品不清晰。您可以尝试拍摄更清晰的照片，或手动填写详细信息。',
     analysisFallback: '分析失败，改为手动填写。',
     addToCollection: '加入馆藏',
     rating: '评分',
