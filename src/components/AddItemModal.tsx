@@ -451,9 +451,10 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
         return;
       }
       if (analysisRunId.current !== runId) return;
-      
+
       const cleanedData = cleanAiData(result.data || {});
-      const isGeneric = (result.title === 'New Item' || !result.title) && Object.keys(cleanedData).length < 2;
+      const isGeneric =
+        (result.title === 'New Item' || !result.title) && Object.keys(cleanedData).length < 2;
       setLowConfidence(isGeneric);
 
       setFormData({
