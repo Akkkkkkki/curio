@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { CollectionItem, FieldDefinition } from '../types';
-import { Star } from 'lucide-react';
+import { Star, Check } from 'lucide-react';
 import { ItemImage } from './ItemImage';
 import { useTranslation } from '../i18n';
 import {
@@ -17,6 +17,9 @@ interface ItemCardProps {
   fields: FieldDefinition[];
   onClick: () => void;
   layout?: 'grid' | 'masonry';
+  isSelectable?: boolean;
+  isSelected?: boolean;
+  onSelect?: () => void;
 }
 
 export const ItemCard: React.FC<ItemCardProps> = React.memo(function ItemCard({
@@ -24,6 +27,9 @@ export const ItemCard: React.FC<ItemCardProps> = React.memo(function ItemCard({
   fields,
   onClick,
   layout = 'grid',
+  isSelectable = false,
+  isSelected = false,
+  onSelect,
 }) {
   // Derive display and badge fields from displayMode on each field
   const { displayFields, badgeFields } = useMemo(() => {
@@ -76,21 +82,30 @@ export const ItemCard: React.FC<ItemCardProps> = React.memo(function ItemCard({
     return translated;
   };
 
+  const handleCardClick = () => {
+    if (isSelectable && onSelect) {
+      onSelect();
+      return;
+    }
+    onClick();
+  };
+
   return (
     <div
-      onClick={onClick}
+      onClick={handleCardClick}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
-          onClick();
+          handleCardClick();
         }
       }}
       data-testid="item-card"
       data-item-id={item.id}
       data-item-title={item.title}
-      className={`group rounded-2xl transition-all duration-300 overflow-hidden border cursor-pointer flex flex-col ${layout === 'grid' ? 'h-full' : ''} motion-card ${cardSurface} ${cardShadow} ${tapRing}`}
+      data-selected={isSelected ? 'true' : 'false'}
+      className={`group rounded-2xl transition-all duration-300 overflow-hidden border cursor-pointer flex flex-col ${layout === 'grid' ? 'h-full' : ''} motion-card ${cardSurface} ${cardShadow} ${tapRing} ${isSelected ? 'ring-2 ring-amber-400' : ''}`}
     >
       <div
         className={`${layout === 'grid' ? 'aspect-[4/3]' : ''} ${theme === 'vault' ? 'bg-stone-800' : 'bg-stone-100'} overflow-hidden relative`}
@@ -104,6 +119,21 @@ export const ItemCard: React.FC<ItemCardProps> = React.memo(function ItemCard({
           type="enhanced"
           className={`w-full group-hover:scale-105 transition-transform duration-500 ${layout === 'grid' ? 'h-full' : 'h-auto'}`}
         />
+
+        {isSelectable && (
+          <div
+            className={`absolute top-2 left-2 w-7 h-7 rounded-full border flex items-center justify-center ${
+              isSelected
+                ? 'bg-amber-500 border-amber-500 text-white'
+                : theme === 'vault'
+                  ? 'bg-stone-900/80 border-white/20 text-white/60'
+                  : 'bg-white/80 border-stone-200 text-stone-400'
+            }`}
+            aria-label={isSelected ? t('bulkSelected') : t('bulkSelect')}
+          >
+            {isSelected ? <Check size={14} /> : null}
+          </div>
+        )}
 
         {item.rating > 0 && (
           <div

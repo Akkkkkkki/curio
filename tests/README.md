@@ -22,14 +22,14 @@ npm run test:coverage
 
 ## Current Status
 
-**Phase 1-3 Complete:** 179 tests passing, 2 skipped, 2 todo. **Phase 5 (E2E) is in progress.**
+**Phase 1-3 Complete:** 179 tests passing, 2 skipped, 2 todo. **Phase 4 (Components) and Phase 5 (E2E) are in progress.**
 
 | Phase                   | Status         | Tests     |
 | ----------------------- | -------------- | --------- |
 | Phase 1: Pure Functions | ✅ Complete    | 120 tests |
 | Phase 2: Integration    | ✅ Complete    | 21 tests  |
 | Phase 3: AI & Hooks     | ✅ Complete    | 19 tests  |
-| Phase 4: Components     | 📋 Not Started | -         |
+| Phase 4: Components     | 🚧 In Progress | 12+ tests |
 | Phase 5: E2E            | 🚧 In Progress | 3 specs   |
 
 ## Infrastructure Setup ✅
@@ -113,11 +113,17 @@ tests/
 - `tests/hooks/useCollections.test.ts` - 6 tests
   - Offline fallback, cloud sync, admin seeding
 
-### 📋 Phase 4: Components (Not Started)
+### 🚧 Phase 4: Components (In Progress)
 
-- `tests/components/AddItemModal.test.tsx` - Item creation flow
+- `tests/components/AddItemModal.test.tsx` - Item creation flow (planned)
 - `tests/components/AuthModal.test.tsx` - Authentication UI
-- `tests/components/ui/*.test.tsx` - Other UI components
+- `tests/components/Layout.test.tsx` - Layout + profile dropdown
+- `tests/components/ItemCard.test.tsx` - Item display + selection mode
+- `tests/components/DeleteItemModal.test.tsx` - Delete confirmation
+- `tests/components/DeleteCollectionModal.test.tsx` - Delete confirmation
+- `tests/components/StatusToast.test.tsx` - Status toast feedback
+- `tests/components/ThemePicker.test.tsx` - Theme selection
+- `tests/components/ui/*.test.tsx` - UI primitives
 
 ### 🚧 Phase 5: End-to-End Tests (In Progress)
 

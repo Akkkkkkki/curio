@@ -81,6 +81,7 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
   const [hasCustomIcon, setHasCustomIcon] = useState(false);
   const [isIconPickerOpen, setIsIconPickerOpen] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [suggestionsError, setSuggestionsError] = useState(false);
   const suggestRunRef = useRef(0);
   const iconPickerRef = useRef<HTMLDivElement | null>(null);
   const iconButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -123,6 +124,7 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
     setHasCustomIcon(false);
     setIsIconPickerOpen(false);
     setStatusMessage(null);
+    setSuggestionsError(false);
   };
 
   useEffect(() => {
@@ -176,6 +178,7 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
       setStep('entry');
       return;
     }
+    setSuggestionsError(false);
     const deadline = Date.now() + SUGGESTION_TIMEOUT_MS;
     const withTimeout = async (timeoutMs: number) =>
       new Promise<string[] | null>((resolve) => {
@@ -195,6 +198,7 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
       if (remaining <= 0) {
         setSuggestedFields([]);
         setStatusMessage(t('suggestionsUnavailable'));
+        setSuggestionsError(true);
         setStep('fields');
         return;
       }
@@ -204,6 +208,7 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
       if (retryRemaining <= 0) {
         setSuggestedFields([]);
         setStatusMessage(t('suggestionsUnavailable'));
+        setSuggestionsError(true);
         setStep('fields');
         return;
       }
@@ -215,6 +220,7 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
     setSuggestedFields(cleaned);
     if (cleaned.length === 0) {
       setStatusMessage(t('suggestionsUnavailable'));
+      setSuggestionsError(true);
     }
     initializeSelectedFields(cleaned);
     setStep('fields');
@@ -547,6 +553,21 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
           <div className="p-3 rounded-xl border text-xs font-medium bg-amber-50 text-amber-700 border-amber-100">
             {statusMessage}
           </div>
+        )}
+        {suggestionsError && description.trim() && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setStatusMessage(null);
+              setSuggestedFields([]);
+              setSelectedFields([]);
+              setPinnedFields([]);
+              setStep('loading');
+            }}
+          >
+            {t('retrySuggestions')}
+          </Button>
         )}
 
         <div>

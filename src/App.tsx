@@ -19,6 +19,7 @@ import { ItemCard } from './components/ItemCard';
 import { AddItemModal } from './components/AddItemModal';
 import { CreateCollectionModal } from './components/CreateCollectionModal';
 import { AuthModal } from './components/AuthModal';
+import { ImageEditModal } from './components/ImageEditModal';
 import { UserCollection, CollectionItem, AppTheme, FieldDefinition } from './types';
 import { CUSTOM_TEMPLATE_ID, TEMPLATES } from './constants';
 import { getOnThisDayItems } from './utils/onThisDay';
@@ -37,12 +38,15 @@ import {
   Mic,
   Play,
   Quote,
-  Sparkle,
   Globe,
   Calendar,
   Lock,
   AlertCircle,
   X,
+  CheckSquare,
+  ListOrdered,
+  Undo2,
+  Redo2,
 } from 'lucide-react';
 import { Button } from './components/ui/Button';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
@@ -77,9 +81,10 @@ import { ExhibitionView } from './components/ExhibitionView';
 import { ExportModal } from './components/ExportModal';
 import { FilterModal } from './components/FilterModal';
 import { EnhanceImageModal } from './components/EnhanceImageModal';
-import { refreshAiImageEditEnabled, isAiImageEditEnabled } from './services/geminiService';
+import { refreshAiImageEditEnabled } from './services/geminiService';
 import { DeleteCollectionModal } from './components/DeleteCollectionModal';
 import { DeleteItemModal } from './components/DeleteItemModal';
+import { DeleteItemsModal } from './components/DeleteItemsModal';
 import { LanguageProvider, useTranslation } from './i18n';
 import { supabase, isSupabaseConfigured, signOutUser } from './services/supabase';
 import {
@@ -93,12 +98,16 @@ import {
   cardHoverClasses,
 } from './theme';
 import { StatusToast, StatusTone } from './components/StatusToast';
+import { StatusBanner } from './components/StatusBanner';
+import { ConflictResolutionModal } from './components/ConflictResolutionModal';
 import { CURRENT_SEED_VERSION, INITIAL_COLLECTIONS } from './services/seedCollections';
 import {
   STORAGE_QUOTA_CHECK_INTERVAL_MS,
   STORAGE_QUOTA_WARNING_THRESHOLD_BYTES,
   STORAGE_QUOTA_WARNING_THRESHOLD_RATIO,
 } from './config';
+import { detectConflicts } from './utils/conflictDetection';
+import { sortCollectionItems, type ItemSort } from './utils/collectionSorting';
 
 const AppContent: React.FC = () => {
   const { t, language, setLanguage } = useTranslation();
@@ -131,6 +140,9 @@ const AppContent: React.FC = () => {
   const showStatusRef = useRef<(message: string, tone?: StatusTone) => void>(() => undefined);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  const [conflicts, setConflicts] = useState<ReturnType<typeof detectConflicts>>([]);
+  const [isConflictModalOpen, setIsConflictModalOpen] = useState(false);
   const location = useLocation();
   const [pendingAuthAction, setPendingAuthAction] = useState<
     'add-item' | 'create-collection' | null
@@ -142,6 +154,7 @@ const AppContent: React.FC = () => {
   const statusTimeoutRef = useRef<number | null>(null);
   const pendingSyncToastRef = useRef(false);
   const hasQuotaWarningRef = useRef(false);
+  const resolvedConflictIdsRef = useRef<Set<string>>(new Set());
   const isSupabaseReady = isSupabaseConfigured();
   const fallbackSampleCollections = useMemo(
     () =>
@@ -243,6 +256,23 @@ const AppContent: React.FC = () => {
     };
     setSyncStatusCallback(handleSyncStatus);
     return () => setSyncStatusCallback(null);
+  }, []);
+
+  useEffect(() => {
+    if (conflicts.length === 0) {
+      setIsConflictModalOpen(false);
+    }
+  }, [conflicts.length]);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
   }, []);
 
   useEffect(() => {
@@ -470,6 +500,8 @@ const AppContent: React.FC = () => {
         setHasLocalImport(false);
         setCollections(localCollections);
         setLoadError('Unable to sync with Supabase. Check your connection and Supabase settings.');
+        setConflicts([]);
+        setIsConflictModalOpen(false);
         showStatusRef.current(tRef.current('statusSyncPaused'), 'error');
         return;
       }
@@ -486,6 +518,12 @@ const AppContent: React.FC = () => {
         includeLocalOnly: (collection) =>
           !collection.ownerId || pendingSyncIds.includes(collection.id),
       });
+
+      const detectedConflicts = detectConflicts(localCollections, cloudCollections);
+      const unresolvedConflicts = detectedConflicts.filter(
+        (conflict) => !resolvedConflictIdsRef.current.has(conflict.id),
+      );
+      setConflicts(unresolvedConflicts);
 
       const {
         collections: resolvedCollections,
@@ -514,6 +552,8 @@ const AppContent: React.FC = () => {
       console.error('Initialization failed:', e);
       setLoadError('Failed to load collections. Please try again.');
       showStatusRef.current(tRef.current('statusSyncPaused'), 'error');
+      setConflicts([]);
+      setIsConflictModalOpen(false);
       setCollections([]);
     } finally {
       setIsLoading(false);
@@ -648,6 +688,24 @@ const AppContent: React.FC = () => {
     );
   };
 
+  const updateCollectionMeta = useCallback(
+    (collectionId: string, updates: Partial<UserCollection>) => {
+      if (!canEditCollection(collectionId)) return;
+      const now = new Date().toISOString();
+      setCollections((prev) =>
+        prev.map((c) => {
+          if (c.id === collectionId) {
+            const newC = { ...c, ...updates, updatedAt: now };
+            saveCollection(newC);
+            return newC;
+          }
+          return c;
+        }),
+      );
+    },
+    [canEditCollection],
+  );
+
   const buildFieldId = (label: string, used: Set<string>) => {
     const base =
       label
@@ -762,6 +820,41 @@ const AppContent: React.FC = () => {
     return true;
   };
 
+  const handleResolveConflict = useCallback((conflictId: string) => {
+    resolvedConflictIdsRef.current.add(conflictId);
+    setConflicts((prev) => prev.filter((conflict) => conflict.id !== conflictId));
+  }, []);
+
+  const handleUseLocalConflict = useCallback(
+    (conflict: (typeof conflicts)[number]) => {
+      if (conflict.type === 'item' && conflict.itemId) {
+        const localItem = conflict.local as CollectionItem;
+        updateItem(conflict.collectionId, conflict.itemId, {
+          title: localItem.title,
+          notes: localItem.notes,
+          rating: localItem.rating,
+          data: localItem.data,
+          photoUrl: localItem.photoUrl,
+          photoEnhancedPath: localItem.photoEnhancedPath,
+        });
+      } else if (conflict.type === 'collection') {
+        const localCollection = conflict.local as UserCollection;
+        updateCollectionMeta(conflict.collectionId, {
+          name: localCollection.name,
+          icon: localCollection.icon,
+          customFields: localCollection.customFields,
+          collectionDescription: localCollection.collectionDescription,
+          templateId: localCollection.templateId,
+          isPublic: localCollection.isPublic,
+          isLocked: localCollection.isLocked,
+        });
+      }
+      handleResolveConflict(conflict.id);
+      showStatus(t('conflictApplied'), 'success');
+    },
+    [handleResolveConflict, showStatus, t, updateCollectionMeta, updateItem],
+  );
+
   const stats = useMemo(() => {
     const statCollections = collections.filter((c) => !c.isPublic);
     const totalItems = statCollections.reduce((acc, c) => acc + c.items.length, 0);
@@ -797,6 +890,7 @@ const AppContent: React.FC = () => {
   const HomeScreen = () => {
     const navigate = useNavigate();
     const [searchTerm, setSearchTerm] = useState('');
+    const [showOnboarding, setShowOnboarding] = useState(false);
     const normalizedSearch = searchTerm.trim().toLowerCase();
     const hasSearch = normalizedSearch.length > 0;
 
@@ -810,6 +904,13 @@ const AppContent: React.FC = () => {
     const historyPreview = historyItems.slice(0, 3);
     const historyOverflow = historyItems.length - historyPreview.length;
     const primaryHistoryItem = historyItems[0];
+    const hasPrivateCollections = collections.some((c) => !c.isPublic);
+    const shouldShowOnboarding = showOnboarding && !hasPrivateCollections;
+
+    useEffect(() => {
+      const dismissed = localStorage.getItem('curio_onboarding_dismissed') === 'true';
+      setShowOnboarding(!dismissed);
+    }, []);
 
     if (isLoading)
       return (
@@ -866,6 +967,30 @@ const AppContent: React.FC = () => {
                   </Button>
                 </Link>
               )}
+            </div>
+          </div>
+        )}
+        {shouldShowOnboarding && (
+          <div
+            className={`rounded-[2rem] border p-5 sm:p-6 shadow-sm ${theme === 'vault' ? 'bg-white/5 border-white/10 text-white/80' : 'bg-white/80 border-stone-100 text-stone-700'}`}
+          >
+            <h3 className="text-sm font-semibold mb-2">{t('onboardingTitle')}</h3>
+            <ul className="text-xs space-y-1">
+              <li>{t('onboardingStepOne')}</li>
+              <li>{t('onboardingStepTwo')}</li>
+              <li>{t('onboardingStepThree')}</li>
+            </ul>
+            <div className="mt-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  localStorage.setItem('curio_onboarding_dismissed', 'true');
+                  setShowOnboarding(false);
+                }}
+              >
+                {t('gotIt')}
+              </Button>
             </div>
           </div>
         )}
@@ -1073,13 +1198,20 @@ const AppContent: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const collection = collections.find((c) => c.id === id);
+    const isReadOnly = Boolean(collection?.isPublic) && !isAdmin;
+    const isSample = Boolean(collection?.isPublic) || Boolean(collection?.id?.startsWith('sample'));
+    const canAddItems = Boolean(collection) && !isReadOnly;
     const [filter, setFilter] = useState('');
     const [viewMode, setViewMode] = useState<'grid' | 'waterfall'>('waterfall');
+    const [sortBy, setSortBy] = useState<ItemSort>('newest');
     const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
     const [activeFilters, setActiveFilters] = useState<Record<string, string>>({});
     const [isExhibitionOpen, setIsExhibitionOpen] = useState(false);
     const [isDeleteCollectionModalOpen, setIsDeleteCollectionModalOpen] = useState(false);
     const [visibleCount, setVisibleCount] = useState(60);
+    const [isSelectionMode, setIsSelectionMode] = useState(false);
+    const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
+    const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
 
     const PAGINATION_THRESHOLD = 120;
     const PAGE_SIZE = 60;
@@ -1108,21 +1240,30 @@ const AppContent: React.FC = () => {
       });
     }, [collection, filter, activeFilters]);
 
+    const sortedItems = useMemo(
+      () => sortCollectionItems(filteredItems, sortBy),
+      [filteredItems, sortBy],
+    );
+
     useEffect(() => {
       if (!collection) return;
       setVisibleCount(PAGE_SIZE);
-    }, [collection?.id, filter, activeFilters]);
+      setSelectedItemIds([]);
+      setIsSelectionMode(false);
+    }, [collection?.id, filter, activeFilters, sortBy]);
 
-    const shouldPaginate = filteredItems.length > PAGINATION_THRESHOLD;
-    const visibleItems = shouldPaginate ? filteredItems.slice(0, visibleCount) : filteredItems;
-    const canLoadMore = shouldPaginate && visibleCount < filteredItems.length;
+    const shouldPaginate = sortedItems.length > PAGINATION_THRESHOLD;
+    const visibleItems = shouldPaginate ? sortedItems.slice(0, visibleCount) : sortedItems;
+    const canLoadMore = shouldPaginate && visibleCount < sortedItems.length;
 
     const handleLoadMore = () => {
-      setVisibleCount((prev) => Math.min(prev + PAGE_SIZE, filteredItems.length));
+      setVisibleCount((prev) => Math.min(prev + PAGE_SIZE, sortedItems.length));
     };
 
     const activeFilterCount = Object.values(activeFilters).filter(Boolean).length;
     const activeFilterEntries = Object.entries(activeFilters).filter(([, value]) => value);
+    const selectedCount = selectedItemIds.length;
+    const hasSelection = selectedCount > 0;
 
     const getFieldLabel = (fieldId: string) => {
       const fieldKey = `label_${fieldId}` as any;
@@ -1143,6 +1284,33 @@ const AppContent: React.FC = () => {
 
     const handleClearFilters = () => setActiveFilters({});
 
+    const toggleSelection = (itemId: string) => {
+      setSelectedItemIds((prev) =>
+        prev.includes(itemId) ? prev.filter((id) => id !== itemId) : [...prev, itemId],
+      );
+    };
+
+    const handleToggleSelectionMode = () => {
+      if (isReadOnly) return;
+      setIsSelectionMode((prev) => !prev);
+      setSelectedItemIds([]);
+    };
+
+    const handleSelectAll = () => {
+      setSelectedItemIds(sortedItems.map((item) => item.id));
+    };
+
+    const handleClearSelection = () => setSelectedItemIds([]);
+
+    const handleConfirmBulkDelete = () => {
+      if (!collection || selectedItemIds.length === 0 || isReadOnly) return;
+      selectedItemIds.forEach((itemId) => deleteItem(collection.id, itemId));
+      setSelectedItemIds([]);
+      setIsSelectionMode(false);
+      setIsBulkDeleteOpen(false);
+      showStatus(t('itemsDeleted', { count: selectedCount }), 'success');
+    };
+
     const handleDeleteCollection = async () => {
       if (!collection || isReadOnly) return;
       try {
@@ -1158,9 +1326,6 @@ const AppContent: React.FC = () => {
     };
 
     if (!collection) return <Navigate to="/" replace />;
-    const isReadOnly = Boolean(collection.isPublic) && !isAdmin;
-    const isSample = Boolean(collection.isPublic) || collection.id.startsWith('sample');
-    const canAddItems = !isReadOnly;
 
     return (
       <div className="space-y-10 animate-in slide-in-from-bottom-4 duration-500">
@@ -1268,6 +1433,7 @@ const AppContent: React.FC = () => {
               {!isReadOnly && (
                 <button
                   onClick={() => setIsDeleteCollectionModalOpen(true)}
+                  aria-label={t('deleteCollection')}
                   className={`w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl transition-colors ${
                     theme === 'vault'
                       ? 'bg-stone-900 border border-white/10 text-stone-400 hover:text-red-400 hover:border-red-400/30'
@@ -1278,21 +1444,47 @@ const AppContent: React.FC = () => {
                   <Trash2 size={18} />
                 </button>
               )}
+              {!isReadOnly && (
+                <Button
+                  variant={isSelectionMode ? 'primary' : 'outline'}
+                  onClick={handleToggleSelectionMode}
+                  className={`${theme === 'vault' ? 'bg-stone-900 text-white border-white/10' : 'bg-white'} h-11`}
+                  icon={<CheckSquare size={16} />}
+                >
+                  {isSelectionMode ? t('done') : t('selectItems')}
+                </Button>
+              )}
               <div
                 className={`flex rounded-xl p-1 ${theme === 'vault' ? 'bg-white/5' : 'bg-stone-200/50'}`}
               >
                 <button
                   onClick={() => setViewMode('grid')}
+                  aria-label={t('viewGrid')}
                   className={`w-11 h-11 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}
                 >
                   <LayoutGrid size={18} />
                 </button>
                 <button
                   onClick={() => setViewMode('waterfall')}
+                  aria-label={t('viewWaterfall')}
                   className={`w-11 h-11 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg transition-all ${viewMode === 'waterfall' ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}
                 >
                   <LayoutTemplate size={18} className="rotate-180" />
                 </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <ListOrdered size={16} className="text-stone-400" />
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as ItemSort)}
+                  className={`h-11 px-3 rounded-xl border text-sm font-semibold ${theme === 'vault' ? 'bg-stone-900 border-white/10 text-white' : 'bg-white border-stone-200 text-stone-700'}`}
+                  aria-label={t('sortLabel')}
+                >
+                  <option value="newest">{t('sortNewest')}</option>
+                  <option value="oldest">{t('sortOldest')}</option>
+                  <option value="title">{t('sortTitle')}</option>
+                  <option value="rating">{t('sortRating')}</option>
+                </select>
               </div>
               <div className="relative flex gap-2 flex-1 min-w-[12rem]">
                 <input
@@ -1306,6 +1498,7 @@ const AppContent: React.FC = () => {
                   variant={activeFilterCount > 0 ? 'primary' : 'outline'}
                   className={`w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center p-0 rounded-xl ${theme === 'vault' ? 'bg-stone-900 border-white/10' : activeFilterCount > 0 ? '' : 'bg-white'}`}
                   onClick={() => setIsFilterModalOpen(true)}
+                  aria-label={t('filterCollection')}
                 >
                   <SlidersHorizontal size={18} />
                 </Button>
@@ -1345,6 +1538,36 @@ const AppContent: React.FC = () => {
 
         {isReadOnly && (
           <p className="text-sm text-amber-600 font-semibold">{t('readOnlyCollectionNote')}</p>
+        )}
+
+        {isSelectionMode && (
+          <div
+            className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border px-4 py-3 shadow-sm ${
+              theme === 'vault'
+                ? 'bg-white/5 border-white/10 text-white/80'
+                : 'bg-white/80 border-stone-100'
+            }`}
+          >
+            <span className="text-sm font-semibold">
+              {t('selectedCount', { count: selectedCount })}
+            </span>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" onClick={handleSelectAll}>
+                {t('selectAll')}
+              </Button>
+              <Button variant="ghost" size="sm" onClick={handleClearSelection}>
+                {t('clear')}
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setIsBulkDeleteOpen(true)}
+                disabled={!hasSelection}
+              >
+                {t('deleteSelected')}
+              </Button>
+            </div>
+          </div>
         )}
 
         {filteredItems.length === 0 ? (
@@ -1390,8 +1613,17 @@ const AppContent: React.FC = () => {
                   <ItemCard
                     item={item}
                     fields={collection.customFields}
-                    onClick={() => navigate(`/collection/${collection.id}/item/${item.id}`)}
+                    onClick={() => {
+                      if (isSelectionMode) {
+                        toggleSelection(item.id);
+                        return;
+                      }
+                      navigate(`/collection/${collection.id}/item/${item.id}`);
+                    }}
                     layout={viewMode === 'grid' ? 'grid' : 'masonry'}
+                    isSelectable={isSelectionMode}
+                    isSelected={selectedItemIds.includes(item.id)}
+                    onSelect={() => toggleSelection(item.id)}
                   />
                 </div>
               ))}
@@ -1401,7 +1633,7 @@ const AppContent: React.FC = () => {
                 className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border px-5 py-4 shadow-sm ${theme === 'vault' ? 'bg-white/5 border-white/10 text-white/70' : 'bg-white/70 border-stone-100 text-stone-500'}`}
               >
                 <span className="text-sm font-semibold">
-                  Showing {visibleItems.length} of {filteredItems.length} items
+                  Showing {visibleItems.length} of {sortedItems.length} items
                 </span>
                 <Button
                   variant="outline"
@@ -1434,6 +1666,12 @@ const AppContent: React.FC = () => {
           onClose={() => setIsDeleteCollectionModalOpen(false)}
           onConfirm={handleDeleteCollection}
         />
+        <DeleteItemsModal
+          isOpen={isBulkDeleteOpen}
+          count={selectedCount}
+          onClose={() => setIsBulkDeleteOpen(false)}
+          onConfirm={handleConfirmBulkDelete}
+        />
       </div>
     );
   };
@@ -1447,6 +1685,20 @@ const AppContent: React.FC = () => {
     const [isProcessing, setIsProcessing] = useState(false);
     const [aiImageEditEnabled, setAiImageEditEnabled] = useState(false);
     const [imageKey, setImageKey] = useState(0); // Used to force re-render of ItemImage after enhancement
+    const [imageEditSource, setImageEditSource] = useState<string | null>(null);
+    const [isImageEditorOpen, setIsImageEditorOpen] = useState(false);
+    const [history, setHistory] = useState<
+      Pick<CollectionItem, 'title' | 'notes' | 'rating' | 'data'>[]
+    >([]);
+    const [future, setFuture] = useState<
+      Pick<CollectionItem, 'title' | 'notes' | 'rating' | 'data'>[]
+    >([]);
+    const historyTimeoutRef = useRef<number | null>(null);
+    const pendingSnapshotRef = useRef<Pick<
+      CollectionItem,
+      'title' | 'notes' | 'rating' | 'data'
+    > | null>(null);
+    const isApplyingHistoryRef = useRef(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const collection = collections.find((c) => c.id === id);
@@ -1460,6 +1712,76 @@ const AppContent: React.FC = () => {
     if (!collection || !item) return <Navigate to={`/collection/${id}`} replace />;
     const isReadOnly = Boolean(collection.isPublic) && !isAdmin;
 
+    const snapshotItem = (target: CollectionItem) => ({
+      title: target.title,
+      notes: target.notes,
+      rating: target.rating,
+      data: { ...target.data },
+    });
+
+    const isSameSnapshot = (
+      a: Pick<CollectionItem, 'title' | 'notes' | 'rating' | 'data'>,
+      b: Pick<CollectionItem, 'title' | 'notes' | 'rating' | 'data'>,
+    ) => JSON.stringify(a) === JSON.stringify(b);
+
+    const pushHistory = (snapshot: Pick<CollectionItem, 'title' | 'notes' | 'rating' | 'data'>) => {
+      if (isApplyingHistoryRef.current) return;
+      pendingSnapshotRef.current = snapshot;
+      if (historyTimeoutRef.current) return;
+      historyTimeoutRef.current = window.setTimeout(() => {
+        historyTimeoutRef.current = null;
+        const pending = pendingSnapshotRef.current;
+        pendingSnapshotRef.current = null;
+        if (!pending) return;
+        setHistory((prev) => {
+          const last = prev[prev.length - 1];
+          if (last && isSameSnapshot(last, pending)) return prev;
+          const next = [...prev, pending];
+          return next.slice(-20);
+        });
+        setFuture([]);
+      }, 600);
+    };
+
+    const applyItemUpdate = (updates: Partial<CollectionItem>) => {
+      pushHistory(snapshotItem(item));
+      updateItem(collection.id, item.id, updates);
+    };
+
+    const handleUndo = () => {
+      if (history.length === 0 || isReadOnly) return;
+      const previous = history[history.length - 1];
+      isApplyingHistoryRef.current = true;
+      setHistory((prev) => prev.slice(0, -1));
+      setFuture((prev) => [snapshotItem(item), ...prev].slice(0, 20));
+      updateItem(collection.id, item.id, previous);
+      requestAnimationFrame(() => {
+        isApplyingHistoryRef.current = false;
+      });
+    };
+
+    const handleRedo = () => {
+      if (future.length === 0 || isReadOnly) return;
+      const next = future[0];
+      isApplyingHistoryRef.current = true;
+      setFuture((prev) => prev.slice(1));
+      setHistory((prev) => [...prev, snapshotItem(item)].slice(-20));
+      updateItem(collection.id, item.id, next);
+      requestAnimationFrame(() => {
+        isApplyingHistoryRef.current = false;
+      });
+    };
+
+    useEffect(() => {
+      setHistory([]);
+      setFuture([]);
+      pendingSnapshotRef.current = null;
+      if (historyTimeoutRef.current) {
+        clearTimeout(historyTimeoutRef.current);
+        historyTimeoutRef.current = null;
+      }
+    }, [item.id]);
+
     const handleDelete = () => {
       if (isReadOnly) return;
       setIsDeleteItemModalOpen(true);
@@ -1472,37 +1794,44 @@ const AppContent: React.FC = () => {
       }
     };
 
+    const applyEditedPhoto = async (dataUrl: string) => {
+      setIsProcessing(true);
+      try {
+        await clearEnhancedReference(item.id);
+        if (collection.isPublic) {
+          updateItem(collection.id, item.id, {
+            photoUrl: dataUrl,
+            photoEnhancedPath: undefined,
+          });
+        } else {
+          const { original, display } = await processImage(dataUrl);
+          await saveAsset(collection.id, item.id, original, display);
+          await checkStorageQuota();
+          updateItem(collection.id, item.id, {
+            photoUrl: 'asset',
+            photoEnhancedPath: undefined,
+          });
+        }
+      } catch (err) {
+        console.error('Photo update failed', err);
+        showStatus(t('photoUpdateFailed'), 'error');
+      } finally {
+        setIsProcessing(false);
+      }
+    };
+
     const handlePhotoUpdate = async (e: React.ChangeEvent<HTMLInputElement>) => {
       if (isReadOnly) return;
       const file = e.target.files?.[0];
       if (file) {
-        setIsProcessing(true);
         const reader = new FileReader();
         reader.onloadend = async () => {
           const base64 = reader.result as string;
-          try {
-            await clearEnhancedReference(item.id);
-            if (collection.isPublic) {
-              updateItem(collection.id, item.id, {
-                photoUrl: base64,
-                photoEnhancedPath: undefined,
-              });
-            } else {
-              const { original, display } = await processImage(base64);
-              await saveAsset(collection.id, item.id, original, display);
-              await checkStorageQuota();
-              updateItem(collection.id, item.id, {
-                photoUrl: 'asset',
-                photoEnhancedPath: undefined,
-              });
-            }
-          } catch (err) {
-            console.error('Photo update failed', err);
-          } finally {
-            setIsProcessing(false);
-          }
+          setImageEditSource(base64);
+          setIsImageEditorOpen(true);
         };
         reader.readAsDataURL(file);
+        e.target.value = '';
       }
     };
 
@@ -1515,6 +1844,7 @@ const AppContent: React.FC = () => {
       return translated;
     };
 
+    const titleIsEmpty = !item.title.trim();
     const hasPhoto = item.photoUrl && item.photoUrl !== '';
     // Check if photo is an asset: either 'asset' sentinel, Supabase URL, or storage path
     const isAssetPhoto = (() => {
@@ -1601,6 +1931,7 @@ const AppContent: React.FC = () => {
 
             <button
               onClick={() => navigate(-1)}
+              aria-label={t('back')}
               className={`absolute top-4 left-4 sm:top-8 sm:left-8 w-10 h-10 sm:w-14 sm:h-14 backdrop-blur-md rounded-xl sm:rounded-2xl flex items-center justify-center shadow-xl transition-all hover:scale-105 z-10 ${theme === 'vault' ? 'bg-white/10 text-white' : 'bg-white/80 text-stone-800'}`}
             >
               <ArrowLeft size={20} className="sm:w-6 sm:h-6" />
@@ -1613,6 +1944,7 @@ const AppContent: React.FC = () => {
                   onClick={() => setIsEnhanceOpen(true)}
                   className={`w-10 h-10 sm:w-14 sm:h-14 backdrop-blur-md rounded-xl sm:rounded-2xl flex items-center justify-center shadow-xl transition-all hover:scale-105 ${theme === 'vault' ? 'bg-white/10 text-white' : 'bg-white/80 text-stone-800'}`}
                   title={t('enhanceImage')}
+                  aria-label={t('enhanceImage')}
                 >
                   <Sparkles size={20} className="sm:w-6 sm:h-6" />
                 </button>
@@ -1651,17 +1983,24 @@ const AppContent: React.FC = () => {
               <div className="flex-1 w-full">
                 <input
                   type="text"
-                  className={`${typographyClasses.titleDisplay} mb-4 sm:mb-6 w-full bg-transparent border-b-2 border-transparent focus:border-amber-100 outline-none transition-all placeholder:italic ${theme === 'vault' ? 'text-white' : 'text-stone-900'} ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                  className={`${typographyClasses.titleDisplay} mb-2 sm:mb-3 w-full bg-transparent border-b-2 ${
+                    titleIsEmpty && !isReadOnly
+                      ? 'border-red-400 focus:border-red-500'
+                      : 'border-transparent'
+                  } focus:border-amber-100 outline-none transition-all placeholder:italic ${theme === 'vault' ? 'text-white' : 'text-stone-900'} ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
                   value={item.title}
-                  onChange={(e) => updateItem(collection.id, item.id, { title: e.target.value })}
+                  onChange={(e) => applyItemUpdate({ title: e.target.value })}
                   placeholder="..."
                   disabled={isReadOnly}
                 />
+                {titleIsEmpty && !isReadOnly && (
+                  <p className="text-xs font-semibold text-red-500 mb-3">{t('titleRequired')}</p>
+                )}
                 <div className="flex items-center gap-2">
                   {[1, 2, 3, 4, 5].map((star) => (
                     <button
                       key={star}
-                      onClick={() => updateItem(collection.id, item.id, { rating: star })}
+                      onClick={() => applyItemUpdate({ rating: star })}
                       className={`transition-transform ${isReadOnly ? 'cursor-not-allowed opacity-70' : 'hover:scale-125'}`}
                       disabled={isReadOnly}
                     >
@@ -1685,12 +2024,39 @@ const AppContent: React.FC = () => {
                 </div>
               </div>
               {!isReadOnly && (
-                <button
-                  onClick={handleDelete}
-                  className="text-stone-200 hover:text-red-400 transition-colors p-3 sm:p-4 rounded-full hover:bg-red-50 shrink-0"
-                >
-                  <Trash2 size={20} className="sm:w-6 sm:h-6" />
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleUndo}
+                    disabled={history.length === 0}
+                    aria-label={t('undo')}
+                    className={`p-3 sm:p-4 rounded-full transition-colors ${
+                      history.length === 0
+                        ? 'text-stone-300 cursor-not-allowed'
+                        : 'text-stone-400 hover:text-stone-700 hover:bg-stone-100'
+                    }`}
+                  >
+                    <Undo2 size={18} className="sm:w-5 sm:h-5" />
+                  </button>
+                  <button
+                    onClick={handleRedo}
+                    disabled={future.length === 0}
+                    aria-label={t('redo')}
+                    className={`p-3 sm:p-4 rounded-full transition-colors ${
+                      future.length === 0
+                        ? 'text-stone-300 cursor-not-allowed'
+                        : 'text-stone-400 hover:text-stone-700 hover:bg-stone-100'
+                    }`}
+                  >
+                    <Redo2 size={18} className="sm:w-5 sm:h-5" />
+                  </button>
+                  <button
+                    onClick={handleDelete}
+                    aria-label={t('deleteItem')}
+                    className="text-stone-200 hover:text-red-400 transition-colors p-3 sm:p-4 rounded-full hover:bg-red-50 shrink-0"
+                  >
+                    <Trash2 size={20} className="sm:w-6 sm:h-6" />
+                  </button>
+                </div>
               )}
             </div>
 
@@ -1707,7 +2073,7 @@ const AppContent: React.FC = () => {
                 <textarea
                   className={`w-full p-6 sm:p-8 rounded-2xl sm:rounded-[2.5rem] italic border font-serif text-xl sm:text-2xl leading-relaxed min-h-[200px] sm:min-h-[240px] focus:ring-8 focus:ring-amber-500/5 focus:border-amber-100 outline-none transition-all shadow-inner placeholder:text-stone-200 ${theme === 'vault' ? 'bg-white/5 border-white/5 text-white' : 'bg-stone-50/50 border-stone-100 text-stone-800'} ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
                   value={item.notes}
-                  onChange={(e) => updateItem(collection.id, item.id, { notes: e.target.value })}
+                  onChange={(e) => applyItemUpdate({ notes: e.target.value })}
                   placeholder={t('provenancePlaceholder')}
                   disabled={isReadOnly}
                 />
@@ -1739,7 +2105,7 @@ const AppContent: React.FC = () => {
                               ...item.data,
                               [field.id]: e.target.value,
                             };
-                            updateItem(collection.id, item.id, { data: newData });
+                            applyItemUpdate({ data: newData });
                           }}
                           disabled={isReadOnly}
                         />
@@ -1771,6 +2137,19 @@ const AppContent: React.FC = () => {
             setImageKey((prev) => prev + 1);
           }}
         />
+        <ImageEditModal
+          isOpen={isImageEditorOpen}
+          source={imageEditSource}
+          onClose={() => {
+            setIsImageEditorOpen(false);
+            setImageEditSource(null);
+          }}
+          onApply={(edited) => {
+            setIsImageEditorOpen(false);
+            setImageEditSource(null);
+            applyEditedPhoto(edited);
+          }}
+        />
         <DeleteItemModal
           isOpen={isDeleteItemModalOpen}
           item={item}
@@ -1787,6 +2166,40 @@ const AppContent: React.FC = () => {
     atelier: 'bg-[#faf9f6]',
   };
 
+  const conflictModalEntries = useMemo(() => {
+    return conflicts.map((conflict) => {
+      if (conflict.type === 'item') {
+        const cloudItem = conflict.cloud as CollectionItem;
+        const localItem = conflict.local as CollectionItem;
+        const label = cloudItem.title || localItem.title || t('untitled');
+        return {
+          id: conflict.id,
+          type: 'item' as const,
+          collectionId: conflict.collectionId,
+          itemId: conflict.itemId,
+          localLabel: localItem.title || t('untitled'),
+          cloudLabel: label,
+          localUpdatedAt: localItem.updatedAt || localItem.createdAt,
+          cloudUpdatedAt: cloudItem.updatedAt || cloudItem.createdAt,
+          localPayload: localItem,
+        };
+      }
+      const cloudCollection = conflict.cloud as UserCollection;
+      const localCollection = conflict.local as UserCollection;
+      const label = cloudCollection.name || localCollection.name || t('newArchive');
+      return {
+        id: conflict.id,
+        type: 'collection' as const,
+        collectionId: conflict.collectionId,
+        localLabel: localCollection.name || t('newArchive'),
+        cloudLabel: label,
+        localUpdatedAt: localCollection.updatedAt || localCollection.createdAt,
+        cloudUpdatedAt: cloudCollection.updatedAt || cloudCollection.createdAt,
+        localPayload: localCollection,
+      };
+    });
+  }, [conflicts, t]);
+
   const isAuthenticated = Boolean(user);
   const sampleCollection = useMemo(() => collections.find((c) => c.isPublic), [collections]);
   const showAccessGate = !isSupabaseReady || (!isAuthenticated && !allowPublicBrowse);
@@ -1794,6 +2207,35 @@ const AppContent: React.FC = () => {
   const shouldShowAccessGate = showAccessGate && !isExploreRoute;
   const fallbackSampleCollectionId = fallbackSampleCollections[0]?.id ?? null;
   const sampleCollectionId = sampleCollection?.id ?? fallbackSampleCollectionId;
+
+  const statusBanner = useMemo(() => {
+    if (conflicts.length > 0) {
+      return (
+        <StatusBanner
+          title={t('conflictBannerTitle')}
+          message={t('conflictBannerDesc')}
+          tone="warning"
+          actionLabel={t('reviewUpdates')}
+          onAction={() => setIsConflictModalOpen(true)}
+        />
+      );
+    }
+    if (syncStatus === 'error' && !isOffline) {
+      return (
+        <StatusBanner
+          title={t('syncIssueTitle')}
+          message={t('syncIssueDesc')}
+          tone="error"
+          actionLabel={t('actionRetry')}
+          onAction={handleRetrySync}
+        />
+      );
+    }
+    if (isOffline || syncStatus === 'offline') {
+      return <StatusBanner title={t('offlineTitle')} message={t('offlineDesc')} tone="warning" />;
+    }
+    return null;
+  }, [conflicts.length, handleRetrySync, isOffline, syncStatus, t]);
 
   const handleExploreSamples = () => {
     setAllowPublicBrowse(true);
@@ -1922,6 +2364,7 @@ const AppContent: React.FC = () => {
         importState={importState}
         importMessage={importMessage}
         onImportLocal={handleImportLocal}
+        statusBanner={statusBanner}
         headerExtras={
           <div className="flex items-center gap-2 sm:gap-3">
             {sampleCollection && (
@@ -2009,6 +2452,13 @@ const AppContent: React.FC = () => {
         isOpen={isAuthModalOpen}
         onClose={handleAuthClose}
         onAuthSuccess={handleAuthSuccess}
+      />
+      <ConflictResolutionModal
+        isOpen={isConflictModalOpen}
+        conflicts={conflictModalEntries}
+        onClose={() => setIsConflictModalOpen(false)}
+        onKeepCloud={handleResolveConflict}
+        onUseLocal={handleUseLocalConflict}
       />
     </div>
   );

@@ -108,6 +108,8 @@ Canonical implementation plans are maintained directly in the issue threads (to 
 - [ ] Public sample collections are clearly labeled read-only and disable edit actions.
 - [ ] Add-item flow shows staged progress (Upload → Analyzing → Review → Save) with manual fallback.
 - [ ] Save/sync feedback (“Saved / Synced / Will sync / Sync failed”) is surfaced for all critical flows.
+- [x] Offline banner clearly explains local-first sync and recovery actions.
+- [x] Conflict review prompt appears when cloud updates overwrite local edits.
 
 ## Data Reliability & Offline
 
@@ -118,6 +120,7 @@ Canonical implementation plans are maintained directly in the issue threads (to 
 - [x] Deletes do not resurrect when offline (tombstones + queued delete). _Fixed: `pendingDeletes` queue prevents deleted items from resurrecting._
 - [ ] Storage quota checks warn users before IndexedDB fills.
 - [ ] Timestamp-based conflict resolution is enabled in production (`VITE_SUPABASE_SYNC_TIMESTAMPS=true`).
+- [x] Conflict review flow allows choosing local vs cloud values.
 
 ## Security & Access Control
 
@@ -152,6 +155,7 @@ Canonical implementation plans are maintained directly in the issue threads (to 
 - [x] **P0** React Error Boundary wraps the app (prevents blank screen on component crashes). _Fixed: `ErrorBoundary` component in `components/ui/ErrorBoundary.tsx` wraps `AppContent`._
 - [ ] **P1** All async operations have proper try-catch and user-visible error states. _Locations: `App.tsx:531` (saveCollection not awaited), `App.tsx:654` (deleteCloudItem fire-and-forget)._
 - [ ] **P1** Online event handler has error recovery. _Location: `useCollections.ts:120-132` - syncPendingChanges/syncPendingAssetUploads not wrapped in try-catch._
+- [x] **P1** Add-item and collection suggestion flows include retry + validation feedback.
 - [ ] **P2** Batch import has partial recovery (one failed file shouldn't fail entire batch). _Location: `AddItemModal.tsx:271` - Promise.all fails completely on single file error._
 - [ ] **P2** Image enhancement has user-visible timeout feedback. _Location: `EnhanceImageModal.tsx:122-180` - no timeout UX._
 - [ ] **P2** Circuit breaker for sync retries (exponential backoff, max attempts). _Location: `db.ts:385-404` - retries indefinitely if API is down._

@@ -1,20 +1,19 @@
 import React from 'react';
 import { X, AlertTriangle } from 'lucide-react';
-import { UserCollection } from '../types';
 import { Button } from './ui/Button';
 import { useTranslation } from '../i18n';
 import { useTheme, panelSurfaceClasses, overlaySurfaceClasses } from '../theme';
 
-interface DeleteCollectionModalProps {
+interface DeleteItemsModalProps {
   isOpen: boolean;
-  collection: UserCollection | null;
+  count: number;
   onClose: () => void;
   onConfirm: () => void;
 }
 
-export const DeleteCollectionModal: React.FC<DeleteCollectionModalProps> = ({
+export const DeleteItemsModal: React.FC<DeleteItemsModalProps> = ({
   isOpen,
-  collection,
+  count,
   onClose,
   onConfirm,
 }) => {
@@ -24,7 +23,7 @@ export const DeleteCollectionModal: React.FC<DeleteCollectionModalProps> = ({
   const overlayClass = `${overlaySurfaceClasses[theme]} motion-overlay`;
   const borderClass = theme === 'vault' ? 'border-white/10' : 'border-stone-100';
 
-  if (!isOpen || !collection) return null;
+  if (!isOpen) return null;
 
   return (
     <div
@@ -46,7 +45,7 @@ export const DeleteCollectionModal: React.FC<DeleteCollectionModalProps> = ({
             <h2
               className={`font-serif font-bold text-lg ${theme === 'vault' ? 'text-white' : 'text-stone-800'}`}
             >
-              {t('deleteCollectionTitle')}
+              {t('deleteItemsTitle')}
             </h2>
           </div>
           <button
@@ -62,9 +61,7 @@ export const DeleteCollectionModal: React.FC<DeleteCollectionModalProps> = ({
             className={`p-4 rounded-xl ${theme === 'vault' ? 'bg-red-500/10 border border-red-500/20' : 'bg-red-50 border border-red-100'}`}
           >
             <p className={`text-sm ${theme === 'vault' ? 'text-red-200' : 'text-red-700'}`}>
-              {t('deleteCollectionWarning')
-                .replace('{name}', collection.name)
-                .replace('{count}', String(collection.items.length))}
+              {t('deleteItemsWarning', { count })}
             </p>
           </div>
         </div>
@@ -78,7 +75,7 @@ export const DeleteCollectionModal: React.FC<DeleteCollectionModalProps> = ({
             onClick={onConfirm}
             className="px-4 py-2 rounded-xl text-sm font-medium transition-colors bg-red-600 text-white hover:bg-red-700"
           >
-            {t('deleteCollection')}
+            {t('deleteItems')}
           </button>
         </div>
       </div>
