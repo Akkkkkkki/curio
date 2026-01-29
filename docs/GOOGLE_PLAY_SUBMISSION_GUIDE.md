@@ -4,6 +4,11 @@
 
 **Scope:** This is an MVP release to gather user feedback, not a full product launch. We prioritize speed and simplicity over perfection.
 
+## Scope & status
+
+- **Platform focus:** Android first; iOS is deferred (Apple Developer Program costs and review overhead).
+- **Tracking:** Use GitHub Issues/Projects for status and checklists to avoid stale docs.
+
 ---
 
 ## Table of Contents

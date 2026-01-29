@@ -5,6 +5,12 @@
 - **Storage**: Supabase (PostgreSQL + Auth + Storage) as source of truth, IndexedDB as cache.
 - **AI Inference**: Gemini-3-flash-preview via a server-side proxy (local dev: `server/geminiProxy.js`; deploy: same-origin `/api/*` via Vercel rewrites and/or `api/*` handlers) to keep API keys off the client.
 
+### See also
+
+- **IndexedDB reliability**: `docs/ops/INDEXEDDB_RELIABILITY.md`
+- **AI gateway monitoring**: `docs/ops/AI_GATEWAY_MONITORING.md`
+- **PWA caching**: `docs/ops/PWA_CACHE_STRATEGY.md`
+
 ## 1.1 MVP UX Requirements (Time-to-Value)
 
 To ensure users gain value within the first **5 minutes**, the system must support the following product behaviors:
@@ -82,7 +88,7 @@ We support both:
   - `synced` → toast **Synced**
   - `offline` → toast **Will sync / retrying**
   - `error` → toast **Sync failed** (with retry action when online)
-- Pending changes can be retried via a queued sync mechanism (see `docs/INDEXEDDB_RELIABILITY.md` for the deeper operational details).
+- Pending changes can be retried via a queued sync mechanism (see `docs/ops/INDEXEDDB_RELIABILITY.md` for the deeper operational details).
 
 ### Sync status definitions & transitions (state diagrams)
 
@@ -255,7 +261,7 @@ Key columns added for the public sample flow:
 These are known gaps that should be closed before a full production launch. They are tracked in issues and
 expanded in the production readiness checklist.
 
-- **Asset upload retry queue** and **storage quota warnings** in IndexedDB (see `docs/INDEXEDDB_RELIABILITY.md`).
+- **Asset upload retry queue** and **storage quota warnings** in IndexedDB (see `docs/ops/INDEXEDDB_RELIABILITY.md`).
 - **AI gateway hardening** (CORS restrictions, auth/signed requests, rate limiting).
 - **Operational monitoring** for the AI gateway and sync error rates (metrics + alerting).
 - **Documentation alignment** so testing status reflects actual E2E coverage.

@@ -1,5 +1,7 @@
 # Curio Codebase Review Report
 
+> **Status:** Archived, point-in-time report (do not update).
+
 **Date:** 2026-01-26
 **Reviewer:** Claude Opus 4.5
 **Scope:** React components, hooks, state management, and performance

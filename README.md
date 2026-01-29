@@ -20,10 +20,27 @@ This repo intentionally keeps documentation **small, current, and non-duplicativ
 
 - **Product**: `docs/PRODUCT_DESIGN.md`
 - **Architecture**: `docs/TECHNICAL_DESIGN.md`
-- **Operational reliability**: `docs/INDEXEDDB_RELIABILITY.md`
 - **Testing**: `docs/TESTING.md` (quick how-to) and `tests/README.md` (details)
-- **Production readiness**: `docs/PRODUCTION_READINESS_CHECKLIST.md`
 - **Issue filing**: `docs/GITHUB_ISSUES_PROTOCOL.md`
+
+### Other docs (organized)
+
+- **Operations**: `docs/ops/AI_GATEWAY_MONITORING.md`, `docs/ops/INDEXEDDB_RELIABILITY.md`, `docs/ops/PWA_CACHE_STRATEGY.md`
+- **Release**: `docs/GOOGLE_PLAY_SUBMISSION_GUIDE.md`
+- **Plans**: `docs/plan/` (execution plans)
+- **Archive**: `docs/archive/` (point-in-time reports)
+
+### Onboarding essentials
+
+- **Product + UX constraints**: `docs/PRODUCT_DESIGN.md` (5-minute time-to-value rules)
+- **System architecture + data flow**: `docs/TECHNICAL_DESIGN.md`
+- **Sync reliability expectations**: `docs/ops/INDEXEDDB_RELIABILITY.md`
+- **Testing workflow**: `docs/TESTING.md` and `tests/README.md`
+- **Issue protocol**: `docs/GITHUB_ISSUES_PROTOCOL.md`
+
+### What’s in flight
+
+- See active execution plans in `docs/plan/`
 
 ## MVP Product Behavior (5-minute time-to-value)
 
