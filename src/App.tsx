@@ -604,14 +604,23 @@ const AppContent: React.FC = () => {
     }
   };
 
-  const debouncedSaveCollection = useCallback((collection: UserCollection) => {
-    if (saveTimeoutRef.current[collection.id]) {
-      clearTimeout(saveTimeoutRef.current[collection.id]);
-    }
-    saveTimeoutRef.current[collection.id] = setTimeout(() => {
-      saveCollection(collection).catch((err) => console.warn('Sync failed', err));
-    }, 1500);
-  }, []);
+  const debouncedSaveCollection = useCallback(
+    (collection: UserCollection) => {
+      if (saveTimeoutRef.current[collection.id]) {
+        clearTimeout(saveTimeoutRef.current[collection.id]);
+      }
+      saveTimeoutRef.current[collection.id] = setTimeout(() => {
+        saveCollection(collection).catch((err) => {
+          console.warn('Sync failed', err);
+          showStatus(
+            t('statusSyncError').replace('{error}', err.message || 'Unknown error'),
+            'error',
+          );
+        });
+      }, 1500);
+    },
+    [showStatus, t],
+  );
 
   const canEditCollection = useCallback(
     (collectionId: string) => {
@@ -654,16 +663,18 @@ const AppContent: React.FC = () => {
       updatedAt: now,
     };
 
-    setCollections((prev) =>
-      prev.map((c) => {
-        if (c.id === collectionId) {
-          const newC = { ...c, items: [newItem, ...c.items], updatedAt: now };
-          saveCollection(newC);
-          return newC;
-        }
-        return c;
-      }),
-    );
+    setCollections((prev) => {
+      const target = prev.find((c) => c.id === collectionId);
+      if (target) {
+        const newC = { ...target, items: [newItem, ...target.items], updatedAt: now };
+        saveCollection(newC).catch((e) => {
+          console.error('Save failed:', e);
+          showStatus(t('statusSyncError').replace('{error}', e.message), 'error');
+        });
+        return prev.map((c) => (c.id === collectionId ? newC : c));
+      }
+      return prev;
+    });
     showStatus(t('statusSaved'), 'success');
   };
 
@@ -692,16 +703,18 @@ const AppContent: React.FC = () => {
     (collectionId: string, updates: Partial<UserCollection>) => {
       if (!canEditCollection(collectionId)) return;
       const now = new Date().toISOString();
-      setCollections((prev) =>
-        prev.map((c) => {
-          if (c.id === collectionId) {
-            const newC = { ...c, ...updates, updatedAt: now };
-            saveCollection(newC);
-            return newC;
-          }
-          return c;
-        }),
-      );
+      setCollections((prev) => {
+        const target = prev.find((c) => c.id === collectionId);
+        if (target) {
+          const newC = { ...target, ...updates, updatedAt: now };
+          saveCollection(newC).catch((e) => {
+            console.error('Update collection failed:', e);
+            showStatus(t('statusSyncError').replace('{error}', e.message), 'error');
+          });
+          return prev.map((c) => (c.id === collectionId ? newC : c));
+        }
+        return prev;
+      });
     },
     [canEditCollection],
   );
@@ -793,7 +806,10 @@ const AppContent: React.FC = () => {
     };
     setCollections((prev) => {
       const updated = [...prev, newCol];
-      saveCollection(newCol);
+      saveCollection(newCol).catch((e) => {
+        console.error('Create collection failed:', e);
+        showStatus(t('statusSyncError').replace('{error}', e.message), 'error');
+      });
       return updated;
     });
     showStatus(t('statusSaved'), 'success');
@@ -802,21 +818,26 @@ const AppContent: React.FC = () => {
 
   const deleteItem = (collectionId: string, itemId: string) => {
     if (!canEditCollection(collectionId)) return false;
-    setCollections((prev) =>
-      prev.map((c) => {
-        if (c.id === collectionId) {
-          const newC = {
-            ...c,
-            items: c.items.filter((i) => i.id !== itemId),
-          };
-          saveCollection(newC);
-          deleteAsset(collectionId, itemId);
-          void deleteCloudItem(collectionId, itemId);
-          return newC;
-        }
-        return c;
-      }),
-    );
+    setCollections((prev) => {
+      const target = prev.find((c) => c.id === collectionId);
+      if (target) {
+        const newC = {
+          ...target,
+          items: target.items.filter((i) => i.id !== itemId),
+        };
+        saveCollection(newC).catch((e) => {
+          console.error('Delete item save failed:', e);
+          showStatus(t('statusSyncError').replace('{error}', e.message), 'error');
+        });
+        deleteAsset(collectionId, itemId);
+        deleteCloudItem(collectionId, itemId).catch((e) => {
+          console.warn('Delete cloud item failed:', e);
+          // We don't show an error here as it's queued for retry, but we log it.
+        });
+        return prev.map((c) => (c.id === collectionId ? newC : c));
+      }
+      return prev;
+    });
     return true;
   };
 

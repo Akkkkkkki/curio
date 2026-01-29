@@ -186,7 +186,7 @@ export const enhanceImage = async (
   }
 };
 
-interface MuseumGuideSession {
+export interface MuseumGuideSession {
   sendRealtimeInput: (input: { media: { data: string; mimeType: string } }) => void;
 }
 

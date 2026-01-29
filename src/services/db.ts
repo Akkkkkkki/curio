@@ -1201,11 +1201,15 @@ export const getAsset = async (
           ? normalizePhotoPaths(remotePath).displayPath
           : normalizePhotoPaths(remotePath).originalPath
         : null;
-      const fallbackPath = collectionId
-        ? `${user!.id}/collections/${collectionId}/${id}/${type === 'display' ? 'display.jpg' : 'original.jpg'}`
-        : // Legacy pre-folder layout fallback
-          `${user!.id}/${id}_${type === 'display' ? 'thumb' : 'master'}.jpg`;
+      const fallbackPath =
+        collectionId && user
+          ? `${user.id}/collections/${collectionId}/${id}/${type === 'display' ? 'display.jpg' : 'original.jpg'}`
+          : user
+            ? `${user.id}/${id}_${type === 'display' ? 'thumb' : 'master'}.jpg`
+            : null;
+
       const path = normalizedRemotePath || fallbackPath;
+      if (!path) return null;
       const { data, error } = await supabase.storage.from('curio-assets').download(path);
 
       if (data && !error) {

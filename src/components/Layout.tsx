@@ -24,7 +24,7 @@ interface LayoutProps {
   hasLocalImport?: boolean;
   importState?: 'idle' | 'running' | 'done' | 'error';
   importMessage?: string | null;
-  user: any | null;
+  user: User | null;
   isSupabaseConfigured: boolean;
   headerExtras?: React.ReactNode;
   statusBanner?: React.ReactNode;

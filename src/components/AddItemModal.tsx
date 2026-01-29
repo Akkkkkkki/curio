@@ -1043,7 +1043,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
             </button>
           </div>
 
-          <div className="flex-1 min-h-0 overflow-y-auto p-5 pb-24 sm:p-8 space-y-6">
+          <div className="flex-1 min-h-0 overflow-y-auto p-5 pb-24 sm:p-8 space-y-6 overscroll-contain">
             {renderStepper()}
             {step === 'select-type' && renderCollectionSelect()}
             {step === 'upload' && renderUpload()}

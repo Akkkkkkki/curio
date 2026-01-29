@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Mic, MicOff, X, Sparkles, Volume2, Loader2 } from 'lucide-react';
 import { UserCollection } from '../types';
-import { connectMuseumGuide } from '../services/geminiService';
+import { connectMuseumGuide, type MuseumGuideSession } from '../services/geminiService';
 import { useTranslation } from '../i18n';
 
 interface MuseumGuideProps {
@@ -19,7 +19,7 @@ export const MuseumGuide: React.FC<MuseumGuideProps> = ({ collection, isOpen, on
   const audioContextRef = useRef<AudioContext | null>(null);
   const nextStartTimeRef = useRef(0);
   const sourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
-  const sessionRef = useRef<any>(null);
+  const sessionRef = useRef<MuseumGuideSession | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
   useEffect(() => {

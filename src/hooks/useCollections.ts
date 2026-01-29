@@ -126,17 +126,27 @@ export const useCollections = ({
   // Sync pending changes when coming back online
   useEffect(() => {
     const handleOnline = async () => {
-      const synced = await syncPendingChanges();
-      const assetsSynced = await syncPendingAssetUploads();
-      const deletesSynced = await syncPendingDeletes();
-      if (synced > 0) {
+      try {
+        const synced = await syncPendingChanges();
+        const assetsSynced = await syncPendingAssetUploads();
+        const deletesSynced = await syncPendingDeletes();
+        if (synced > 0) {
+          const t = tRef.current;
+          const showStatus = showStatusRef.current;
+          showStatus(t('statusPendingSynced').replace('{count}', String(synced)), 'success');
+          setSyncStatus('synced');
+        }
+        if (assetsSynced > 0 || deletesSynced > 0) {
+          setSyncStatus('synced');
+        }
+      } catch (e) {
+        console.error('Online sync failed:', e);
         const t = tRef.current;
         const showStatus = showStatusRef.current;
-        showStatus(t('statusPendingSynced').replace('{count}', String(synced)), 'success');
-        setSyncStatus('synced');
-      }
-      if (assetsSynced > 0 || deletesSynced > 0) {
-        setSyncStatus('synced');
+        showStatus(
+          t('statusSyncError').replace('{error}', e instanceof Error ? e.message : 'Unknown error'),
+          'error',
+        );
       }
     };
 
