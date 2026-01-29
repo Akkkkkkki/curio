@@ -11,6 +11,8 @@ import {
   ArrowRight,
   Trash2,
   Plus,
+  Edit3,
+  RefreshCw,
 } from 'lucide-react';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { UserCollection, CollectionItem } from '../types';
@@ -18,6 +20,7 @@ import { analyzeImage, refreshAiEnabled } from '../services/geminiService';
 import { Button } from './ui/Button';
 import { useTranslation } from '../i18n';
 import { useTheme, panelSurfaceClasses, overlaySurfaceClasses, mutedTextClasses } from '../theme';
+import { ImageEditModal } from './ImageEditModal';
 
 interface AddItemModalProps {
   isOpen: boolean;
@@ -73,10 +76,19 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
   const [formData, setFormData] = useState(createEmptyForm());
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [analysisError, setAnalysisError] = useState(false);
+  const [analysisNeedsReview, setAnalysisNeedsReview] = useState(false);
+  const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(
+    null,
+  );
+  const [titleError, setTitleError] = useState<string | null>(null);
+  const [batchTitleErrors, setBatchTitleErrors] = useState<Record<string, boolean>>({});
+  const [isImageEditorOpen, setIsImageEditorOpen] = useState(false);
 
   const batchInputRef = useRef<HTMLInputElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const lastFocusedElementRef = useRef<HTMLElement | null>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
   const analysisRunId = useRef(0);
 
   const surfaceClass = panelSurfaceClasses[theme];
@@ -123,6 +135,12 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
       setFormData(createEmptyForm());
       setError(null);
       setIsSaving(false);
+      setAnalysisError(false);
+      setAnalysisNeedsReview(false);
+      setBatchProgress(null);
+      setTitleError(null);
+      setBatchTitleErrors({});
+      setIsImageEditorOpen(false);
       analysisRunId.current += 1;
     }
   }, [isOpen, collections]);
@@ -198,6 +216,8 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
   const switchToManual = () => {
     analysisRunId.current += 1;
     setError(null);
+    setAnalysisError(false);
+    setAnalysisNeedsReview(false);
     setStep('verify');
   };
 
@@ -212,6 +232,8 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
 
       if (image.dataUrl) {
         setError(null);
+        setAnalysisError(false);
+        setAnalysisNeedsReview(false);
         setFormData(createEmptyForm());
         setImagePreview(image.dataUrl);
         analyze(image.dataUrl);
@@ -233,6 +255,8 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
 
       if (image.dataUrl) {
         setError(null);
+        setAnalysisError(false);
+        setAnalysisNeedsReview(false);
         setFormData(createEmptyForm());
         setImagePreview(image.dataUrl);
         analyze(image.dataUrl);
@@ -243,6 +267,70 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
         t('galleryError', 'Could not access photo gallery. Please ensure permissions are granted.'),
       );
     }
+  };
+
+  const createBatchItem = (image: string, overrides: Partial<BatchItem> = {}): BatchItem => ({
+    id: Math.random().toString(36).slice(2, 10),
+    image,
+    title: '',
+    notes: '',
+    data: {},
+    rating: 0,
+    ...overrides,
+  });
+
+  const runBatchAnalysis = async (images: string[], existingIds: string[] = []) => {
+    if (!currentCollection) return images.map((image) => createBatchItem(image));
+    const collection = currentCollection;
+    const aiEnabled = await refreshAiEnabled();
+    if (!aiEnabled) {
+      setError(t('aiUnavailableManual'));
+      setAnalysisError(true);
+      return images.map((image, index) =>
+        createBatchItem(image, existingIds[index] ? { id: existingIds[index] } : {}),
+      );
+    }
+    const analyzed: BatchItem[] = [];
+    let hadError = false;
+    for (let idx = 0; idx < images.length; idx += 1) {
+      const image = images[idx];
+      setBatchProgress((prev) =>
+        prev
+          ? { current: Math.min(prev.current + 1, prev.total), total: prev.total }
+          : { current: idx + 1, total: images.length },
+      );
+      const base64Data = image.split(',')[1];
+      try {
+        const result = await analyzeImage(base64Data, collection.customFields, {
+          collectionContext: {
+            name: collection.name,
+            description: collection.collectionDescription,
+          },
+          locale: language,
+        });
+        if (!result) {
+          setError(t('analysisFallback'));
+          hadError = true;
+          analyzed.push(createBatchItem(image, existingIds[idx] ? { id: existingIds[idx] } : {}));
+          continue;
+        }
+        analyzed.push(
+          createBatchItem(image, {
+            id: existingIds[idx] || Math.random().toString(36).slice(2, 10),
+            title: result.title || '',
+            notes: result.notes || '',
+            data: cleanAiData(result.data || {}),
+          }),
+        );
+      } catch (err) {
+        console.error(err);
+        setError(t('analysisFallback'));
+        hadError = true;
+        analyzed.push(createBatchItem(image, existingIds[idx] ? { id: existingIds[idx] } : {}));
+      }
+    }
+    setAnalysisError(hadError);
+    return analyzed;
   };
 
   const handleBatchFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -264,67 +352,24 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
         reader.readAsDataURL(file);
       });
 
-    const createBatchItem = (image: string, overrides: Partial<BatchItem> = {}): BatchItem => ({
-      id: Math.random().toString(36).slice(2, 10),
-      image,
-      title: '',
-      notes: '',
-      data: {},
-      rating: 0,
-      ...overrides,
-    });
-
-    const analyzeBatchImages = async (images: string[]) => {
-      const aiEnabled = await refreshAiEnabled();
-      if (!aiEnabled) {
-        setError(t('aiUnavailableManual'));
-        return images.map((image) => createBatchItem(image));
-      }
-      const analyzed: BatchItem[] = [];
-      for (const image of images) {
-        const base64Data = image.split(',')[1];
-        try {
-          const result = await analyzeImage(base64Data, collection.customFields, {
-            collectionContext: {
-              name: collection.name,
-              description: collection.collectionDescription,
-            },
-            locale: language,
-          });
-          if (!result) {
-            setError(t('analysisFallback'));
-            analyzed.push(createBatchItem(image));
-            continue;
-          }
-          analyzed.push(
-            createBatchItem(image, {
-              title: result.title || '',
-              notes: result.notes || '',
-              data: cleanAiData(result.data || {}),
-            }),
-          );
-        } catch (err) {
-          console.error(err);
-          setError(t('analysisFallback'));
-          analyzed.push(createBatchItem(image));
-        }
-      }
-      return analyzed;
-    };
-
     const loadBatch = async () => {
       setError(null);
+      setAnalysisError(false);
+      setBatchTitleErrors({});
       setStep('analyzing');
       try {
         const images = await Promise.all(Array.from(files).map(readFileAsDataUrl));
-        const newItems = await analyzeBatchImages(images);
+        setBatchProgress({ current: 0, total: images.length });
+        const newItems = await runBatchAnalysis(images);
         setBatchItems((prev) => [...prev, ...newItems]);
         setStep('batch-verify');
       } catch (err) {
         console.error(err);
         setError('Analysis failed. Please fill in the details manually.');
+        setAnalysisError(true);
         setStep('batch-verify');
       } finally {
+        setBatchProgress(null);
         e.target.value = '';
       }
     };
@@ -334,6 +379,16 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
 
   const updateBatchItem = (id: string, updates: Partial<BatchItem>) => {
     setBatchItems((prev) => prev.map((item) => (item.id === id ? { ...item, ...updates } : item)));
+    if (updates.title !== undefined) {
+      setBatchTitleErrors((prev) => {
+        if (!prev[id]) return prev;
+        const next = { ...prev };
+        if (updates.title?.trim()) {
+          delete next[id];
+        }
+        return next;
+      });
+    }
   };
 
   const updateBatchItemField = (id: string, fieldId: string, value: string) => {
@@ -351,12 +406,21 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
 
   const removeBatchItem = (id: string) => {
     setBatchItems((prev) => prev.filter((item) => item.id !== id));
+    setBatchTitleErrors((prev) => {
+      if (!prev[id]) return prev;
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
   };
 
   const analyze = async (base64: string) => {
     if (!currentCollection) return;
     const runId = ++analysisRunId.current;
     setError(null);
+    setAnalysisError(false);
+    setAnalysisNeedsReview(false);
+    setTitleError(null);
     setFormData(createEmptyForm());
     const aiEnabled = await refreshAiEnabled();
     if (analysisRunId.current !== runId) return;
@@ -378,6 +442,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
       });
       if (!result) {
         setError(t('analysisFallback'));
+        setAnalysisError(true);
         setStep('verify');
         return;
       }
@@ -393,18 +458,69 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
       console.error(e);
       if (analysisRunId.current !== runId) return;
       setError(t('analysisFallback'));
+      setAnalysisError(true);
       setStep('verify');
     }
   };
 
+  const retryAnalysis = () => {
+    if (!imagePreview) return;
+    setError(null);
+    setAnalysisError(false);
+    setAnalysisNeedsReview(false);
+    analyze(imagePreview);
+  };
+
+  const retryBatchAnalysis = async () => {
+    if (!currentCollection || batchItems.length === 0) return;
+    setError(null);
+    setAnalysisError(false);
+    setBatchTitleErrors({});
+    setBatchProgress({ current: 0, total: batchItems.length });
+    setStep('analyzing');
+    try {
+      const images = batchItems.map((item) => item.image);
+      const ids = batchItems.map((item) => item.id);
+      const updatedItems = await runBatchAnalysis(images, ids);
+      setBatchItems(updatedItems);
+      setStep('batch-verify');
+    } catch (err) {
+      console.error(err);
+      setError(t('analysisFallback'));
+      setAnalysisError(true);
+      setStep('batch-verify');
+    } finally {
+      setBatchProgress(null);
+    }
+  };
+
+  const handleApplyImageEdit = (edited: string) => {
+    setImagePreview(edited);
+    setIsImageEditorOpen(false);
+    if (step === 'upload' || step === 'analyzing') {
+      setError(null);
+      setAnalysisError(false);
+      setAnalysisNeedsReview(false);
+      analyze(edited);
+      return;
+    }
+    setAnalysisNeedsReview(true);
+  };
+
   const handleSave = async () => {
     if (!currentCollection || isSaving) return;
+    const trimmedTitle = formData.title.trim();
+    if (!trimmedTitle) {
+      setTitleError(t('titleRequired'));
+      titleInputRef.current?.focus();
+      return;
+    }
     setIsSaving(true);
     try {
       await onSave(currentCollection.id, {
         collectionId: currentCollection.id,
         photoUrl: imagePreview || '',
-        title: formData.title || 'Untitled',
+        title: trimmedTitle,
         rating: formData.rating || 0,
         notes: formData.notes || '',
         data: formData.data || {},
@@ -420,6 +536,16 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
 
   const handleBatchSave = async () => {
     if (!currentCollection || isSaving) return;
+    const missingTitles = batchItems.filter((item) => !item.title.trim());
+    if (missingTitles.length > 0) {
+      const errors = missingTitles.reduce<Record<string, boolean>>((acc, item) => {
+        acc[item.id] = true;
+        return acc;
+      }, {});
+      setBatchTitleErrors(errors);
+      setError(t('batchTitleRequired'));
+      return;
+    }
     setIsSaving(true);
     try {
       for (const item of batchItems) {
@@ -558,6 +684,16 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
         <Button onClick={pickFromGallery} size="lg" icon={<Upload size={18} />}>
           {imagePreview ? t('changePhoto') : t('uploadPhoto')}
         </Button>
+        {imagePreview && (
+          <Button
+            variant="outline"
+            onClick={() => setIsImageEditorOpen(true)}
+            size="lg"
+            icon={<Edit3 size={18} />}
+          >
+            {t('editPhoto')}
+          </Button>
+        )}
         <Button
           variant="secondary"
           onClick={() => batchInputRef.current?.click()}
@@ -598,6 +734,16 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
           {error}
         </div>
       )}
+      {analysisError && (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={retryBatchAnalysis}
+          icon={<RefreshCw size={14} />}
+        >
+          {t('retryAnalysis')}
+        </Button>
+      )}
       <div className="space-y-4 px-1">
         {batchItems.map((item) => (
           <div key={item.id} className="rounded-2xl border border-stone-100 bg-white p-3 shadow-sm">
@@ -606,6 +752,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
                 <img src={item.image} className="w-full h-full object-cover" />
                 <button
                   onClick={() => removeBatchItem(item.id)}
+                  aria-label={t('remove')}
                   className="absolute top-1 right-1 bg-white/80 p-1 rounded-full text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
                 >
                   <Trash2 size={12} />
@@ -624,6 +771,11 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
                     value={item.title}
                     onChange={(e) => updateBatchItem(item.id, { title: e.target.value })}
                   />
+                  {batchTitleErrors[item.id] && (
+                    <p className="mt-1 text-[10px] text-red-500 font-semibold">
+                      {t('titleRequired')}
+                    </p>
+                  )}
                   <p className={`mt-1 text-[10px] ${mutedText}`}>{t('titleGuidance')}</p>
                 </div>
                 {currentCollection?.customFields.map((field) => (
@@ -683,7 +835,9 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
         size="lg"
         onClick={handleBatchSave}
         icon={isSaving ? <Loader2 size={18} className="animate-spin" /> : <ArrowRight size={18} />}
-        disabled={batchItems.length === 0 || isSaving}
+        disabled={
+          batchItems.length === 0 || isSaving || batchItems.some((item) => !item.title.trim())
+        }
       >
         {isSaving ? t('analyzingPhoto').split('...')[0] : `Archive ${batchItems.length} Artifacts`}
       </Button>
@@ -705,6 +859,14 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
         <p className="text-sm sm:text-base text-stone-500 italic font-serif">
           {t('geminiExtracting')}
         </p>
+        {batchProgress && batchProgress.total > 1 && (
+          <p className="text-xs text-stone-400 mt-2">
+            {t('batchProgress', {
+              current: batchProgress.current,
+              total: batchProgress.total,
+            })}
+          </p>
+        )}
       </div>
       <div className="flex justify-center">
         <Button variant="ghost" size="sm" onClick={switchToManual}>
@@ -716,23 +878,51 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
 
   const renderVerify = () => (
     <div className="space-y-4 sm:space-y-6">
-      {error && (
+      {analysisNeedsReview && (
         <div className="p-3 bg-amber-50 text-amber-700 text-xs rounded-xl border border-amber-100 font-medium flex items-center justify-between gap-2">
-          <span>{error}</span>
+          <span>{t('analysisNeedsReview')}</span>
           <button
-            onClick={switchToManual}
+            onClick={retryAnalysis}
             className="text-amber-800 underline underline-offset-4 font-semibold"
           >
-            {t('enterManually')}
+            {t('retryAnalysis')}
           </button>
         </div>
       )}
+      {error && (
+        <div className="p-3 bg-amber-50 text-amber-700 text-xs rounded-xl border border-amber-100 font-medium flex items-center justify-between gap-2">
+          <span>{error}</span>
+          {analysisError && (
+            <button
+              onClick={switchToManual}
+              className="text-amber-800 underline underline-offset-4 font-semibold"
+            >
+              {t('enterManually')}
+            </button>
+          )}
+        </div>
+      )}
+      {analysisError && (
+        <Button variant="outline" size="sm" onClick={retryAnalysis} icon={<RefreshCw size={14} />}>
+          {t('retryAnalysis')}
+        </Button>
+      )}
       <div className="flex gap-4 sm:gap-6 items-start">
-        <div className="w-16 h-16 sm:w-24 sm:h-24 rounded-xl bg-stone-100 flex-shrink-0 overflow-hidden border border-stone-200">
-          {imagePreview ? (
-            <img src={imagePreview} className="w-full h-full object-cover" />
-          ) : (
-            <CameraIcon className="w-full h-full p-4 sm:p-6 text-stone-200" />
+        <div className="flex flex-col items-center gap-2 shrink-0">
+          <div className="w-16 h-16 sm:w-24 sm:h-24 rounded-xl bg-stone-100 overflow-hidden border border-stone-200">
+            {imagePreview ? (
+              <img src={imagePreview} className="w-full h-full object-cover" />
+            ) : (
+              <CameraIcon className="w-full h-full p-4 sm:p-6 text-stone-200" />
+            )}
+          </div>
+          {imagePreview && (
+            <button
+              onClick={() => setIsImageEditorOpen(true)}
+              className="text-[11px] font-semibold text-amber-700 hover:text-amber-900"
+            >
+              {t('editPhoto')}
+            </button>
           )}
         </div>
         <div className="flex-1">
@@ -743,10 +933,19 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
           </label>
           <input
             type="text"
-            className={`w-full text-lg sm:text-xl font-bold bg-transparent border-b ${borderClass} focus:border-amber-500 outline-none pb-1 transition-colors ${theme === 'vault' ? 'text-white placeholder:text-stone-400' : 'text-stone-900'}`}
+            ref={titleInputRef}
+            className={`w-full text-lg sm:text-xl font-bold bg-transparent border-b ${titleError ? 'border-red-400 focus:border-red-500' : borderClass} focus:border-amber-500 outline-none pb-1 transition-colors ${theme === 'vault' ? 'text-white placeholder:text-stone-400' : 'text-stone-900'}`}
             value={formData.title}
-            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+            onChange={(e) => {
+              setFormData({ ...formData, title: e.target.value });
+              if (titleError && e.target.value.trim()) {
+                setTitleError(null);
+              }
+            }}
           />
+          {titleError && (
+            <p className="mt-1 text-[10px] text-red-500 font-semibold">{titleError}</p>
+          )}
           <p className={`mt-1 text-[11px] sm:text-xs ${mutedText}`}>{t('titleGuidance')}</p>
         </div>
       </div>
@@ -812,46 +1011,54 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
   );
 
   return (
-    <div
-      className={`fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 ${overlayClass} backdrop-blur-sm`}
-    >
+    <>
       <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="add-item-modal-title"
-        className={`${surfaceClass} rounded-t-3xl rounded-b-none sm:rounded-3xl shadow-2xl w-full max-w-lg h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[90vh] overflow-hidden flex flex-col motion-panel pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] sm:pt-0 sm:pb-0`}
+        className={`fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 ${overlayClass} backdrop-blur-sm`}
       >
-        <div className="sm:hidden flex items-center justify-center pt-2">
-          <span
-            className={`${theme === 'vault' ? 'bg-white/20' : 'bg-stone-200'} h-1.5 w-12 rounded-full`}
-          />
-        </div>
-        <div className={`flex items-center justify-between p-4 sm:p-6 border-b ${borderClass}`}>
-          <h2
-            id="add-item-modal-title"
-            className={`font-serif font-bold text-lg sm:text-xl ${theme === 'vault' ? 'text-white' : 'text-stone-800'}`}
-          >
-            {t('addItem')}
-          </h2>
-          <button
-            onClick={onClose}
-            aria-label={t('close')}
-            className={`p-2 rounded-full transition-colors ${theme === 'vault' ? 'hover:bg-white/5 text-stone-300 hover:text-white' : 'hover:bg-stone-100 text-stone-400 hover:text-stone-800'}`}
-          >
-            <X size={20} />
-          </button>
-        </div>
+        <div
+          ref={dialogRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="add-item-modal-title"
+          className={`${surfaceClass} rounded-t-3xl rounded-b-none sm:rounded-3xl shadow-2xl w-full max-w-lg h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[90vh] overflow-hidden flex flex-col motion-panel pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] sm:pt-0 sm:pb-0`}
+        >
+          <div className="sm:hidden flex items-center justify-center pt-2">
+            <span
+              className={`${theme === 'vault' ? 'bg-white/20' : 'bg-stone-200'} h-1.5 w-12 rounded-full`}
+            />
+          </div>
+          <div className={`flex items-center justify-between p-4 sm:p-6 border-b ${borderClass}`}>
+            <h2
+              id="add-item-modal-title"
+              className={`font-serif font-bold text-lg sm:text-xl ${theme === 'vault' ? 'text-white' : 'text-stone-800'}`}
+            >
+              {t('addItem')}
+            </h2>
+            <button
+              onClick={onClose}
+              aria-label={t('close')}
+              className={`p-2 rounded-full transition-colors ${theme === 'vault' ? 'hover:bg-white/5 text-stone-300 hover:text-white' : 'hover:bg-stone-100 text-stone-400 hover:text-stone-800'}`}
+            >
+              <X size={20} />
+            </button>
+          </div>
 
-        <div className="flex-1 min-h-0 overflow-y-auto p-5 pb-24 sm:p-8 space-y-6">
-          {renderStepper()}
-          {step === 'select-type' && renderCollectionSelect()}
-          {step === 'upload' && renderUpload()}
-          {step === 'batch-verify' && renderBatchVerify()}
-          {step === 'analyzing' && renderAnalyzing()}
-          {step === 'verify' && renderVerify()}
+          <div className="flex-1 min-h-0 overflow-y-auto p-5 pb-24 sm:p-8 space-y-6 overscroll-contain">
+            {renderStepper()}
+            {step === 'select-type' && renderCollectionSelect()}
+            {step === 'upload' && renderUpload()}
+            {step === 'batch-verify' && renderBatchVerify()}
+            {step === 'analyzing' && renderAnalyzing()}
+            {step === 'verify' && renderVerify()}
+          </div>
         </div>
       </div>
-    </div>
+      <ImageEditModal
+        isOpen={isImageEditorOpen}
+        source={imagePreview}
+        onClose={() => setIsImageEditorOpen(false)}
+        onApply={handleApplyImageEdit}
+      />
+    </>
   );
 };

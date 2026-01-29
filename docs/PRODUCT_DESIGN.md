@@ -52,6 +52,7 @@ This section captures **current behavior in the codebase** (so docs stay actiona
 - **Non-blocking AI**: AI auto-fill happens in the background and never blocks manual entry or saving.
 - **Recoverable AI**: Users can disable/skip AI and proceed with manual entry if AI is unavailable or fails.
 - **Title guidance**: Users are nudged to keep titles **concise for cards** and put extra detail in metadata fields (localized EN/ZH).
+- **Lightweight photo edits**: Rotate or crop to square before saving without leaving the flow.
 
 ### Design notes: Make capture “feel simple” on mobile
 
@@ -73,6 +74,14 @@ This section captures **current behavior in the codebase** (so docs stay actiona
 - **Performance perception**: keep first screen fast and provide immediate feedback for save/sync actions. If an operation is async, show status and keep the UI usable.
 - **Accessibility baseline**: maintain readable contrast and font sizes; avoid tiny labels on mobile. Ensure focus states are visible for keyboard and assistive tech.
 - **Testing expectation**: validate changes at common mobile sizes (e.g., 360×740, 390×844) and at least one small Android device size. Include screenshots for perceptible UI changes.
+
+### Collection browsing (production baseline)
+
+- **Sorting**: Allow quick ordering by newest, oldest, title, or rating.
+- **Bulk actions**: Support a simple selection mode with multi-delete for faster cleanup.
+- **Conflict awareness**: If cloud updates overwrite local edits, provide a review prompt.
+- **Offline clarity**: Persistent banner explains that edits are saved locally and will sync later.
+- **Undo/redo**: Lightweight history for in-session item edits to reduce accidental changes.
 
 ## 2.1 AI image features (design + cost guardrails)
 

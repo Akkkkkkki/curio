@@ -50,6 +50,8 @@ The authenticated flow test (`tests/e2e/authenticated-user.spec.ts`) is **skippe
 - `E2E_EMAIL`
 - `E2E_PASSWORD`
 
+> **Note:** These should be credentials for a test account in the target environment. Do not commit real credentials to the repository.
+
 ## Live integration smoke tests (Gemini proxy)
 
 These tests call the real Gemini proxy endpoint(s) and will fail if the proxy is not running or if the Gemini

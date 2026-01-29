@@ -279,6 +279,27 @@ describe('ItemCard Component', () => {
       fireEvent.keyDown(card, { key: 'a' });
       expect(onClick).not.toHaveBeenCalled();
     });
+
+    it('calls onSelect when selection mode is enabled', () => {
+      const item = createMockItem();
+      const onClick = vi.fn();
+      const onSelect = vi.fn();
+
+      renderWithProviders(
+        <ItemCard
+          item={item}
+          fields={mockFields}
+          onClick={onClick}
+          isSelectable={true}
+          isSelected={false}
+          onSelect={onSelect}
+        />,
+      );
+
+      fireEvent.click(screen.getByTestId('item-card'));
+      expect(onSelect).toHaveBeenCalledTimes(1);
+      expect(onClick).not.toHaveBeenCalled();
+    });
   });
 
   describe('Accessibility', () => {

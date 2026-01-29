@@ -24,9 +24,10 @@ interface LayoutProps {
   hasLocalImport?: boolean;
   importState?: 'idle' | 'running' | 'done' | 'error';
   importMessage?: string | null;
-  user: any | null;
+  user: User | null;
   isSupabaseConfigured: boolean;
   headerExtras?: React.ReactNode;
+  statusBanner?: React.ReactNode;
 }
 
 export const Layout: React.FC<LayoutProps> = ({
@@ -41,6 +42,7 @@ export const Layout: React.FC<LayoutProps> = ({
   user,
   isSupabaseConfigured,
   headerExtras,
+  statusBanner,
 }) => {
   const { t } = useTranslation();
   const { theme } = useTheme();
@@ -234,6 +236,8 @@ export const Layout: React.FC<LayoutProps> = ({
           </nav>
         </div>
       </header>
+
+      {statusBanner && <div className="max-w-4xl mx-auto px-4 pt-4 sm:pt-5">{statusBanner}</div>}
 
       <main className="max-w-4xl mx-auto px-4 py-8 pb-[calc(7rem+env(safe-area-inset-bottom,0px))]">
         {children}

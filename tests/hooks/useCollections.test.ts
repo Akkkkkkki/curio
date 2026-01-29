@@ -286,4 +286,31 @@ describe('hooks/useCollections.ts (Phase 3.3)', () => {
     expect(result.current.collections).toEqual(merged);
     expect(dbMocks.saveAllCollections).toHaveBeenCalledWith(merged);
   });
+
+  it('handleOnline: catches and reports errors during sync recovery', async () => {
+    /**
+     * Verifies that if syncPendingChanges throws during the online event,
+     * the error is caught and reported to the user.
+     */
+    dbMocks.syncPendingChanges.mockRejectedValue(new Error('Sync failed'));
+
+    const { useCollections } = await import('@/hooks/useCollections');
+    renderHook(() =>
+      useCollections({
+        user: { id: 'u1' } as any,
+        isAdmin: false,
+        isSupabaseReady: true,
+        fallbackSampleCollections,
+        t,
+        showStatus,
+      }),
+    );
+
+    // Simulate online event
+    window.dispatchEvent(new Event('online'));
+
+    await waitFor(() => {
+      expect(showStatus).toHaveBeenCalledWith(expect.stringContaining('statusSyncError'), 'error');
+    });
+  });
 });

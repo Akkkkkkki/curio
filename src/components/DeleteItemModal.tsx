@@ -51,6 +51,7 @@ export const DeleteItemModal: React.FC<DeleteItemModalProps> = ({
           </div>
           <button
             onClick={onClose}
+            aria-label={t('close')}
             className={`w-11 h-11 sm:w-9 sm:h-9 flex items-center justify-center rounded-full transition-colors ${theme === 'vault' ? 'hover:bg-white/5 text-stone-300 hover:text-white' : 'hover:bg-stone-100 text-stone-400 hover:text-stone-800'}`}
           >
             <X size={20} />
