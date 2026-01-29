@@ -7,31 +7,29 @@ const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-i
 
 // Prompt templates for image enhancement
 const ENHANCEMENT_PROMPTS = {
-  subtle: `Enhance this photo to look cleaner and more presentable while preserving its original character.
+  subtle: `Enhance this photo of a collectible item to improve clarity and lighting while STRICTLY preserving its historical authenticity and physical condition.
 
 Requirements:
-- Preserve the subject's identity, angle, and proportions exactly
-- Do NOT alter, recreate, or modify any text, logos, labels, barcodes, or serial numbers
-- Improve lighting to be more even; reduce harsh shadows and glare
-- Make the background less distracting by reducing visual clutter (do NOT replace the background entirely)
-- Keep colors accurate and natural
-- Do NOT over-process or add artificial effects
-- Maintain the authentic look of the item
+- CRITICAL: Do NOT remove scratches, patina, rust, dents, wear marks, or signs of age. These are essential to the item's value.
+- CRITICAL: Do NOT alter any text, inscriptions, mint marks, or logos.
+- Improve the lighting to reveal details that might be hidden in shadow.
+- Sharpen the image slightly to make details clearer.
+- Neutralize color cast (e.g., remove yellow indoor lighting tint) but keep the item's actual color.
+- Reduce background noise/clutter if possible, but prioritize the item's integrity.
 
-This should look like the same photo, just better lit and cleaner.`,
+The goal is a "documentary" style enhancement: clearer and better lit, but brutally honest about the item's condition.`,
 
-  beautified: `Transform this photo into a polished, studio-quality product image.
+  beautified: `Transform this photo into a high-quality catalog image, but maintain the item's physical reality.
 
 Requirements:
-- Preserve the subject's identity, angle, and proportions exactly
-- Do NOT alter, recreate, or modify any text, logos, labels, barcodes, or serial numbers
-- Create professional, flattering lighting (like a product photography studio)
-- Significantly tidy the background to create a clean, minimal look (but keep some context)
-- Enhance colors to be vibrant but still accurate
-- Reduce any glare, reflections, or imperfections
-- The result should look like a high-quality catalog or advertisement photo
+- Create professional, soft studio lighting.
+- Clean up the BACKGROUND significantly (make it uniform or blurred).
+- Enhance the item's presence and contrast.
+- You MAY reduce minor digital noise or temporary dust.
+- Do NOT repair physical damage to the item (cracks, chips, patina) unless it looks like temporary dirt.
+- Keep text and markings legible and unaltered.
 
-Make it beautiful while keeping the item 100% recognizable.`,
+The goal is a "museum catalog" look: beautiful presentation of the artifact as it exists today.`,
 };
 
 export default async function handler(req, res) {

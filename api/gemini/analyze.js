@@ -39,7 +39,7 @@ export default async function handler(req, res) {
     return res.status(503).json({ error: 'GEMINI_API_KEY is not configured' });
   }
 
-  const { imageBase64, fields } = req.body || {};
+  const { imageBase64, fields, locale = 'en' } = req.body || {};
   if (!imageBase64 || !Array.isArray(fields)) {
     recordApiError(res, { name: 'BadRequest', message: 'Missing imageBase64 or fields' });
     return res.status(400).json({ error: 'Missing imageBase64 or fields' });
@@ -74,7 +74,14 @@ export default async function handler(req, res) {
         parts: [
           { inlineData: { mimeType: 'image/jpeg', data: imageBase64 } },
           {
-            text: 'Analyze this image of a collectible item. Extract metadata based on the provided schema. Be precise. If a field cannot be determined, leave it null.',
+            text: `Analyze this image of a collectible item. Extract metadata based on the provided schema.
+            
+            IMPORTANT RULES:
+            1. Output ALL text (title, notes, field values) in the "${locale}" language.
+            2. Be precise. If a field cannot be determined from the image, leave it null.
+            3. For the "title", provide a descriptive name (e.g., "Qing Dynasty Coin", "Vintage Kodak Camera").
+            4. For "notes", summarize visual observations. If the image is blurry or the item is unrecognizable, state that clearly in the notes.
+            `,
           },
         ],
       },

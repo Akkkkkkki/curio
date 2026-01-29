@@ -13,6 +13,7 @@ import {
   Plus,
   Edit3,
   RefreshCw,
+  AlertCircle,
 } from 'lucide-react';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { UserCollection, CollectionItem } from '../types';
@@ -78,6 +79,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [analysisError, setAnalysisError] = useState(false);
   const [analysisNeedsReview, setAnalysisNeedsReview] = useState(false);
+  const [lowConfidence, setLowConfidence] = useState(false);
   const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(
     null,
   );
@@ -137,6 +139,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
       setIsSaving(false);
       setAnalysisError(false);
       setAnalysisNeedsReview(false);
+      setLowConfidence(false);
       setBatchProgress(null);
       setTitleError(null);
       setBatchTitleErrors({});
@@ -420,6 +423,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     setError(null);
     setAnalysisError(false);
     setAnalysisNeedsReview(false);
+    setLowConfidence(false);
     setTitleError(null);
     setFormData(createEmptyForm());
     const aiEnabled = await refreshAiEnabled();
@@ -447,10 +451,16 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
         return;
       }
       if (analysisRunId.current !== runId) return;
+
+      const cleanedData = cleanAiData(result.data || {});
+      const isGeneric =
+        (result.title === 'New Item' || !result.title) && Object.keys(cleanedData).length < 2;
+      setLowConfidence(isGeneric);
+
       setFormData({
         title: result.title || '',
         notes: result.notes || '',
-        data: cleanAiData(result.data || {}),
+        data: cleanedData,
         rating: 0,
       });
       setStep('verify');
@@ -878,6 +888,15 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
 
   const renderVerify = () => (
     <div className="space-y-4 sm:space-y-6">
+      {lowConfidence && !error && !analysisError && (
+        <div className="p-4 bg-stone-100 text-stone-700 text-sm rounded-xl border border-stone-200 flex flex-col gap-2">
+          <div className="flex items-center gap-2 font-semibold text-stone-900">
+            <AlertCircle size={16} className="text-amber-500" />
+            <span>{t('aiLowConfidenceTitle')}</span>
+          </div>
+          <p className="text-xs leading-relaxed opacity-80">{t('aiLowConfidenceDesc')}</p>
+        </div>
+      )}
       {analysisNeedsReview && (
         <div className="p-3 bg-amber-50 text-amber-700 text-xs rounded-xl border border-amber-100 font-medium flex items-center justify-between gap-2">
           <span>{t('analysisNeedsReview')}</span>
