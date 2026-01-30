@@ -105,7 +105,7 @@ export const ItemCard: React.FC<ItemCardProps> = React.memo(function ItemCard({
       data-item-id={item.id}
       data-item-title={item.title}
       data-selected={isSelected ? 'true' : 'false'}
-      className={`group rounded-2xl transition-all duration-300 overflow-hidden border cursor-pointer flex flex-col motion-safe:active:scale-[0.98] ${layout === 'grid' ? 'h-full' : ''} motion-card ${cardSurface} ${cardShadow} ${tapRing} ${isSelected ? 'ring-2 ring-amber-400' : ''}`}
+      className={`group rounded-2xl transition-all duration-300 ease-out overflow-hidden border cursor-pointer flex flex-col motion-safe:active:scale-[0.98] ${layout === 'grid' ? 'h-full' : ''} motion-card ${cardSurface} ${cardShadow} ${tapRing} ${isSelected ? 'ring-2 ring-amber-400' : ''}`}
     >
       <div
         className={`${layout === 'grid' ? 'aspect-[4/3]' : ''} ${theme === 'vault' ? 'bg-stone-800' : 'bg-stone-100'} overflow-hidden relative`}

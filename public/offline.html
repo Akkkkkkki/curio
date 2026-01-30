@@ -43,12 +43,47 @@
   </head>
   <body>
     <div class="card">
-      <h1>You're offline</h1>
-      <p>
+      <h1 data-i18n="title">You're offline</h1>
+      <p data-i18n="body">
         Curio needs a connection to load new content. Your local data will appear when you're back
         online.
       </p>
-      <p class="hint">Reconnect and refresh to continue.</p>
+      <p class="hint" data-i18n="hint">Reconnect and refresh to continue.</p>
     </div>
+    <script>
+      (function () {
+        var lang = 'en';
+        try {
+          var stored = window.localStorage && window.localStorage.getItem('curio_language');
+          if (stored === 'zh' || stored === 'en') {
+            lang = stored;
+          }
+        } catch (e) {
+          lang = 'en';
+        }
+
+        var copy = {
+          en: {
+            title: "You're offline",
+            body: "Curio needs a connection to load new content. Your local data will appear when you're back online.",
+            hint: 'Reconnect and refresh to continue.',
+          },
+          zh: {
+            title: '当前离线',
+            body: 'Curio 需要联网加载新内容。恢复网络后会显示您的本地数据。',
+            hint: '请重新连接网络并刷新。',
+          },
+        };
+
+        var dict = copy[lang] || copy.en;
+        var title = document.querySelector('[data-i18n="title"]');
+        var body = document.querySelector('[data-i18n="body"]');
+        var hint = document.querySelector('[data-i18n="hint"]');
+        if (title) title.textContent = dict.title;
+        if (body) body.textContent = dict.body;
+        if (hint) hint.textContent = dict.hint;
+        document.documentElement.lang = lang;
+      })();
+    </script>
   </body>
 </html>

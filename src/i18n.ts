@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
 export type Language = 'en' | 'zh';
 
@@ -738,6 +738,14 @@ export const translations = {
   },
 };
 
+const LANGUAGE_STORAGE_KEY = 'curio_language';
+
+const getInitialLanguage = (): Language => {
+  if (typeof window === 'undefined') return 'en';
+  const stored = window.localStorage?.getItem(LANGUAGE_STORAGE_KEY);
+  return stored === 'zh' || stored === 'en' ? stored : 'en';
+};
+
 interface LanguageContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
@@ -747,7 +755,13 @@ interface LanguageContextType {
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
 export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [language, setLanguage] = useState<Language>('en');
+  const [language, setLanguage] = useState<Language>(() => getInitialLanguage());
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage?.setItem(LANGUAGE_STORAGE_KEY, language);
+    }
+  }, [language]);
 
   const t = (key: keyof (typeof translations)['en'], params?: Record<string, any>) => {
     let text = (translations[language] as any)[key] || (translations['en'] as any)[key] || key;
