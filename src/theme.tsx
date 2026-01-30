@@ -20,7 +20,16 @@ const ThemeContext = createContext<ThemeContextValue>({
 });
 
 export const ThemeProvider = ({ children }: { children: ReactNode }) => {
-  const [theme, setThemeState] = useState<AppTheme>('gallery');
+  const getInitialTheme = (): AppTheme => {
+    if (typeof window === 'undefined') return 'gallery';
+    const stored = window.localStorage?.getItem('curio_theme');
+    if (stored === 'gallery' || stored === 'vault' || stored === 'atelier') {
+      return stored;
+    }
+    return 'gallery';
+  };
+
+  const [theme, setThemeState] = useState<AppTheme>(() => getInitialTheme());
 
   useEffect(() => {
     const loadTheme = async () => {
@@ -29,7 +38,13 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
         const tx = db.transaction('settings', 'readonly');
         const req = tx.objectStore('settings').get('app_theme');
         req.onsuccess = () => {
-          if (req.result) setThemeState(req.result as AppTheme);
+          if (req.result) {
+            const nextTheme = req.result as AppTheme;
+            setThemeState(nextTheme);
+            if (typeof window !== 'undefined') {
+              window.localStorage?.setItem('curio_theme', nextTheme);
+            }
+          }
         };
       } catch (e) {
         console.warn('Theme load failed', e);
@@ -40,6 +55,9 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
 
   const persistTheme = useCallback(async (nextTheme: AppTheme) => {
     try {
+      if (typeof window !== 'undefined') {
+        window.localStorage?.setItem('curio_theme', nextTheme);
+      }
       const db = await initDB();
       const tx = db.transaction('settings', 'readwrite');
       tx.objectStore('settings').put(nextTheme, 'app_theme');

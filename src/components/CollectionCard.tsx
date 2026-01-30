@@ -47,6 +47,11 @@ export const CollectionCard: React.FC<CollectionCardProps> = React.memo(function
       ? 'shadow-[0_12px_30px_rgba(0,0,0,0.35)] hover:shadow-[0_18px_40px_rgba(0,0,0,0.45)]'
       : 'shadow-[0_6px_18px_rgba(15,23,42,0.08)] hover:shadow-[0_12px_26px_rgba(15,23,42,0.14)]';
 
+  const getFieldLabel = (fieldId: string, fallback: string) => {
+    const fieldKey = `label_${fieldId}` as any;
+    const translated = t(fieldKey);
+    return translated === fieldKey ? fallback : translated;
+  };
   const displayIcon = collection.icon || template.icon;
   const templateFieldIds = new Set(template.fields.map((field) => field.id));
   const isCustomTags =
@@ -56,7 +61,7 @@ export const CollectionCard: React.FC<CollectionCardProps> = React.memo(function
   const tagPreview = isCustomTags
     ? collection.customFields
         .slice(0, 3)
-        .map((field) => field.label)
+        .map((field) => getFieldLabel(field.id, field.label))
         .join(' • ')
     : '';
   const trimmedDescription = collection.collectionDescription?.trim();
@@ -79,7 +84,7 @@ export const CollectionCard: React.FC<CollectionCardProps> = React.memo(function
       }}
       data-testid="collection-card"
       data-collection-id={collection.id}
-      className={`group relative p-5 sm:p-8 rounded-[2.5rem] border ${baseSurface} ${accentBorder[template.accentColor] || accentBorder['stone']} transition-all duration-500 cursor-pointer ${tapShadow} ${tapRing} flex flex-col justify-between min-h-[11rem] sm:h-52 overflow-hidden motion-card`}
+      className={`group relative p-5 sm:p-8 rounded-[2.5rem] border ${baseSurface} ${accentBorder[template.accentColor] || accentBorder['stone']} transition-all duration-500 cursor-pointer motion-safe:active:scale-[0.98] ${tapShadow} ${tapRing} flex flex-col justify-between min-h-[11rem] sm:h-52 overflow-hidden motion-card`}
     >
       <div className="absolute top-0 right-0 p-5 sm:p-8 opacity-10 text-6xl sm:text-7xl select-none group-hover:scale-110 group-hover:rotate-12 transition-transform duration-700 pointer-events-none">
         {displayIcon}

@@ -1,5 +1,5 @@
 const CACHE_NAME = 'curio-shell-v4';
-const SHELL_ASSETS = ['/manifest.webmanifest', '/icon-192.svg', '/icon-512.svg'];
+const SHELL_ASSETS = ['/manifest.webmanifest', '/icon-192.svg', '/icon-512.svg', '/offline.html'];
 
 // URLs that should NEVER be cached (API, auth, dynamic data)
 const NEVER_CACHE_PATTERNS = [
@@ -102,7 +102,9 @@ self.addEventListener('fetch', (event) => {
           }
           return response;
         })
-        .catch(() => caches.match(event.request)),
+        .catch(() =>
+          caches.match(event.request).then((cached) => cached || caches.match('/offline.html')),
+        ),
     );
     return;
   }

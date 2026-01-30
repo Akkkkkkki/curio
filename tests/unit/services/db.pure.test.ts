@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { compareTimestamps, normalizePhotoPaths } from '@/services/db';
+import { compareTimestamps, normalizePhotoPaths, getSyncBackoffMs } from '@/services/db';
 
 describe('db.ts - Pure Functions', () => {
   describe('compareTimestamps', () => {
@@ -493,6 +493,25 @@ describe('db.ts - Pure Functions', () => {
         expect(displayResult.displayPath).toBe('path/thumb_display.jpg');
         expect(displayResult.originalPath).toBe('path/thumb_original.jpg');
       });
+    });
+  });
+
+  describe('getSyncBackoffMs', () => {
+    it('returns base delay for zero attempts', () => {
+      expect(getSyncBackoffMs(0)).toBe(30000);
+    });
+
+    it('returns base delay for first attempt', () => {
+      expect(getSyncBackoffMs(1)).toBe(30000);
+    });
+
+    it('backs off exponentially until max', () => {
+      expect(getSyncBackoffMs(2)).toBe(60000);
+      expect(getSyncBackoffMs(3)).toBe(120000);
+    });
+
+    it('caps backoff at max delay', () => {
+      expect(getSyncBackoffMs(10)).toBe(600000);
     });
   });
 });

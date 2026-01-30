@@ -53,6 +53,7 @@ import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import {
   fetchCloudCollections,
   getLocalCollections,
+  getPendingAssetUploadCount,
   getPendingSyncIds,
   hasLocalOnlyData,
   importLocalCollectionsToCloud,
@@ -68,6 +69,7 @@ import {
   getSeedVersion,
   setSeedVersion,
   initDB,
+  setAssetSyncStatusCallback,
   setSyncStatusCallback,
   syncPendingChanges,
   syncPendingAssetUploads,
@@ -102,12 +104,24 @@ import { StatusBanner } from './components/StatusBanner';
 import { ConflictResolutionModal } from './components/ConflictResolutionModal';
 import { CURRENT_SEED_VERSION, INITIAL_COLLECTIONS } from './services/seedCollections';
 import {
+  getEnvValidationErrors,
   STORAGE_QUOTA_CHECK_INTERVAL_MS,
   STORAGE_QUOTA_WARNING_THRESHOLD_BYTES,
   STORAGE_QUOTA_WARNING_THRESHOLD_RATIO,
 } from './config';
 import { detectConflicts } from './utils/conflictDetection';
 import { sortCollectionItems, type ItemSort } from './utils/collectionSorting';
+
+const useDebouncedValue = <T,>(value: T, delayMs: number): T => {
+  const [debounced, setDebounced] = useState(value);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => setDebounced(value), delayMs);
+    return () => window.clearTimeout(timeoutId);
+  }, [value, delayMs]);
+
+  return debounced;
+};
 
 const AppContent: React.FC = () => {
   const { t, language, setLanguage } = useTranslation();
@@ -140,6 +154,7 @@ const AppContent: React.FC = () => {
   const showStatusRef = useRef<(message: string, tone?: StatusTone) => void>(() => undefined);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [pendingAssetUploads, setPendingAssetUploads] = useState(0);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [conflicts, setConflicts] = useState<ReturnType<typeof detectConflicts>>([]);
   const [isConflictModalOpen, setIsConflictModalOpen] = useState(false);
@@ -156,6 +171,7 @@ const AppContent: React.FC = () => {
   const hasQuotaWarningRef = useRef(false);
   const resolvedConflictIdsRef = useRef<Set<string>>(new Set());
   const isSupabaseReady = isSupabaseConfigured();
+  const envErrors = useMemo(() => getEnvValidationErrors(), []);
   const fallbackSampleCollections = useMemo(
     () =>
       INITIAL_COLLECTIONS.map((collection) => ({
@@ -187,6 +203,15 @@ const AppContent: React.FC = () => {
     [],
   );
 
+  const refreshPendingAssetUploads = useCallback(async () => {
+    try {
+      const count = await getPendingAssetUploadCount();
+      setPendingAssetUploads(count);
+    } catch (error) {
+      console.warn('Pending upload count check failed:', error);
+    }
+  }, []);
+
   const checkStorageQuota = useCallback(async () => {
     if (!navigator.storage?.estimate) return;
     try {
@@ -213,8 +238,9 @@ const AppContent: React.FC = () => {
 
   const handleRetrySync = useCallback(async () => {
     try {
-      const synced = await syncPendingChanges();
+      const synced = await syncPendingChanges({ force: true });
       const assetsSynced = await syncPendingAssetUploads();
+      void refreshPendingAssetUploads();
       if (synced > 0) {
         showStatus(t('statusPendingSynced').replace('{count}', String(synced)), 'success');
       }
@@ -228,7 +254,7 @@ const AppContent: React.FC = () => {
         onAction: () => handleRetrySync(),
       });
     }
-  }, [showStatus, t]);
+  }, [refreshPendingAssetUploads, showStatus, t]);
 
   useEffect(() => {
     checkStorageQuota();
@@ -237,6 +263,15 @@ const AppContent: React.FC = () => {
     }, STORAGE_QUOTA_CHECK_INTERVAL_MS);
     return () => window.clearInterval(intervalId);
   }, [checkStorageQuota]);
+
+  useEffect(() => {
+    void refreshPendingAssetUploads();
+    const handleAssetSyncStatus = () => {
+      void refreshPendingAssetUploads();
+    };
+    setAssetSyncStatusCallback(handleAssetSyncStatus);
+    return () => setAssetSyncStatusCallback(null);
+  }, [refreshPendingAssetUploads]);
 
   useEffect(() => {
     tRef.current = t;
@@ -910,9 +945,10 @@ const AppContent: React.FC = () => {
 
   const HomeScreen = () => {
     const navigate = useNavigate();
-    const [searchTerm, setSearchTerm] = useState('');
+    const [searchInput, setSearchInput] = useState('');
     const [showOnboarding, setShowOnboarding] = useState(false);
-    const normalizedSearch = searchTerm.trim().toLowerCase();
+    const debouncedSearch = useDebouncedValue(searchInput, 250);
+    const normalizedSearch = debouncedSearch.trim().toLowerCase();
     const hasSearch = normalizedSearch.length > 0;
 
     const filteredCollections = collections.filter(
@@ -948,10 +984,12 @@ const AppContent: React.FC = () => {
             <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto mb-5 sm:mb-6">
               <AlertCircle size={24} />
             </div>
-            <h2 className="font-serif text-2xl font-bold text-stone-900 mb-2">Sync paused</h2>
+            <h2 className="font-serif text-2xl font-bold text-stone-900 mb-2">
+              {t('syncPausedTitle')}
+            </h2>
             <p className="text-sm text-stone-500 mb-6">{loadError}</p>
             <Button onClick={() => refreshCollections()} size="lg" className="w-full">
-              Retry
+              {t('actionRetry')}
             </Button>
           </div>
         </div>
@@ -1030,6 +1068,7 @@ const AppContent: React.FC = () => {
                   photoUrl={stats.featured.photoUrl}
                   enhancedPath={stats.featured.photoEnhancedPath}
                   type="enhanced"
+                  alt={stats.featured.title || t('featuredArtifact')}
                   className="w-full h-full object-cover scale-105 group-hover:scale-100 transition-transform duration-[20s] ease-out"
                 />
               </div>
@@ -1087,6 +1126,7 @@ const AppContent: React.FC = () => {
                     photoUrl={primaryHistoryItem.photoUrl}
                     enhancedPath={primaryHistoryItem.photoEnhancedPath}
                     type="enhanced"
+                    alt={primaryHistoryItem.title || t('historyTitle')}
                     className="w-full h-full object-cover"
                   />
                 </div>
@@ -1136,7 +1176,7 @@ const AppContent: React.FC = () => {
                       )
                     }
                   >
-                    {t('viewHistory') || 'Relive Memory'}
+                    {t('viewHistory')}
                   </Button>
                 </div>
               </div>
@@ -1153,8 +1193,8 @@ const AppContent: React.FC = () => {
             <input
               type="text"
               placeholder={t('searchPlaceholder')}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
               className={`w-full pl-12 sm:pl-14 pr-6 sm:pr-8 py-3.5 sm:py-4 rounded-[1.5rem] sm:rounded-[1.75rem] border focus:ring-4 focus:ring-amber-500/5 outline-none transition-all shadow-lg text-sm sm:text-base font-serif italic placeholder:text-stone-300 ${theme === 'vault' ? 'bg-stone-900 border-white/10 text-white' : 'bg-white border-stone-200 text-stone-900'}`}
             />
           </div>
@@ -1187,7 +1227,7 @@ const AppContent: React.FC = () => {
                 {t('searchNoResultsTitle')}
               </p>
               <p className={typographyClasses.labelMuted}>
-                {t('searchNoResultsBody', { query: searchTerm.trim() })}
+                {t('searchNoResultsBody', { query: searchInput.trim() })}
               </p>
             </div>
           )}
@@ -1222,7 +1262,7 @@ const AppContent: React.FC = () => {
     const isReadOnly = Boolean(collection?.isPublic) && !isAdmin;
     const isSample = Boolean(collection?.isPublic) || Boolean(collection?.id?.startsWith('sample'));
     const canAddItems = Boolean(collection) && !isReadOnly;
-    const [filter, setFilter] = useState('');
+    const [filterInput, setFilterInput] = useState('');
     const [viewMode, setViewMode] = useState<'grid' | 'waterfall'>('waterfall');
     const [sortBy, setSortBy] = useState<ItemSort>('newest');
     const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
@@ -1237,10 +1277,13 @@ const AppContent: React.FC = () => {
     const PAGINATION_THRESHOLD = 120;
     const PAGE_SIZE = 60;
 
+    const debouncedFilter = useDebouncedValue(filterInput, 200);
+    const hasFilterInput = filterInput.trim().length > 0;
+
     const filteredItems = useMemo(() => {
       if (!collection) return [];
       return collection.items.filter((item) => {
-        const term = filter.toLowerCase();
+        const term = debouncedFilter.toLowerCase();
         const matchesSearch =
           !term ||
           item.title.toLowerCase().includes(term) ||
@@ -1259,7 +1302,7 @@ const AppContent: React.FC = () => {
         );
         return matchesSearch && matchesFilters;
       });
-    }, [collection, filter, activeFilters]);
+    }, [collection, debouncedFilter, activeFilters]);
 
     const sortedItems = useMemo(
       () => sortCollectionItems(filteredItems, sortBy),
@@ -1271,7 +1314,7 @@ const AppContent: React.FC = () => {
       setVisibleCount(PAGE_SIZE);
       setSelectedItemIds([]);
       setIsSelectionMode(false);
-    }, [collection?.id, filter, activeFilters, sortBy]);
+    }, [collection?.id, debouncedFilter, activeFilters, sortBy]);
 
     const shouldPaginate = sortedItems.length > PAGINATION_THRESHOLD;
     const visibleItems = shouldPaginate ? sortedItems.slice(0, visibleCount) : sortedItems;
@@ -1481,6 +1524,7 @@ const AppContent: React.FC = () => {
                 <button
                   onClick={() => setViewMode('grid')}
                   aria-label={t('viewGrid')}
+                  title={t('viewGrid')}
                   className={`w-11 h-11 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}
                 >
                   <LayoutGrid size={18} />
@@ -1488,6 +1532,7 @@ const AppContent: React.FC = () => {
                 <button
                   onClick={() => setViewMode('waterfall')}
                   aria-label={t('viewWaterfall')}
+                  title={t('viewWaterfall')}
                   className={`w-11 h-11 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg transition-all ${viewMode === 'waterfall' ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}
                 >
                   <LayoutTemplate size={18} className="rotate-180" />
@@ -1511,8 +1556,8 @@ const AppContent: React.FC = () => {
                 <input
                   type="text"
                   placeholder="..."
-                  value={filter}
-                  onChange={(e) => setFilter(e.target.value)}
+                  value={filterInput}
+                  onChange={(e) => setFilterInput(e.target.value)}
                   className={`pl-4 pr-4 py-2 rounded-xl border focus:ring-4 focus:ring-amber-500/5 outline-none text-sm w-full transition-all shadow-sm font-serif italic ${theme === 'vault' ? 'bg-stone-900 border-white/10 text-white' : 'bg-white border-stone-200 text-stone-900'}`}
                 />
                 <Button
@@ -1520,6 +1565,7 @@ const AppContent: React.FC = () => {
                   className={`w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center p-0 rounded-xl ${theme === 'vault' ? 'bg-stone-900 border-white/10' : activeFilterCount > 0 ? '' : 'bg-white'}`}
                   onClick={() => setIsFilterModalOpen(true)}
                   aria-label={t('filterCollection')}
+                  title={t('filterCollection')}
                 >
                   <SlidersHorizontal size={18} />
                 </Button>
@@ -1606,7 +1652,7 @@ const AppContent: React.FC = () => {
             >
               {t('museumDefinition')}
             </p>
-            {!isReadOnly && !filter && activeFilterCount === 0 && (
+            {!isReadOnly && !hasFilterInput && activeFilterCount === 0 && (
               <Button
                 size="lg"
                 className="px-12 py-4 text-lg rounded-2xl shadow-xl"
@@ -1654,7 +1700,7 @@ const AppContent: React.FC = () => {
                 className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border px-5 py-4 shadow-sm ${theme === 'vault' ? 'bg-white/5 border-white/10 text-white/70' : 'bg-white/70 border-stone-100 text-stone-500'}`}
               >
                 <span className="text-sm font-semibold">
-                  Showing {visibleItems.length} of {sortedItems.length} items
+                  {t('showingItems', { shown: visibleItems.length, total: sortedItems.length })}
                 </span>
                 <Button
                   variant="outline"
@@ -1662,7 +1708,7 @@ const AppContent: React.FC = () => {
                   onClick={handleLoadMore}
                   disabled={!canLoadMore}
                 >
-                  {canLoadMore ? 'Load more' : 'All items loaded'}
+                  {canLoadMore ? t('loadMore') : t('allItemsLoaded')}
                 </Button>
               </div>
             )}
@@ -2022,6 +2068,9 @@ const AppContent: React.FC = () => {
                     <button
                       key={star}
                       onClick={() => applyItemUpdate({ rating: star })}
+                      aria-label={t('rateStars', { count: star })}
+                      aria-pressed={item.rating === star}
+                      title={t('rateStars', { count: star })}
                       className={`transition-transform ${isReadOnly ? 'cursor-not-allowed opacity-70' : 'hover:scale-125'}`}
                       disabled={isReadOnly}
                     >
@@ -2050,6 +2099,7 @@ const AppContent: React.FC = () => {
                     onClick={handleUndo}
                     disabled={history.length === 0}
                     aria-label={t('undo')}
+                    title={t('undo')}
                     className={`p-3 sm:p-4 rounded-full transition-colors ${
                       history.length === 0
                         ? 'text-stone-300 cursor-not-allowed'
@@ -2062,6 +2112,7 @@ const AppContent: React.FC = () => {
                     onClick={handleRedo}
                     disabled={future.length === 0}
                     aria-label={t('redo')}
+                    title={t('redo')}
                     className={`p-3 sm:p-4 rounded-full transition-colors ${
                       future.length === 0
                         ? 'text-stone-300 cursor-not-allowed'
@@ -2073,6 +2124,7 @@ const AppContent: React.FC = () => {
                   <button
                     onClick={handleDelete}
                     aria-label={t('deleteItem')}
+                    title={t('deleteItem')}
                     className="text-stone-200 hover:text-red-400 transition-colors p-3 sm:p-4 rounded-full hover:bg-red-50 shrink-0"
                   >
                     <Trash2 size={20} className="sm:w-6 sm:h-6" />
@@ -2232,6 +2284,15 @@ const AppContent: React.FC = () => {
   const sampleCollectionId = sampleCollection?.id ?? fallbackSampleCollectionId;
 
   const statusBanner = useMemo(() => {
+    if (envErrors.length > 0 && isSupabaseReady) {
+      return (
+        <StatusBanner
+          title={t('configMissingTitle')}
+          message={t('configMissingDesc', { keys: envErrors.join(', ') })}
+          tone="error"
+        />
+      );
+    }
     if (conflicts.length > 0) {
       return (
         <StatusBanner
@@ -2257,8 +2318,28 @@ const AppContent: React.FC = () => {
     if (isOffline || syncStatus === 'offline') {
       return <StatusBanner title={t('offlineTitle')} message={t('offlineDesc')} tone="warning" />;
     }
+    if (pendingAssetUploads > 0) {
+      return (
+        <StatusBanner
+          title={t('pendingUploadsTitle', { count: pendingAssetUploads })}
+          message={t('pendingUploadsDesc', { count: pendingAssetUploads })}
+          tone="warning"
+          actionLabel={t('actionRetry')}
+          onAction={handleRetrySync}
+        />
+      );
+    }
     return null;
-  }, [conflicts.length, handleRetrySync, isOffline, syncStatus, t]);
+  }, [
+    conflicts.length,
+    envErrors,
+    handleRetrySync,
+    isOffline,
+    isSupabaseReady,
+    pendingAssetUploads,
+    syncStatus,
+    t,
+  ]);
 
   const handleExploreSamples = () => {
     setAllowPublicBrowse(true);
@@ -2402,10 +2483,20 @@ const AppContent: React.FC = () => {
                 </Button>
               </Link>
             )}
+            {!isAuthenticated && isSupabaseReady && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsAuthModalOpen(true)}
+                className="hidden sm:inline-flex motion-fade"
+              >
+                {t('login')}
+              </Button>
+            )}
             <button
               onClick={() => setLanguage(language === 'en' ? 'zh' : 'en')}
               className="p-2 hover:bg-stone-100 dark:hover:bg-white/10 rounded-full text-stone-500 hover:text-stone-900 transition-colors flex items-center gap-1 sm:gap-1.5"
-              title="Switch Language"
+              title={t('switchLanguage')}
             >
               <Globe size={18} />
               <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.14em]">

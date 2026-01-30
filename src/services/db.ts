@@ -19,6 +19,12 @@ const PENDING_SYNC_KEY = 'pending_sync_ids';
 const PENDING_ASSET_UPLOADS_KEY = 'pending_asset_uploads';
 const PENDING_DELETE_KEY = 'pending_deletes';
 
+const SYNC_RETRY_BACKOFF_BASE_MS = 30_000;
+const SYNC_RETRY_BACKOFF_MAX_MS = 10 * 60_000;
+const SYNC_MAX_ATTEMPTS = 6;
+const SYNC_LOCK_KEY = 'curio_sync_lock';
+const SYNC_LOCK_TTL_MS = 20_000;
+
 // Pending delete entry: tracks items that need to be deleted from cloud
 export type PendingDelete =
   | {
@@ -37,6 +43,15 @@ type LegacyPendingDelete = {
   collectionId: string;
   itemId: string;
   createdAt: string;
+};
+
+type PendingSyncEntry = {
+  id: string;
+  createdAt?: string;
+  attemptCount?: number;
+  lastError?: string;
+  nextRetryAt?: string;
+  paused?: boolean;
 };
 
 let dbInstance: IDBDatabase | null = null;
@@ -393,32 +408,69 @@ export const setSeedVersion = async (version: number): Promise<void> => {
 // P1 Fix #1: Offline Queue / Retry Logic
 // ============================================================================
 
-export const getPendingSyncIds = async (): Promise<string[]> => {
+const normalizePendingSyncEntries = (pending: (string | PendingSyncEntry)[]) => {
+  const seen = new Set<string>();
+  const normalized = pending
+    .map((entry) => {
+      if (typeof entry === 'string') {
+        return { id: entry, createdAt: new Date().toISOString(), attemptCount: 0 };
+      }
+      if (!entry || typeof entry !== 'object' || typeof entry.id !== 'string') {
+        return null;
+      }
+      return entry;
+    })
+    .filter(Boolean) as PendingSyncEntry[];
+
+  return normalized.filter((entry) => {
+    if (seen.has(entry.id)) return false;
+    seen.add(entry.id);
+    return true;
+  });
+};
+
+const getPendingSyncEntries = async (): Promise<PendingSyncEntry[]> => {
   const db = await initDB();
   return new Promise((resolve) => {
     const tx = db.transaction(SETTINGS_STORE, 'readonly');
     const req = tx.objectStore(SETTINGS_STORE).get(PENDING_SYNC_KEY);
-    req.onsuccess = () => resolve(req.result || []);
+    req.onsuccess = () => resolve(normalizePendingSyncEntries(req.result || []));
     req.onerror = () => resolve([]);
   });
 };
 
-const addToPendingSync = async (collectionId: string): Promise<void> => {
+const savePendingSyncEntries = async (entries: PendingSyncEntry[]): Promise<void> => {
   const db = await initDB();
-  const pending = await getPendingSyncIds();
-  if (!pending.includes(collectionId)) {
-    pending.push(collectionId);
-    const tx = db.transaction(SETTINGS_STORE, 'readwrite');
-    tx.objectStore(SETTINGS_STORE).put(pending, PENDING_SYNC_KEY);
+  const tx = db.transaction(SETTINGS_STORE, 'readwrite');
+  tx.objectStore(SETTINGS_STORE).put(entries, PENDING_SYNC_KEY);
+};
+
+export const getPendingSyncIds = async (): Promise<string[]> => {
+  const entries = await getPendingSyncEntries();
+  return entries.map((entry) => entry.id);
+};
+
+const addToPendingSync = async (collectionId: string): Promise<void> => {
+  const pending = await getPendingSyncEntries();
+  const existing = pending.find((entry) => entry.id === collectionId);
+  if (!existing) {
+    pending.push({
+      id: collectionId,
+      createdAt: new Date().toISOString(),
+      attemptCount: 0,
+      paused: false,
+    });
+  } else {
+    existing.paused = false;
+    existing.nextRetryAt = undefined;
   }
+  await savePendingSyncEntries(pending);
 };
 
 const removeFromPendingSync = async (collectionId: string): Promise<void> => {
-  const db = await initDB();
-  const pending = await getPendingSyncIds();
-  const filtered = pending.filter((id) => id !== collectionId);
-  const tx = db.transaction(SETTINGS_STORE, 'readwrite');
-  tx.objectStore(SETTINGS_STORE).put(filtered, PENDING_SYNC_KEY);
+  const pending = await getPendingSyncEntries();
+  const filtered = pending.filter((entry) => entry.id !== collectionId);
+  await savePendingSyncEntries(filtered);
 };
 
 const getPendingAssetUploads = async (): Promise<PendingAssetUpload[]> => {
@@ -429,6 +481,11 @@ const getPendingAssetUploads = async (): Promise<PendingAssetUpload[]> => {
     req.onsuccess = () => resolve(req.result || []);
     req.onerror = () => resolve([]);
   });
+};
+
+export const getPendingAssetUploadCount = async (): Promise<number> => {
+  const pending = await getPendingAssetUploads();
+  return pending.length;
 };
 
 const addToPendingAssetUploads = async (collectionId: string, itemId: string): Promise<void> => {
@@ -453,6 +510,67 @@ const getAssetUploadBackoffMs = (attemptCount: number): number => {
   if (attemptCount <= 0) return ASSET_UPLOAD_BACKOFF_BASE_MS;
   const backoff = ASSET_UPLOAD_BACKOFF_BASE_MS * Math.pow(2, attemptCount - 1);
   return Math.min(backoff, ASSET_UPLOAD_BACKOFF_MAX_MS);
+};
+
+export const getSyncBackoffMs = (attemptCount: number): number => {
+  if (attemptCount <= 0) return SYNC_RETRY_BACKOFF_BASE_MS;
+  const backoff = SYNC_RETRY_BACKOFF_BASE_MS * Math.pow(2, attemptCount - 1);
+  return Math.min(backoff, SYNC_RETRY_BACKOFF_MAX_MS);
+};
+
+const markPendingSyncFailure = async (
+  collectionId: string,
+  errorMessage?: string,
+): Promise<void> => {
+  const pending = await getPendingSyncEntries();
+  const now = Date.now();
+  const updated = pending.map((entry) => {
+    if (entry.id !== collectionId) return entry;
+    const nextAttempt = (entry.attemptCount ?? 0) + 1;
+    const shouldPause = nextAttempt >= SYNC_MAX_ATTEMPTS;
+    return {
+      ...entry,
+      attemptCount: nextAttempt,
+      lastError: errorMessage || entry.lastError,
+      paused: shouldPause,
+      nextRetryAt: shouldPause
+        ? undefined
+        : new Date(now + getSyncBackoffMs(nextAttempt)).toISOString(),
+    };
+  });
+  await savePendingSyncEntries(updated);
+};
+
+const withSyncLock = async <T>(work: () => Promise<T>, fallback: T): Promise<T> => {
+  const lockManager = typeof navigator !== 'undefined' ? (navigator as any)?.locks : null;
+  if (lockManager?.request) {
+    return lockManager.request(SYNC_LOCK_KEY, { ifAvailable: true }, async (lock: unknown) => {
+      if (!lock) return fallback;
+      return work();
+    });
+  }
+
+  if (typeof window !== 'undefined' && typeof window.localStorage !== 'undefined') {
+    try {
+      const now = Date.now();
+      const existing = Number(window.localStorage.getItem(SYNC_LOCK_KEY) || 0);
+      if (existing && now - existing < SYNC_LOCK_TTL_MS) {
+        return fallback;
+      }
+      window.localStorage.setItem(SYNC_LOCK_KEY, String(now));
+      try {
+        return await work();
+      } finally {
+        if (window.localStorage.getItem(SYNC_LOCK_KEY) === String(now)) {
+          window.localStorage.removeItem(SYNC_LOCK_KEY);
+        }
+      }
+    } catch {
+      return work();
+    }
+  }
+
+  return work();
 };
 
 const markPendingAssetUploadFailure = async (
@@ -494,41 +612,65 @@ const removeFromPendingAssetUploads = async (
 };
 
 export const hasPendingSyncs = async (): Promise<boolean> => {
-  const pending = await getPendingSyncIds();
+  const pending = await getPendingSyncEntries();
   return pending.length > 0;
 };
 
 export const getPendingSyncCount = async (): Promise<number> => {
-  const pending = await getPendingSyncIds();
+  const pending = await getPendingSyncEntries();
   return pending.length;
 };
 
-export const syncPendingChanges = async (): Promise<number> => {
-  const pendingIds = await getPendingSyncIds();
-  if (pendingIds.length === 0) return 0;
+export const syncPendingChanges = async (options: { force?: boolean } = {}): Promise<number> => {
+  return withSyncLock(async () => {
+    const pendingEntries = await getPendingSyncEntries();
+    if (pendingEntries.length === 0) return 0;
 
-  const localCollections = await loadLocalCollections();
-  let synced = 0;
+    const now = Date.now();
+    const forceRetry = options.force === true;
+    const normalizedEntries = forceRetry
+      ? pendingEntries.map((entry) => ({
+          ...entry,
+          paused: false,
+          nextRetryAt: undefined,
+          attemptCount: entry.paused ? 0 : entry.attemptCount,
+        }))
+      : pendingEntries;
 
-  for (const id of pendingIds) {
-    const collection = localCollections.find((c) => c.id === id);
-    if (collection) {
-      try {
-        // Attempt to sync - this will re-add to pending if it fails
-        await saveCollectionToCloud(collection);
-        await removeFromPendingSync(id);
-        synced++;
-      } catch (e) {
-        console.warn(`Failed to sync pending collection ${id}:`, e);
-        // Keep it in the pending list for next retry
-      }
-    } else {
-      // Collection no longer exists locally, remove from pending
-      await removeFromPendingSync(id);
+    if (forceRetry) {
+      await savePendingSyncEntries(normalizedEntries);
     }
-  }
 
-  return synced;
+    const dueEntries = normalizedEntries.filter((entry) => {
+      if (entry.paused && !forceRetry) return false;
+      if (!entry.nextRetryAt) return true;
+      const retryAt = new Date(entry.nextRetryAt).getTime();
+      return Number.isNaN(retryAt) || retryAt <= now;
+    });
+    if (dueEntries.length === 0) return 0;
+
+    const localCollections = await loadLocalCollections();
+    let synced = 0;
+
+    for (const entry of dueEntries) {
+      const collection = localCollections.find((c) => c.id === entry.id);
+      if (collection) {
+        try {
+          await saveCollectionToCloud(collection);
+          await removeFromPendingSync(entry.id);
+          synced++;
+        } catch (e) {
+          const errorMessage = e instanceof Error ? e.message : 'Sync failed';
+          console.warn(`Failed to sync pending collection ${entry.id}:`, e);
+          await markPendingSyncFailure(entry.id, errorMessage);
+        }
+      } else {
+        await removeFromPendingSync(entry.id);
+      }
+    }
+
+    return synced;
+  }, 0);
 };
 
 const readAssetFromStore = async (storeName: string, id: string): Promise<Blob | null> => {
@@ -590,53 +732,55 @@ const uploadAssetToCloud = async (
 };
 
 export const syncPendingAssetUploads = async (): Promise<number> => {
-  if (!isSupabaseConfigured() || !supabase) return 0;
-  const pendingUploads = await getPendingAssetUploads();
-  if (pendingUploads.length === 0) return 0;
+  return withSyncLock(async () => {
+    if (!isSupabaseConfigured() || !supabase) return 0;
+    const pendingUploads = await getPendingAssetUploads();
+    if (pendingUploads.length === 0) return 0;
 
-  const now = Date.now();
-  const dueUploads = pendingUploads.filter((entry) => {
-    if (!entry.nextRetryAt) return true;
-    const retryAt = new Date(entry.nextRetryAt).getTime();
-    return Number.isNaN(retryAt) || retryAt <= now;
-  });
-  if (dueUploads.length === 0) {
-    return 0;
-  }
-
-  let synced = 0;
-  let lastErrorMessage: string | null = null;
-  for (const { collectionId, itemId } of dueUploads) {
-    const [original, display] = await Promise.all([
-      readAssetFromStore(ASSETS_STORE, itemId),
-      readAssetFromStore(DISPLAY_STORE, itemId),
-    ]);
-
-    if (!original || !display) {
-      await removeFromPendingAssetUploads(collectionId, itemId);
-      continue;
+    const now = Date.now();
+    const dueUploads = pendingUploads.filter((entry) => {
+      if (!entry.nextRetryAt) return true;
+      const retryAt = new Date(entry.nextRetryAt).getTime();
+      return Number.isNaN(retryAt) || retryAt <= now;
+    });
+    if (dueUploads.length === 0) {
+      return 0;
     }
 
-    try {
-      await uploadAssetToCloud(collectionId, itemId, original, display);
-      await removeFromPendingAssetUploads(collectionId, itemId);
-      synced++;
-    } catch (e) {
-      console.warn(`Failed to sync pending asset for item ${itemId}:`, e);
-      const errorMessage = e instanceof Error ? e.message : 'Unknown upload error';
-      await markPendingAssetUploadFailure(collectionId, itemId, errorMessage);
-      lastErrorMessage = errorMessage;
+    let synced = 0;
+    let lastErrorMessage: string | null = null;
+    for (const { collectionId, itemId } of dueUploads) {
+      const [original, display] = await Promise.all([
+        readAssetFromStore(ASSETS_STORE, itemId),
+        readAssetFromStore(DISPLAY_STORE, itemId),
+      ]);
+
+      if (!original || !display) {
+        await removeFromPendingAssetUploads(collectionId, itemId);
+        continue;
+      }
+
+      try {
+        await uploadAssetToCloud(collectionId, itemId, original, display);
+        await removeFromPendingAssetUploads(collectionId, itemId);
+        synced++;
+      } catch (e) {
+        console.warn(`Failed to sync pending asset for item ${itemId}:`, e);
+        const errorMessage = e instanceof Error ? e.message : 'Unknown upload error';
+        await markPendingAssetUploadFailure(collectionId, itemId, errorMessage);
+        lastErrorMessage = errorMessage;
+      }
     }
-  }
 
-  if (synced > 0) {
-    notifyAssetSyncStatus('synced', { count: synced });
-  }
-  if (lastErrorMessage) {
-    notifyAssetSyncStatus('error', { error: lastErrorMessage });
-  }
+    if (synced > 0) {
+      notifyAssetSyncStatus('synced', { count: synced });
+    }
+    if (lastErrorMessage) {
+      notifyAssetSyncStatus('error', { error: lastErrorMessage });
+    }
 
-  return synced;
+    return synced;
+  }, 0);
 };
 
 // ============================================================================
@@ -710,43 +854,48 @@ export const removeFromPendingDeletes = async (
 };
 
 export const syncPendingDeletes = async (): Promise<number> => {
-  if (!isSupabaseConfigured() || !supabase) return 0;
-  const pendingDeletes = await getPendingDeletes();
-  if (pendingDeletes.length === 0) return 0;
+  return withSyncLock(async () => {
+    if (!isSupabaseConfigured() || !supabase) return 0;
+    const pendingDeletes = await getPendingDeletes();
+    if (pendingDeletes.length === 0) return 0;
 
-  let synced = 0;
-  for (const entry of pendingDeletes) {
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) continue;
+    let synced = 0;
+    for (const entry of pendingDeletes) {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user) continue;
 
-      if (entry.type === 'collection') {
-        const { error } = await supabase.from('collections').delete().eq('id', entry.collectionId);
+        if (entry.type === 'collection') {
+          const { error } = await supabase
+            .from('collections')
+            .delete()
+            .eq('id', entry.collectionId);
 
-        if (!error) {
-          await removeFromPendingDeletes(entry.collectionId);
-          synced++;
+          if (!error) {
+            await removeFromPendingDeletes(entry.collectionId);
+            synced++;
+          }
+        } else {
+          const { error } = await supabase
+            .from('items')
+            .delete()
+            .eq('id', entry.itemId)
+            .eq('collection_id', entry.collectionId);
+
+          if (!error) {
+            await removeFromPendingDeletes(entry.collectionId, entry.itemId);
+            synced++;
+          }
         }
-      } else {
-        const { error } = await supabase
-          .from('items')
-          .delete()
-          .eq('id', entry.itemId)
-          .eq('collection_id', entry.collectionId);
-
-        if (!error) {
-          await removeFromPendingDeletes(entry.collectionId, entry.itemId);
-          synced++;
-        }
+      } catch {
+        // Continue with next delete, will retry later
       }
-    } catch {
-      // Continue with next delete, will retry later
     }
-  }
 
-  return synced;
+    return synced;
+  }, 0);
 };
 
 const loadLocalCollections = async (isRetry = false): Promise<UserCollection[]> => {

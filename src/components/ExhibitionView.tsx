@@ -20,6 +20,11 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
 }) => {
   const { t } = useTranslation();
   const [index, setIndex] = useState(initialIndex);
+  const getFieldLabel = (fieldId: string, fallback: string) => {
+    const fieldKey = `label_${fieldId}` as any;
+    const translated = t(fieldKey);
+    return translated === fieldKey ? fallback : translated;
+  };
 
   if (!isOpen || collection.items.length === 0) return null;
 
@@ -41,6 +46,7 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
         </div>
         <button
           onClick={onClose}
+          aria-label={t('close')}
           className="p-2 sm:p-3 bg-white/10 hover:bg-white/20 rounded-full transition-all"
         >
           <X size={20} className="sm:w-6 sm:h-6" />
@@ -53,6 +59,7 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
           {/* Navigation arrows */}
           <button
             onClick={prev}
+            aria-label={t('previous')}
             className="hidden sm:flex absolute left-4 sm:left-8 top-1/2 -translate-y-1/2 w-10 h-10 sm:w-14 sm:h-14 rounded-full bg-white/5 hover:bg-white/10 items-center justify-center transition-all hover:scale-110 z-10"
           >
             <ChevronLeft size={24} className="sm:w-7 sm:h-7" />
@@ -68,6 +75,7 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
                   enhancedPath={item.photoEnhancedPath}
                   collectionId={item.collectionId ?? collection.id}
                   type="enhanced"
+                  alt={item.title || t('archivalRecord')}
                   className="w-full h-full object-cover transition-transform duration-[2s] group-hover:scale-105"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-stone-950/30 to-transparent pointer-events-none" />
@@ -76,12 +84,14 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
               <div className="flex sm:hidden justify-center gap-8 mt-3">
                 <button
                   onClick={prev}
+                  aria-label={t('previous')}
                   className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all"
                 >
                   <ChevronLeft size={20} />
                 </button>
                 <button
                   onClick={next}
+                  aria-label={t('next')}
                   className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all"
                 >
                   <ChevronRight size={20} />
@@ -118,7 +128,7 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
                     return (
                       <div key={f.id}>
                         <p className="text-[8px] sm:text-[10px] font-mono tracking-widest uppercase opacity-40 mb-0.5">
-                          {f.label}
+                          {getFieldLabel(f.id, f.label)}
                         </p>
                         <p className="text-xs sm:text-base font-medium truncate">{value}</p>
                       </div>
@@ -132,6 +142,7 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
           {/* Desktop right arrow */}
           <button
             onClick={next}
+            aria-label={t('next')}
             className="hidden sm:flex absolute right-4 sm:right-8 top-1/2 -translate-y-1/2 w-10 h-10 sm:w-14 sm:h-14 rounded-full bg-white/5 hover:bg-white/10 items-center justify-center transition-all hover:scale-110 z-10"
           >
             <ChevronRight size={24} className="sm:w-7 sm:h-7" />

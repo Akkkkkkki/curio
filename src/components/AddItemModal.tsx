@@ -101,6 +101,13 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     theme === 'vault'
       ? 'bg-white/5 border-white/10 text-white placeholder:text-stone-400'
       : 'bg-stone-50 border-stone-200 text-stone-900';
+  const dialogDescribedBy = error
+    ? 'add-item-error'
+    : analysisNeedsReview
+      ? 'add-item-review'
+      : titleError
+        ? 'add-item-title-error'
+        : undefined;
 
   const stepItems = useMemo<{ id: FlowStep; label: string; helper: string }[]>(
     () => [
@@ -212,6 +219,21 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [isOpen, onClose]);
 
+  useEffect(() => {
+    if (!isOpen) {
+      setBatchVisibleCount(8);
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (step !== 'batch-verify') return;
+    setBatchVisibleCount((prev) => {
+      const baseline = 8;
+      const next = Math.max(prev, baseline);
+      return Math.min(next, batchItems.length);
+    });
+  }, [batchItems.length, step]);
+
   if (!isOpen) return null;
 
   const currentCollection = collections.find((c) => c.id === selectedCollectionId);
@@ -303,6 +325,12 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
           : { current: idx + 1, total: images.length },
       );
       const base64Data = image.split(',')[1];
+      if (!base64Data) {
+        setError(t('analysisFallback'));
+        hadError = true;
+        analyzed.push(createBatchItem(image, existingIds[idx] ? { id: existingIds[idx] } : {}));
+        continue;
+      }
       try {
         const result = await analyzeImage(base64Data, collection.customFields, {
           collectionContext: {
@@ -361,14 +389,30 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
       setBatchTitleErrors({});
       setStep('analyzing');
       try {
-        const images = await Promise.all(Array.from(files).map(readFileAsDataUrl));
+        const results = await Promise.allSettled(Array.from(files).map(readFileAsDataUrl));
+        const images = results
+          .filter(
+            (result): result is PromiseFulfilledResult<string> => result.status === 'fulfilled',
+          )
+          .map((result) => result.value);
+        const failedCount = results.length - images.length;
+        if (failedCount > 0) {
+          setError(t('batchPartialFailure', { count: failedCount }));
+          setAnalysisError(true);
+        }
+        if (images.length === 0) {
+          setError(t('batchAllFailed'));
+          setAnalysisError(true);
+          setStep('batch-verify');
+          return;
+        }
         setBatchProgress({ current: 0, total: images.length });
         const newItems = await runBatchAnalysis(images);
         setBatchItems((prev) => [...prev, ...newItems]);
         setStep('batch-verify');
       } catch (err) {
         console.error(err);
-        setError('Analysis failed. Please fill in the details manually.');
+        setError(t('analysisFailedManual'));
         setAnalysisError(true);
         setStep('batch-verify');
       } finally {
@@ -437,6 +481,12 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     setStep('analyzing');
     try {
       const base64Data = base64.split(',')[1];
+      if (!base64Data) {
+        setError(t('analysisFallback'));
+        setAnalysisError(true);
+        setStep('verify');
+        return;
+      }
       const result = await analyzeImage(base64Data, currentCollection.customFields, {
         collectionContext: {
           name: currentCollection.name,
@@ -730,129 +780,158 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     </div>
   );
 
-  const renderBatchVerify = () => (
-    <div className="space-y-6">
-      <div className="bg-amber-50 p-4 rounded-2xl flex gap-3 border border-amber-100">
-        <Zap className="text-amber-600 shrink-0" size={20} />
-        <div>
-          <h4 className="text-sm font-bold text-amber-900">{t('batchMode')}</h4>
-          <p className="text-[11px] text-amber-700">{t('batchModeDesc')}</p>
+  const renderBatchVerify = () => {
+    const visibleBatchItems = batchItems.slice(0, batchVisibleCount);
+    const hasMoreBatchItems = batchVisibleCount < batchItems.length;
+    return (
+      <div className="space-y-6">
+        <div className="bg-amber-50 p-4 rounded-2xl flex gap-3 border border-amber-100">
+          <Zap className="text-amber-600 shrink-0" size={20} />
+          <div>
+            <h4 className="text-sm font-bold text-amber-900">{t('batchMode')}</h4>
+            <p className="text-[11px] text-amber-700">{t('batchModeDesc')}</p>
+          </div>
         </div>
-      </div>
-      {error && (
-        <div className="p-3 bg-amber-50 text-amber-700 text-xs rounded-xl border border-amber-100 font-medium">
-          {error}
-        </div>
-      )}
-      {analysisError && (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={retryBatchAnalysis}
-          icon={<RefreshCw size={14} />}
-        >
-          {t('retryAnalysis')}
-        </Button>
-      )}
-      <div className="space-y-4 px-1">
-        {batchItems.map((item) => (
-          <div key={item.id} className="rounded-2xl border border-stone-100 bg-white p-3 shadow-sm">
-            <div className="flex gap-3 items-start">
-              <div className="group relative w-20 h-20 rounded-xl overflow-hidden border border-stone-200 shrink-0">
-                <img src={item.image} className="w-full h-full object-cover" />
-                <button
-                  onClick={() => removeBatchItem(item.id)}
-                  aria-label={t('remove')}
-                  className="absolute top-1 right-1 bg-white/80 p-1 rounded-full text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  <Trash2 size={12} />
-                </button>
-              </div>
-              <div className="flex-1 space-y-2">
-                <div>
-                  <label
-                    className={`block text-[11px] font-semibold uppercase tracking-[0.12em] ${mutedText} mb-0.5`}
-                  >
-                    {t('title')}
-                  </label>
-                  <input
-                    type="text"
-                    className={`w-full text-sm font-semibold bg-transparent border-b ${borderClass} focus:border-amber-500 outline-none pb-1 transition-colors ${theme === 'vault' ? 'text-white placeholder:text-stone-400' : 'text-stone-900'}`}
-                    value={item.title}
-                    onChange={(e) => updateBatchItem(item.id, { title: e.target.value })}
+        {error && (
+          <div
+            id="add-item-error"
+            className="p-3 bg-amber-50 text-amber-700 text-xs rounded-xl border border-amber-100 font-medium"
+          >
+            {error}
+          </div>
+        )}
+        {analysisError && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={retryBatchAnalysis}
+            icon={<RefreshCw size={14} />}
+          >
+            {t('retryAnalysis')}
+          </Button>
+        )}
+        <div className="space-y-4 px-1">
+          {visibleBatchItems.map((item) => (
+            <div
+              key={item.id}
+              className="rounded-2xl border border-stone-100 bg-white p-3 shadow-sm"
+            >
+              <div className="flex gap-3 items-start">
+                <div className="group relative w-20 h-20 rounded-xl overflow-hidden border border-stone-200 shrink-0">
+                  <img
+                    src={item.image}
+                    alt={item.title || t('photoPreview')}
+                    className="w-full h-full object-cover"
                   />
-                  {batchTitleErrors[item.id] && (
-                    <p className="mt-1 text-[10px] text-red-500 font-semibold">
-                      {t('titleRequired')}
-                    </p>
-                  )}
-                  <p className={`mt-1 text-[10px] ${mutedText}`}>{t('titleGuidance')}</p>
+                  <button
+                    onClick={() => removeBatchItem(item.id)}
+                    aria-label={t('remove')}
+                    className="absolute top-1 right-1 bg-white/80 p-1 rounded-full text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <Trash2 size={12} />
+                  </button>
                 </div>
-                {currentCollection?.customFields.map((field) => (
-                  <div key={field.id}>
+                <div className="flex-1 space-y-2">
+                  <div>
                     <label
                       className={`block text-[11px] font-semibold uppercase tracking-[0.12em] ${mutedText} mb-0.5`}
                     >
-                      {field.label}
+                      {t('title')}
                     </label>
                     <input
-                      className={`w-full p-2 rounded-lg text-xs ${inputSurface}`}
-                      value={item.data?.[field.id] || ''}
-                      onChange={(e) => updateBatchItemField(item.id, field.id, e.target.value)}
+                      type="text"
+                      className={`w-full text-sm font-semibold bg-transparent border-b ${borderClass} focus:border-amber-500 outline-none pb-1 transition-colors ${theme === 'vault' ? 'text-white placeholder:text-stone-400' : 'text-stone-900'}`}
+                      value={item.title}
+                      onChange={(e) => updateBatchItem(item.id, { title: e.target.value })}
                     />
+                    {batchTitleErrors[item.id] && (
+                      <p className="mt-1 text-[10px] text-red-500 font-semibold">
+                        {t('titleRequired')}
+                      </p>
+                    )}
+                    <p className={`mt-1 text-[10px] ${mutedText}`}>{t('titleGuidance')}</p>
                   </div>
-                ))}
-                <div>
-                  <label
-                    className={`block text-[11px] font-semibold uppercase tracking-[0.12em] ${mutedText} mb-0.5`}
-                  >
-                    {t('rating')}
-                  </label>
-                  <div className="flex gap-1">
-                    {[1, 2, 3, 4, 5].map((s) => (
-                      <button
-                        key={s}
-                        onClick={() => updateBatchItem(item.id, { rating: s })}
-                        aria-label={`Rate ${s} stars`}
-                        aria-pressed={item.rating === s}
-                        className={`w-7 h-7 rounded-md border flex items-center justify-center transition-all text-xs ${
-                          s <= item.rating
-                            ? 'bg-amber-400 border-amber-500 text-white shadow-sm'
-                            : theme === 'vault'
-                              ? 'bg-white/5 border-white/10 text-white/60'
-                              : 'bg-white border-stone-200 text-stone-300'
-                        }`}
+                  {currentCollection?.customFields.map((field) => (
+                    <div key={field.id}>
+                      <label
+                        className={`block text-[11px] font-semibold uppercase tracking-[0.12em] ${mutedText} mb-0.5`}
                       >
-                        ★
-                      </button>
-                    ))}
+                        {getFieldLabel(field.id, field.label)}
+                      </label>
+                      <input
+                        className={`w-full p-2 rounded-lg text-xs ${inputSurface}`}
+                        value={item.data?.[field.id] || ''}
+                        onChange={(e) => updateBatchItemField(item.id, field.id, e.target.value)}
+                      />
+                    </div>
+                  ))}
+                  <div>
+                    <label
+                      className={`block text-[11px] font-semibold uppercase tracking-[0.12em] ${mutedText} mb-0.5`}
+                    >
+                      {t('rating')}
+                    </label>
+                    <div className="flex gap-1">
+                      {[1, 2, 3, 4, 5].map((s) => (
+                        <button
+                          key={s}
+                          onClick={() => updateBatchItem(item.id, { rating: s })}
+                          aria-label={t('rateStars', { count: s })}
+                          aria-pressed={item.rating === s}
+                          title={t('rateStars', { count: s })}
+                          className={`w-7 h-7 rounded-md border flex items-center justify-center transition-all text-xs ${
+                            s <= item.rating
+                              ? 'bg-amber-400 border-amber-500 text-white shadow-sm'
+                              : theme === 'vault'
+                                ? 'bg-white/5 border-white/10 text-white/60'
+                                : 'bg-white border-stone-200 text-stone-300'
+                          }`}
+                        >
+                          ★
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-        ))}
-        <button
-          onClick={() => batchInputRef.current?.click()}
-          className="w-full rounded-xl border-2 border-dashed border-stone-200 flex flex-col items-center justify-center text-stone-300 hover:border-amber-200 hover:bg-stone-50 transition-all py-6"
+          ))}
+          {hasMoreBatchItems && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={() => setBatchVisibleCount((prev) => Math.min(prev + 8, batchItems.length))}
+            >
+              {t('loadMore')}
+            </Button>
+          )}
+          <button
+            onClick={() => batchInputRef.current?.click()}
+            className="w-full rounded-xl border-2 border-dashed border-stone-200 flex flex-col items-center justify-center text-stone-300 hover:border-amber-200 hover:bg-stone-50 transition-all py-6"
+          >
+            <Plus size={20} />
+            <span className="text-[9px] font-bold uppercase mt-2">{t('addMore')}</span>
+          </button>
+        </div>
+        <Button
+          className="w-full"
+          size="lg"
+          onClick={handleBatchSave}
+          icon={
+            isSaving ? <Loader2 size={18} className="animate-spin" /> : <ArrowRight size={18} />
+          }
+          disabled={
+            batchItems.length === 0 || isSaving || batchItems.some((item) => !item.title.trim())
+          }
         >
-          <Plus size={20} />
-          <span className="text-[9px] font-bold uppercase mt-2">Add More</span>
-        </button>
+          {isSaving
+            ? t('analyzingPhoto').split('...')[0]
+            : t('archiveArtifacts', { count: batchItems.length })}
+        </Button>
       </div>
-      <Button
-        className="w-full"
-        size="lg"
-        onClick={handleBatchSave}
-        icon={isSaving ? <Loader2 size={18} className="animate-spin" /> : <ArrowRight size={18} />}
-        disabled={
-          batchItems.length === 0 || isSaving || batchItems.some((item) => !item.title.trim())
-        }
-      >
-        {isSaving ? t('analyzingPhoto').split('...')[0] : `Archive ${batchItems.length} Artifacts`}
-      </Button>
-    </div>
-  );
+    );
+  };
 
   const renderAnalyzing = () => (
     <div className="text-center py-12 sm:py-20 space-y-4 sm:space-y-6">
@@ -898,7 +977,10 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
         </div>
       )}
       {analysisNeedsReview && (
-        <div className="p-3 bg-amber-50 text-amber-700 text-xs rounded-xl border border-amber-100 font-medium flex items-center justify-between gap-2">
+        <div
+          id="add-item-review"
+          className="p-3 bg-amber-50 text-amber-700 text-xs rounded-xl border border-amber-100 font-medium flex items-center justify-between gap-2"
+        >
           <span>{t('analysisNeedsReview')}</span>
           <button
             onClick={retryAnalysis}
@@ -909,7 +991,10 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
         </div>
       )}
       {error && (
-        <div className="p-3 bg-amber-50 text-amber-700 text-xs rounded-xl border border-amber-100 font-medium flex items-center justify-between gap-2">
+        <div
+          id="add-item-error"
+          className="p-3 bg-amber-50 text-amber-700 text-xs rounded-xl border border-amber-100 font-medium flex items-center justify-between gap-2"
+        >
           <span>{error}</span>
           {analysisError && (
             <button
@@ -930,7 +1015,11 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
         <div className="flex flex-col items-center gap-2 shrink-0">
           <div className="w-16 h-16 sm:w-24 sm:h-24 rounded-xl bg-stone-100 overflow-hidden border border-stone-200">
             {imagePreview ? (
-              <img src={imagePreview} className="w-full h-full object-cover" />
+              <img
+                src={imagePreview}
+                alt={t('photoPreview')}
+                className="w-full h-full object-cover"
+              />
             ) : (
               <CameraIcon className="w-full h-full p-4 sm:p-6 text-stone-200" />
             )}
@@ -963,7 +1052,9 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
             }}
           />
           {titleError && (
-            <p className="mt-1 text-[10px] text-red-500 font-semibold">{titleError}</p>
+            <p id="add-item-title-error" className="mt-1 text-[10px] text-red-500 font-semibold">
+              {titleError}
+            </p>
           )}
           <p className={`mt-1 text-[11px] sm:text-xs ${mutedText}`}>{t('titleGuidance')}</p>
         </div>
@@ -975,7 +1066,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
             <label
               className={`block text-[11px] font-semibold uppercase tracking-[0.12em] ${mutedText} mb-0.5 sm:mb-1`}
             >
-              {field.label}
+              {getFieldLabel(field.id, field.label)}
             </label>
             <input
               className={`w-full p-2 sm:p-2.5 rounded-lg sm:rounded-xl text-sm ${inputSurface}`}
@@ -1000,8 +1091,9 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
               <button
                 key={s}
                 onClick={() => setFormData({ ...formData, rating: s })}
-                aria-label={`Rate ${s} stars`}
+                aria-label={t('rateStars', { count: s })}
                 aria-pressed={formData.rating === s}
+                title={t('rateStars', { count: s })}
                 className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg border flex items-center justify-center transition-all text-sm ${
                   s <= formData.rating
                     ? 'bg-amber-400 border-amber-500 text-white shadow-sm'
@@ -1039,6 +1131,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
           role="dialog"
           aria-modal="true"
           aria-labelledby="add-item-modal-title"
+          aria-describedby={dialogDescribedBy}
           className={`${surfaceClass} rounded-t-3xl rounded-b-none sm:rounded-3xl shadow-2xl w-full max-w-lg h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[90vh] overflow-hidden flex flex-col motion-panel pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] sm:pt-0 sm:pb-0`}
         >
           <div className="sm:hidden flex items-center justify-center pt-2">

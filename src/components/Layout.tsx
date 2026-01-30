@@ -61,6 +61,13 @@ export const Layout: React.FC<LayoutProps> = ({
       ? t('authDescSignedIn', { email: user?.email })
       : t('authDescSignedOut');
   const statusIcon = !isSupabaseConfigured ? <CloudOff size={18} /> : <Cloud size={18} />;
+  const statusBadgeIcon = !isSupabaseConfigured ? (
+    <CloudOff size={12} />
+  ) : isAuthenticated ? (
+    <Cloud size={12} />
+  ) : (
+    <CloudOff size={12} />
+  );
   const statusColor = !isSupabaseConfigured
     ? theme === 'vault'
       ? 'text-stone-400'
@@ -98,6 +105,8 @@ export const Layout: React.FC<LayoutProps> = ({
         ? 'bg-[#F5EFE4]/95 border-[#D4C9B8]'
         : 'bg-white/95 border-stone-200/70';
   const bottomNavMuted = theme === 'vault' ? 'text-white/60' : 'text-stone-400';
+  const statusBadgeSurface =
+    theme === 'vault' ? 'bg-stone-900 border-white/10' : 'bg-white border-stone-200';
   const isExploreActive =
     location.pathname === '/explore' ||
     (sampleCollectionId
@@ -129,10 +138,16 @@ export const Layout: React.FC<LayoutProps> = ({
             <div className="relative">
               <button
                 onClick={() => setIsProfileOpen(!isProfileOpen)}
-                aria-label="Account"
-                className={`p-2 rounded-full transition-colors ${navGhost} ${statusColor}`}
+                aria-label={t('account')}
+                title={statusLabel}
+                className={`p-2 rounded-full transition-colors ${navGhost} ${statusColor} relative`}
               >
                 <User size={20} />
+                <span
+                  className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border flex items-center justify-center ${statusBadgeSurface}`}
+                >
+                  <span className={statusColor}>{statusBadgeIcon}</span>
+                </span>
               </button>
 
               {isProfileOpen && (
@@ -239,16 +254,23 @@ export const Layout: React.FC<LayoutProps> = ({
 
       {statusBanner && <div className="max-w-4xl mx-auto px-4 pt-4 sm:pt-5">{statusBanner}</div>}
 
-      <main className="max-w-4xl mx-auto px-4 py-8 pb-[calc(7rem+env(safe-area-inset-bottom,0px))]">
+      <main
+        className="max-w-4xl mx-auto px-4 py-8"
+        style={{
+          paddingBottom:
+            'calc(var(--bottom-nav-height, 5.5rem) + env(safe-area-inset-bottom, 0px))',
+        }}
+      >
         {children}
       </main>
 
       <nav
         className={`fixed bottom-0 left-0 right-0 z-[60] border-t ${bottomNavSurface} sm:hidden`}
         aria-label="Primary"
+        style={{ height: 'var(--bottom-nav-height, 5.5rem)' }}
       >
-        <div className="mx-auto max-w-4xl px-6 pb-[env(safe-area-inset-bottom,0px)] pt-2">
-          <div className="grid grid-cols-2 items-center">
+        <div className="mx-auto max-w-4xl h-full px-6 pb-[env(safe-area-inset-bottom,0px)] pt-2 flex items-center">
+          <div className="grid grid-cols-2 items-center w-full">
             <Link
               to="/"
               className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition-colors ${location.pathname === '/' ? 'text-amber-500' : bottomNavMuted}`}

@@ -1,5 +1,6 @@
 import React from 'react';
 import { CheckCircle, AlertTriangle, Info, AlertCircle } from 'lucide-react';
+import { useTranslation } from '../i18n';
 
 export type StatusTone = 'success' | 'error' | 'info' | 'warning';
 
@@ -42,6 +43,7 @@ export const StatusToast: React.FC<StatusToastProps> = ({
   actionLabel,
   onAction,
 }) => {
+  const { t } = useTranslation();
   const { bg, text, Icon } = toneStyles[tone];
   return (
     <div
@@ -68,7 +70,7 @@ export const StatusToast: React.FC<StatusToastProps> = ({
           onClick={onDismiss}
           className="ml-2 text-xs font-bold uppercase tracking-[0.08em] text-stone-400 hover:text-stone-600"
         >
-          Close
+          {t('close')}
         </button>
       )}
     </div>

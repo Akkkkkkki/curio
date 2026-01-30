@@ -154,7 +154,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
                   <img
                     src={imageUrl}
                     className={`w-full h-full ${imageFit === 'contain' ? 'object-contain' : 'object-cover'}`}
-                    alt=""
+                    alt={item.title || t('photoPreview')}
                   />
                 ) : (
                   <div className="absolute inset-0 flex flex-col items-center justify-center text-stone-200">
@@ -273,6 +273,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
           </div>
           <button
             onClick={onClose}
+            aria-label={t('close')}
             className="p-2 -mr-2 text-stone-400 hover:text-stone-800 rounded-full hover:bg-stone-50"
           >
             <X size={20} />

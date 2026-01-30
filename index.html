@@ -64,6 +64,14 @@
         -webkit-font-smoothing: antialiased;
         background-color: #f5f5f4;
       }
+      :root {
+        --bottom-nav-height: 5.5rem;
+      }
+      @media (max-height: 600px) {
+        :root {
+          --bottom-nav-height: 4.5rem;
+        }
+      }
       /* Custom scrollbar to match aesthetic */
       ::-webkit-scrollbar {
         width: 10px;

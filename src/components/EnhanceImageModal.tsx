@@ -68,6 +68,7 @@ export const EnhanceImageModal: React.FC<EnhanceImageModalProps> = ({
 
   const originalUrlRef = useRef<string | null>(null);
   const enhancedUrlRef = useRef<string | null>(null);
+  const enhanceTimeoutRef = useRef<number | null>(null);
 
   // Check if AI image editing is enabled
   useEffect(() => {
@@ -116,21 +117,43 @@ export const EnhanceImageModal: React.FC<EnhanceImageModalProps> = ({
       setShowOriginal(false);
       setEnhancementMeta(null);
       setInputHash(null);
+      if (enhanceTimeoutRef.current) {
+        window.clearTimeout(enhanceTimeoutRef.current);
+        enhanceTimeoutRef.current = null;
+      }
     }
   }, [isOpen]);
+
+  const withTimeout = async <T,>(promise: Promise<T>, ms: number, message: string): Promise<T> => {
+    let timeoutId: number | null = null;
+    const timeoutPromise = new Promise<T>((_resolve, reject) => {
+      timeoutId = window.setTimeout(() => reject(new Error(message)), ms);
+    });
+    try {
+      return await Promise.race([promise, timeoutPromise]);
+    } finally {
+      if (timeoutId) window.clearTimeout(timeoutId);
+    }
+  };
 
   const handleEnhance = async () => {
     if (!originalUrl) return;
 
     setStep('generating');
     setError(null);
+    if (enhanceTimeoutRef.current) {
+      window.clearTimeout(enhanceTimeoutRef.current);
+    }
+    enhanceTimeoutRef.current = window.setTimeout(() => {
+      setError(t('enhanceTakingLonger'));
+    }, 45_000);
 
     try {
       // Get the original image as base64
       const remotePath = photoUrl && photoUrl !== 'asset' ? photoUrl : undefined;
       const blob = await getAsset(itemId, 'original', remotePath, collectionId);
       if (!blob) {
-        throw new Error('Could not load original image');
+        throw new Error(t('enhanceLoadOriginalFailed'));
       }
 
       const reader = new FileReader();
@@ -139,6 +162,10 @@ export const EnhanceImageModal: React.FC<EnhanceImageModalProps> = ({
           const dataUrl = reader.result as string;
           // Extract base64 from data URL
           const base64 = dataUrl.split(',')[1];
+          if (!base64) {
+            reject(new Error(t('enhanceInvalidImage')));
+            return;
+          }
           resolve(base64);
         };
         reader.onerror = reject;
@@ -148,10 +175,10 @@ export const EnhanceImageModal: React.FC<EnhanceImageModalProps> = ({
       const base64 = await base64Promise;
       const computedHash = await hashBase64(base64);
       setInputHash(computedHash);
-      const result = await enhanceImage(base64, strength);
+      const result = await withTimeout(enhanceImage(base64, strength), 60_000, t('enhanceTimeout'));
 
       if (!result || !result.enhancedImageBase64) {
-        throw new Error('Enhancement returned no image');
+        throw new Error(t('enhanceNoImage'));
       }
       setEnhancementMeta(result.metadata);
 
@@ -171,11 +198,21 @@ export const EnhanceImageModal: React.FC<EnhanceImageModalProps> = ({
       enhancedUrlRef.current = url;
       setEnhancedUrl(url);
       setEnhancedBlob(newBlob);
+      setError(null);
       setStep('compare');
     } catch (err) {
       console.error('Enhancement failed:', err);
-      setError(err instanceof Error ? err.message : 'Enhancement failed');
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError(t('enhanceFailed'));
+      }
       setStep('error');
+    } finally {
+      if (enhanceTimeoutRef.current) {
+        window.clearTimeout(enhanceTimeoutRef.current);
+        enhanceTimeoutRef.current = null;
+      }
     }
   };
 
@@ -191,7 +228,7 @@ export const EnhanceImageModal: React.FC<EnhanceImageModalProps> = ({
       onClose();
     } catch (err) {
       console.error('Failed to save enhanced image:', err);
-      setError('Failed to save enhanced image');
+      setError(t('enhanceSaveFailed'));
     }
   };
 
@@ -267,6 +304,7 @@ export const EnhanceImageModal: React.FC<EnhanceImageModalProps> = ({
           </div>
           <button
             onClick={onClose}
+            aria-label={t('close')}
             className={`p-2 rounded-xl hover:bg-stone-100 transition-colors ${theme === 'vault' ? 'hover:bg-white/10' : ''}`}
           >
             <X size={20} />
@@ -280,9 +318,7 @@ export const EnhanceImageModal: React.FC<EnhanceImageModalProps> = ({
             <div className={`p-4 rounded-2xl mb-6 ${cardBg[theme]} border ${borderColor[theme]}`}>
               <div className="flex items-center gap-3">
                 <AlertCircle size={20} className="text-amber-500" />
-                <p className={`text-sm ${mutedText[theme]}`}>
-                  AI image enhancement is not available. Check your configuration.
-                </p>
+                <p className={`text-sm ${mutedText[theme]}`}>{t('enhanceUnavailable')}</p>
               </div>
             </div>
           )}
@@ -358,6 +394,7 @@ export const EnhanceImageModal: React.FC<EnhanceImageModalProps> = ({
               </div>
               <h3 className="text-xl font-serif font-bold mb-2">{t('enhanceGenerating')}</h3>
               <p className={mutedText[theme]}>{t('enhanceGeneratingDesc')}</p>
+              {error && <p className="text-xs text-amber-600 mt-3 font-semibold">{error}</p>}
             </div>
           )}
 
@@ -368,7 +405,7 @@ export const EnhanceImageModal: React.FC<EnhanceImageModalProps> = ({
               <div className="relative aspect-video rounded-2xl overflow-hidden bg-stone-900">
                 <img
                   src={showOriginal ? originalUrl || '' : enhancedUrl || ''}
-                  alt={showOriginal ? 'Original' : 'Enhanced'}
+                  alt={showOriginal ? t('enhanceOriginal') : t('enhanceEnhanced')}
                   className="w-full h-full object-contain transition-opacity duration-300"
                 />
                 <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
