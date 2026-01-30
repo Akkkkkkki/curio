@@ -33,7 +33,7 @@ export const getEnvValidationErrors = (): string[] => {
     import.meta.env.VITE_AI_ENABLED === 'true' ||
     import.meta.env.VITE_AI_IMAGE_EDIT_ENABLED === 'true';
   const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
-  if (aiEnabled && (!apiBaseUrl || !apiBaseUrl.trim())) {
+  if (import.meta.env.DEV && aiEnabled && (!apiBaseUrl || !apiBaseUrl.trim())) {
     errors.push('VITE_API_BASE_URL');
   }
 
