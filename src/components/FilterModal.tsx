@@ -31,6 +31,11 @@ export const FilterModal: React.FC<FilterModalProps> = ({
       ? 'bg-white/5 border border-white/10 text-white placeholder:text-stone-400'
       : 'bg-white border border-stone-200 text-stone-800 placeholder:text-stone-300';
   const mutedText = mutedTextClasses[theme];
+  const getFieldLabel = (fieldId: string, fallback: string) => {
+    const fieldKey = `label_${fieldId}` as any;
+    const translated = t(fieldKey);
+    return translated === fieldKey ? fallback : translated;
+  };
 
   useEffect(() => {
     if (isOpen) setLocalFilters(activeFilters);
@@ -78,6 +83,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
           </div>
           <button
             onClick={onClose}
+            aria-label={t('close')}
             className={`w-11 h-11 sm:w-9 sm:h-9 flex items-center justify-center rounded-full transition-colors ${theme === 'vault' ? 'hover:bg-white/5 text-stone-300 hover:text-white' : 'hover:bg-stone-100 text-stone-400 hover:text-stone-800'}`}
           >
             <X size={20} />
@@ -97,9 +103,9 @@ export const FilterModal: React.FC<FilterModalProps> = ({
                 className={`w-full p-3 rounded-2xl text-sm outline-none appearance-none ${inputSurface}`}
               >
                 <option value="">{t('anyRating')}</option>
-                <option value="5">5 Stars</option>
-                <option value="4">4+ Stars</option>
-                <option value="3">3+ Stars</option>
+                <option value="5">{t('rating5')}</option>
+                <option value="4">{t('rating4Plus')}</option>
+                <option value="3">{t('rating3Plus')}</option>
               </select>
               <ChevronDown
                 size={16}
@@ -112,7 +118,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
               <label
                 className={`block text-[12px] sm:text-[11px] font-semibold uppercase tracking-[0.18em] ${mutedText}`}
               >
-                {field.label}
+                {getFieldLabel(field.id, field.label)}
               </label>
               <input
                 type="text"
@@ -124,7 +130,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
                   })
                 }
                 className={`w-full p-3 rounded-2xl text-sm outline-none ${inputSurface}`}
-                placeholder="Type to filter"
+                placeholder={t('filterPlaceholder')}
               />
             </div>
           ))}

@@ -95,10 +95,11 @@ export const ItemImage: React.FC<ItemImageProps> = ({
           if (type === 'enhanced') {
             blob = await getEnhancedAsset(itemId, { enhancedPath, collectionId });
             if (!blob || blob.size === 0) {
-              blob = await getAsset(itemId, 'display', remoteAssetPath || undefined, collectionId);
-            }
-            if (!blob || blob.size === 0) {
-              blob = await getAsset(itemId, 'original', remoteAssetPath || undefined, collectionId);
+              const [displayBlob, originalBlob] = await Promise.all([
+                getAsset(itemId, 'display', remoteAssetPath || undefined, collectionId),
+                getAsset(itemId, 'original', remoteAssetPath || undefined, collectionId),
+              ]);
+              blob = displayBlob || originalBlob;
             }
           } else {
             blob = await getAsset(
