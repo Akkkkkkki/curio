@@ -115,7 +115,7 @@ tests/
 
 ### 🚧 Phase 4: Components (In Progress)
 
-- `tests/components/AddItemModal.test.tsx` - Item creation flow (planned)
+- `tests/components/AddItemModal.test.tsx` - Item creation flow
 - `tests/components/AuthModal.test.tsx` - Authentication UI
 - `tests/components/Layout.test.tsx` - Layout + profile dropdown
 - `tests/components/ItemCard.test.tsx` - Item display + selection mode
