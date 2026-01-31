@@ -12,7 +12,9 @@ interface MuseumGuideProps {
 
 export const MuseumGuide: React.FC<MuseumGuideProps> = ({ collection, isOpen, onClose }) => {
   const { t, language } = useTranslation();
-  const [status, setStatus] = useState<'idle' | 'connecting' | 'active' | 'error'>('idle');
+  const [status, setStatus] = useState<
+    'idle' | 'connecting' | 'active' | 'error' | 'permission-error'
+  >('idle');
   const [isMuted, setIsMuted] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
 
@@ -119,9 +121,13 @@ export const MuseumGuide: React.FC<MuseumGuideProps> = ({ collection, isOpen, on
       );
 
       sessionRef.current = await sessionPromise;
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setStatus('error');
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        setStatus('permission-error');
+      } else {
+        setStatus('error');
+      }
     }
   };
 
@@ -175,7 +181,9 @@ export const MuseumGuide: React.FC<MuseumGuideProps> = ({ collection, isOpen, on
             ? t('guideConnecting')
             : status === 'active'
               ? t('guideActive')
-              : t('guideError')}
+              : status === 'permission-error'
+                ? t('guidePermissionError')
+                : t('guideError')}
         </p>
 
         {status === 'active' && (
@@ -203,7 +211,7 @@ export const MuseumGuide: React.FC<MuseumGuideProps> = ({ collection, isOpen, on
           </div>
         )}
 
-        {status === 'error' && (
+        {(status === 'error' || status === 'permission-error') && (
           <button onClick={startSession} className="text-amber-600 font-bold hover:underline">
             {t('tryAgain')}
           </button>

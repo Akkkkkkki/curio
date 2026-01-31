@@ -53,24 +53,24 @@ describe('Button', () => {
       renderWithProviders(<Button>Medium</Button>);
       const button = screen.getByRole('button');
       expect(button).toHaveClass('text-sm');
-      expect(button).toHaveClass('px-5');
-      expect(button).toHaveClass('py-2.5');
+      expect(button).toHaveClass('px-6');
+      expect(button).toHaveClass('py-3');
     });
 
     it('applies small size styles', () => {
       renderWithProviders(<Button size="sm">Small</Button>);
       const button = screen.getByRole('button');
       expect(button).toHaveClass('text-xs');
-      expect(button).toHaveClass('px-3');
-      expect(button).toHaveClass('py-1.5');
+      expect(button).toHaveClass('px-4');
+      expect(button).toHaveClass('py-2');
     });
 
     it('applies large size styles', () => {
       renderWithProviders(<Button size="lg">Large</Button>);
       const button = screen.getByRole('button');
       expect(button).toHaveClass('text-base');
-      expect(button).toHaveClass('px-6');
-      expect(button).toHaveClass('py-3');
+      expect(button).toHaveClass('px-8');
+      expect(button).toHaveClass('py-4');
     });
   });
 

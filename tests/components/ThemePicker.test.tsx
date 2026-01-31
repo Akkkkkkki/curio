@@ -39,11 +39,19 @@ describe('ThemePicker', () => {
     expect(getMockSetTheme()).toHaveBeenCalledWith('vault');
   });
 
-  it('renders stacked layout when configured', () => {
-    renderWithProviders(<ThemePicker layout="stacked" />);
+  it('shows checkmark for active theme', () => {
+    setMockTheme('vault');
+    renderWithProviders(<ThemePicker />);
 
-    expect(screen.getByRole('button', { name: /gallery/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /vault/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /atelier/i })).toBeInTheDocument();
+    // The checkmark is an SVG, so we can check if the active button contains an SVG
+    // or we can check if the active button has a specific class that indicates selection
+    // In our implementation, we check if the checkmark icon is present within the active button
+
+    const vaultButton = screen.getByRole('button', { name: /vault/i });
+    // Lucide icons are rendered as SVGs. We can check for the presence of an SVG inside the button.
+    expect(vaultButton.querySelector('svg.lucide-check')).toBeInTheDocument();
+
+    const galleryButton = screen.getByRole('button', { name: /gallery/i });
+    expect(galleryButton.querySelector('svg.lucide-check')).not.toBeInTheDocument();
   });
 });
