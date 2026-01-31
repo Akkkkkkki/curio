@@ -74,6 +74,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
   const [selectedCollectionId, setSelectedCollectionId] = useState<string>('');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [batchItems, setBatchItems] = useState<BatchItem[]>([]);
+  const [batchVisibleCount, setBatchVisibleCount] = useState(8);
   const [formData, setFormData] = useState(createEmptyForm());
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -141,6 +142,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
       if (collections.length === 1) setSelectedCollectionId(collections[0].id);
       setImagePreview(null);
       setBatchItems([]);
+      setBatchVisibleCount(8);
       setFormData(createEmptyForm());
       setError(null);
       setIsSaving(false);
