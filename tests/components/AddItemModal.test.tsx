@@ -85,12 +85,7 @@ describe('AddItemModal', () => {
     });
 
     renderWithProviders(
-      <AddItemModal
-        isOpen
-        onClose={mockOnClose}
-        collections={[collection]}
-        onSave={mockOnSave}
-      />,
+      <AddItemModal isOpen onClose={mockOnClose} collections={[collection]} onSave={mockOnSave} />,
     );
 
     const file = new File(['fake'], 'artifact.png', { type: 'image/png' });
