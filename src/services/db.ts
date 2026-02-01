@@ -1229,6 +1229,104 @@ export const saveCollection = async (collection: UserCollection): Promise<void> 
   }
 };
 
+/**
+ * Save a single item to IndexedDB and sync to Supabase.
+ * This is more efficient than saveCollection when only one item has changed.
+ */
+export const saveItem = async (item: CollectionItem): Promise<void> => {
+  const db = await initDB();
+  const itemToSave = item.updatedAt ? item : { ...item, updatedAt: new Date().toISOString() };
+
+  // 1. Load the collection containing this item
+  const collection = await new Promise<UserCollection | null>((resolve) => {
+    const transaction = db.transaction(COLLECTIONS_STORE, 'readonly');
+    const store = transaction.objectStore(COLLECTIONS_STORE);
+    const request = store.get(item.collectionId);
+    request.onsuccess = () => resolve(request.result || null);
+    request.onerror = () => resolve(null);
+  });
+
+  if (!collection) {
+    throw new Error(`Collection ${item.collectionId} not found for item ${item.id}`);
+  }
+
+  // 2. Update or add the item in the collection's items array
+  const existingIndex = collection.items.findIndex((i) => i.id === itemToSave.id);
+  if (existingIndex >= 0) {
+    collection.items[existingIndex] = itemToSave;
+  } else {
+    collection.items.push(itemToSave);
+  }
+  collection.updatedAt = new Date().toISOString();
+
+  // 3. Save to IndexedDB
+  await new Promise<void>((resolve, reject) => {
+    const transaction = db.transaction(COLLECTIONS_STORE, 'readwrite');
+    const store = transaction.objectStore(COLLECTIONS_STORE);
+    store.put(collection);
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+  });
+
+  // 4. Sync just the item to Supabase (not the whole collection)
+  if (isSupabaseConfigured() && supabase) {
+    notifySyncStatus('syncing');
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('No authenticated user session');
+      }
+
+      const basePath = `${user.id}/collections/${collection.id}/${itemToSave.id}`;
+      const { originalPath, displayPath } = normalizePhotoPaths(itemToSave.photoUrl || '');
+      const photoOriginalPath =
+        itemToSave.photoUrl === 'asset' ? `${basePath}/original.jpg` : originalPath;
+      const photoDisplayPath =
+        itemToSave.photoUrl === 'asset' ? `${basePath}/display.jpg` : displayPath;
+      const photoEnhancedPath = normalizeStoragePath(itemToSave.photoEnhancedPath) || null;
+
+      const payload: Record<string, any> = {
+        id: itemToSave.id,
+        user_id: user.id,
+        collection_id: collection.id,
+        title: itemToSave.title,
+        notes: itemToSave.notes,
+        rating: itemToSave.rating,
+        data: itemToSave.data,
+        photo_original_path: photoOriginalPath,
+        photo_display_path: photoDisplayPath,
+        photo_enhanced_path: photoEnhancedPath,
+        seed_key: itemToSave.seedKey,
+      };
+      if (SUPABASE_SYNC_TIMESTAMPS) {
+        payload.created_at = itemToSave.createdAt;
+        payload.updated_at = itemToSave.updatedAt || itemToSave.createdAt;
+      }
+
+      const { error } = await supabase.from('items').upsert(payload);
+      if (error) {
+        throw new Error(`Item sync failed: ${error.message}`);
+      }
+
+      // Also update collection's updated_at in cloud
+      await supabase
+        .from('collections')
+        .update({ updated_at: collection.updatedAt })
+        .eq('id', collection.id);
+
+      notifySyncStatus('synced');
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : 'Sync failed';
+      console.warn('Supabase item sync error:', errorMessage);
+      // Add collection to pending queue for retry (items are synced via collection)
+      await addToPendingSync(collection.id);
+      notifySyncStatus('error', errorMessage);
+    }
+  }
+};
+
 const recordItemImage = async ({
   itemId,
   role,

@@ -379,7 +379,143 @@ describe('Phase 2.2 — services/db.ts dual-write operations', () => {
     expect(upload).toHaveBeenCalledTimes(2);
   });
 
-  it.todo('exports saveItem(item, session) as a function (roadmap API - not yet implemented)');
+  it('saveItem: updates an existing item in IndexedDB and upserts to Supabase', async () => {
+    /**
+     * Verifies that saveItem:
+     * - Updates the item in the collection's items array
+     * - Persists to IndexedDB
+     * - Syncs just the item to Supabase (not the whole collection)
+     */
+    const { supabase, itemsUpsert, from } = createSupabaseMock();
+    const dbMod = await importDbModuleFreshWithSupabaseMock(supabase);
+
+    const db = await dbMod.initDB();
+    openDb = db;
+    await clearStores(db, ['collections', 'assets', 'display', 'settings']);
+
+    const item: CollectionItem = {
+      id: 'item-save-1',
+      collectionId: 'col-save-item',
+      photoUrl: 'asset',
+      title: 'Original title',
+      rating: 3,
+      data: { field: 'value' },
+      createdAt: new Date('2024-01-01T00:00:00Z').toISOString(),
+      notes: 'original notes',
+    };
+
+    const collection: UserCollection = {
+      id: 'col-save-item',
+      templateId: 'vinyl',
+      name: 'Test Collection',
+      icon: '📦',
+      customFields: [],
+      items: [item],
+      ownerId: 'test-user-id',
+      updatedAt: new Date('2024-01-02T00:00:00Z').toISOString(),
+    };
+
+    // First save the collection
+    await dbMod.saveCollection(collection);
+    itemsUpsert.mockClear();
+
+    // Now update the item using saveItem
+    const updatedItem: CollectionItem = {
+      ...item,
+      title: 'Updated title',
+      rating: 5,
+      notes: 'updated notes',
+    };
+
+    await expect(dbMod.saveItem(updatedItem)).resolves.toBeUndefined();
+
+    // Verify item was updated in IndexedDB
+    const savedCollection = await readFromStore<UserCollection>(db, 'collections', 'col-save-item');
+    expect(savedCollection).toBeTruthy();
+    expect(savedCollection?.items).toHaveLength(1);
+    expect(savedCollection?.items[0].title).toBe('Updated title');
+    expect(savedCollection?.items[0].rating).toBe(5);
+    expect(savedCollection?.items[0].notes).toBe('updated notes');
+
+    // Verify Supabase was called to upsert just the item
+    expect(from).toHaveBeenCalledWith('items');
+    expect(itemsUpsert).toHaveBeenCalledTimes(1);
+
+    const [itemPayload] = itemsUpsert.mock.calls[0];
+    expect(itemPayload).toMatchObject({
+      id: 'item-save-1',
+      user_id: 'test-user-id',
+      collection_id: 'col-save-item',
+      title: 'Updated title',
+      rating: 5,
+      notes: 'updated notes',
+    });
+  });
+
+  it('saveItem: adds a new item to an existing collection', async () => {
+    const { supabase, itemsUpsert } = createSupabaseMock();
+    const dbMod = await importDbModuleFreshWithSupabaseMock(supabase);
+
+    const db = await dbMod.initDB();
+    openDb = db;
+    await clearStores(db, ['collections', 'assets', 'display', 'settings']);
+
+    const collection: UserCollection = {
+      id: 'col-add-item',
+      templateId: 'vinyl',
+      name: 'Test Collection',
+      icon: '📦',
+      customFields: [],
+      items: [],
+      ownerId: 'test-user-id',
+    };
+
+    await dbMod.saveCollection(collection);
+    itemsUpsert.mockClear();
+
+    const newItem: CollectionItem = {
+      id: 'new-item-1',
+      collectionId: 'col-add-item',
+      photoUrl: 'asset',
+      title: 'New item',
+      rating: 4,
+      data: {},
+      createdAt: new Date().toISOString(),
+      notes: '',
+    };
+
+    await expect(dbMod.saveItem(newItem)).resolves.toBeUndefined();
+
+    // Verify item was added to the collection in IndexedDB
+    const savedCollection = await readFromStore<UserCollection>(db, 'collections', 'col-add-item');
+    expect(savedCollection?.items).toHaveLength(1);
+    expect(savedCollection?.items[0].id).toBe('new-item-1');
+    expect(savedCollection?.items[0].title).toBe('New item');
+  });
+
+  it('saveItem: rejects when collection does not exist', async () => {
+    const { supabase } = createSupabaseMock();
+    const dbMod = await importDbModuleFreshWithSupabaseMock(supabase);
+
+    const db = await dbMod.initDB();
+    openDb = db;
+    await clearStores(db, ['collections', 'assets', 'display', 'settings']);
+
+    const orphanItem: CollectionItem = {
+      id: 'orphan-item',
+      collectionId: 'non-existent-collection',
+      photoUrl: 'asset',
+      title: 'Orphan',
+      rating: 1,
+      data: {},
+      createdAt: new Date().toISOString(),
+      notes: '',
+    };
+
+    await expect(dbMod.saveItem(orphanItem)).rejects.toThrow(
+      'Collection non-existent-collection not found',
+    );
+  });
 });
 
 describe('deleteCollection', () => {
