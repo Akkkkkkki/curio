@@ -36,9 +36,7 @@ vi.mock('@/services/db', () => ({
 vi.mock('@/services/supabase', () => ({
   supabase: {
     auth: {
-      getSession: vi
-        .fn()
-        .mockResolvedValue({ data: { session: { user: { id: 'user1' } } } }),
+      getSession: vi.fn().mockResolvedValue({ data: { session: { user: { id: 'user1' } } } }),
       onAuthStateChange: vi
         .fn()
         .mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } }),
@@ -80,9 +78,7 @@ vi.mock('@/theme', async () => {
   const MockThemeProvider = ({ children }: { children: React.ReactNode }) => {
     const [theme, setTheme] = React.useState('gallery');
     // @ts-ignore
-    return (
-      <ThemeContext.Provider value={{ theme, setTheme }}>{children}</ThemeContext.Provider>
-    );
+    return <ThemeContext.Provider value={{ theme, setTheme }}>{children}</ThemeContext.Provider>;
   };
 
   return {
