@@ -110,10 +110,11 @@ import {
   STORAGE_QUOTA_WARNING_THRESHOLD_RATIO,
 } from './config';
 import { detectConflicts } from './utils/conflictDetection';
+import { sortCollectionItems, type ItemSort } from './utils/collectionSorting';
 import { HomeScreen } from './components/HomeScreen';
 import { useDebouncedValue } from './hooks/useDebouncedValue';
 
-const AppContent: React.FC = () => {
+export const AppContent: React.FC = () => {
   const { t, language, setLanguage } = useTranslation();
   const { theme, setTheme } = useTheme();
   const isVoiceGuideEnabled = import.meta.env.VITE_VOICE_GUIDE_ENABLED === 'true';
