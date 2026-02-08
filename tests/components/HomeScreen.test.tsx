@@ -78,7 +78,7 @@ describe('HomeScreen', () => {
 
   it('filters collections by search term', async () => {
     renderWithProviders(<HomeScreen {...defaultProps} />);
-    
+
     const searchInput = screen.getByPlaceholderText(/search/i);
     fireEvent.change(searchInput, { target: { value: 'Vinyl' } });
 
@@ -90,7 +90,7 @@ describe('HomeScreen', () => {
 
   it('shows no results message when search yields nothing', async () => {
     renderWithProviders(<HomeScreen {...defaultProps} />);
-    
+
     const searchInput = screen.getByPlaceholderText(/search/i);
     fireEvent.change(searchInput, { target: { value: 'XYZ' } });
 
