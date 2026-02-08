@@ -6,6 +6,8 @@
 5) Run: npm run test:e2e (must pass; first-time setup may require: npx playwright install chromium)
 6) Ensure: git diff and git status --porcelain are clean (no formatting leftovers / untracked artifacts)
 
+> **Note:** A `pre-push` hook is configured to run `npm run format:check` automatically. However, you must still run these commands manually to catch issues early.
+
 If you cannot run commands, you MUST:
 - keep existing code style consistent
 - avoid reflowing long lines manually
