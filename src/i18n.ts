@@ -142,6 +142,8 @@ export const translations = {
     guideConnecting: 'Preparing the archive expert...',
     guideActive: 'You can talk to the guide about your collection.',
     guideError: 'Something went wrong. Please check your microphone.',
+    guidePermissionError:
+      'Microphone access denied. Please enable permissions in your browser settings.',
     tryAgain: 'Try Again',
     noPhoto: 'No Photo',
     loadError: 'Load Error',

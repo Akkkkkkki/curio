@@ -1,5 +1,5 @@
 import React from 'react';
-import { Paintbrush } from 'lucide-react';
+import { Paintbrush, Check } from 'lucide-react';
 import { AppTheme } from '../types';
 import { useTheme } from '../theme';
 import { useTranslation, translations } from '../i18n';
@@ -59,6 +59,7 @@ export const ThemePicker: React.FC<ThemePickerProps> = ({ layout = 'inline' }) =
             <span className="flex items-center gap-2">
               <Paintbrush size={14} className="text-stone-300" />
               <span>{t(optionMeta[opt].labelKey as any)}</span>
+              {theme === opt && <Check size={14} />}
             </span>
             <span className="flex -space-x-1">
               {optionMeta[opt].swatch.map((cls, idx) => (
@@ -95,6 +96,7 @@ export const ThemePicker: React.FC<ThemePickerProps> = ({ layout = 'inline' }) =
                 <span key={idx} className={`w-3 h-3 rounded-full border border-black/5 ${cls}`} />
               ))}
             </span>
+            {theme === opt && <Check size={12} />}
             <span className="hidden md:inline">{t(optionMeta[opt].labelKey as any)}</span>
           </button>
         ))}

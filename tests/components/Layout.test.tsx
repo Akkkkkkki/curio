@@ -390,24 +390,37 @@ describe('Layout Component', () => {
   });
 
   describe('Bottom Navigation (Mobile)', () => {
-    it('renders home link in bottom nav', () => {
-      renderWithProviders(<Layout {...defaultProps} />);
+    it('renders all navigation items', () => {
+      renderWithProviders(<Layout {...defaultProps} sampleCollectionId="sample-vinyl-1" />);
 
-      // Bottom nav has aria-label="Primary"
       const bottomNav = screen.getByRole('navigation', { name: /primary/i });
       expect(bottomNav).toBeInTheDocument();
 
-      // Home link should be present
-      const homeLinks = screen.getAllByText('Home');
-      expect(homeLinks.length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('Home').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getByText('Explore')).toBeInTheDocument();
+      expect(screen.getByText('Add')).toBeInTheDocument();
+      expect(screen.getByText('Profile')).toBeInTheDocument();
     });
 
-    it('renders explore link in bottom nav', () => {
-      renderWithProviders(<Layout {...defaultProps} sampleCollectionId="sample-vinyl-1" />);
+    it('calls onAddItem when add button is clicked', () => {
+      const onAddItem = vi.fn();
+      renderWithProviders(<Layout {...defaultProps} onAddItem={onAddItem} />);
 
-      const exploreLink = screen.getByRole('link', { name: /explore/i });
-      expect(exploreLink).toBeInTheDocument();
-      expect(exploreLink).toHaveAttribute('href', '#/explore');
+      const addButton = screen.getByText('Add').closest('button');
+      fireEvent.click(addButton!);
+
+      expect(onAddItem).toHaveBeenCalledTimes(1);
+    });
+
+    it('opens profile when profile button is clicked', async () => {
+      renderWithProviders(<Layout {...defaultProps} />);
+
+      const profileButton = screen.getByText('Profile').closest('button');
+      fireEvent.click(profileButton!);
+
+      await waitFor(() => {
+        expect(screen.getByText('Account Status')).toBeInTheDocument();
+      });
     });
   });
 

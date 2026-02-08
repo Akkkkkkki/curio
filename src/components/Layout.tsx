@@ -9,6 +9,7 @@ import {
   ArrowUpRight,
   Download,
   Compass,
+  Plus,
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from '../i18n';
@@ -28,6 +29,7 @@ interface LayoutProps {
   isSupabaseConfigured: boolean;
   headerExtras?: React.ReactNode;
   statusBanner?: React.ReactNode;
+  onAddItem?: () => void;
 }
 
 export const Layout: React.FC<LayoutProps> = ({
@@ -43,6 +45,7 @@ export const Layout: React.FC<LayoutProps> = ({
   isSupabaseConfigured,
   headerExtras,
   statusBanner,
+  onAddItem,
 }) => {
   const { t } = useTranslation();
   const { theme } = useTheme();
@@ -269,13 +272,13 @@ export const Layout: React.FC<LayoutProps> = ({
         aria-label="Primary"
         style={{ height: 'var(--bottom-nav-height, 5.5rem)' }}
       >
-        <div className="mx-auto max-w-4xl h-full px-6 pb-[env(safe-area-inset-bottom,0px)] pt-2 flex items-center">
-          <div className="grid grid-cols-2 items-center w-full">
+        <div className="mx-auto max-w-4xl h-full px-2 pb-[env(safe-area-inset-bottom,0px)] pt-2 flex items-center">
+          <div className="grid grid-cols-4 items-center w-full">
             <Link
               to="/"
               className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition-colors ${location.pathname === '/' ? 'text-amber-500' : bottomNavMuted}`}
             >
-              <Home size={18} />
+              <Home size={22} />
               {t('navHome')}
             </Link>
 
@@ -283,9 +286,27 @@ export const Layout: React.FC<LayoutProps> = ({
               to="/explore"
               className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition-colors ${isExploreActive ? 'text-amber-500' : bottomNavMuted}`}
             >
-              <Compass size={18} />
+              <Compass size={22} />
               {t('exploreSample')}
             </Link>
+
+            <button
+              onClick={onAddItem}
+              className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition-colors ${bottomNavMuted}`}
+            >
+              <div className="p-1 rounded-full bg-amber-100 text-amber-700 -mt-1">
+                <Plus size={20} strokeWidth={2.5} />
+              </div>
+              {t('add')}
+            </button>
+
+            <button
+              onClick={() => setIsProfileOpen(true)}
+              className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition-colors ${isProfileOpen ? 'text-amber-500' : bottomNavMuted}`}
+            >
+              <User size={22} />
+              {t('profile')}
+            </button>
           </div>
         </div>
       </nav>

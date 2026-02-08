@@ -110,6 +110,12 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
         ? 'add-item-title-error'
         : undefined;
 
+  const getFieldLabel = (fieldId: string, fallback: string) => {
+    const fieldKey = `label_${fieldId}` as any;
+    const translated = t(fieldKey);
+    return translated === fieldKey ? fallback : translated;
+  };
+
   const stepItems = useMemo<{ id: FlowStep; label: string; helper: string }[]>(
     () => [
       {
@@ -881,7 +887,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
                           aria-label={t('rateStars', { count: s })}
                           aria-pressed={item.rating === s}
                           title={t('rateStars', { count: s })}
-                          className={`w-7 h-7 rounded-md border flex items-center justify-center transition-all text-xs ${
+                          className={`w-9 h-9 rounded-lg border flex items-center justify-center transition-all text-xs ${
                             s <= item.rating
                               ? 'bg-amber-400 border-amber-500 text-white shadow-sm'
                               : theme === 'vault'
@@ -1096,7 +1102,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
                 aria-label={t('rateStars', { count: s })}
                 aria-pressed={formData.rating === s}
                 title={t('rateStars', { count: s })}
-                className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg border flex items-center justify-center transition-all text-sm ${
+                className={`w-12 h-12 rounded-xl border flex items-center justify-center transition-all text-base ${
                   s <= formData.rating
                     ? 'bg-amber-400 border-amber-500 text-white shadow-sm'
                     : theme === 'vault'
