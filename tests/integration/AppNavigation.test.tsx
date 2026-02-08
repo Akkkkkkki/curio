@@ -36,8 +36,12 @@ vi.mock('@/services/db', () => ({
 vi.mock('@/services/supabase', () => ({
   supabase: {
     auth: {
-      getSession: vi.fn().mockResolvedValue({ data: { session: { user: { id: 'user1' } } } }),
-      onAuthStateChange: vi.fn().mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } }),
+      getSession: vi
+        .fn()
+        .mockResolvedValue({ data: { session: { user: { id: 'user1' } } } }),
+      onAuthStateChange: vi
+        .fn()
+        .mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } }),
     },
     from: vi.fn(() => ({
       select: vi.fn(() => ({
@@ -67,7 +71,7 @@ vi.mock('@vercel/analytics/react', () => ({
 vi.mock('@/theme', async () => {
   const React = await import('react');
   const actual = await vi.importActual<typeof import('@/theme')>('@/theme');
-  
+
   const ThemeContext = React.createContext({
     theme: 'gallery',
     setTheme: () => {},
@@ -76,7 +80,9 @@ vi.mock('@/theme', async () => {
   const MockThemeProvider = ({ children }: { children: React.ReactNode }) => {
     const [theme, setTheme] = React.useState('gallery');
     // @ts-ignore
-    return <ThemeContext.Provider value={{ theme, setTheme }}>{children}</ThemeContext.Provider>;
+    return (
+      <ThemeContext.Provider value={{ theme, setTheme }}>{children}</ThemeContext.Provider>
+    );
   };
 
   return {
@@ -119,7 +125,7 @@ describe('App Integration Tests', () => {
 
   it('renders CollectionScreen without crashing', async () => {
     const { ThemeProvider } = await import('@/theme');
-    
+
     render(
       <MemoryRouter initialEntries={['/collection/col1']}>
         <ThemeProvider>
@@ -127,7 +133,7 @@ describe('App Integration Tests', () => {
             <AppContent />
           </LanguageProvider>
         </ThemeProvider>
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
     // Wait for collections to load
