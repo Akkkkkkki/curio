@@ -75,11 +75,7 @@ export const ImageEditModal: React.FC<ImageEditModalProps> = ({
         aria-labelledby="image-edit-title"
         className={`${surfaceClass} rounded-t-3xl rounded-b-none sm:rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col motion-panel border pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] sm:pt-0 sm:pb-0`}
       >
-        <div className="sm:hidden flex items-center justify-center pt-2">
-          <span
-            className={`${theme === 'vault' ? 'bg-white/20' : 'bg-stone-200'} h-1.5 w-12 rounded-full`}
-          />
-        </div>
+        <div className="sm:hidden h-3" />
         <div className={`flex items-center justify-between p-4 border-b ${borderClass}`}>
           <h2
             id="image-edit-title"

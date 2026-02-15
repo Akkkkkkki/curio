@@ -117,11 +117,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
           data-testid="auth-modal"
           className={`${surfaceClass} rounded-t-[2.5rem] rounded-b-none sm:rounded-[2.5rem] shadow-2xl w-full max-w-md h-[100dvh] sm:h-auto max-h-[100dvh] overflow-hidden flex flex-col border motion-panel pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] sm:pt-0 sm:pb-0`}
         >
-          <div className="sm:hidden flex items-center justify-center pt-2">
-            <span
-              className={`${theme === 'vault' ? 'bg-white/20' : 'bg-stone-200'} h-1.5 w-12 rounded-full`}
-            />
-          </div>
+          <div className="sm:hidden h-3" />
           <div className={`flex items-center justify-between p-8 border-b ${dividerBorder}`}>
             <div>
               <h2

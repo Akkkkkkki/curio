@@ -1142,11 +1142,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
           aria-describedby={dialogDescribedBy}
           className={`${surfaceClass} rounded-t-3xl rounded-b-none sm:rounded-3xl shadow-2xl w-full max-w-lg h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[90vh] overflow-hidden flex flex-col motion-panel pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] sm:pt-0 sm:pb-0`}
         >
-          <div className="sm:hidden flex items-center justify-center pt-2">
-            <span
-              className={`${theme === 'vault' ? 'bg-white/20' : 'bg-stone-200'} h-1.5 w-12 rounded-full`}
-            />
-          </div>
+          <div className="sm:hidden h-3" />
           <div className={`flex items-center justify-between p-4 sm:p-6 border-b ${borderClass}`}>
             <h2
               id="add-item-modal-title"

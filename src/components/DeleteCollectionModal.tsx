@@ -33,11 +33,7 @@ export const DeleteCollectionModal: React.FC<DeleteCollectionModalProps> = ({
       <div
         className={`${surfaceClass} rounded-t-[1.75rem] rounded-b-none sm:rounded-[1.75rem] shadow-2xl w-full max-w-md overflow-hidden flex flex-col motion-panel border pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] sm:pt-0 sm:pb-0`}
       >
-        <div className="sm:hidden flex items-center justify-center pt-2">
-          <span
-            className={`${theme === 'vault' ? 'bg-white/20' : 'bg-stone-200'} h-1.5 w-12 rounded-full`}
-          />
-        </div>
+        <div className="sm:hidden h-3" />
         <div className={`flex items-center justify-between px-6 py-5 border-b ${borderClass}`}>
           <div className="flex items-center gap-2">
             <div className="p-1.5 rounded-lg bg-red-100 text-red-600">

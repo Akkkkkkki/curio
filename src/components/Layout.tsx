@@ -268,7 +268,7 @@ export const Layout: React.FC<LayoutProps> = ({
       </main>
 
       <nav
-        className={`fixed bottom-0 left-0 right-0 z-[60] border-t ${bottomNavSurface} sm:hidden`}
+        className={`fixed bottom-0 left-0 right-0 z-40 border-t ${bottomNavSurface} sm:hidden`}
         aria-label="Primary"
         style={{ height: 'var(--bottom-nav-height, 5.5rem)' }}
       >
