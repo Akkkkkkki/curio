@@ -372,6 +372,23 @@ export const translations = {
     onboardingStepThree: 'Everything syncs when you reconnect.',
     gotIt: 'Got it',
     untitled: 'Untitled',
+    // Error Boundary
+    errorBoundaryTitle: 'Something went wrong',
+    errorBoundaryDesc:
+      'The app encountered an unexpected error. Your data is safe. Please reload to continue.',
+    errorBoundaryReload: 'Reload App',
+    errorBoundaryShowDetails: 'Show details',
+    errorBoundaryHideDetails: 'Hide details',
+    // Image placeholders
+    imageError: 'Image Error',
+    // Delete failure
+    deleteCollectionFailed: 'Failed to delete collection',
+    // Sample badge
+    sampleBadge: 'Sample',
+    // Load errors
+    loadErrorCloudFetch:
+      'Unable to sync with Supabase. Check your connection and Supabase settings.',
+    loadErrorGeneric: 'Failed to load collections. Please try again.',
   },
   zh: {
     appTitle: '珍藏',
@@ -737,6 +754,21 @@ export const translations = {
     onboardingStepThree: '离线也可保存，联网后自动同步。',
     gotIt: '知道了',
     untitled: '未命名',
+    // Error Boundary
+    errorBoundaryTitle: '出错了',
+    errorBoundaryDesc: '应用遇到了意外错误。您的数据安全无损。请重新加载继续使用。',
+    errorBoundaryReload: '重新加载',
+    errorBoundaryShowDetails: '显示详情',
+    errorBoundaryHideDetails: '隐藏详情',
+    // Image placeholders
+    imageError: '图片错误',
+    // Delete failure
+    deleteCollectionFailed: '删除收藏集失败',
+    // Sample badge
+    sampleBadge: '示例',
+    // Load errors
+    loadErrorCloudFetch: '无法连接 Supabase 进行同步，请检查网络连接和 Supabase 配置。',
+    loadErrorGeneric: '加载收藏集失败，请重试。',
   },
 };
 
@@ -748,13 +780,31 @@ const getInitialLanguage = (): Language => {
   return stored === 'zh' || stored === 'en' ? stored : 'en';
 };
 
+export type TranslationKey = keyof (typeof translations)['en'];
+
 interface LanguageContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
-  t: (key: keyof (typeof translations)['en'], params?: Record<string, any>) => string;
+  t: (key: TranslationKey, params?: Record<string, string | number>) => string;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
+
+/**
+ * Look up a dynamic field label like `label_brand`.
+ * Falls back to the raw fieldId when no translation exists.
+ */
+export const getFieldTranslation = (
+  t: LanguageContextType['t'],
+  fieldId: string,
+  fallbackLabel?: string,
+): string => {
+  const key = `label_${fieldId}` as TranslationKey;
+  const translated = t(key);
+  // If the translation returned the key itself, it's not translated
+  if (translated === key) return fallbackLabel ?? fieldId;
+  return translated;
+};
 
 export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [language, setLanguage] = useState<Language>(() => getInitialLanguage());
@@ -765,8 +815,10 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
     }
   }, [language]);
 
-  const t = (key: keyof (typeof translations)['en'], params?: Record<string, any>) => {
-    let text = (translations[language] as any)[key] || (translations['en'] as any)[key] || key;
+  const t = (key: TranslationKey, params?: Record<string, string | number>) => {
+    const langMap = translations[language] as Record<string, string>;
+    const enMap = translations['en'] as Record<string, string>;
+    let text = langMap[key] || enMap[key] || key;
     if (params) {
       Object.entries(params).forEach(([k, v]) => {
         text = text.replace(`{${k}}`, String(v));

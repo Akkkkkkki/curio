@@ -123,11 +123,12 @@ test.describe('First-Time User Experience', () => {
     await expect(page.locator('[data-theme="vault"]')).toBeVisible();
 
     // Toggle language button in header.
-    const langToggle = page.getByTitle('Switch Language');
+    // Use a stable locator (Globe icon button) since the title changes with language.
+    const langToggle = page.locator('button', { has: page.locator('text=ZH') });
     await expect(langToggle).toBeVisible();
-    const before = await langToggle.textContent();
     await langToggle.click();
-    await expect(langToggle).not.toHaveText(before || '');
+    // After switching, the button label should change from ZH to EN.
+    await expect(page.locator('button', { has: page.locator('text=EN') })).toBeVisible();
   });
 });
 

@@ -87,7 +87,7 @@ import { refreshAiImageEditEnabled } from './services/geminiService';
 import { DeleteCollectionModal } from './components/DeleteCollectionModal';
 import { DeleteItemModal } from './components/DeleteItemModal';
 import { DeleteItemsModal } from './components/DeleteItemsModal';
-import { LanguageProvider, useTranslation } from './i18n';
+import { LanguageProvider, useTranslation, getFieldTranslation } from './i18n';
 import { supabase, isSupabaseConfigured, signOutUser } from './services/supabase';
 import {
   ThemeProvider,
@@ -525,7 +525,7 @@ export const AppContent: React.FC = () => {
         console.warn('Supabase cloud fetch failed:', e);
         setHasLocalImport(false);
         setCollections(localCollections);
-        setLoadError('Unable to sync with Supabase. Check your connection and Supabase settings.');
+        setLoadError(tRef.current('loadErrorCloudFetch'));
         setConflicts([]);
         setIsConflictModalOpen(false);
         showStatusRef.current(tRef.current('statusSyncPaused'), 'error');
@@ -576,7 +576,7 @@ export const AppContent: React.FC = () => {
       }
     } catch (e) {
       console.error('Initialization failed:', e);
-      setLoadError('Failed to load collections. Please try again.');
+      setLoadError(tRef.current('loadErrorGeneric'));
       showStatusRef.current(tRef.current('statusSyncPaused'), 'error');
       setConflicts([]);
       setIsConflictModalOpen(false);
@@ -967,9 +967,7 @@ export const AppContent: React.FC = () => {
           !term ||
           item.title.toLowerCase().includes(term) ||
           item.notes?.toLowerCase().includes(term) ||
-          (Object.values(item.data) as any[]).some((val) =>
-            String(val).toLowerCase().includes(term),
-          );
+          Object.values(item.data).some((val) => String(val).toLowerCase().includes(term));
         const matchesFilters = (Object.entries(activeFilters) as [string, string][]).every(
           ([key, value]) => {
             if (!value) return true;
@@ -1008,14 +1006,12 @@ export const AppContent: React.FC = () => {
     const selectedCount = selectedItemIds.length;
     const hasSelection = selectedCount > 0;
 
-    const getFieldLabel = (fieldId: string) => {
-      const fieldKey = `label_${fieldId}` as any;
-      const translated = t(fieldKey);
-      if (translated === fieldKey) {
-        return collection?.customFields.find((f) => f.id === fieldId)?.label || fieldId;
-      }
-      return translated;
-    };
+    const getFieldLabel = (fieldId: string) =>
+      getFieldTranslation(
+        t,
+        fieldId,
+        collection?.customFields.find((f) => f.id === fieldId)?.label,
+      );
 
     const handleRemoveFilter = (key: string) => {
       setActiveFilters((prev) => {
@@ -1064,7 +1060,7 @@ export const AppContent: React.FC = () => {
         showStatus(t('collectionDeleted'), 'success');
       } catch (e) {
         console.error('Failed to delete collection:', e);
-        showStatus('Failed to delete collection', 'error');
+        showStatus(t('deleteCollectionFailed'), 'error');
       }
     };
 
@@ -1113,7 +1109,7 @@ export const AppContent: React.FC = () => {
                   <span
                     className={`${typographyClasses.labelSmall} bg-white/40 text-stone-500 px-1.5 py-0.5 rounded border border-black/5`}
                   >
-                    Sample
+                    {t('sampleBadge')}
                   </span>
                 )}
                 {collection.isLocked && <Lock size={16} className="text-amber-500" />}
@@ -1581,14 +1577,8 @@ export const AppContent: React.FC = () => {
       }
     };
 
-    const getLabel = (fieldId: string) => {
-      const fieldKey = `label_${fieldId}` as any;
-      const translated = t(fieldKey);
-      if (translated === fieldKey) {
-        return collection.customFields.find((f) => f.id === fieldId)?.label || fieldId;
-      }
-      return translated;
-    };
+    const getLabel = (fieldId: string) =>
+      getFieldTranslation(t, fieldId, collection.customFields.find((f) => f.id === fieldId)?.label);
 
     const titleIsEmpty = !item.title.trim();
     const hasPhoto = item.photoUrl && item.photoUrl !== '';
@@ -2215,8 +2205,22 @@ export const AppContent: React.FC = () => {
                   />
                 }
               />
-              <Route path="/collection/:id" element={<CollectionScreen />} />
-              <Route path="/collection/:id/item/:itemId" element={<ItemDetailScreen />} />
+              <Route
+                path="/collection/:id"
+                element={
+                  <ErrorBoundary>
+                    <CollectionScreen />
+                  </ErrorBoundary>
+                }
+              />
+              <Route
+                path="/collection/:id/item/:itemId"
+                element={
+                  <ErrorBoundary>
+                    <ItemDetailScreen />
+                  </ErrorBoundary>
+                }
+              />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
             <AddItemModal
@@ -2272,17 +2276,34 @@ export const AppContent: React.FC = () => {
   );
 };
 
+const LocalizedErrorBoundary: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { t } = useTranslation();
+  return (
+    <ErrorBoundary
+      labels={{
+        title: t('errorBoundaryTitle'),
+        description: t('errorBoundaryDesc'),
+        reload: t('errorBoundaryReload'),
+        showDetails: t('errorBoundaryShowDetails'),
+        hideDetails: t('errorBoundaryHideDetails'),
+      }}
+    >
+      {children}
+    </ErrorBoundary>
+  );
+};
+
 export const App: React.FC = () => {
   return (
     <ThemeProvider>
       <LanguageProvider>
-        <ErrorBoundary>
+        <LocalizedErrorBoundary>
           <HashRouter>
             <AppContent />
           </HashRouter>
           <SpeedInsights />
           <Analytics />
-        </ErrorBoundary>
+        </LocalizedErrorBoundary>
       </LanguageProvider>
     </ThemeProvider>
   );

@@ -19,7 +19,7 @@ import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { UserCollection, CollectionItem } from '../types';
 import { analyzeImage, refreshAiEnabled } from '../services/geminiService';
 import { Button } from './ui/Button';
-import { useTranslation } from '../i18n';
+import { useTranslation, getFieldTranslation } from '../i18n';
 import { useTheme, panelSurfaceClasses, overlaySurfaceClasses, mutedTextClasses } from '../theme';
 import { ImageEditModal } from './ImageEditModal';
 
@@ -110,11 +110,8 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
         ? 'add-item-title-error'
         : undefined;
 
-  const getFieldLabel = (fieldId: string, fallback: string) => {
-    const fieldKey = `label_${fieldId}` as any;
-    const translated = t(fieldKey);
-    return translated === fieldKey ? fallback : translated;
-  };
+  const getFieldLabel = (fieldId: string, fallback: string) =>
+    getFieldTranslation(t, fieldId, fallback);
 
   const stepItems = useMemo<{ id: FlowStep; label: string; helper: string }[]>(
     () => [

@@ -13,7 +13,7 @@ import {
 import { CollectionItem, FieldDefinition } from '../types';
 import { Button } from './ui/Button';
 import { extractCurioAssetPath, getAsset, getEnhancedAsset } from '../services/db';
-import { useTranslation } from '../i18n';
+import { useTranslation, type TranslationKey } from '../i18n';
 
 interface ExportModalProps {
   isOpen: boolean;
@@ -295,9 +295,11 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
                     className={`w-10 h-10 rounded-lg mr-3 shadow-sm border ${s === 'minimal' ? 'bg-white border-stone-100' : s === 'full' ? 'bg-stone-800 border-stone-800' : 'bg-[#f4ebd9] border-stone-300'}`}
                   ></div>
                   <div>
-                    <span className="font-bold text-stone-900 capitalize block">{t(s as any)}</span>
+                    <span className="font-bold text-stone-900 capitalize block">
+                      {t(s as TranslationKey)}
+                    </span>
                     <span className="text-[10px] text-stone-500 uppercase tracking-wide">
-                      {t(`${s}Tag` as any)}
+                      {t(`${s}Tag` as TranslationKey)}
                     </span>
                   </div>
                 </button>

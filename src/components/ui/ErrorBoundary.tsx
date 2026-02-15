@@ -1,8 +1,26 @@
 import React, { Component, ReactNode } from 'react';
 import { AlertCircle, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
 
+interface ErrorBoundaryLabels {
+  title: string;
+  description: string;
+  reload: string;
+  showDetails: string;
+  hideDetails: string;
+}
+
+const DEFAULT_LABELS: ErrorBoundaryLabels = {
+  title: 'Something went wrong',
+  description:
+    'The app encountered an unexpected error. Your data is safe. Please reload to continue.',
+  reload: 'Reload App',
+  showDetails: 'Show details',
+  hideDetails: 'Hide details',
+};
+
 interface Props {
   children: ReactNode;
+  labels?: ErrorBoundaryLabels;
 }
 
 interface State {
@@ -44,25 +62,24 @@ export class ErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       const { error, errorInfo, showDetails } = this.state;
+      const labels = this.props.labels ?? DEFAULT_LABELS;
 
       return (
-        <div className="min-h-screen flex items-center justify-center bg-stone-50 p-4">
+        <div className="min-h-screen flex items-center justify-center bg-stone-50 p-4" role="alert">
           <div className="max-w-md w-full bg-white rounded-2xl shadow-lg border border-stone-200 p-8 text-center">
             <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-red-50 flex items-center justify-center">
               <AlertCircle className="w-8 h-8 text-red-500" />
             </div>
 
-            <h1 className="text-xl font-semibold text-stone-900 mb-2">Something went wrong</h1>
-            <p className="text-stone-600 mb-6">
-              The app encountered an unexpected error. Your data is safe. Please reload to continue.
-            </p>
+            <h1 className="text-xl font-semibold text-stone-900 mb-2">{labels.title}</h1>
+            <p className="text-stone-600 mb-6">{labels.description}</p>
 
             <button
               onClick={this.handleReload}
               className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-stone-800 text-white rounded-full font-medium hover:bg-stone-700 transition-colors"
             >
               <RefreshCw className="w-4 h-4" />
-              Reload App
+              {labels.reload}
             </button>
 
             {error && (
@@ -74,12 +91,12 @@ export class ErrorBoundary extends Component<Props, State> {
                   {showDetails ? (
                     <>
                       <ChevronUp className="w-4 h-4" />
-                      Hide details
+                      {labels.hideDetails}
                     </>
                   ) : (
                     <>
                       <ChevronDown className="w-4 h-4" />
-                      Show details
+                      {labels.showDetails}
                     </>
                   )}
                 </button>

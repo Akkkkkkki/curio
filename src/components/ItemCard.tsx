@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { CollectionItem, FieldDefinition } from '../types';
 import { Star, Check } from 'lucide-react';
 import { ItemImage } from './ItemImage';
-import { useTranslation } from '../i18n';
+import { useTranslation, getFieldTranslation } from '../i18n';
 import {
   useTheme,
   cardSurfaceClasses,
@@ -72,15 +72,8 @@ export const ItemCard: React.FC<ItemCardProps> = React.memo(function ItemCard({
     return val.toString();
   };
 
-  const getLabel = (fieldId: string) => {
-    const fieldKey = `label_${fieldId}` as any;
-    const translated = t(fieldKey);
-    // If translation doesn't exist for this specific custom field, fallback to saved label
-    if (translated === fieldKey) {
-      return fields.find((f) => f.id === fieldId)?.label || fieldId;
-    }
-    return translated;
-  };
+  const getLabel = (fieldId: string) =>
+    getFieldTranslation(t, fieldId, fields.find((f) => f.id === fieldId)?.label);
 
   const handleCardClick = () => {
     if (isSelectable && onSelect) {

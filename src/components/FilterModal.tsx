@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Filter, RotateCcw, ChevronDown } from 'lucide-react';
 import { FieldDefinition } from '../types';
 import { Button } from './ui/Button';
-import { useTranslation } from '../i18n';
+import { useTranslation, getFieldTranslation } from '../i18n';
 import { useTheme, panelSurfaceClasses, overlaySurfaceClasses, mutedTextClasses } from '../theme';
 
 interface FilterModalProps {
@@ -31,11 +31,8 @@ export const FilterModal: React.FC<FilterModalProps> = ({
       ? 'bg-white/5 border border-white/10 text-white placeholder:text-stone-400'
       : 'bg-white border border-stone-200 text-stone-800 placeholder:text-stone-300';
   const mutedText = mutedTextClasses[theme];
-  const getFieldLabel = (fieldId: string, fallback: string) => {
-    const fieldKey = `label_${fieldId}` as any;
-    const translated = t(fieldKey);
-    return translated === fieldKey ? fallback : translated;
-  };
+  const getFieldLabel = (fieldId: string, fallback: string) =>
+    getFieldTranslation(t, fieldId, fallback);
 
   useEffect(() => {
     if (isOpen) setLocalFilters(activeFilters);
