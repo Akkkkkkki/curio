@@ -367,7 +367,7 @@ export const EnhanceImageModal: React.FC<EnhanceImageModalProps> = ({
               </div>
 
               {/* Actions */}
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-3">
                 <button
                   onClick={onClose}
                   className={`flex-1 py-3 px-6 rounded-xl border ${borderColor[theme]} font-semibold transition-all hover:opacity-80`}
@@ -433,10 +433,10 @@ export const EnhanceImageModal: React.FC<EnhanceImageModalProps> = ({
               </div>
 
               {/* Actions */}
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-3">
                 <button
                   onClick={handleTryAgain}
-                  className={`py-3 px-6 rounded-xl border ${borderColor[theme]} font-semibold transition-all hover:opacity-80 flex items-center gap-2`}
+                  className={`py-3 px-6 rounded-xl border ${borderColor[theme]} font-semibold transition-all hover:opacity-80 flex items-center justify-center gap-2`}
                 >
                   <RotateCcw size={18} />
                   {t('enhanceTryAgain')}
@@ -482,7 +482,7 @@ export const EnhanceImageModal: React.FC<EnhanceImageModalProps> = ({
               )}
 
               {/* Actions */}
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-3">
                 <button
                   onClick={onClose}
                   className={`flex-1 py-3 px-6 rounded-xl border ${borderColor[theme]} font-semibold transition-all hover:opacity-80`}
