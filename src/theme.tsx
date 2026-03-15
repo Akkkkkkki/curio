@@ -66,6 +66,17 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
+  const THEME_COLORS: Record<AppTheme, string> = {
+    gallery: '#f5f5f4',
+    vault: '#111827',
+    atelier: '#F5EFE4',
+  };
+
+  useEffect(() => {
+    const meta = document.getElementById('theme-color-meta');
+    if (meta) meta.setAttribute('content', THEME_COLORS[theme] || '#f5f5f4');
+  }, [theme]);
+
   const updateTheme = useCallback(
     (nextTheme: AppTheme) => {
       setThemeState(nextTheme);

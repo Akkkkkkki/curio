@@ -94,18 +94,15 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
 
   useEffect(() => {
     if (!isOpen) return;
-    setTimeout(() => {
-      const modal = document.querySelector('[data-export-modal]') as HTMLElement;
-      if (modal) {
-        const rect = modal.getBoundingClientRect();
-        console.log('Modal position check:', {
-          x: rect.x,
-          y: rect.y,
-          width: rect.width,
-          height: rect.height,
-        });
-      }
-    }, 600);
+    if (import.meta.env.DEV) {
+      setTimeout(() => {
+        const modal = document.querySelector('[data-export-modal]') as HTMLElement;
+        if (modal) {
+          const rect = modal.getBoundingClientRect();
+          console.log('Modal position check:', rect);
+        }
+      }, 600);
+    }
   }, [isOpen]);
 
   if (!isOpen) return null;

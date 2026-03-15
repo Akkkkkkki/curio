@@ -372,6 +372,19 @@ export const translations = {
     onboardingStepThree: 'Everything syncs when you reconnect.',
     gotIt: 'Got it',
     untitled: 'Untitled',
+    imageError: 'Image Error',
+    authPrivateTitle: 'Private',
+    authPrivateDesc: 'Your data is yours alone.',
+    authFastTitle: 'Fast',
+    authFastDesc: 'Optimized for speed & offline.',
+    authFailed: 'Authentication failed',
+    errorBoundaryTitle: 'Something went wrong',
+    errorBoundaryDesc:
+      'The app encountered an unexpected error. Your data is safe. Please reload to continue.',
+    reloadApp: 'Reload App',
+    hideDetails: 'Hide details',
+    showDetails: 'Show details',
+    noscriptMessage: 'JavaScript is required to run Curio.',
   },
   zh: {
     appTitle: '珍藏',
@@ -737,6 +750,18 @@ export const translations = {
     onboardingStepThree: '离线也可保存，联网后自动同步。',
     gotIt: '知道了',
     untitled: '未命名',
+    imageError: '图片错误',
+    authPrivateTitle: '隐私保护',
+    authPrivateDesc: '您的数据仅属于您。',
+    authFastTitle: '快速',
+    authFastDesc: '为速度和离线体验优化。',
+    authFailed: '身份验证失败',
+    errorBoundaryTitle: '出了点问题',
+    errorBoundaryDesc: '应用遇到意外错误。您的数据是安全的，请重新加载以继续。',
+    reloadApp: '重新加载',
+    hideDetails: '隐藏详情',
+    showDetails: '查看详情',
+    noscriptMessage: '运行 Curio 需要启用 JavaScript。',
   },
 };
 
@@ -762,6 +787,7 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
   useEffect(() => {
     if (typeof window !== 'undefined') {
       window.localStorage?.setItem(LANGUAGE_STORAGE_KEY, language);
+      document.documentElement.lang = language;
     }
   }, [language]);
 

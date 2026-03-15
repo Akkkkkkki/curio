@@ -1,5 +1,6 @@
 import React, { Component, ReactNode } from 'react';
 import { AlertCircle, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
+import { translations, type Language } from '../../i18n';
 
 interface Props {
   children: ReactNode;
@@ -11,6 +12,12 @@ interface State {
   errorInfo: React.ErrorInfo | null;
   showDetails: boolean;
 }
+
+const getLanguage = (): Language => {
+  if (typeof window === 'undefined') return 'en';
+  const stored = window.localStorage?.getItem('curio_language');
+  return stored === 'zh' ? 'zh' : 'en';
+};
 
 export class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
@@ -44,6 +51,8 @@ export class ErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       const { error, errorInfo, showDetails } = this.state;
+      const lang = getLanguage();
+      const t = translations[lang];
 
       return (
         <div className="min-h-screen flex items-center justify-center bg-stone-50 p-4">
@@ -52,17 +61,15 @@ export class ErrorBoundary extends Component<Props, State> {
               <AlertCircle className="w-8 h-8 text-red-500" />
             </div>
 
-            <h1 className="text-xl font-semibold text-stone-900 mb-2">Something went wrong</h1>
-            <p className="text-stone-600 mb-6">
-              The app encountered an unexpected error. Your data is safe. Please reload to continue.
-            </p>
+            <h1 className="text-xl font-semibold text-stone-900 mb-2">{t.errorBoundaryTitle}</h1>
+            <p className="text-stone-600 mb-6">{t.errorBoundaryDesc}</p>
 
             <button
               onClick={this.handleReload}
               className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-stone-800 text-white rounded-full font-medium hover:bg-stone-700 transition-colors"
             >
               <RefreshCw className="w-4 h-4" />
-              Reload App
+              {t.reloadApp}
             </button>
 
             {error && (
@@ -74,12 +81,12 @@ export class ErrorBoundary extends Component<Props, State> {
                   {showDetails ? (
                     <>
                       <ChevronUp className="w-4 h-4" />
-                      Hide details
+                      {t.hideDetails}
                     </>
                   ) : (
                     <>
                       <ChevronDown className="w-4 h-4" />
-                      Show details
+                      {t.showDetails}
                     </>
                   )}
                 </button>
