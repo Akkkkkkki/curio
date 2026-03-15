@@ -31,7 +31,7 @@ function cspPlugin(): Plugin {
         "script-src 'self'",
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
         "font-src 'self' https://fonts.gstatic.com",
-        "img-src 'self' blob: data: https://*.supabase.co",
+        "img-src 'self' blob: data: https:",
         `connect-src ${connectSrc}`,
         "media-src 'self' blob:",
         "object-src 'none'",
