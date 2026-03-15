@@ -78,7 +78,7 @@ describe('ErrorBoundary', () => {
       expect(screen.getByRole('button', { name: /reload app/i })).toBeInTheDocument();
     });
 
-    it('logs error to console', () => {
+    it('reports error via captureError', () => {
       render(
         <ErrorBoundary>
           <ThrowError shouldThrow={true} />
@@ -86,8 +86,9 @@ describe('ErrorBoundary', () => {
       );
 
       expect(console.error).toHaveBeenCalledWith(
-        'ErrorBoundary caught an error:',
-        expect.any(Error),
+        '[ErrorReporting]',
+        'Test error message',
+        expect.objectContaining({ source: 'ErrorBoundary' }),
       );
     });
   });
