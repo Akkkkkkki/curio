@@ -1,6 +1,7 @@
 import React, { Component, ReactNode } from 'react';
 import { AlertCircle, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
 import { translations, type Language } from '../../i18n';
+import { captureError } from '../../services/errorReporting';
 
 interface Props {
   children: ReactNode;
@@ -35,8 +36,10 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
-    console.error('ErrorBoundary caught an error:', error);
-    console.error('Component stack:', errorInfo.componentStack);
+    captureError(error, {
+      componentStack: errorInfo.componentStack ?? undefined,
+      source: 'ErrorBoundary',
+    });
     this.setState({ errorInfo });
   }
 
