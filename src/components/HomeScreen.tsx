@@ -11,6 +11,7 @@ import {
 } from '../theme';
 import { UserCollection } from '../types';
 import { Button } from './ui/Button';
+import { CollectionCardSkeleton } from './ui/Skeleton';
 import { CollectionCard } from './CollectionCard';
 import { ItemImage } from './ItemImage';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
@@ -70,9 +71,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
   if (isLoading)
     return (
-      <div className="flex flex-col items-center justify-center py-32">
-        <Loader2 className="text-stone-300 animate-spin mb-4" size={32} />
-        <p className="text-stone-400 font-serif italic">{t('restoringArchives')}</p>
+      <div className="px-4 pt-8 max-w-3xl mx-auto space-y-6">
+        <div className="text-center mb-8">
+          <Loader2 className="text-stone-300 animate-spin mx-auto mb-4" size={24} />
+          <p className="text-stone-400 font-serif italic text-sm">{t('restoringArchives')}</p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <CollectionCardSkeleton />
+          <CollectionCardSkeleton />
+        </div>
       </div>
     );
 
