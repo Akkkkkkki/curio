@@ -73,7 +73,7 @@ export const ItemCard: React.FC<ItemCardProps> = React.memo(function ItemCard({
   };
 
   const getLabel = (fieldId: string) => {
-    const fieldKey = `label_${fieldId}` as any;
+    const fieldKey = `label_${fieldId}`;
     const translated = t(fieldKey);
     // If translation doesn't exist for this specific custom field, fallback to saved label
     if (translated === fieldKey) {

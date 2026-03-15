@@ -32,7 +32,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
       : 'bg-white border border-stone-200 text-stone-800 placeholder:text-stone-300';
   const mutedText = mutedTextClasses[theme];
   const getFieldLabel = (fieldId: string, fallback: string) => {
-    const fieldKey = `label_${fieldId}` as any;
+    const fieldKey = `label_${fieldId}`;
     const translated = t(fieldKey);
     return translated === fieldKey ? fallback : translated;
   };

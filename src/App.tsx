@@ -969,7 +969,7 @@ export const AppContent: React.FC = () => {
           !term ||
           item.title.toLowerCase().includes(term) ||
           item.notes?.toLowerCase().includes(term) ||
-          (Object.values(item.data) as any[]).some((val) =>
+          Object.values(item.data).some((val) =>
             String(val).toLowerCase().includes(term),
           );
         const matchesFilters = (Object.entries(activeFilters) as [string, string][]).every(
@@ -1011,7 +1011,7 @@ export const AppContent: React.FC = () => {
     const hasSelection = selectedCount > 0;
 
     const getFieldLabel = (fieldId: string) => {
-      const fieldKey = `label_${fieldId}` as any;
+      const fieldKey = `label_${fieldId}`;
       const translated = t(fieldKey);
       if (translated === fieldKey) {
         return collection?.customFields.find((f) => f.id === fieldId)?.label || fieldId;
@@ -1584,7 +1584,7 @@ export const AppContent: React.FC = () => {
     };
 
     const getLabel = (fieldId: string) => {
-      const fieldKey = `label_${fieldId}` as any;
+      const fieldKey = `label_${fieldId}`;
       const translated = t(fieldKey);
       if (translated === fieldKey) {
         return collection.customFields.find((f) => f.id === fieldId)?.label || fieldId;

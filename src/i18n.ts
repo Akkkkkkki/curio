@@ -773,10 +773,12 @@ const getInitialLanguage = (): Language => {
   return stored === 'zh' || stored === 'en' ? stored : 'en';
 };
 
+export type TranslationKey = keyof (typeof translations)['en'];
+
 interface LanguageContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
-  t: (key: keyof (typeof translations)['en'], params?: Record<string, any>) => string;
+  t: (key: TranslationKey | (string & {}), params?: Record<string, string | number>) => string;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
@@ -791,8 +793,10 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
     }
   }, [language]);
 
-  const t = (key: keyof (typeof translations)['en'], params?: Record<string, any>) => {
-    let text = (translations[language] as any)[key] || (translations['en'] as any)[key] || key;
+  const t = (key: string, params?: Record<string, string | number>) => {
+    const dict = translations[language] as Record<string, string>;
+    const fallback = translations['en'] as Record<string, string>;
+    let text: string = dict[key] || fallback[key] || key;
     if (params) {
       Object.entries(params).forEach(([k, v]) => {
         text = text.replace(`{${k}}`, String(v));

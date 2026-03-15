@@ -53,12 +53,12 @@ export const ThemePicker: React.FC<ThemePickerProps> = ({ layout = 'inline' }) =
                 ? 'border-amber-200 bg-amber-50 text-stone-900 shadow-sm'
                 : stackedSurface
             }`}
-            aria-label={t(optionMeta[opt].labelKey as any)}
-            title={t(optionMeta[opt].labelKey as any)}
+            aria-label={t(optionMeta[opt].labelKey)}
+            title={t(optionMeta[opt].labelKey)}
           >
             <span className="flex items-center gap-2">
               <Paintbrush size={14} className="text-stone-300" />
-              <span>{t(optionMeta[opt].labelKey as any)}</span>
+              <span>{t(optionMeta[opt].labelKey)}</span>
               {theme === opt && <Check size={14} />}
             </span>
             <span className="flex -space-x-1">
@@ -88,8 +88,8 @@ export const ThemePicker: React.FC<ThemePickerProps> = ({ layout = 'inline' }) =
             className={`flex items-center gap-1.5 px-2 py-1 rounded-full transition-all text-[11px] font-semibold ${
               theme === opt ? activeSurface : inactiveText
             }`}
-            aria-label={t(optionMeta[opt].labelKey as any)}
-            title={t(optionMeta[opt].labelKey as any)}
+            aria-label={t(optionMeta[opt].labelKey)}
+            title={t(optionMeta[opt].labelKey)}
           >
             <span className="flex -space-x-1">
               {optionMeta[opt].swatch.map((cls, idx) => (
@@ -97,7 +97,7 @@ export const ThemePicker: React.FC<ThemePickerProps> = ({ layout = 'inline' }) =
               ))}
             </span>
             {theme === opt && <Check size={12} />}
-            <span className="hidden md:inline">{t(optionMeta[opt].labelKey as any)}</span>
+            <span className="hidden md:inline">{t(optionMeta[opt].labelKey)}</span>
           </button>
         ))}
       </div>
