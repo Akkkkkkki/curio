@@ -1,4 +1,3 @@
-import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { randomUUID } from 'crypto';
@@ -6,36 +5,14 @@ import express from 'express';
 import jwt from 'jsonwebtoken';
 import rateLimit from 'express-rate-limit';
 import { GoogleGenAI, Type } from '@google/genai';
+import dotenv from 'dotenv';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = path.resolve(__dirname, '..');
-const ENV_FILES = ['.env.local', '.env'];
 
-const loadEnvFile = (filePath) => {
-  if (!fs.existsSync(filePath)) return;
-  const content = fs.readFileSync(filePath, 'utf8');
-  content.split(/\r?\n/).forEach((line) => {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) return;
-    const idx = trimmed.indexOf('=');
-    if (idx === -1) return;
-    const key = trimmed.slice(0, idx).trim();
-    if (!key || process.env[key] !== undefined) return;
-    let value = trimmed.slice(idx + 1).trim();
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1);
-    }
-    process.env[key] = value;
-  });
-};
-
-const shouldLoadEnvFiles = process.env.NODE_ENV !== 'production';
-if (shouldLoadEnvFiles) {
-  // Load .env.local for the proxy since Node doesn't read Vite env files automatically.
-  ENV_FILES.forEach((file) => loadEnvFile(path.join(ROOT_DIR, file)));
+if (process.env.NODE_ENV !== 'production') {
+  dotenv.config({ path: path.join(ROOT_DIR, '.env.local') });
+  dotenv.config({ path: path.join(ROOT_DIR, '.env') });
 }
 
 const app = express();
@@ -223,9 +200,39 @@ const ipLimiter = rateLimit({
 const apiKey = process.env.GEMINI_API_KEY;
 const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 
-// Model configuration (can be overridden via environment variables)
 const GEMINI_ANALYZE_MODEL = process.env.GEMINI_ANALYZE_MODEL || 'gemini-2.5-flash';
 const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image';
+
+const MAX_IMAGE_BASE64_LENGTH = 20 * 1024 * 1024; // ~15MB decoded
+const MAX_FIELDS_COUNT = 30;
+
+const validateImageBase64 = (imageBase64) => {
+  if (typeof imageBase64 !== 'string') return 'imageBase64 must be a string';
+  if (imageBase64.length > MAX_IMAGE_BASE64_LENGTH) return 'Image too large (max ~15MB)';
+  if (imageBase64.length === 0) return 'imageBase64 is empty';
+  return null;
+};
+
+const validateFields = (fields) => {
+  if (!Array.isArray(fields)) return 'fields must be an array';
+  if (fields.length > MAX_FIELDS_COUNT) return `Too many fields (max ${MAX_FIELDS_COUNT})`;
+  for (const field of fields) {
+    if (!field.id || typeof field.id !== 'string') return 'Each field must have a string id';
+    if (!field.type || typeof field.type !== 'string') return 'Each field must have a string type';
+  }
+  return null;
+};
+
+const sanitizeErrorMessage = (error) => {
+  if (!(error instanceof Error)) return 'An internal error occurred';
+  const msg = error.message;
+  if (msg.includes('API key')) return 'AI service authentication failed';
+  if (msg.includes('quota') || msg.includes('rate')) return 'AI service rate limit exceeded';
+  if (msg.includes('safety') || msg.includes('blocked'))
+    return 'Content was blocked by safety filters';
+  if (msg.includes('not found') || msg.includes('404')) return 'AI model is currently unavailable';
+  return 'AI processing failed';
+};
 
 const mapFieldTypeToSchemaType = (type) => {
   switch (type) {
@@ -246,7 +253,7 @@ app.get('/api/health', (_req, res) => {
   res.json({ ok: true, geminiConfigured: Boolean(apiKey) });
 });
 
-app.get('/api/metrics', (_req, res) => {
+app.get('/api/metrics', requireAuth, (_req, res) => {
   res.json({
     generatedAt: new Date().toISOString(),
     routes: summarizeMetrics(),
@@ -259,9 +266,12 @@ app.post('/api/gemini/analyze', ipLimiter, requireAuth, userLimiter, async (req,
   }
 
   const { imageBase64, fields, collectionContext, locale } = req.body || {};
-  if (!imageBase64 || !Array.isArray(fields)) {
-    return res.status(400).json({ error: 'Missing imageBase64 or fields' });
-  }
+
+  const imageErr = validateImageBase64(imageBase64);
+  if (imageErr) return res.status(400).json({ error: imageErr });
+
+  const fieldsErr = validateFields(fields);
+  if (fieldsErr) return res.status(400).json({ error: fieldsErr });
 
   const properties = {
     title: {
@@ -327,7 +337,7 @@ app.post('/api/gemini/analyze', ipLimiter, requireAuth, userLimiter, async (req,
     });
   } catch (error) {
     console.error('AI Analysis Failed:', error);
-    return res.status(500).json({ error: 'AI analysis failed' });
+    return res.status(500).json({ error: sanitizeErrorMessage(error) });
   }
 });
 
@@ -385,7 +395,7 @@ app.post('/api/gemini/suggest-fields', ipLimiter, requireAuth, userLimiter, asyn
     return res.json({ fields });
   } catch (error) {
     console.error('Field suggestion failed:', error);
-    return res.status(500).json({ error: 'Field suggestion failed' });
+    return res.status(500).json({ error: sanitizeErrorMessage(error) });
   }
 });
 
@@ -424,9 +434,9 @@ app.post('/api/gemini/enhance', ipLimiter, requireAuth, userLimiter, async (req,
   }
 
   const { imageBase64, strength = 'subtle' } = req.body || {};
-  if (!imageBase64) {
-    return res.status(400).json({ error: 'Missing imageBase64' });
-  }
+
+  const imageErr = validateImageBase64(imageBase64);
+  if (imageErr) return res.status(400).json({ error: imageErr });
 
   const validStrengths = ['subtle', 'beautified'];
   if (!validStrengths.includes(strength)) {
@@ -480,7 +490,6 @@ app.post('/api/gemini/enhance', ipLimiter, requireAuth, userLimiter, async (req,
     return res.json({
       enhancedImageBase64,
       metadata: {
-        model: GEMINI_IMAGE_MODEL,
         strength,
         promptVersion: 1,
         timestamp: new Date().toISOString(),
@@ -489,39 +498,32 @@ app.post('/api/gemini/enhance', ipLimiter, requireAuth, userLimiter, async (req,
   } catch (error) {
     console.error('Image Enhancement Failed:', error);
 
-    // Extract detailed error info
-    let errorMessage = 'Unknown error';
     let statusCode = 500;
-
     if (error instanceof Error) {
-      errorMessage = error.message;
-
-      // Check for specific Gemini API errors
-      if (error.message.includes('API key')) {
-        errorMessage = 'Invalid or missing API key';
-        statusCode = 503;
-      } else if (error.message.includes('quota') || error.message.includes('rate')) {
-        errorMessage = 'API rate limit exceeded. Please try again later.';
-        statusCode = 429;
-      } else if (error.message.includes('safety') || error.message.includes('blocked')) {
-        errorMessage = 'Image was blocked by safety filters. Try a different photo.';
+      if (error.message.includes('API key')) statusCode = 503;
+      else if (error.message.includes('quota') || error.message.includes('rate')) statusCode = 429;
+      else if (error.message.includes('safety') || error.message.includes('blocked'))
         statusCode = 400;
-      } else if (error.message.includes('not found') || error.message.includes('404')) {
-        errorMessage =
-          'Model not available. The image generation model may not be enabled for this API key.';
+      else if (error.message.includes('not found') || error.message.includes('404'))
         statusCode = 503;
-      }
     }
 
     return res.status(statusCode).json({
       error: 'Image enhancement failed',
-      details: errorMessage,
+      details: sanitizeErrorMessage(error),
     });
   }
 });
 
 const isDirectRun = process.argv[1] === fileURLToPath(import.meta.url);
 if (isDirectRun) {
+  if (isProduction && !apiKey) {
+    console.error('FATAL: GEMINI_API_KEY is required in production. Exiting.');
+    process.exit(1);
+  }
+  if (!apiKey) {
+    console.warn('Warning: GEMINI_API_KEY is not set. AI endpoints will return 503.');
+  }
   app.listen(port, () => {
     console.log(`Gemini proxy listening on :${port}`);
   });

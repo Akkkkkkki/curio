@@ -113,10 +113,12 @@ import { detectConflicts } from './utils/conflictDetection';
 import { sortCollectionItems, type ItemSort } from './utils/collectionSorting';
 import { HomeScreen } from './components/HomeScreen';
 import { useDebouncedValue } from './hooks/useDebouncedValue';
+import { useAndroidBackButton } from './hooks/useAndroidBackButton';
 
 export const AppContent: React.FC = () => {
   const { t, language, setLanguage } = useTranslation();
   const { theme, setTheme } = useTheme();
+  useAndroidBackButton();
   const isVoiceGuideEnabled = import.meta.env.VITE_VOICE_GUIDE_ENABLED === 'true';
   const [collections, setCollections] = useState<UserCollection[]>([]);
   const [isLoading, setIsLoading] = useState(true);

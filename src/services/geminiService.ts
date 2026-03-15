@@ -158,7 +158,6 @@ export const suggestCollectionFields = async (
 export interface EnhanceImageResult {
   enhancedImageBase64: string;
   metadata: {
-    model: string;
     strength: EnhancementStrength;
     promptVersion: number;
     timestamp: string;
