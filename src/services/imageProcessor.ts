@@ -89,8 +89,7 @@ export const processImage = async (
 
   const img = await loadImageFromBlob(inputBlob);
 
-  const needsDownscale =
-    img.width > MAX_INPUT_DIMENSION || img.height > MAX_INPUT_DIMENSION;
+  const needsDownscale = img.width > MAX_INPUT_DIMENSION || img.height > MAX_INPUT_DIMENSION;
 
   const original =
     inputBlob.type === 'image/jpeg' && !needsDownscale

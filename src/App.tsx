@@ -969,9 +969,7 @@ export const AppContent: React.FC = () => {
           !term ||
           item.title.toLowerCase().includes(term) ||
           item.notes?.toLowerCase().includes(term) ||
-          Object.values(item.data).some((val) =>
-            String(val).toLowerCase().includes(term),
-          );
+          Object.values(item.data).some((val) => String(val).toLowerCase().includes(term));
         const matchesFilters = (Object.entries(activeFilters) as [string, string][]).every(
           ([key, value]) => {
             if (!value) return true;

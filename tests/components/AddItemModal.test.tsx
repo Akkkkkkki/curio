@@ -74,6 +74,7 @@ describe('AddItemModal', () => {
     const user = userEvent.setup();
     mockRefreshAiEnabled.mockResolvedValue(true);
     mockAnalyzeImage.mockResolvedValue({
+      status: 'success',
       title: 'Mock Artifact',
       notes: 'Some notes',
       data: {},
