@@ -410,6 +410,8 @@ Skip for MVP. Add later if needed.
 
 A privacy policy URL is **required** by Google Play.
 
+> **Already created:** `public/privacy-policy.html` and `public/terms-of-service.html` are included in the repo and will be served from the deployed app (e.g., `https://your-domain.com/privacy-policy.html`).
+
 ### Option A: GitHub Pages (Free, Recommended for MVP)
 
 1. Create file `privacy-policy.md` in your repo

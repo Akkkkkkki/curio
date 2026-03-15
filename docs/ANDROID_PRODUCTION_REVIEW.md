@@ -411,3 +411,52 @@ Credit where due — these areas are solid:
 - **Existing analysis:** Technical debt and production readiness already well-documented
 
 The app's core functionality and architecture are sound. The gaps are primarily in Android-native integration, build configuration, and commercial operational readiness — all addressable with focused effort.
+
+---
+
+## Implementation Status (Updated 2026-03-15)
+
+### P0 — All Complete
+
+| #   | Item                              | Status   | PR   |
+| --- | --------------------------------- | -------- | ---- |
+| 1   | Tailwind CSS build-time migration | **Done** | #178 |
+| 2   | PWA manifest icons                | **Done** | #178 |
+| 3   | Capacitor config                  | **Done** | #178 |
+| 4   | Android release signing           | **Done** | #178 |
+| 5   | Content Security Policy           | **Done** | #178 |
+
+### P1 — Implemented
+
+| #   | Item                            | Status       | Notes                                                                                   |
+| --- | ------------------------------- | ------------ | --------------------------------------------------------------------------------------- |
+| 6   | Gemini proxy security hardening | **Done**     | dotenv, startup validation, body schema validation, error message masking, metrics auth |
+| 7   | Android camera/permissions      | **Done**     | CAMERA, READ_MEDIA_IMAGES added to AndroidManifest.xml                                  |
+| 8   | Image processing limits         | **Done**     | 4096px dimension cap, 20MB file size limit, ImageProcessingError class                  |
+| 9   | Android back button             | **Done**     | useAndroidBackButton hook with Capacitor App plugin                                     |
+| 10  | App.tsx god component           | **Deferred** | Large refactor tracked separately; screens should be extracted to route components      |
+| 11  | Error handling improvements     | **Done**     | analyzeImage returns discriminated union; callers show specific error messages          |
+| 12  | Privacy policy & ToS            | **Done**     | public/privacy-policy.html and public/terms-of-service.html                             |
+
+### P2 — Implemented
+
+| #   | Item                        | Status       | Notes                                                                                             |
+| --- | --------------------------- | ------------ | ------------------------------------------------------------------------------------------------- |
+| 13  | Crash reporting             | **Done**     | Lightweight errorReporting service with global handlers; ready for Sentry/Crashlytics integration |
+| 14  | Mobile E2E testing          | **Done**     | Added mobile-chrome (Pixel 7) project to Playwright; all tests pass on mobile viewport            |
+| 15  | Performance                 | **Partial**  | Search already debounced; images use loading="lazy"; skeleton loading added                       |
+| 16  | i18n completeness           | **Done**     | All hardcoded strings replaced with t() calls; added 13 new translation keys in both en/zh        |
+| 17  | Accessibility               | **Done**     | meta description, OG tags, noscript, dynamic lang attr, dynamic theme-color                       |
+| 18  | SW cache versioning         | **Done**     | Vite plugin generates unique cache name per build                                                 |
+| 19  | Supabase migration strategy | **Deferred** | Recommend adopting Supabase CLI migrations for versioned schema changes                           |
+| 20  | Test coverage               | **Partial**  | Updated existing tests; comprehensive coverage expansion tracked separately                       |
+
+### P3 — Implemented
+
+| #   | Item                         | Status           | Notes                                                                   |
+| --- | ---------------------------- | ---------------- | ----------------------------------------------------------------------- |
+| 21  | Mobile UX / skeleton loading | **Done**         | Skeleton, CollectionCardSkeleton, ItemCardSkeleton components added     |
+| 22  | Collection deletion          | **Already done** | Verified: DeleteCollectionModal + db.deleteCollection fully functional  |
+| 23  | db.ts monolith               | **Deferred**     | Large refactor tracked separately                                       |
+| 24  | Dead code removal            | **Done**         | Removed unused AppContext.tsx                                           |
+| 25  | Type safety                  | **Done**         | t() accepts dynamic string keys; removed 15+ unnecessary `as any` casts |
