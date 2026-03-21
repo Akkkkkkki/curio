@@ -109,27 +109,36 @@ type CollectionContext = {
   description?: string;
 };
 
+export type AnalyzeResult =
+  | { status: 'success'; title: string; data: Record<string, any>; notes: string }
+  | { status: 'disabled' }
+  | { status: 'error'; message: string };
+
 export const analyzeImage = async (
   base64Image: string,
   fields: FieldDefinition[],
   options: { collectionContext?: CollectionContext; locale?: string } = {},
-): Promise<{ title: string; data: Record<string, any>; notes: string } | null> => {
-  // Graceful degradation: return null if AI is disabled or on any failure
-  // This allows the UI to remain functional and let users proceed without AI
+): Promise<AnalyzeResult> => {
   try {
     if (!(await refreshAiEnabled())) {
-      return null;
+      return { status: 'disabled' };
     }
-    return await postJson('/api/gemini/analyze', {
-      imageBase64: base64Image,
-      fields,
-      collectionContext: options.collectionContext,
-      locale: options.locale,
-    });
+    const result = await postJson<{ title: string; data: Record<string, any>; notes: string }>(
+      '/api/gemini/analyze',
+      {
+        imageBase64: base64Image,
+        fields,
+        collectionContext: options.collectionContext,
+        locale: options.locale,
+      },
+    );
+    return { status: 'success', ...result };
   } catch (error) {
-    // Log for debugging but don't block the user
     console.warn('AI analysis failed:', error);
-    return null;
+    return {
+      status: 'error',
+      message: error instanceof Error ? error.message : 'AI analysis failed',
+    };
   }
 };
 
@@ -158,7 +167,6 @@ export const suggestCollectionFields = async (
 export interface EnhanceImageResult {
   enhancedImageBase64: string;
   metadata: {
-    model: string;
     strength: EnhancementStrength;
     promptVersion: number;
     timestamp: string;

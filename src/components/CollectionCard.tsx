@@ -48,7 +48,7 @@ export const CollectionCard: React.FC<CollectionCardProps> = React.memo(function
       : 'shadow-[0_6px_18px_rgba(15,23,42,0.08)] hover:shadow-[0_12px_26px_rgba(15,23,42,0.14)]';
 
   const getFieldLabel = (fieldId: string, fallback: string) => {
-    const fieldKey = `label_${fieldId}` as any;
+    const fieldKey = `label_${fieldId}`;
     const translated = t(fieldKey);
     return translated === fieldKey ? fallback : translated;
   };

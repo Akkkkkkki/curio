@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { extractCurioAssetPath, getAsset, getEnhancedAsset } from '../services/db';
 import { Loader2, Camera, AlertCircle } from 'lucide-react';
+import { useTranslation } from '../i18n';
 
 interface ItemImageProps {
   itemId: string;
@@ -21,6 +22,7 @@ export const ItemImage: React.FC<ItemImageProps> = ({
   alt = '',
   type = 'display',
 }) => {
+  const { t } = useTranslation();
   const [dbUrl, setDbUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
@@ -177,7 +179,7 @@ export const ItemImage: React.FC<ItemImageProps> = ({
           <Camera size={32} className="opacity-10 mb-2" />
         )}
         <span className="text-[10px] font-bold uppercase tracking-widest opacity-30">
-          {error ? 'Image Error' : 'No Photo'}
+          {error ? t('imageError') : t('noPhoto')}
         </span>
       </div>
     );
@@ -190,7 +192,9 @@ export const ItemImage: React.FC<ItemImageProps> = ({
         className={`flex flex-col items-center justify-center bg-stone-100 text-stone-300 ${className} min-h-[100px]`}
       >
         <Camera size={32} className="opacity-10 mb-2" />
-        <span className="text-[10px] font-bold uppercase tracking-widest opacity-30">No Photo</span>
+        <span className="text-[10px] font-bold uppercase tracking-widest opacity-30">
+          {t('noPhoto')}
+        </span>
       </div>
     );
   }

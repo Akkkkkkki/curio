@@ -160,7 +160,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
       onAuthSuccess?.();
       onClose();
     } catch (err: any) {
-      setError(err.message || 'Authentication failed');
+      setError(err.message || t('authFailed'));
     } finally {
       setLoading(false);
     }
@@ -227,9 +227,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
                 <p
                   className={`text-[11px] font-bold uppercase tracking-tight ${theme === 'vault' ? 'text-white' : 'text-stone-700'}`}
                 >
-                  Private
+                  {t('authPrivateTitle')}
                 </p>
-                <p className={`text-[11px] ${mutedText}`}>Your data is yours alone.</p>
+                <p className={`text-[11px] ${mutedText}`}>{t('authPrivateDesc')}</p>
               </div>
               <div
                 className={`p-3 rounded-xl border ${theme === 'vault' ? 'bg-white/5 border-white/10 text-white' : 'bg-stone-50 border-stone-100'}`}
@@ -238,9 +238,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
                 <p
                   className={`text-[11px] font-bold uppercase tracking-tight ${theme === 'vault' ? 'text-white' : 'text-stone-700'}`}
                 >
-                  Fast
+                  {t('authFastTitle')}
                 </p>
-                <p className={`text-[11px] ${mutedText}`}>Optimized for speed & offline.</p>
+                <p className={`text-[11px] ${mutedText}`}>{t('authFastDesc')}</p>
               </div>
             </div>
           </div>

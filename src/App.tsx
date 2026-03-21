@@ -113,10 +113,12 @@ import { detectConflicts } from './utils/conflictDetection';
 import { sortCollectionItems, type ItemSort } from './utils/collectionSorting';
 import { HomeScreen } from './components/HomeScreen';
 import { useDebouncedValue } from './hooks/useDebouncedValue';
+import { useAndroidBackButton } from './hooks/useAndroidBackButton';
 
 export const AppContent: React.FC = () => {
   const { t, language, setLanguage } = useTranslation();
   const { theme, setTheme } = useTheme();
+  useAndroidBackButton();
   const isVoiceGuideEnabled = import.meta.env.VITE_VOICE_GUIDE_ENABLED === 'true';
   const [collections, setCollections] = useState<UserCollection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -967,9 +969,7 @@ export const AppContent: React.FC = () => {
           !term ||
           item.title.toLowerCase().includes(term) ||
           item.notes?.toLowerCase().includes(term) ||
-          (Object.values(item.data) as any[]).some((val) =>
-            String(val).toLowerCase().includes(term),
-          );
+          Object.values(item.data).some((val) => String(val).toLowerCase().includes(term));
         const matchesFilters = (Object.entries(activeFilters) as [string, string][]).every(
           ([key, value]) => {
             if (!value) return true;
@@ -1009,7 +1009,7 @@ export const AppContent: React.FC = () => {
     const hasSelection = selectedCount > 0;
 
     const getFieldLabel = (fieldId: string) => {
-      const fieldKey = `label_${fieldId}` as any;
+      const fieldKey = `label_${fieldId}`;
       const translated = t(fieldKey);
       if (translated === fieldKey) {
         return collection?.customFields.find((f) => f.id === fieldId)?.label || fieldId;
@@ -1582,7 +1582,7 @@ export const AppContent: React.FC = () => {
     };
 
     const getLabel = (fieldId: string) => {
-      const fieldKey = `label_${fieldId}` as any;
+      const fieldKey = `label_${fieldId}`;
       const translated = t(fieldKey);
       if (translated === fieldKey) {
         return collection.customFields.find((f) => f.id === fieldId)?.label || fieldId;

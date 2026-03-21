@@ -56,12 +56,6 @@ describe('services/geminiService.ts - analyzeImage (Phase 3.1)', () => {
   });
 
   it('happy path: posts image + field schema to /gemini/analyze and returns {title, notes, data}', async () => {
-    /**
-     * Verifies the typical AI analysis request:
-     * - Uses the correct API route (/gemini/analyze)
-     * - Sends { imageBase64, fields } in the JSON body
-     * - Returns the expected response shape for downstream UI usage
-     */
     const fetchSpy = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url =
         typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
@@ -84,17 +78,14 @@ describe('services/geminiService.ts - analyzeImage (Phase 3.1)', () => {
     const result = await mod.analyzeImage('BASE64', fields);
 
     expect(result).toEqual({
+      status: 'success',
       title: 'Analyzed Item',
       notes: 'AI notes',
       data: { artist: 'Miles Davis' },
     });
   });
 
-  it('graceful degradation: returns null when AI is disabled', async () => {
-    /**
-     * Per product requirements: AI failures should not block the UI.
-     * When AI is disabled, analyzeImage returns null so users can proceed manually.
-     */
+  it('graceful degradation: returns {status:"disabled"} when AI is disabled', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue(createOkJsonResponse({ geminiConfigured: false })),
@@ -102,14 +93,10 @@ describe('services/geminiService.ts - analyzeImage (Phase 3.1)', () => {
     const mod = await importGeminiServiceFresh({ aiEnabled: 'false' });
 
     const result = await mod.analyzeImage('BASE64', fields);
-    expect(result).toBeNull();
+    expect(result).toEqual({ status: 'disabled' });
   });
 
-  it('graceful degradation: returns null on network failure', async () => {
-    /**
-     * Per product requirements: Network failures should not block the UI.
-     * analyzeImage catches errors and returns null.
-     */
+  it('graceful degradation: returns {status:"error"} on network failure', async () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     vi.stubGlobal(
@@ -125,16 +112,13 @@ describe('services/geminiService.ts - analyzeImage (Phase 3.1)', () => {
     const mod = await importGeminiServiceFresh();
     const result = await mod.analyzeImage('BASE64', fields);
 
-    expect(result).toBeNull();
+    expect(result).toEqual({ status: 'error', message: 'Network down' });
     expect(warnSpy).toHaveBeenCalledWith('AI analysis failed:', expect.any(Error));
 
     warnSpy.mockRestore();
   });
 
-  it('graceful degradation: returns null on non-OK response (401, 429, etc)', async () => {
-    /**
-     * Per product requirements: API errors should not block the UI.
-     */
+  it('graceful degradation: returns {status:"error"} on non-OK response (401, 429, etc)', async () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     vi.stubGlobal(
@@ -150,15 +134,11 @@ describe('services/geminiService.ts - analyzeImage (Phase 3.1)', () => {
     const mod = await importGeminiServiceFresh();
     const result = await mod.analyzeImage('BASE64', fields);
 
-    expect(result).toBeNull();
+    expect(result.status).toBe('error');
     warnSpy.mockRestore();
   });
 
-  it('graceful degradation: returns null after 30s timeout', async () => {
-    /**
-     * Per product requirements: "Timeout: Returns null after 30s (non-blocking)"
-     * Users can proceed without AI if the request takes too long.
-     */
+  it('graceful degradation: returns {status:"error"} after 30s timeout', async () => {
     vi.useFakeTimers();
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
@@ -183,26 +163,19 @@ describe('services/geminiService.ts - analyzeImage (Phase 3.1)', () => {
 
     const promise = mod.analyzeImage('BASE64', fields);
 
-    // Capture result
     let result: unknown;
     promise.then((r) => {
       result = r;
     });
 
-    // Advance past the 30s timeout
     await vi.advanceTimersByTimeAsync(30_000);
-
-    // Wait for all timers and promises to settle
     await vi.runAllTimersAsync();
 
-    expect(result).toBeNull();
+    expect((result as any).status).toBe('error');
     warnSpy.mockRestore();
   });
 
-  it('graceful degradation: returns null on malformed JSON response', async () => {
-    /**
-     * Per product requirements: Schema mismatch should not crash the app.
-     */
+  it('graceful degradation: returns {status:"error"} on malformed JSON response', async () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     vi.stubGlobal(
@@ -218,7 +191,7 @@ describe('services/geminiService.ts - analyzeImage (Phase 3.1)', () => {
     const mod = await importGeminiServiceFresh();
     const result = await mod.analyzeImage('BASE64', fields);
 
-    expect(result).toBeNull();
+    expect(result.status).toBe('error');
     warnSpy.mockRestore();
   });
 });
@@ -327,7 +300,6 @@ describe('services/geminiService.ts - enhanceImage', () => {
         return createOkJsonResponse({
           enhancedImageBase64: 'ENHANCED_BASE64',
           metadata: {
-            model: 'gemini-2.5-flash-image',
             strength: 'subtle',
             promptVersion: 1,
             timestamp: '2026-01-19T00:00:00.000Z',
@@ -345,7 +317,6 @@ describe('services/geminiService.ts - enhanceImage', () => {
     expect(result).toEqual({
       enhancedImageBase64: 'ENHANCED_BASE64',
       metadata: {
-        model: 'gemini-2.5-flash-image',
         strength: 'subtle',
         promptVersion: 1,
         timestamp: '2026-01-19T00:00:00.000Z',
@@ -363,7 +334,6 @@ describe('services/geminiService.ts - enhanceImage', () => {
         return createOkJsonResponse({
           enhancedImageBase64: 'BEAUTIFIED_BASE64',
           metadata: {
-            model: 'gemini-2.5-flash-image',
             strength: 'beautified',
             promptVersion: 1,
             timestamp: '2026-01-19T00:00:00.000Z',

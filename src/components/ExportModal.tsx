@@ -94,18 +94,15 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
 
   useEffect(() => {
     if (!isOpen) return;
-    setTimeout(() => {
-      const modal = document.querySelector('[data-export-modal]') as HTMLElement;
-      if (modal) {
-        const rect = modal.getBoundingClientRect();
-        console.log('Modal position check:', {
-          x: rect.x,
-          y: rect.y,
-          width: rect.width,
-          height: rect.height,
-        });
-      }
-    }, 600);
+    if (import.meta.env.DEV) {
+      setTimeout(() => {
+        const modal = document.querySelector('[data-export-modal]') as HTMLElement;
+        if (modal) {
+          const rect = modal.getBoundingClientRect();
+          console.log('Modal position check:', rect);
+        }
+      }, 600);
+    }
   }, [isOpen]);
 
   if (!isOpen) return null;
@@ -295,9 +292,9 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
                     className={`w-10 h-10 rounded-lg mr-3 shadow-sm border ${s === 'minimal' ? 'bg-white border-stone-100' : s === 'full' ? 'bg-stone-800 border-stone-800' : 'bg-[#f4ebd9] border-stone-300'}`}
                   ></div>
                   <div>
-                    <span className="font-bold text-stone-900 capitalize block">{t(s as any)}</span>
+                    <span className="font-bold text-stone-900 capitalize block">{t(s)}</span>
                     <span className="text-[10px] text-stone-500 uppercase tracking-wide">
-                      {t(`${s}Tag` as any)}
+                      {t(`${s}Tag`)}
                     </span>
                   </div>
                 </button>

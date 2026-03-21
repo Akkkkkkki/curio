@@ -21,7 +21,7 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
   const { t } = useTranslation();
   const [index, setIndex] = useState(initialIndex);
   const getFieldLabel = (fieldId: string, fallback: string) => {
-    const fieldKey = `label_${fieldId}` as any;
+    const fieldKey = `label_${fieldId}`;
     const translated = t(fieldKey);
     return translated === fieldKey ? fallback : translated;
   };

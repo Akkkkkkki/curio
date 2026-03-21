@@ -1,4 +1,6 @@
 import path from 'path';
+import crypto from 'crypto';
+import fs from 'fs';
 import { defineConfig, loadEnv, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 
@@ -43,6 +45,20 @@ function cspPlugin(): Plugin {
   };
 }
 
+function swCacheVersionPlugin(): Plugin {
+  return {
+    name: 'curio-sw-cache-version',
+    writeBundle() {
+      const swPath = path.resolve(__dirname, 'dist/sw.js');
+      if (!fs.existsSync(swPath)) return;
+      const buildHash = crypto.randomBytes(4).toString('hex');
+      let content = fs.readFileSync(swPath, 'utf8');
+      content = content.replace('curio-shell-v4', `curio-shell-${buildHash}`);
+      fs.writeFileSync(swPath, content, 'utf8');
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
 
@@ -51,7 +67,7 @@ export default defineConfig(({ mode }) => {
       port: 3000,
       host: '0.0.0.0',
     },
-    plugins: [react(), cspPlugin()],
+    plugins: [react(), cspPlugin(), swCacheVersionPlugin()],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),

@@ -541,3 +541,23 @@ These existing issues are valid and not addressed by the 15 drafts:
 | **Total focused work**            | **~16 weeks** | **15 issues**                 |
 
 This timeline assumes one developer working on technical debt alongside feature work. With dedicated focus or multiple contributors, phases can overlap and compress significantly.
+
+---
+
+## Progress Update (2026-03-15)
+
+Several items from this analysis have been addressed as part of the Android Production Review (P1-P3 implementation):
+
+- **Gemini proxy security (#5):** dotenv migration, startup validation, body schema validation, error message masking, metrics endpoint authentication
+- **Silent error swallowing (#9):** `analyzeImage` now returns `{status: 'success'|'disabled'|'error'}` discriminated union instead of null
+- **`as any` type safety (#4):** Reduced from 20+ to ~5 in production code; `t()` now accepts dynamic string keys
+- **Dead code (#10):** Removed unused AppContext.tsx
+- **Error reporting foundation:** Added `errorReporting.ts` with global handlers (ready for Sentry/Crashlytics)
+- **i18n completeness:** All hardcoded English strings replaced with translation calls
+
+Still outstanding:
+
+- **App.tsx god component (#1):** 1,740 lines — needs dedicated refactoring effort
+- **db.ts monolith (#3):** 1,959 lines — needs dedicated refactoring effort
+- **Server endpoint tests (#7):** 0% coverage — should be added
+- **Console statement cleanup (#15):** Production `console.log` gated to DEV mode in ExportModal; remaining console.warn/error serve as legitimate logging

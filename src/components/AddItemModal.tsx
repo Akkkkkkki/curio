@@ -111,7 +111,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
         : undefined;
 
   const getFieldLabel = (fieldId: string, fallback: string) => {
-    const fieldKey = `label_${fieldId}` as any;
+    const fieldKey = `label_${fieldId}`;
     const translated = t(fieldKey);
     return translated === fieldKey ? fallback : translated;
   };
@@ -347,8 +347,8 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
           },
           locale: language,
         });
-        if (!result) {
-          setError(t('analysisFallback'));
+        if (result.status !== 'success') {
+          setError(result.status === 'error' ? result.message : t('analysisFallback'));
           hadError = true;
           analyzed.push(createBatchItem(image, existingIds[idx] ? { id: existingIds[idx] } : {}));
           continue;
@@ -502,8 +502,8 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
         },
         locale: language,
       });
-      if (!result) {
-        setError(t('analysisFallback'));
+      if (result.status !== 'success') {
+        setError(result.status === 'error' ? result.message : t('analysisFallback'));
         setAnalysisError(true);
         setStep('verify');
         return;
