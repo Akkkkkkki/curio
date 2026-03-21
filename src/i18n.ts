@@ -385,6 +385,14 @@ export const translations = {
     hideDetails: 'Hide details',
     showDetails: 'Show details',
     noscriptMessage: 'JavaScript is required to run Curio.',
+    // Load errors
+    loadErrorCloudFetch:
+      'Unable to sync with Supabase. Check your connection and Supabase settings.',
+    loadErrorGeneric: 'Failed to load collections. Please try again.',
+    // Delete failure
+    deleteCollectionFailed: 'Failed to delete collection',
+    // Sample badge
+    sampleBadge: 'Sample',
   },
   zh: {
     appTitle: '珍藏',
@@ -762,6 +770,13 @@ export const translations = {
     hideDetails: '隐藏详情',
     showDetails: '查看详情',
     noscriptMessage: '运行 Curio 需要启用 JavaScript。',
+    // Load errors
+    loadErrorCloudFetch: '无法连接 Supabase 进行同步，请检查网络连接和 Supabase 配置。',
+    loadErrorGeneric: '加载收藏集失败，请重试。',
+    // Delete failure
+    deleteCollectionFailed: '删除收藏集失败',
+    // Sample badge
+    sampleBadge: '示例',
   },
 };
 
@@ -774,6 +789,21 @@ const getInitialLanguage = (): Language => {
 };
 
 export type TranslationKey = keyof (typeof translations)['en'];
+
+/**
+ * Look up a dynamic field label like `label_brand`.
+ * Falls back to the raw fieldId when no translation exists.
+ */
+export const getFieldTranslation = (
+  t: (key: TranslationKey | (string & {}), params?: Record<string, string | number>) => string,
+  fieldId: string,
+  fallbackLabel?: string,
+): string => {
+  const key = `label_${fieldId}`;
+  const translated = t(key);
+  if (translated === key) return fallbackLabel ?? fieldId;
+  return translated;
+};
 
 interface LanguageContextType {
   language: Language;

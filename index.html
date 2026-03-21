@@ -16,6 +16,31 @@
     />
     <meta property="og:type" content="website" />
     <title>Curio - Personal Museum</title>
+    <style>
+      .skip-link {
+        position: absolute;
+        left: -10000px;
+        top: auto;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+      }
+      .skip-link:focus {
+        position: fixed;
+        top: 8px;
+        left: 8px;
+        width: auto;
+        height: auto;
+        padding: 8px 16px;
+        background: #292524;
+        color: #fff;
+        font-size: 14px;
+        font-weight: 600;
+        border-radius: 8px;
+        z-index: 10000;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+      }
+    </style>
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -25,6 +50,7 @@
     />
   </head>
   <body>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
     <noscript>JavaScript is required to run Curio.</noscript>
     <div id="root"></div>
     <script type="module" src="/src/index.tsx"></script>
