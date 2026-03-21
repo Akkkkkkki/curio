@@ -87,7 +87,7 @@ import { refreshAiImageEditEnabled } from './services/geminiService';
 import { DeleteCollectionModal } from './components/DeleteCollectionModal';
 import { DeleteItemModal } from './components/DeleteItemModal';
 import { DeleteItemsModal } from './components/DeleteItemsModal';
-import { LanguageProvider, useTranslation } from './i18n';
+import { LanguageProvider, useTranslation, getFieldTranslation } from './i18n';
 import { supabase, isSupabaseConfigured, signOutUser } from './services/supabase';
 import {
   ThemeProvider,
@@ -527,7 +527,7 @@ export const AppContent: React.FC = () => {
         console.warn('Supabase cloud fetch failed:', e);
         setHasLocalImport(false);
         setCollections(localCollections);
-        setLoadError('Unable to sync with Supabase. Check your connection and Supabase settings.');
+        setLoadError(tRef.current('loadErrorCloudFetch'));
         setConflicts([]);
         setIsConflictModalOpen(false);
         showStatusRef.current(tRef.current('statusSyncPaused'), 'error');
@@ -578,7 +578,7 @@ export const AppContent: React.FC = () => {
       }
     } catch (e) {
       console.error('Initialization failed:', e);
-      setLoadError('Failed to load collections. Please try again.');
+      setLoadError(tRef.current('loadErrorGeneric'));
       showStatusRef.current(tRef.current('statusSyncPaused'), 'error');
       setConflicts([]);
       setIsConflictModalOpen(false);
@@ -1008,14 +1008,12 @@ export const AppContent: React.FC = () => {
     const selectedCount = selectedItemIds.length;
     const hasSelection = selectedCount > 0;
 
-    const getFieldLabel = (fieldId: string) => {
-      const fieldKey = `label_${fieldId}`;
-      const translated = t(fieldKey);
-      if (translated === fieldKey) {
-        return collection?.customFields.find((f) => f.id === fieldId)?.label || fieldId;
-      }
-      return translated;
-    };
+    const getFieldLabel = (fieldId: string) =>
+      getFieldTranslation(
+        t,
+        fieldId,
+        collection?.customFields.find((f) => f.id === fieldId)?.label,
+      );
 
     const handleRemoveFilter = (key: string) => {
       setActiveFilters((prev) => {
@@ -1064,7 +1062,7 @@ export const AppContent: React.FC = () => {
         showStatus(t('collectionDeleted'), 'success');
       } catch (e) {
         console.error('Failed to delete collection:', e);
-        showStatus('Failed to delete collection', 'error');
+        showStatus(t('deleteCollectionFailed'), 'error');
       }
     };
 
@@ -1113,7 +1111,7 @@ export const AppContent: React.FC = () => {
                   <span
                     className={`${typographyClasses.labelSmall} bg-white/40 text-stone-500 px-1.5 py-0.5 rounded border border-black/5`}
                   >
-                    Sample
+                    {t('sampleBadge')}
                   </span>
                 )}
                 {collection.isLocked && <Lock size={16} className="text-amber-500" />}
@@ -1581,14 +1579,8 @@ export const AppContent: React.FC = () => {
       }
     };
 
-    const getLabel = (fieldId: string) => {
-      const fieldKey = `label_${fieldId}`;
-      const translated = t(fieldKey);
-      if (translated === fieldKey) {
-        return collection.customFields.find((f) => f.id === fieldId)?.label || fieldId;
-      }
-      return translated;
-    };
+    const getLabel = (fieldId: string) =>
+      getFieldTranslation(t, fieldId, collection.customFields.find((f) => f.id === fieldId)?.label);
 
     const titleIsEmpty = !item.title.trim();
     const hasPhoto = item.photoUrl && item.photoUrl !== '';
@@ -2215,8 +2207,22 @@ export const AppContent: React.FC = () => {
                   />
                 }
               />
-              <Route path="/collection/:id" element={<CollectionScreen />} />
-              <Route path="/collection/:id/item/:itemId" element={<ItemDetailScreen />} />
+              <Route
+                path="/collection/:id"
+                element={
+                  <ErrorBoundary>
+                    <CollectionScreen />
+                  </ErrorBoundary>
+                }
+              />
+              <Route
+                path="/collection/:id/item/:itemId"
+                element={
+                  <ErrorBoundary>
+                    <ItemDetailScreen />
+                  </ErrorBoundary>
+                }
+              />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
             <AddItemModal

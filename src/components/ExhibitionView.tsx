@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { X, ChevronLeft, ChevronRight, Star } from 'lucide-react';
 import { UserCollection } from '../types';
 import { ItemImage } from './ItemImage';
-import { useTranslation } from '../i18n';
+import { useTranslation, getFieldTranslation } from '../i18n';
 
 interface ExhibitionViewProps {
   collection: UserCollection;
@@ -20,11 +20,8 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
 }) => {
   const { t } = useTranslation();
   const [index, setIndex] = useState(initialIndex);
-  const getFieldLabel = (fieldId: string, fallback: string) => {
-    const fieldKey = `label_${fieldId}`;
-    const translated = t(fieldKey);
-    return translated === fieldKey ? fallback : translated;
-  };
+  const getFieldLabel = (fieldId: string, fallback: string) =>
+    getFieldTranslation(t, fieldId, fallback);
 
   if (!isOpen || collection.items.length === 0) return null;
 

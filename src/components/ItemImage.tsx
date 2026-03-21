@@ -161,8 +161,11 @@ export const ItemImage: React.FC<ItemImageProps> = ({
 
   if (loading && !finalSrc) {
     return (
-      <div className={`flex items-center justify-center bg-stone-100 ${className}`}>
-        <Loader2 className="animate-spin text-stone-300" size={24} />
+      <div className={`relative overflow-hidden bg-stone-100 ${className}`}>
+        <div className="absolute inset-0 bg-gradient-to-r from-stone-100 via-stone-50 to-stone-100 animate-pulse" />
+        <div className="absolute inset-0 flex items-center justify-center">
+          <Loader2 className="animate-spin text-stone-300" size={24} />
+        </div>
       </div>
     );
   }
