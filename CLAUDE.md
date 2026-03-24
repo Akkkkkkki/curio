@@ -63,7 +63,7 @@ npm run format:check # Check formatting without changes
 
 ### Environment Setup
 
-Create `.env.local` with:
+Create `.env` with:
 
 ```
 VITE_SUPABASE_URL=your_supabase_url
