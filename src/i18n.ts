@@ -245,6 +245,9 @@ export const translations = {
     cloudRequiredDesc:
       'Supabase is required to use Curio. Configure VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY.',
     cloudRequiredAction: 'Configure Supabase',
+    sampleModeTitle: 'Sample gallery available',
+    sampleModeDesc:
+      'You are browsing Curio in read-only sample mode. Configure Supabase when you are ready to save your own archive.',
     cloudSyncActive: 'Cloud Sync',
     cloudSyncTitle: 'Cloud Account',
     cloudSyncDesc: 'Your collection syncs securely across devices.',
@@ -632,6 +635,8 @@ export const translations = {
     cloudRequiredDesc:
       '使用 Curio 需要 Supabase，请配置 VITE_SUPABASE_URL 与 VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY。',
     cloudRequiredAction: '请配置 Supabase',
+    sampleModeTitle: '可浏览示例收藏',
+    sampleModeDesc: '当前为只读示例模式。准备保存自己的收藏时，再配置 Supabase 即可。',
     cloudSyncActive: '云同步',
     cloudSyncTitle: '云端账号',
     cloudSyncDesc: '您的收藏将安全同步到所有设备。',

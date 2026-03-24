@@ -5,6 +5,7 @@ import { AppContent } from '@/App';
 import { LanguageProvider } from '@/i18n';
 import React from 'react';
 import * as db from '@/services/db';
+import * as supabaseService from '@/services/supabase';
 
 // Mock services
 vi.mock('@/services/db', () => ({
@@ -139,5 +140,28 @@ describe('App Integration Tests', () => {
 
     // Check if items are rendered
     expect(screen.getAllByText('Test Item')[0]).toBeInTheDocument();
+  });
+
+  it('shows the public sample gallery instead of a dead-end gate when cloud is not configured', async () => {
+    const { ThemeProvider } = await import('@/theme');
+    vi.mocked(supabaseService.isSupabaseConfigured).mockReturnValue(false);
+
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('collections-grid')).toBeInTheDocument();
+    });
+
+    expect(screen.getAllByText('The Vinyl Vault')[0]).toBeInTheDocument();
+    expect(screen.getByText('5')).toBeInTheDocument();
+    expect(screen.queryByTestId('access-gate')).not.toBeInTheDocument();
   });
 });

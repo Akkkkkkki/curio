@@ -510,7 +510,10 @@ export const AppContent: React.FC = () => {
 
   const refreshCollections = useCallback(async () => {
     if (!isSupabaseReady) {
-      setCollections([]);
+      setCollections(fallbackSampleCollections);
+      setLoadError(null);
+      setConflicts([]);
+      setIsConflictModalOpen(false);
       setIsLoading(false);
       return;
     }
@@ -600,13 +603,16 @@ export const AppContent: React.FC = () => {
 
   useEffect(() => {
     if (!isSupabaseReady) {
-      setCollections([]);
+      setCollections(fallbackSampleCollections);
       setIsLoading(false);
       setHasLocalImport(false);
       setImportState('idle');
       setImportMessage(null);
+      setLoadError(null);
+      setConflicts([]);
+      setIsConflictModalOpen(false);
     }
-  }, [isSupabaseReady]);
+  }, [fallbackSampleCollections, isSupabaseReady]);
 
   useEffect(() => {
     if (!isSupabaseReady || !authReady) {
@@ -905,7 +911,9 @@ export const AppContent: React.FC = () => {
   );
 
   const stats = useMemo(() => {
-    const statCollections = collections.filter((c) => !c.isPublic);
+    const privateCollections = collections.filter((c) => !c.isPublic);
+    const statCollections =
+      privateCollections.length > 0 ? privateCollections : collections.filter((c) => c.isPublic);
     const totalItems = statCollections.reduce((acc, c) => acc + c.items.length, 0);
     const avgRating =
       totalItems > 0
@@ -1948,13 +1956,18 @@ export const AppContent: React.FC = () => {
 
   const isAuthenticated = Boolean(user);
   const sampleCollection = useMemo(() => collections.find((c) => c.isPublic), [collections]);
-  const showAccessGate = !isSupabaseReady || (!isAuthenticated && !allowPublicBrowse);
+  const showAccessGate = isSupabaseReady && !isAuthenticated && !allowPublicBrowse;
   const isExploreRoute = location.pathname === '/explore';
   const shouldShowAccessGate = showAccessGate && !isExploreRoute;
   const fallbackSampleCollectionId = fallbackSampleCollections[0]?.id ?? null;
   const sampleCollectionId = sampleCollection?.id ?? fallbackSampleCollectionId;
 
   const statusBanner = useMemo(() => {
+    if (!isSupabaseReady) {
+      return (
+        <StatusBanner title={t('sampleModeTitle')} message={t('sampleModeDesc')} tone="info" />
+      );
+    }
     if (envErrors.length > 0 && isSupabaseReady) {
       return (
         <StatusBanner
