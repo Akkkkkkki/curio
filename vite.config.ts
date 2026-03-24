@@ -4,6 +4,33 @@ import fs from 'fs';
 import { defineConfig, loadEnv, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 
+type CspPolicyOptions = {
+  apiBaseUrl?: string;
+};
+
+export function buildCspPolicy({ apiBaseUrl = '' }: CspPolicyOptions = {}): string {
+  const connectSrc = [
+    "'self'",
+    'https://*.supabase.co',
+    'wss://*.supabase.co',
+    ...(apiBaseUrl ? [apiBaseUrl] : []),
+  ].join(' ');
+
+  const scriptSrc = ["'self'", 'https://va.vercel-scripts.com'].join(' ');
+
+  return [
+    "default-src 'self'",
+    `script-src ${scriptSrc}`,
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com",
+    "img-src 'self' blob: data: https:",
+    `connect-src ${connectSrc}`,
+    "media-src 'self' blob:",
+    "object-src 'none'",
+    "frame-src 'none'",
+  ].join('; ');
+}
+
 function cspPlugin(): Plugin {
   let apiOrigin = '';
 
@@ -21,26 +48,12 @@ function cspPlugin(): Plugin {
       }
     },
     transformIndexHtml(html) {
-      const connectSrc = [
-        "'self'",
-        'https://*.supabase.co',
-        'wss://*.supabase.co',
-        ...(apiOrigin ? [apiOrigin] : []),
-      ].join(' ');
-
-      const csp = [
-        "default-src 'self'",
-        "script-src 'self'",
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-        "font-src 'self' https://fonts.gstatic.com",
-        "img-src 'self' blob: data: https:",
-        `connect-src ${connectSrc}`,
-        "media-src 'self' blob:",
-        "object-src 'none'",
-        "frame-src 'none'",
-      ].join('; ');
-
-      return html.replace('__CSP_CONTENT__', csp);
+      return html.replace(
+        '__CSP_CONTENT__',
+        buildCspPolicy({
+          apiBaseUrl: apiOrigin,
+        }),
+      );
     },
   };
 }
