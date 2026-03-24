@@ -2291,17 +2291,34 @@ export const AppContent: React.FC = () => {
   );
 };
 
+const LocalizedErrorBoundary: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { t } = useTranslation();
+  return (
+    <ErrorBoundary
+      labels={{
+        title: t('errorBoundaryTitle'),
+        description: t('errorBoundaryDesc'),
+        reload: t('errorBoundaryReload'),
+        showDetails: t('errorBoundaryShowDetails'),
+        hideDetails: t('errorBoundaryHideDetails'),
+      }}
+    >
+      {children}
+    </ErrorBoundary>
+  );
+};
+
 export const App: React.FC = () => {
   return (
     <ThemeProvider>
       <LanguageProvider>
-        <ErrorBoundary>
+        <LocalizedErrorBoundary>
           <HashRouter>
             <AppContent />
           </HashRouter>
           <SpeedInsights />
           <Analytics />
-        </ErrorBoundary>
+        </LocalizedErrorBoundary>
       </LanguageProvider>
     </ThemeProvider>
   );

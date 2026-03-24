@@ -17,6 +17,13 @@ When changing code or product behavior, follow these documentation rules:
 - **Issue drafts are temporary.** If you create `docs/issue-drafts/<YYYY-MM-DD>/...` for batch import, delete the drafts after issues exist on GitHub.
 - **Canonical docs list** lives in `README.md` under “Documentation (how we keep it clean)”.
 
+## Design System
+
+Always read `DESIGN.md` before making any visual or UI decisions.
+All font choices, colors, spacing, and aesthetic direction are defined there.
+Do not deviate without explicit user approval.
+In QA mode, flag any code that doesn't match `DESIGN.md`.
+
 ## Product Constraints (MVP: Value in 5 Minutes)
 
 When making UX/product changes, preserve these constraints:
