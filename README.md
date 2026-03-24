@@ -58,7 +58,7 @@ Curio’s MVP is designed so a new user can get meaningful value within **5 minu
 
 1. Install dependencies:
    `npm install`
-2. Set environment variables in `.env.local` (see below)
+2. Set environment variables in `.env` (see below)
 3. (Optional) Start the Gemini proxy (separate terminal) for AI:
    `npm run server`
 4. Run the app (Vite):
@@ -77,7 +77,7 @@ Before opening a PR (and before pushing, if possible):
 
 ## Environment Variables
 
-Create a `.env.local` at the project root:
+Create a `.env` at the project root:
 
 ```dotenv
 VITE_SUPABASE_URL=...

@@ -11,7 +11,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = path.resolve(__dirname, '..');
 
 if (process.env.NODE_ENV !== 'production') {
-  dotenv.config({ path: path.join(ROOT_DIR, '.env.local') });
   dotenv.config({ path: path.join(ROOT_DIR, '.env') });
 }
 
