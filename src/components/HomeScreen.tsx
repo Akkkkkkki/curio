@@ -142,7 +142,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         <div
           className={`rounded-[2rem] border p-5 sm:p-6 shadow-sm ${theme === 'vault' ? 'bg-white/5 border-white/10 text-white/80' : 'bg-white/80 border-stone-100 text-stone-700'}`}
         >
-          <h3 className="text-sm font-semibold mb-2">{t('onboardingTitle')}</h3>
+          <p className="text-sm font-semibold mb-2">{t('onboardingTitle')}</p>
           <ul className="text-xs space-y-1">
             <li>{t('onboardingStepOne')}</li>
             <li>{t('onboardingStepTwo')}</li>
