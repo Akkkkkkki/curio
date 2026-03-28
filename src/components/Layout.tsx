@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Home,
   User,
@@ -52,6 +52,18 @@ export const Layout: React.FC<LayoutProps> = ({
   const location = useLocation();
   const isHome = location.pathname === '/';
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const profileRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isProfileOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
+        setIsProfileOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [isProfileOpen]);
   const isAuthenticated = Boolean(user);
   const statusLabel = !isSupabaseConfigured
     ? t('cloudRequiredStatus')
@@ -138,7 +150,7 @@ export const Layout: React.FC<LayoutProps> = ({
           <nav className="flex items-center gap-2 justify-end">
             {headerExtras}
 
-            <div className="relative">
+            <div className="relative" ref={profileRef}>
               <button
                 onClick={() => setIsProfileOpen(!isProfileOpen)}
                 aria-label={t('account')}
