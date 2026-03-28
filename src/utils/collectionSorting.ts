@@ -2,13 +2,13 @@ import { CollectionItem } from '../types';
 
 export type ItemSort = 'newest' | 'oldest' | 'title' | 'rating';
 
-const getTimestamp = (item: CollectionItem) => item.updatedAt || item.createdAt || '';
+const getCreatedTimestamp = (item: CollectionItem) => item.createdAt || '';
 
 export const sortCollectionItems = (items: CollectionItem[], sortBy: ItemSort) => {
   const sorted = [...items];
   switch (sortBy) {
     case 'oldest':
-      sorted.sort((a, b) => getTimestamp(a).localeCompare(getTimestamp(b)));
+      sorted.sort((a, b) => getCreatedTimestamp(a).localeCompare(getCreatedTimestamp(b)));
       break;
     case 'title':
       sorted.sort((a, b) => a.title.localeCompare(b.title));
@@ -18,7 +18,7 @@ export const sortCollectionItems = (items: CollectionItem[], sortBy: ItemSort) =
       break;
     case 'newest':
     default:
-      sorted.sort((a, b) => getTimestamp(b).localeCompare(getTimestamp(a)));
+      sorted.sort((a, b) => getCreatedTimestamp(b).localeCompare(getCreatedTimestamp(a)));
       break;
   }
   return sorted;
