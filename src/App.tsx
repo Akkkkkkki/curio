@@ -1352,15 +1352,15 @@ export const AppContent: React.FC = () => {
             <div
               className={`${
                 viewMode === 'grid'
-                  ? 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 sm:gap-8'
-                  : 'columns-1 sm:columns-2 md:columns-3 lg:columns-4 [column-gap:1.5rem] sm:[column-gap:2rem]'
+                  ? 'grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5'
+                  : 'columns-2 sm:columns-2 md:columns-3 lg:columns-4 [column-gap:0.625rem] sm:[column-gap:0.75rem] md:[column-gap:1rem]'
               } w-full`}
               data-testid="items-grid"
             >
               {visibleItems.map((item) => (
                 <div
                   key={item.id}
-                  className={`break-inside-avoid ${viewMode === 'waterfall' ? 'mb-8 inline-block w-full align-top' : ''}`}
+                  className={`break-inside-avoid ${viewMode === 'waterfall' ? 'mb-2.5 sm:mb-3 md:mb-4 inline-block w-full align-top' : ''}`}
                 >
                   <ItemCard
                     item={item}
