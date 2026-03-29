@@ -18,10 +18,16 @@ This repo intentionally keeps documentation **small, current, and non-duplicativ
 
 ### Canonical docs
 
-- **Product**: `docs/PRODUCT_DESIGN.md`
-- **Architecture**: `docs/TECHNICAL_DESIGN.md`
-- **Testing**: `docs/TESTING.md` (quick how-to) and `tests/README.md` (details)
-- **Issue filing**: `docs/GITHUB_ISSUES_PROTOCOL.md`
+| Doc                                   | Owns                                                                                                                                               | Does NOT own                                                |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| `docs/PRODUCT_STRATEGY.md`            | Product thesis, target user, positioning, principles, core product decisions, platform stance, business model, deferred features, founder guidance | Execution timelines, UX specs, metrics                      |
+| `docs/ROADMAP.md`                     | Execution phases, exit criteria, metrics to track                                                                                                  | Strategic decisions (reference PRODUCT_STRATEGY.md)         |
+| `docs/PRODUCT_DESIGN.md`              | UX requirements, interaction design, mobile guidelines, design language, onboarding flows, AI UX stance                                            | Strategic decisions, execution phases (reference the above) |
+| `docs/TECHNICAL_DESIGN.md`            | Architecture, data flow, infrastructure                                                                                                            | Product decisions                                           |
+| `docs/TESTING.md` + `tests/README.md` | Testing how-to and patterns                                                                                                                        | —                                                           |
+| `docs/GITHUB_ISSUES_PROTOCOL.md`      | Issue filing format and labels                                                                                                                     | —                                                           |
+
+Issue prioritization and TODO tracking live in **GitHub Issues/Projects**, not in docs.
 
 ### Other docs (organized)
 
@@ -32,7 +38,9 @@ This repo intentionally keeps documentation **small, current, and non-duplicativ
 
 ### Onboarding essentials
 
-- **Product + UX constraints**: `docs/PRODUCT_DESIGN.md` (5-minute time-to-value rules)
+- **Product strategy + principles**: `docs/PRODUCT_STRATEGY.md`
+- **UX constraints + design**: `docs/PRODUCT_DESIGN.md` (5-minute time-to-value rules)
+- **Execution roadmap**: `docs/ROADMAP.md`
 - **System architecture + data flow**: `docs/TECHNICAL_DESIGN.md`
 - **Sync reliability expectations**: `docs/ops/INDEXEDDB_RELIABILITY.md`
 - **Testing workflow**: `docs/TESTING.md` and `tests/README.md`
