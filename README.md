@@ -18,14 +18,14 @@ This repo intentionally keeps documentation **small, current, and non-duplicativ
 
 ### Canonical docs
 
-| Doc | Owns | Does NOT own |
-|-----|------|-------------|
-| `docs/PRODUCT_STRATEGY.md` | Product thesis, target user, positioning, principles, core product decisions, platform stance, business model, deferred features, founder guidance | Execution timelines, UX specs, metrics |
-| `docs/ROADMAP.md` | Execution phases, exit criteria, metrics to track | Strategic decisions (reference PRODUCT_STRATEGY.md) |
-| `docs/PRODUCT_DESIGN.md` | UX requirements, interaction design, mobile guidelines, design language, onboarding flows, AI UX stance | Strategic decisions, execution phases (reference the above) |
-| `docs/TECHNICAL_DESIGN.md` | Architecture, data flow, infrastructure | Product decisions |
-| `docs/TESTING.md` + `tests/README.md` | Testing how-to and patterns | — |
-| `docs/GITHUB_ISSUES_PROTOCOL.md` | Issue filing format and labels | — |
+| Doc                                   | Owns                                                                                                                                               | Does NOT own                                                |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| `docs/PRODUCT_STRATEGY.md`            | Product thesis, target user, positioning, principles, core product decisions, platform stance, business model, deferred features, founder guidance | Execution timelines, UX specs, metrics                      |
+| `docs/ROADMAP.md`                     | Execution phases, exit criteria, metrics to track                                                                                                  | Strategic decisions (reference PRODUCT_STRATEGY.md)         |
+| `docs/PRODUCT_DESIGN.md`              | UX requirements, interaction design, mobile guidelines, design language, onboarding flows, AI UX stance                                            | Strategic decisions, execution phases (reference the above) |
+| `docs/TECHNICAL_DESIGN.md`            | Architecture, data flow, infrastructure                                                                                                            | Product decisions                                           |
+| `docs/TESTING.md` + `tests/README.md` | Testing how-to and patterns                                                                                                                        | —                                                           |
+| `docs/GITHUB_ISSUES_PROTOCOL.md`      | Issue filing format and labels                                                                                                                     | —                                                           |
 
 Issue prioritization and TODO tracking live in **GitHub Issues/Projects**, not in docs.
 
@@ -66,7 +66,7 @@ Curio’s MVP is designed so a new user can get meaningful value within **5 minu
 
 1. Install dependencies:
    `npm install`
-2. Set environment variables in `.env.local` (see below)
+2. Set environment variables in `.env` (see below)
 3. (Optional) Start the Gemini proxy (separate terminal) for AI:
    `npm run server`
 4. Run the app (Vite):
@@ -85,7 +85,7 @@ Before opening a PR (and before pushing, if possible):
 
 ## Environment Variables
 
-Create a `.env.local` at the project root:
+Create a `.env` at the project root:
 
 ```dotenv
 VITE_SUPABASE_URL=...

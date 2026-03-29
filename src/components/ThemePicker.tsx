@@ -2,12 +2,9 @@ import React from 'react';
 import { Paintbrush, Check } from 'lucide-react';
 import { AppTheme } from '../types';
 import { useTheme } from '../theme';
-import { useTranslation, translations } from '../i18n';
+import { useTranslation, type TranslationKey } from '../i18n';
 
-const optionMeta: Record<
-  AppTheme,
-  { labelKey: keyof (typeof translations)['en']; swatch: string[] }
-> = {
+const optionMeta: Record<AppTheme, { labelKey: TranslationKey; swatch: string[] }> = {
   gallery: { labelKey: 'themeGallery', swatch: ['bg-white', 'bg-stone-100'] },
   vault: { labelKey: 'themeVault', swatch: ['bg-stone-900', 'bg-stone-700'] },
   atelier: {

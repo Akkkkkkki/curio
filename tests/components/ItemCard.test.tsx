@@ -478,7 +478,7 @@ describe('ItemCard Component', () => {
 
       const titleElement = screen.getByRole('heading', { name: longTitle });
       expect(titleElement).toBeInTheDocument();
-      expect(titleElement.className).toContain('line-clamp-1');
+      expect(titleElement.className).toContain('line-clamp-2');
     });
   });
 });

@@ -99,7 +99,7 @@ export const ItemCard: React.FC<ItemCardProps> = React.memo(function ItemCard({
       data-item-id={item.id}
       data-item-title={item.title}
       data-selected={isSelected ? 'true' : 'false'}
-      className={`group rounded-2xl transition-all duration-300 ease-out overflow-hidden border cursor-pointer flex flex-col motion-safe:active:scale-[0.98] ${layout === 'grid' ? 'h-full' : ''} motion-card ${cardSurface} ${cardShadow} ${tapRing} ${isSelected ? 'ring-2 ring-amber-400' : ''}`}
+      className={`group rounded-xl sm:rounded-2xl transition-all duration-300 ease-out overflow-hidden border cursor-pointer flex flex-col motion-safe:active:scale-[0.98] ${layout === 'grid' ? 'h-full' : ''} motion-card ${cardSurface} ${cardShadow} ${tapRing} ${isSelected ? 'ring-2 ring-amber-400' : ''}`}
     >
       <div
         className={`${layout === 'grid' ? 'aspect-[4/3]' : ''} ${theme === 'vault' ? 'bg-stone-800' : 'bg-stone-100'} overflow-hidden relative`}
@@ -133,18 +133,18 @@ export const ItemCard: React.FC<ItemCardProps> = React.memo(function ItemCard({
           <div
             className={`absolute top-2 right-2 backdrop-blur-sm px-1.5 py-0.5 rounded-md flex items-center gap-1 shadow-sm ${ratingSurface}`}
           >
-            <Star size={10} className={`fill-current ${ratingColorClasses[theme]}`} />
-            <span className="text-[13px] sm:text-xs font-bold">{item.rating}</span>
+            <Star size={9} className={`fill-current ${ratingColorClasses[theme]}`} />
+            <span className="text-[11px] sm:text-xs font-bold">{item.rating}</span>
           </div>
         )}
       </div>
 
-      <div className="p-4 flex flex-col flex-grow">
+      <div className="p-2.5 sm:p-3 md:p-4 flex flex-col flex-grow">
         <div className="relative">
           <h4
             title={item.title}
             aria-label={item.title}
-            className={`${typographyClasses.title} line-clamp-1 mb-1`}
+            className={`${typographyClasses.title} text-sm sm:text-base line-clamp-2 mb-1`}
           >
             {item.title}
           </h4>
@@ -155,7 +155,7 @@ export const ItemCard: React.FC<ItemCardProps> = React.memo(function ItemCard({
           </span>
         </div>
 
-        <div className="space-y-1 mb-3">
+        <div className="space-y-0.5 sm:space-y-1 mb-2 sm:mb-3">
           {displayFields.map((fieldId) => {
             const val = getValue(fieldId);
             const label = getLabel(fieldId);
@@ -172,7 +172,9 @@ export const ItemCard: React.FC<ItemCardProps> = React.memo(function ItemCard({
           })}
         </div>
 
-        <div className={`mt-auto flex flex-wrap gap-1.5 pt-2 border-t ${dividerClasses[theme]}`}>
+        <div
+          className={`mt-auto flex flex-wrap gap-1 sm:gap-1.5 pt-1.5 sm:pt-2 border-t ${dividerClasses[theme]}`}
+        >
           {badgeFields.map((fieldId) => {
             const val = getValue(fieldId);
             if (!val) return null;

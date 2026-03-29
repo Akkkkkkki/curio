@@ -53,6 +53,19 @@ test.describe('First-Time User Experience', () => {
     await expect(explore).toBeVisible();
   });
 
+  test('should never strand first-time users on a cloud-required dead end', async ({ page }) => {
+    await page.goto('/');
+
+    const accessGate = page.getByTestId('access-gate');
+    if (await accessGate.isVisible().catch(() => false)) {
+      await expect(page.getByTestId('cta-secondary-explore-sample')).toBeVisible();
+      return;
+    }
+
+    await expect(page.getByTestId('collections-grid')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'The Vinyl Vault' })).toBeVisible();
+  });
+
   test('should allow exploring sample collections without authentication', async ({ page }) => {
     await ensureSampleBrowse(page);
     await expect(page.getByTestId('collection-card').first()).toBeVisible();

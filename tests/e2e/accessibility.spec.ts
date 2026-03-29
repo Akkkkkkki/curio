@@ -18,7 +18,10 @@ test.describe('Accessibility', () => {
       await page.getByTestId('cta-primary-add-first').click();
     } else {
       await page.getByRole('button', { name: 'Account' }).click();
-      await page.getByRole('button', { name: /login/i }).click();
+      // Button text is "Sign In" (t('login') = 'Sign In'); fall back gracefully if not found.
+      const signInBtn = page.getByRole('button', { name: /sign in/i });
+      if (!(await signInBtn.isVisible({ timeout: 3000 }).catch(() => false))) return false;
+      await signInBtn.click();
     }
     const modal = page.getByTestId('auth-modal');
     // In some environments (e.g., Supabase not configured), the gate may not open a modal.

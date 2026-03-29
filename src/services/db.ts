@@ -542,7 +542,10 @@ const markPendingSyncFailure = async (
 };
 
 const withSyncLock = async <T>(work: () => Promise<T>, fallback: T): Promise<T> => {
-  const lockManager = typeof navigator !== 'undefined' ? (navigator as any)?.locks : null;
+  const lockManager =
+    typeof navigator !== 'undefined'
+      ? ((navigator as Navigator & { locks?: LockManager }).locks ?? null)
+      : null;
   if (lockManager?.request) {
     return lockManager.request(SYNC_LOCK_KEY, { ifAvailable: true }, async (lock: unknown) => {
       if (!lock) return fallback;
@@ -1374,8 +1377,8 @@ export const getAsset = async (
       }
     } catch (e) {
       // Only log unexpected errors, not expected 404/400 from missing assets
-      const err = e as any;
-      if (!err?.statusCode || ![400, 404].includes(err.statusCode)) {
+      const statusCode = (e as { statusCode?: number })?.statusCode;
+      if (!statusCode || ![400, 404].includes(statusCode)) {
         console.warn('Cloud asset download failed:', e);
       }
     }
@@ -1519,8 +1522,8 @@ export const getEnhancedAsset = async (
       }
     } catch (e) {
       // Only log unexpected errors, not expected 404/400 from missing assets
-      const err = e as any;
-      if (!err?.statusCode || ![400, 404].includes(err.statusCode)) {
+      const statusCode = (e as { statusCode?: number })?.statusCode;
+      if (!statusCode || ![400, 404].includes(statusCode)) {
         const errorMessage = e instanceof Error ? e.message : String(e);
         if (!errorMessage.includes('404') && !errorMessage.includes('not found')) {
           console.warn('Cloud enhanced asset download failed:', e);

@@ -25,6 +25,13 @@ Each product doc has a clear scope. When adding content, put it in the right fil
 - **`docs/ROADMAP.md`** — execution phases with goals/key work/exit criteria, metrics to track. References strategy for context.
 - **`docs/PRODUCT_DESIGN.md`** — UX requirements, interaction design, mobile guidelines, design language, onboarding flows, AI UX stance. References strategy for context.
 
+## Design System
+
+Always read `DESIGN.md` before making any visual or UI decisions.
+All font choices, colors, spacing, and aesthetic direction are defined there.
+Do not deviate without explicit user approval.
+In QA mode, flag any code that doesn't match `DESIGN.md`.
+
 ## Product Constraints (MVP: Value in 5 Minutes)
 
 When making UX/product changes, preserve these constraints:
@@ -71,7 +78,7 @@ npm run format:check # Check formatting without changes
 
 ### Environment Setup
 
-Create `.env.local` with:
+Create `.env` with:
 
 ```
 VITE_SUPABASE_URL=your_supabase_url

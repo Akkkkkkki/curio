@@ -19,20 +19,39 @@ const runSort = (items: CollectionItem[], sortBy: ItemSort) =>
   sortCollectionItems(items, sortBy).map((item) => item.title);
 
 describe('sortCollectionItems', () => {
-  it('sorts by newest first', () => {
+  it('sorts by newest first (using createdAt)', () => {
     const items = [
-      createItem({ title: 'Old', updatedAt: '2024-01-01T00:00:00Z' }),
-      createItem({ title: 'New', updatedAt: '2024-02-01T00:00:00Z' }),
+      createItem({ title: 'Old', createdAt: '2024-01-01T00:00:00Z' }),
+      createItem({ title: 'New', createdAt: '2024-02-01T00:00:00Z' }),
     ];
     expect(runSort(items, 'newest')).toEqual(['New', 'Old']);
   });
 
-  it('sorts by oldest first', () => {
+  it('sorts by oldest first (using createdAt)', () => {
     const items = [
-      createItem({ title: 'Old', updatedAt: '2024-01-01T00:00:00Z' }),
-      createItem({ title: 'New', updatedAt: '2024-02-01T00:00:00Z' }),
+      createItem({ title: 'Old', createdAt: '2024-01-01T00:00:00Z' }),
+      createItem({ title: 'New', createdAt: '2024-02-01T00:00:00Z' }),
     ];
     expect(runSort(items, 'oldest')).toEqual(['Old', 'New']);
+  });
+
+  it('ignores updatedAt for newest/oldest sort', () => {
+    const items = [
+      createItem({
+        title: 'Added first, edited recently',
+        createdAt: '2024-01-01T00:00:00Z',
+        updatedAt: '2024-12-01T00:00:00Z',
+      }),
+      createItem({
+        title: 'Added second, never edited',
+        createdAt: '2024-06-01T00:00:00Z',
+        updatedAt: '2024-06-01T00:00:00Z',
+      }),
+    ];
+    expect(runSort(items, 'newest')).toEqual([
+      'Added second, never edited',
+      'Added first, edited recently',
+    ]);
   });
 
   it('sorts by title', () => {
