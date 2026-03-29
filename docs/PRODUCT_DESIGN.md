@@ -1,8 +1,10 @@
 # Curio - Product Design Document
 
+> This document owns **UX requirements, interaction design, mobile guidelines, and design language**. For product thesis, principles, and strategic decisions, see `docs/PRODUCT_STRATEGY.md`. For execution phases and metrics, see `docs/ROADMAP.md`.
+
 ## 1. Vision & Purpose
 
-Curio is a digital sanctuary for physical collectors. Unlike marketplace-driven apps, Curio is an **intimate archival tool**. It is designed for the "joy of ownership"—focusing on personal narratives, high-end aesthetics, and the emotional value of a curated collection.
+Curio is a personal museum for meaningful objects. Unlike marketplace-driven apps or generic inventory tools, Curio is an **identity-driven archival product**. It is designed around personal narratives, strong aesthetics, and the emotional value of a curated collection.
 
 ## 1.1 MVP North Star: Value in the First 5 Minutes
 
@@ -12,7 +14,7 @@ Curio is a digital sanctuary for physical collectors. Unlike marketplace-driven 
 
 - **Minute 0–1: Immediate delight (no friction)**
   - User lands in a beautiful **Public Sample Gallery** (read-only) or can enter it with one click.
-  - One-line positioning explains Curio: _a personal archival sanctuary, not a marketplace_.
+  - One-line positioning explains Curio: _a personal museum, not a marketplace or spreadsheet_.
 - **Minute 1–3: One clear action**
   - One primary CTA: **Add your first item** (secondary: **Explore sample**).
   - Capture is guided by a single, mobile-first screen (Upload photo → Details) where AI can auto-fill in the background (never blocking Save).
@@ -27,7 +29,7 @@ Curio is a digital sanctuary for physical collectors. Unlike marketplace-driven 
 - **AI must be recoverable:** AI latency/failure must never block the flow. Provide a clear fallback to manual entry and keep the user’s progress.
 - **Templates must be self-explanatory:** Template selection should show a short description + field preview so users can pick confidently in seconds.
 - **Read-only must be obvious:** Public/sample content must always show a persistent read-only indicator and disabled edit affordances.
-- **Defer advanced features:** Museum Guide, Exhibition, deep filtering, etc. should be discoverable _after_ the first successful save.
+- **Defer distractions:** Museum Guide, AI image enhancement, Vault Lock, and heavy social mechanics should not compete with the first-save experience.
 
 ## 1.3 MVP Behaviors (as implemented)
 
@@ -56,10 +58,11 @@ This section captures **current behavior in the codebase** (so docs stay actiona
 
 ### Design notes: Make capture “feel simple” on mobile
 
-- **Default view is minimal**: photo + title + a few “primary” fields + rating + Save.
+- **Default view is minimal but expressive**: photo + title + a few “primary” fields + Story prompt + rating + Save.
 - **Progress never blocks**: any AI-assisted work is communicated as “filling in” rather than “step 3/4”.
 - **Advanced inputs are secondary**:
-  - **Notes** is hidden behind a lightweight “Add narrative” toggle.
+  - **Story** is visible by default and should be easy to fill in.
+  - Extra notes or technical detail can sit behind a lightweight secondary toggle.
   - Remaining metadata fields are hidden behind a “More details” / “Technical spec” toggle.
   - Batch mode is present but not primary (it’s discoverable as an optional link).
 - **AI failures are boring**: show a short “AI unavailable—continue manually” message and keep the user on the same screen.
@@ -83,23 +86,21 @@ This section captures **current behavior in the codebase** (so docs stay actiona
 - **Offline clarity**: Persistent banner explains that edits are saved locally and will sync later.
 - **Undo/redo**: Lightweight history for in-session item edits to reduce accidental changes.
 
-## 2.1 AI image features (design + cost guardrails)
+## 2.1 Active AI stance
 
-Curio’s AI image work should be **explicitly optional**, **recoverable**, and **cost-aware**:
+Curio’s active AI work should stay **explicitly optional**, **recoverable**, and **cost-aware**.
 
-- **Two capabilities (separately toggleable)**:
-  - **Metadata extraction**: “fill in fields from an uploaded photo” (fast, low-risk).
-  - **Image-to-image enhancement**: “make this photo look cleaner / more presentable” or “generate a poster/ad version” (newer, higher-cost, higher-risk).
-- **Cost guardrail**: never generate multiple variations by default. Defaults:
-  - One-tap “Enhance” generates **one** result.
-  - “Try again” / “More like this” is an explicit user action (each action == one more generation).
-- **Transparency**:
-  - Always keep **Original** available.
-  - If enhancement fails, the user still has their item saved with original/display images.
+Current active use:
 
-### Gemini image editing reference
+- **Metadata extraction**: image to structured fields, titles, and prompts
 
-When using Google’s Gemini image-to-image models (Nano Banana), we should follow and link to the official API guidance: [Gemini image editing](https://ai.google.dev/gemini-api/docs/image-generation#gemini-image-editing).
+Current non-goals:
+
+- AI image enhancement
+- poster generation
+- multi-variant image editing workflows
+
+If AI is unavailable or inaccurate, the user must still be able to complete the flow manually without losing progress.
 
 ## 2.2 Mobile-first capture simplification (consolidated requirements)
 
@@ -114,8 +115,8 @@ This section consolidates prior standalone design docs into a single durable sou
 ### Default capture surface (single-screen)
 
 - **Primary action**: add photo (camera or upload)
-- **Always available**: title, key template fields, rating (optional), Save
-- **Secondary / optional**: notes, “More details”/technical spec, batch mode (discoverable, not primary)
+- **Always available**: title, key template fields, Story prompt, rating (optional), Save
+- **Secondary / optional**: extra notes, “More details”/technical spec, batch mode (discoverable, not primary)
 
 ### Non-blocking AI autofill behavior
 
@@ -131,64 +132,17 @@ This section consolidates prior standalone design docs into a single durable sou
 - **Keyboard ergonomics**: sensible Next/Done, correct input types, no jumpy layout when AI updates
 - **Clear AI state**: subtle “filling in…” indicator; no blocking spinners as the only signal
 
-## 2.3 AI image-to-image editing (Enhance + Poster) — trust + cost
+## 2.3 Deferred AI image experiments
 
-Curio treats these as separate capabilities from metadata extraction:
+Image-to-image enhancement and poster generation are deferred.
 
-- **Metadata extraction**: image → structured fields (core, low-risk)
-- **Image-to-image**: image → enhanced image (higher-cost/risk; always explicit)
+Reasons:
 
-### Phased rollout
+- they are expensive relative to current product value
+- they do not fix the core trust and story loop
+- they risk distracting from capture, editing, and sharing
 
-- **Phase 1: Enhance image (clean / presentable)**  
-  Outcome-first CTA: “Enhance image”. Generates **one** result, with before/after comparison, Accept/Keep original, and explicit “Try again”.
-- **Phase 2: Poster / ad (creative)**  
-  CTA: “Create poster”. Generates **one** result, optional style presets, explicit “Try again”. Typography imperfections are an expected V1 risk.
-
-### Two user-facing intents (make it explicit)
-
-- **Catalog / Documentation (default)**: accurate + clean, conservative changes
-- **Showcase / Aesthetic (opt-in)**: studio + pretty, more opinionated polish
-
-### Quality rubric (acceptance + QA)
-
-Score output \(0–2\) per dimension (total /12):
-
-1. **Subject prominence**
-2. **Legibility (if text exists)**
-3. **Exposure & dynamic range**
-4. **Color & white balance**
-5. **Geometry correctness**
-6. **Background cleanliness**
-
-Definition of “enhancement success” (Catalog mode):
-
-- Total score increases by **≥ 3 points**, and
-- **Geometry never worsens**, and
-- **Color does not materially drift** (human-obvious drift is a failure).
-
-### Trust boundaries (what enhancement may change)
-
-- **Generally safe**: straighten/crop, exposure/contrast, white balance, moderate denoise (text-safe), mild background declutter, bounded perspective correction
-- **Risky (opt-in or warn)**: aggressive relighting that changes material feel, heavy “beautify”, reconstruction of obscured text
-- **Forbidden by default**: changing/recreating logos/labels/serial numbers, altering colorways/edition markers, reshaping the object, adding new props/elements
-
-### Export / sharing note
-
-Some providers may embed provenance watermarks (e.g., SynthID). If a generated asset is exported/shared, the UI should be explicit that it’s generated and may include a watermark.
-
-### Cost guardrails (must-have)
-
-- **No multi-variant by default**: one generation per explicit user action
-- **Cheap-by-default**: default model/quality is routine-friendly; “High quality” is an explicit choice where needed
-- **Budget + rate limiting policy**: prevent accidental loops; enforce per-user limits (tracked in GitHub)
-
-### Open questions (track in GitHub)
-
-- Where does “Enhance image” live: during capture vs on item detail?
-- Should enhancement be allowed for public/sample collections (or only via “copy to my collection”)?
-- Do we need a paid tier or hard limits for image-to-image usage?
-- Export UX expectations given potential provenance watermarks.
+If reintroduced later, they should be treated as explicit, premium, opt-in creative tools rather than part of the core collecting flow.
 
 ## 6. UX review findings (2026-01-13) — consolidated summary
 
@@ -205,7 +159,7 @@ This is a short synthesis of the 2026-01-13 external UX review. Action items sho
 - **No feedback after key actions**: show clear confirmation after add/save and reliable error states when something fails.
 - **Unclear icon meaning**: tooltips/labels for non-obvious actions (some are tracked: [#68](https://github.com/Akkkkkkki/curio/issues/68), [#95](https://github.com/Akkkkkkki/curio/issues/95)).
 - **Metadata editing**: users need an edit path on item detail without delete-and-readd.
-- **Vocal Guide readiness**: if disabled/non-functional, hide or mark “coming soon” to avoid confusion.
+- **Museum Guide readiness**: if disabled or non-functional, keep it fully hidden or clearly feature-flagged to avoid confusing users.
 
 ### Card readability
 
@@ -227,24 +181,16 @@ We avoid keeping long-lived “implementation checklists” in `docs/` because t
 
 If you need a checklist for a short-lived push, keep it inside the relevant GitHub issue/PR description instead of a new doc.
 
-## 2. MVP Goals & Enhancements
+## 2. Active Priorities
 
-1. **Velocity of Capture**:
-   - **Rapid-Fire Mode**: Batch upload for serious archivists.
-   - **AI Auto-naming**: Gemini suggests high-quality archival names based on visual cues.
-2. **Emotional Utility**:
-   - **Archive Archeology**: "On This Day" feature to surface past memories.
-   - **Museum Guide**: A proactive vocal companion that acts as a sophisticated curator.
-3. **Global Aesthetic Curation**:
-   - **Dynamic Global Themes**: Users select from _The Gallery_ (Light/Airy), _The Vault_ (Moody/Dark), or _The Atelier_ (Artisanal/Warm).
-4. **Security for High-Value Collections**:
-   - **Vault Lock**: Optional biometric-style lock for specific collections. (Tracked in [#87](https://github.com/Akkkkkkki/curio/issues/87))
+See `docs/PRODUCT_STRATEGY.md` for product decisions and `docs/ROADMAP.md` for execution phases. The UX implications of those priorities are reflected throughout this document.
 
 ## 3. Design Language
 
 - **Typography**: _DM Serif Display_ for elegance; _Inter_ for precision.
 - **Visual Layout**: "Bento Grid" home screen for a modern museum feel; Masonry grids for item browsing.
 - **Theming**: Global theme selection replaces collection-specific accents for a unified aesthetic experience.
+- **Sharing surfaces**: exported cards and public pages should feel intentional, collectible, and aesthetically credible without becoming gimmicky.
 
 ## 4. Onboarding & Cloud Access
 
@@ -264,5 +210,4 @@ A curated public sample collection is visible to all users as inspiration. It is
 
 ## 5. Future Roadmap
 
-- **Social Curation**: Generate cinematic video "portraits" of items for sharing.
-- **NFC/QR Tagging**: Print tiny archival stickers that link directly to the Curio record.
+See `docs/ROADMAP.md` for execution phases and `docs/PRODUCT_STRATEGY.md` for platform stance and deferred features.

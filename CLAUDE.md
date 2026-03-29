@@ -13,9 +13,17 @@ When changing code or product behavior, follow these documentation rules:
 - **Do not create duplicate docs.** Prefer updating an existing doc or deleting stale docs rather than adding more files.
 - **Keep docs aligned with reality.** If documentation contradicts the codebase, fix or remove it.
 - **Prefer code-adjacent docs** for implementation details (e.g., testing details in `tests/README.md`).
-- **Issues belong in GitHub.** Do not maintain long-term “TODO” lists in `docs/` when an issue already exists.
+- **Issues belong in GitHub.** Do not maintain long-term “TODO” lists or issue priority orders in `docs/` when issues already exist on GitHub.
 - **Issue drafts are temporary.** If you create `docs/issue-drafts/<YYYY-MM-DD>/...` for batch import, delete the drafts after issues exist on GitHub.
 - **Canonical docs list** lives in `README.md` under “Documentation (how we keep it clean)”.
+
+### Doc ownership (where to put what)
+
+Each product doc has a clear scope. When adding content, put it in the right file and cross-reference rather than duplicating:
+
+- **`docs/PRODUCT_STRATEGY.md`** — product thesis, target user, positioning, principles, core product decisions, platform stance, business model, deferred features, founder guidance.
+- **`docs/ROADMAP.md`** — execution phases with goals/key work/exit criteria, metrics to track. References strategy for context.
+- **`docs/PRODUCT_DESIGN.md`** — UX requirements, interaction design, mobile guidelines, design language, onboarding flows, AI UX stance. References strategy for context.
 
 ## Product Constraints (MVP: Value in 5 Minutes)
 
