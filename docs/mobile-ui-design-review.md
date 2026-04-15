@@ -3,6 +3,7 @@
 > **Date:** January 2026
 > **Scope:** Mobile UI design, motion, animation, and touch interactions
 > **Goal:** Identify improvements while keeping implementation simple and following industry best practices
+> **Strategic context:** Mobile UX improvements support the trust and sharing priorities in `docs/PRODUCT_STRATEGY.md`. See `docs/PRODUCT_DESIGN.md` for current mobile design guidelines.
 
 ---
 

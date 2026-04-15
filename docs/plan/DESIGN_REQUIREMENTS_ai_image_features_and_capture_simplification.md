@@ -1,4 +1,6 @@
-# Design Requirements: AI Image Features + Simplified Item Capture (NEW — Not Yet Implemented)
+# Design Requirements: AI Image Features + Simplified Item Capture
+
+> **Strategic status (2026-03-28):** AI image-to-image enhancement and poster generation are **deferred** per `docs/PRODUCT_STRATEGY.md`. They are not current execution priorities. The simplified item capture requirements (Goal A) remain relevant and inform `docs/PRODUCT_DESIGN.md`. Goal B (image-to-image AI) should not be pursued until Phase 0 and Phase 1 of the roadmap are complete.
 
 **Status:** Draft requirements for design + engineering (no implementation assumed).  
 **Owner:** Product/Eng team (Curio)  

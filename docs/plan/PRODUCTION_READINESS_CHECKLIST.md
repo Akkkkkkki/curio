@@ -3,6 +3,8 @@
 This checklist tracks the minimum bar for a full production launch. Items are grouped by area and
 should be verified (or explicitly waived) before launch. Gaps are tracked in GitHub issues.
 
+> **Strategic context:** Production readiness work aligns with **Phase 0 — Trust And Soul** in `docs/ROADMAP.md`. Trust is the first product job per `docs/PRODUCT_STRATEGY.md`.
+
 ## 2026-01-23 Review Addendum (single source of truth)
 
 This section consolidates:

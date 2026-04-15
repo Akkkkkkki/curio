@@ -2,11 +2,11 @@
 
 ## Product Context
 
-- **What this is:** A personal museum for physical collectors — intimate archival tool, not a marketplace
-- **Who it's for:** Collectors who care about provenance, narrative, and museum-grade presentation of their objects
+- **What this is:** A personal museum for meaningful objects — identity-driven archival product, not a marketplace or spreadsheet
+- **Who it's for:** Identity-driven collectors and memory keepers who care about story, beauty, and sharing — not just metadata
 - **Space/industry:** Personal collection management (peers: CatalogIt, Libib, Artwork Archive, Collectorz)
 - **Project type:** Mobile-first web app (PWA) with cloud sync
-- **Positioning:** The gap between "utility catalog database" and "actual museum experience" — Curio is your private gallery
+- **Positioning:** The most beautiful way to remember, organize, and share the things that define your taste (see `docs/PRODUCT_STRATEGY.md`)
 
 ## Aesthetic Direction
 

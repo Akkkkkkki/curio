@@ -1,5 +1,7 @@
 # Curio - Technical Design Document
 
+> For product thesis and strategic decisions, see `docs/PRODUCT_STRATEGY.md`. For execution phases, see `docs/ROADMAP.md`. For UX design, see `docs/PRODUCT_DESIGN.md`.
+
 ## 1. System Architecture
 
 - **Storage**: Supabase (PostgreSQL + Auth + Storage) as source of truth, IndexedDB as cache.
@@ -44,6 +46,8 @@ Curated sample collections live in the same tables and are flagged with `is_publ
 - **Normalization**: Private collections store images as Blobs (IndexedDB + Supabase Storage). Public sample collections use direct public URLs (e.g., `public/assets/...`) so every user can view them.
 
 ## 3.1 Image variants (original / display / enhanced / poster)
+
+> **Note:** AI image enhancement and poster generation are deferred features (see `docs/PRODUCT_STRATEGY.md`). The schema and storage design below supports them when reintroduced, but they are not current execution priorities.
 
 Curio stores multiple image “variants” per item so AI work is recoverable and the UI stays fast.
 
@@ -190,8 +194,9 @@ We want to be able to toggle AI capabilities on/off independently (especially im
 - **Metadata extraction**: `VITE_AI_METADATA_ENABLED`
   - Controls “image → structured fields” auto-fill.
   - Should remain “deep-read” (core value), but must still degrade gracefully when unavailable.
-- **Image-to-image editing**: `VITE_AI_IMAGE_EDIT_ENABLED`
+- **Image-to-image editing** (deferred): `VITE_AI_IMAGE_EDIT_ENABLED`
   - Controls “image → enhanced image” and “image → poster/ad asset”.
+  - This capability is deferred per `docs/PRODUCT_STRATEGY.md`. The flag exists for future use.
   - Must be easy to disable globally during rollout / incident response.
 - **Back-compat**: `VITE_AI_ENABLED` (legacy)
   - If present, it may be treated as the default for metadata extraction in older builds.
