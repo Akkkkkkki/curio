@@ -6,7 +6,7 @@
 > **Supersedes:** `docs/DESIGN_field-first_collection_creation.md` (to be deleted)
 
 This is a forward-looking design spec. For current behavior and MVP constraints, see
-`docs/PRODUCT_DESIGN.md`.
+`docs/PRODUCT_DESIGN.md`. This work aligns with **Phase 1 — Flexible Collections And Sharing** in `docs/ROADMAP.md` and the "Broad product, flexible structure" decision in `docs/PRODUCT_STRATEGY.md`.
 
 ---
 

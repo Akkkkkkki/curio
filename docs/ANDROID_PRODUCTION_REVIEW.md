@@ -3,6 +3,7 @@
 > **Date:** 2026-03-15
 > **Scope:** Technical and product review for Android commercial launch
 > **Reviewer:** Automated deep review of full codebase, architecture, and existing docs
+> **Strategic context:** Android distribution is part of Phase 1.5 in `docs/ROADMAP.md`. Product architecture remains web-first per `docs/PRODUCT_STRATEGY.md`.
 
 ---
 

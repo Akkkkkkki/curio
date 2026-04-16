@@ -4,6 +4,7 @@
 >
 > **Generated:** 2026-02-12 | **Source:** PR #172 analysis + existing GitHub issues
 > **Scope:** 15 issue drafts from PR #172 + 29 existing open GitHub issues
+> **Strategic context:** Technical debt work supports **Phase 0 — Trust And Soul** in `docs/ROADMAP.md`. Trust and reliability are prerequisites for the sharing and flexible collections work in later phases (see `docs/PRODUCT_STRATEGY.md`).
 
 ---
 

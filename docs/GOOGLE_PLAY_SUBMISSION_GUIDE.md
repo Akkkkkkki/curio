@@ -4,6 +4,8 @@
 
 **Scope:** This is an MVP release to gather user feedback, not a full product launch. We prioritize speed and simplicity over perfection.
 
+> **Strategic context:** This guide supports **Phase 1.5 — Android Market Test** in `docs/ROADMAP.md`. The goal is to use Google Play as an early market-test channel without broadening native scope. Product logic stays shared with web per `docs/PRODUCT_STRATEGY.md`.
+
 ## Scope & status
 
 - **Platform focus:** Android first; iOS is deferred (Apple Developer Program costs and review overhead).

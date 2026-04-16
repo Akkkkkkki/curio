@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Curio is a personal collection management app with AI-powered image analysis and cloud synchronization. It uses a cloud-first architecture where Supabase is the source of truth and IndexedDB is a local cache.
+Curio is a personal museum for meaningful objects. It helps identity-driven collectors and memory keepers capture, remember, organize, and proudly share the things that define their taste and identity. The product uses AI-assisted metadata extraction, cloud synchronization (Supabase as source of truth, IndexedDB as cache), and strong aesthetics to make collecting feel personal and beautiful. For the full product thesis and principles, see `docs/PRODUCT_STRATEGY.md`.
 
 ## Documentation Rules (for AI helpers)
 
@@ -32,15 +32,25 @@ All font choices, colors, spacing, and aesthetic direction are defined there.
 Do not deviate without explicit user approval.
 In QA mode, flag any code that doesn't match `DESIGN.md`.
 
+## Product Principles (from `docs/PRODUCT_STRATEGY.md`)
+
+1. **Identity before inventory**
+2. **Story before schema**
+3. **Beauty before bureaucracy**
+4. **Acceleration before automation** — AI helps extract metadata and suggest prompts, but does not invent the user's story
+5. **Sharing before social complexity**
+6. **Trust before growth**
+
 ## Product Constraints (MVP: Value in 5 Minutes)
 
 When making UX/product changes, preserve these constraints:
 
 - **Delight before auth:** Users must be able to explore the **Public Sample Gallery** pre-login. Prompt for auth when the user attempts to save their own content.
 - **Single-path first run:** Present one primary CTA (**Add your first item**) and one secondary CTA (**Explore sample**). Avoid multiple competing actions on first launch.
-- **Recoverable AI:** AI analysis must never be a hard blocker. If analysis fails/slow, users should be able to complete item creation manually without losing progress.
+- **Recoverable AI:** AI analysis must never be a hard blocker. If analysis fails/slow, users should be able to complete item creation manually without losing progress. AI-generated descriptions stay as hidden metadata; the visible story layer is human-authored.
 - **Read-only clarity:** Public/sample collections must be clearly labeled read-only for non-admins, and edit affordances must be disabled consistently.
 - **Explicit outcomes:** Surface clear feedback for “Saved”, “Synced”, and “Will sync / retrying” states so users trust the system.
+- **Defer distractions:** Museum Guide, AI image enhancement, Vault Lock, and heavy social mechanics should not compete with the core collecting and sharing experience (see deferred features in `docs/PRODUCT_STRATEGY.md`).
 
 ## Mandatory before finishing any change (format + tests + build + clean git state)
 
@@ -110,7 +120,7 @@ GEMINI_IMAGE_MODEL=gemini-2.5-flash-image
 - **Frontend**: React 19 + TypeScript 5.8
 - **Build Tool**: Vite 6 with `@/` path alias to root
 - **Routing**: React Router v7 with HashRouter (SPA-compatible)
-- **AI**: Google Gemini (vision analysis + audio guide)
+- **AI**: Google Gemini (metadata extraction via vision analysis); audio guide is deferred
 - **Database**: Supabase (source of truth) + IndexedDB (cache)
 - **Styling**: Tailwind CSS with custom themes
 - **Icons**: Lucide React
@@ -202,20 +212,23 @@ GEMINI_IMAGE_MODEL=gemini-2.5-flash-image
 
 ### Gemini AI Integration
 
-**Image Analysis:**
+**Image Analysis (active):**
 
 - Model: `gemini-3-flash-preview` (vision)
 - Converts uploaded photo to base64
 - Sends dynamic JSON schema based on collection template fields via `server/geminiProxy.js`
-- Returns structured metadata (title, notes, field values)
+- Returns structured metadata (title, field values)
+- AI-generated descriptions are treated as hidden metadata; the visible narrative (Story) is human-authored
 
-**Museum Guide (Audio):**
+**Museum Guide (deferred):**
 
-- Model: `gemini-2.5-flash-native-audio-preview-09-2025` (TBC)
-- Uses `ai.live.connect()` for bidirectional real-time audio
-- Voice: 'Kore', Audio I/O: 16kHz input / 24kHz output
-- System instruction provides collection context for expertise
 - Feature-flagged by `VITE_VOICE_GUIDE_ENABLED` (disabled by default)
+- Museum Guide / voice companion is a deferred feature per `docs/PRODUCT_STRATEGY.md`
+
+**AI Image Enhancement (deferred):**
+
+- AI image-to-image editing and poster generation are deferred per `docs/PRODUCT_STRATEGY.md`
+- Feature flag `VITE_AI_IMAGE_EDIT_ENABLED` exists but the capability is not a current priority
 
 ### Supabase Integration
 

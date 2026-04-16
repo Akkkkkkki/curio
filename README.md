@@ -1,6 +1,6 @@
 # Curio — Personal Museum
 
-Curio is a personal museum for collecting, organizing, and browsing items with optional AI-assisted metadata extraction.
+Curio is a personal museum for meaningful objects — the most beautiful way to remember, organize, and share the things that define your taste.
 
 - **Live app**: [curio-app.vercel.app](https://curio-app.vercel.app)
 
@@ -57,8 +57,12 @@ Curio’s MVP is designed so a new user can get meaningful value within **5 minu
 - **Delight before auth:** Users can explore the **Public Sample Gallery** _before signing in_.
 - **One clear first action:** The UI should present a primary CTA to **Add your first item** (and a secondary CTA to **Explore sample**).
 - **Capture reliability:** The add-item flow must show visible stages (Upload → Analyzing → Review → Save), and provide a manual fallback if AI fails/slow.
+- **Story is human-authored:** AI extracts metadata but the visible narrative (Story) is written by the user. AI-generated descriptions are hidden metadata.
 - **Clear outcomes:** Users must see explicit **Saved** and **Synced / Will sync** feedback.
 - **Read-only clarity:** Public sample collections/items are read-only for non-admin users and must be visibly labeled as such.
+- **Defer distractions:** Museum Guide, AI image enhancement, Vault Lock, and heavy social mechanics do not compete with the core flow.
+
+For the full product strategy and principles, see `docs/PRODUCT_STRATEGY.md`. For the execution roadmap, see `docs/ROADMAP.md`.
 
 ## Run Locally
 
