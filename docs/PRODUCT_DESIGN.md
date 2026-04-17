@@ -86,6 +86,15 @@ This section captures **current behavior in the codebase** (so docs stay actiona
 - **Offline clarity**: Persistent banner explains that edits are saved locally and will sync later.
 - **Undo/redo**: Lightweight history for in-session item edits to reduce accidental changes.
 
+## 2.0 Quick-add mode
+
+Alongside the full capture wizard, Curio should offer a "quick add" mode for low-friction capture:
+
+- **Flow:** photo → AI auto-categorizes → item appears in collection → user can enrich later
+- **Purpose:** accommodates "capture now, curate later" behavior alongside "tell the full story" behavior
+- **The full wizard remains** for users who want to write stories upfront
+- Quick-add items should be visually distinguishable (e.g., subtle "enrich me" indicator) to encourage users to return and add their personal story
+
 ## 2.1 Active AI stance
 
 Curio’s active AI work should stay **explicitly optional**, **recoverable**, and **cost-aware**.
@@ -187,10 +196,37 @@ See `docs/PRODUCT_STRATEGY.md` for product decisions and `docs/ROADMAP.md` for e
 
 ## 3. Design Language
 
-- **Typography**: _DM Serif Display_ for elegance; _Inter_ for precision.
+- **Typography**: _DM Serif Display_ for elegance; _Inter_ for precision. Clean sans-serif, consistent English, sentence case throughout.
 - **Visual Layout**: "Bento Grid" home screen for a modern museum feel; Masonry grids for item browsing.
-- **Theming**: Global theme selection replaces collection-specific accents for a unified aesthetic experience.
+- **Theming**: Global theme selection replaces collection-specific accents for a unified aesthetic experience. Light mode (gallery/museum aesthetic) is the default; dark mode is optional.
 - **Sharing surfaces**: exported cards and public pages should feel intentional, collectible, and aesthetically credible without becoming gimmicky.
+- **Density**: medium-low with generous whitespace — let objects breathe.
+- **Photography direction**: objects in natural context (lifestyle photography aesthetic), not objects on dark backgrounds.
+- **Color palette**: warm neutrals, earth tones, restrained accent color. Avoid neon, gaming-adjacent, or tech-forward aesthetics.
+- **Metaphor consistency**: gallery/museum language throughout (exhibitions, curated collections, stories). Not gaming (levels, equipment), not tech (digital twin, archive entity).
+
+### 3.1 Visual category picker
+
+Collection selection during item creation should use image-backed category cards rather than a text dropdown. Each card shows the collection's cover image (or a representative item photo) as the card background. This reinforces the museum metaphor — you're choosing which gallery to place an item in.
+
+### 3.2 Voice and tone
+
+Curio's voice should feel like a thoughtful friend who appreciates beautiful things — not a tech platform, not a database, not an eco-warrior.
+
+| Instead of           | Use                       |
+| -------------------- | ------------------------- |
+| "Archive Entity"     | "Add to your museum"      |
+| "Target Destination" | "Choose a collection"     |
+| "Auto Detect"        | "Let Curio identify this" |
+| "Digital Twin"       | "Your story"              |
+
+### 3.3 Empty state design
+
+Empty states must feel inviting, not cold:
+
+- **Pre-populated example museum:** Show the Public Sample Gallery (beautifully curated with rich personal stories and photos) so new users immediately understand the vision.
+- **First-item prompt:** After signup, immediately prompt the user to add their first item with guided story questions. Don't drop them on an empty grid.
+- **Progressive disclosure:** Focus the UI on adding and enriching items until the user has enough content (3+ items) for the full museum layout to feel meaningful.
 
 ## 4. Onboarding & Cloud Access
 
