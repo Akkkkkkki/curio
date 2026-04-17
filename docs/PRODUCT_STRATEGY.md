@@ -1,14 +1,16 @@
 # Curio - Product Strategy
 
-**Date:** 2026-03-28
+**Date:** 2026-04-12
 **Status:** Current working strategy
 **Related docs:** `docs/ROADMAP.md` (execution phases), `docs/PRODUCT_DESIGN.md` (UX and interaction design), `docs/TECHNICAL_DESIGN.md` (architecture)
 
 ## 1. Product Thesis
 
-Curio is a personal museum for meaningful objects.
+Curio is the **Letterboxd for physical objects** — a personal museum where the things you collect become an expression of who you are.
 
-It is not a marketplace, not a generic inventory utility, and not a category-specific tracker. The core promise is that people can capture, remember, organize, and proudly share the things that define their taste and identity.
+It is not a marketplace, not a generic inventory utility, and not a category-specific tracker. The core promise is that people can capture, remember, organize, and proudly share the things that define their taste and identity. The moat is emotional data gravity: irreplaceable personal narratives that create switching costs no feature can replicate.
+
+Everything the product does should pass this test: **Does this make users' stories richer, or their museums more beautiful, or their identity more shareable?** If not, it doesn't ship.
 
 The broad product vision stays broad. The go-to-market does not. Curio should narrow by user type, not by item category.
 
@@ -45,6 +47,21 @@ Curio should not position itself as:
 - a home inventory tracker
 - a resale marketplace
 - a museum CMS
+- a sustainability or upcycling platform
+
+### 3.1 Competitive Landscape
+
+The "personal museum for identity-driven collectors" positioning remains **unoccupied** in English-speaking markets. Existing players cluster in adjacent quadrants:
+
+| Quadrant                                                                | Players                        | Curio's distance                                  |
+| ----------------------------------------------------------------------- | ------------------------------ | ------------------------------------------------- |
+| **Utility/Inventory** (high function, low emotion)                      | iCollect, Sortly, CLZ, Kolekto | Maximum — Curio is the opposite                   |
+| **Institutional Story** (high story, low consumer appeal)               | CatalogIt                      | Medium — same concept, wrong packaging            |
+| **Social/Gamified** (high social, low story depth)                      | Collectibles.com, REMUSE       | Medium — similar social ambitions, different soul |
+| **Vertical Trackers** (deep in one category)                            | Vivino, Untappd, Discogs       | Medium — Curio is cross-category                  |
+| **Identity/Story Museum** (high story + high identity + consumer-grade) | _Nobody_                       | **This is Curio's target quadrant**               |
+
+REMUSE (再生博物馆, Chinese market only) uses similar "museum" language and AI photo analysis but serves a fundamentally different motivation: sustainability and upcycling of old objects, not identity-driven collecting. It validates the broad concept (people want to digitize and appreciate physical objects) without competing on Curio's specific value proposition.
 
 ## 4. Product Principles
 
@@ -58,6 +75,10 @@ Curio should not position itself as:
 These principles should break ties in product decisions.
 
 ## 5. Core Product Decisions
+
+### 5.0 The one thing that must be true
+
+Before any feature work, any social features, any growth mechanics: **users must be writing personal stories about their objects.** If the Archive Narrative field is still AI-generated image descriptions, nothing else matters. The personal story is the moat. A competitor can copy the UI but not users' stories.
 
 ### 5.1 Story is human-authored
 
@@ -84,6 +105,8 @@ Early sharing should focus on:
 - shareable collection cards
 - tasteful customization of shared outputs
 
+Referral framing should be identity-first: "Come see my museum" or "I've been curating my tea collection — here's my museum." Not "Try this collection app" or "Organize your stuff with Curio."
+
 Heavy social complexity should wait. No DMs, noisy feeds, or notification-heavy systems until repeat usage exists.
 
 ### 5.3 Broad product, flexible structure
@@ -96,7 +119,17 @@ The right path is:
 - a lightweight custom template builder
 - a stable common card contract across mixed schemas
 
-### 5.4 Trust is the first product job
+### 5.4 AI budget discipline
+
+Every AI feature should make the personal narrative richer, not generate disposable content. Curio's AI investment should focus on:
+
+1. Better object identification and auto-fill
+2. Story prompting assistance (suggesting questions, not generating answers)
+3. Collection Wrapped generation
+
+Do not build: AI sticker generation, emoji pack creation, craft pattern generation, poster modes, or any AI feature that produces disposable creative output rather than enriching the user's story.
+
+### 5.5 Trust is the first product job
 
 The product cannot claim to be a personal museum if users do not trust their data, photos, and edits.
 
@@ -123,7 +156,18 @@ The strategic distinction matters:
 - **keep Android on the roadmap**
 - **do not let native expansion displace the core product loop**
 
-## 7. Business Model
+## 7. Beachhead Market
+
+**Specialty food/drink collectors** in UK/US — tea, coffee, chocolate, wine, spirits. These collectors are:
+
+- underserved by existing vertical trackers
+- willing to pay ($50-70/year for CellarTracker)
+- care about tasting notes and provenance (natural story prompts)
+- overlap with the aesthetic/taste curator persona
+
+If this beachhead doesn't convert, expand to vinyl, sneakers, and vintage. The product architecture should remain category-agnostic from day one.
+
+## 8. Business Model
 
 The primary business model is consumer subscription.
 
@@ -141,13 +185,18 @@ Current stance:
 - ads are not the primary plan
 - marketplace or affiliate models are possible later, not the first business
 
-Possible future tiers:
+Planned tiers:
 
-- **Free** for basic collecting and limited sharing
-- **Pro** for deeper customization, premium sharing, and higher usage limits
-- **Patron** for heavier collectors and superfans
+- **Free** — basic collecting, limited items (50), limited AI scans (10/month)
+- **Pro** ($29.99/yr or $4.99/mo) — unlimited items, unlimited AI scans, advanced stats, custom profile themes, export/insurance reports, ad-free
+- **Patron** ($49.99/yr or $9.99/mo) — Pro + premium Wrapped, early access, founding supporter badge
 
-## 8. What Curio Must Be Better At
+Later revenue options:
+
+- insurance referral partnerships (referral fees per policy)
+- AI scan credits as consumables for heavy users
+
+## 9. What Curio Must Be Better At
 
 Curio needs to win on the combination of:
 
@@ -159,21 +208,38 @@ Curio needs to win on the combination of:
 
 Curio does **not** need to win by having the most fields, the most enterprise controls, or the most marketplace features.
 
-## 9. What Is Deferred
+## 10. What Is Deferred
 
 These are not current execution priorities:
 
 - Museum Guide / voice companion
 - AI image enhancement and poster generation
 - Vault Lock / biometric security
-- marketplace and trading
+- marketplace and trading (requires trust infrastructure, payments, dispute resolution — Phase 4+ at 50K users)
 - heavy social features
 - NFC / QR tagging
 - cinematic video portraits
+- sustainability metrics / carbon tracking / donation facilitation (not Curio's positioning)
+- AI creative output generation (stickers, emoji packs, craft patterns)
+- eco-gamification (points, levels, environmental badges — conflicts with "reflection, not obligation" positioning)
+- AR object viewing / 3D capture
+- tax deduction tracking
 
-Deferred does not mean banned forever. It means they should not crowd out trust, story, sharing, and flexible collections.
+If Curio ever adds badges, make them about depth, not volume: "Storyteller" (items with rich narratives), "Archivist" (complete collection with provenance), "Curator" (public museum with themed collections). Never reward speed or quantity.
 
-## 10. Founder Guidance
+Deferred does not mean banned forever. It means they should not crowd out trust, story, sharing, and flexible collections. Every feature request should pass the test: does this make stories richer, museums more beautiful, or identity more shareable?
+
+## 11. Risk Register
+
+| Risk                                                                  | Likelihood | Impact                       | Mitigation                                                                                                       |
+| --------------------------------------------------------------------- | ---------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Users don't write personal stories (just use AI auto-fill)            | High       | Critical — destroys the moat | Make story prompts engaging, not obligatory. Show beautiful examples. Reward depth in Wrapped.                   |
+| A competitor enters English-speaking markets with similar positioning | Low-Medium | Medium                       | Speed to market with personal narratives. The moat is emotional data, not features.                              |
+| Beachhead market (specialty food/drink) is too niche                  | Medium     | High                         | Expand to vinyl/sneakers/vintage. Keep architecture category-agnostic.                                           |
+| Feature pressure from users ("add a marketplace," "add insurance")    | High       | Medium                       | Maintain the deferred list. Apply the feature test consistently.                                                 |
+| AI auto-fill quality degrades or API costs spike                      | Medium     | Medium                       | Maintain ability to swap providers. Keep AI as acceleration, not requirement — the product must work without AI. |
+
+## 12. Founder Guidance
 
 When product choices feel ambiguous, choose the option that makes Curio:
 
