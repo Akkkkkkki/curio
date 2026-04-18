@@ -1147,36 +1147,22 @@ export const AppContent: React.FC = () => {
               >
                 {t('enterExhibition')}
               </Button>
-              <div
-                className="w-full sm:w-auto"
-                title={!isVoiceGuideEnabled ? t('comingSoon') : undefined}
-              >
-                <Button
-                  variant="outline"
-                  className={`${theme === 'vault' ? 'bg-stone-900 text-white border-white/10' : 'bg-white'} w-full sm:w-auto`}
-                  onClick={() => {
-                    if (isVoiceGuideEnabled) {
+              {isVoiceGuideEnabled && (
+                <div className="w-full sm:w-auto">
+                  <Button
+                    variant="outline"
+                    className={`${theme === 'vault' ? 'bg-stone-900 text-white border-white/10' : 'bg-white'} w-full sm:w-auto`}
+                    onClick={() => {
                       setActiveCollectionForGuide(collection);
                       setIsGuideOpen(true);
-                    }
-                  }}
-                  disabled={!isVoiceGuideEnabled || collection.items.length === 0}
-                  icon={<Mic size={16} />}
-                >
-                  {t('vocalGuide')}
-                  {!isVoiceGuideEnabled && (
-                    <span
-                      className={`ml-2 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
-                        theme === 'vault'
-                          ? 'bg-white/10 text-white/70'
-                          : 'bg-stone-100 text-stone-500'
-                      }`}
-                    >
-                      {t('comingSoon')}
-                    </span>
-                  )}
-                </Button>
-              </div>
+                    }}
+                    disabled={collection.items.length === 0}
+                    icon={<Mic size={16} />}
+                  >
+                    {t('vocalGuide')}
+                  </Button>
+                </div>
+              )}
             </div>
             <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full">
               {!isReadOnly && (
