@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 // Added Plus icon to the lucide-react imports
 import {
   Camera as CameraIcon,
@@ -113,30 +113,6 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
   const getFieldLabel = (fieldId: string, fallback: string) => {
     return getFieldTranslation(t, fieldId, fallback);
   };
-
-  const stepItems = useMemo<{ id: FlowStep; label: string; helper: string }[]>(
-    () => [
-      {
-        id: 'select-type',
-        label: t('stepChooseCollection'),
-        helper: t('stepChooseCollectionDesc'),
-      },
-      { id: 'upload', label: t('stepCapture'), helper: t('stepCaptureDesc') },
-      {
-        id: 'analyzing',
-        label: t('stepAnalyze'),
-        helper: t('stepAnalyzeDesc'),
-      },
-      { id: 'verify', label: t('stepVerify'), helper: t('stepVerifyDesc') },
-    ],
-    [t],
-  );
-  const currentStepId: FlowStep = step === 'batch-verify' ? 'verify' : step;
-  const currentStepIndex = stepItems.findIndex((s) => s.id === currentStepId);
-  const progressCopy = t('stepProgress', {
-    current: currentStepIndex + 1,
-    total: stepItems.length,
-  });
 
   useEffect(() => {
     if (isOpen) {
@@ -633,57 +609,6 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     }
   };
 
-  const renderStepper = () => (
-    <div className="space-y-2 mb-4">
-      <div className={`flex items-center justify-between text-[12px] ${mutedText}`}>
-        <span className="font-semibold">{progressCopy}</span>
-        <span className={`text-[12px] ${mutedText}`}>{stepItems[currentStepIndex]?.helper}</span>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {stepItems.map((s, idx) => {
-          const isComplete = idx < currentStepIndex;
-          const isActive = idx === currentStepIndex;
-          const stepSurface = isActive
-            ? theme === 'vault'
-              ? 'border-amber-300/60 bg-amber-50/10'
-              : 'border-amber-200 bg-amber-50/70'
-            : theme === 'vault'
-              ? 'border-white/10 bg-white/5'
-              : 'border-stone-100 bg-stone-50';
-          const badgeClass =
-            isComplete || isActive
-              ? theme === 'vault'
-                ? 'bg-amber-400 text-stone-950'
-                : 'bg-stone-900 text-white'
-              : theme === 'vault'
-                ? 'bg-white/5 text-stone-300 border border-white/10'
-                : 'bg-white text-stone-400 border border-stone-200';
-
-          return (
-            <div
-              key={s.id}
-              className={`flex items-center gap-3 p-3 rounded-xl border ${stepSurface} motion-fade`}
-            >
-              <div
-                className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold ${badgeClass}`}
-              >
-                {isComplete ? <Check size={14} /> : idx + 1}
-              </div>
-              <div>
-                <p
-                  className={`text-base font-semibold ${theme === 'vault' ? 'text-white' : 'text-stone-800'}`}
-                >
-                  {s.label}
-                </p>
-                <p className={`text-[12px] leading-tight ${mutedText}`}>{s.helper}</p>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-
   const renderCollectionSelect = () => (
     <div className="space-y-4 sm:space-y-6">
       <h3 className="text-xl sm:text-2xl font-serif font-bold text-center mb-4 sm:mb-8">
@@ -920,21 +845,6 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
             <span className="text-[9px] font-bold uppercase mt-2">{t('addMore')}</span>
           </button>
         </div>
-        <Button
-          className="w-full"
-          size="lg"
-          onClick={handleBatchSave}
-          icon={
-            isSaving ? <Loader2 size={18} className="animate-spin" /> : <ArrowRight size={18} />
-          }
-          disabled={
-            batchItems.length === 0 || isSaving || batchItems.some((item) => !item.title.trim())
-          }
-        >
-          {isSaving
-            ? t('analyzingPhoto').split('...')[0]
-            : t('archiveArtifacts', { count: batchItems.length })}
-        </Button>
       </div>
     );
   };
@@ -1067,6 +977,19 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
       </div>
 
       <div className="space-y-3 sm:space-y-4 px-1">
+        <div>
+          <label
+            className={`block text-[11px] font-semibold uppercase tracking-[0.12em] ${mutedText} mb-1 sm:mb-2`}
+          >
+            {t('archiveNarrative')}
+          </label>
+          <textarea
+            className={`w-full p-3 sm:p-4 rounded-xl font-serif italic text-base leading-relaxed min-h-[96px] ${inputSurface} placeholder:not-italic placeholder:font-sans placeholder:text-sm`}
+            value={formData.notes || ''}
+            onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+            placeholder={t('provenancePlaceholder')}
+          />
+        </div>
         {currentCollection?.customFields.map((field) => (
           <div key={field.id}>
             <label
@@ -1114,16 +1037,6 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
           </div>
         </div>
       </div>
-
-      <Button
-        className="w-full"
-        size="lg"
-        onClick={handleSave}
-        icon={isSaving ? <Loader2 size={18} className="animate-spin" /> : <Check size={18} />}
-        disabled={isSaving}
-      >
-        {isSaving ? t('analyzingPhoto').split('...')[0] : t('addToCollection')}
-      </Button>
     </div>
   );
 
@@ -1157,14 +1070,57 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
             </button>
           </div>
 
-          <div className="flex-1 min-h-0 overflow-y-auto p-5 pb-24 sm:p-8 space-y-6 overscroll-contain">
-            {renderStepper()}
+          <div className="flex-1 min-h-0 overflow-y-auto p-5 pb-6 sm:p-8 space-y-6 overscroll-contain">
             {step === 'select-type' && renderCollectionSelect()}
             {step === 'upload' && renderUpload()}
             {step === 'batch-verify' && renderBatchVerify()}
             {step === 'analyzing' && renderAnalyzing()}
             {step === 'verify' && renderVerify()}
           </div>
+          {step === 'verify' && (
+            <div
+              className={`border-t ${borderClass} p-4 sm:p-5 ${theme === 'vault' ? 'bg-stone-950' : 'bg-white'}`}
+            >
+              <Button
+                className="w-full"
+                size="lg"
+                onClick={handleSave}
+                icon={
+                  isSaving ? <Loader2 size={18} className="animate-spin" /> : <Check size={18} />
+                }
+                disabled={isSaving}
+              >
+                {isSaving ? t('analyzingPhoto').split('...')[0] : t('addToCollection')}
+              </Button>
+            </div>
+          )}
+          {step === 'batch-verify' && (
+            <div
+              className={`border-t ${borderClass} p-4 sm:p-5 ${theme === 'vault' ? 'bg-stone-950' : 'bg-white'}`}
+            >
+              <Button
+                className="w-full"
+                size="lg"
+                onClick={handleBatchSave}
+                icon={
+                  isSaving ? (
+                    <Loader2 size={18} className="animate-spin" />
+                  ) : (
+                    <ArrowRight size={18} />
+                  )
+                }
+                disabled={
+                  batchItems.length === 0 ||
+                  isSaving ||
+                  batchItems.some((item) => !item.title.trim())
+                }
+              >
+                {isSaving
+                  ? t('analyzingPhoto').split('...')[0]
+                  : t('archiveArtifacts', { count: batchItems.length })}
+              </Button>
+            </div>
+          )}
         </div>
       </div>
       <ImageEditModal
