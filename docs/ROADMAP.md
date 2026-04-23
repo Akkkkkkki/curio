@@ -2,7 +2,16 @@
 
 This document owns **execution phases, exit criteria, metrics, and go-to-market**. For product thesis, principles, positioning, and strategic decisions, see `docs/PRODUCT_STRATEGY.md`. For UX and interaction design requirements, see `docs/PRODUCT_DESIGN.md`.
 
-Issue prioritization lives in GitHub Issues/Projects, not here.
+## How this roadmap maps to the backlog
+
+Issue prioritization lives in **GitHub Issues**, not here. Every open issue carries a `phase:*` label that matches the phases below, plus a `severity:*` label for urgency within that phase. Product and engineering use the same view:
+
+- **Current queue**: `is:open label:phase:0-foundation` sorted by severity.
+- **Next up**: `is:open label:phase:1-shareability` for design and staging work.
+- **Parallel track**: `is:open label:phase:ops` — reliability, monitoring, a11y, and perf work that can happen any time.
+- **Not on the queue**: `is:open label:phase:deferred` — explicitly deferred per `PRODUCT_STRATEGY.md` § 10. Kept open as backlog; requires a strategy review before scheduling.
+
+Full label semantics live in `docs/GITHUB_ISSUES_PROTOCOL.md`.
 
 ## Current Strategic Reality
 
