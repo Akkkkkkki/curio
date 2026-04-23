@@ -27,13 +27,13 @@ This repo intentionally keeps documentation **small, current, and non-duplicativ
 | `docs/TESTING.md` + `tests/README.md` | Testing how-to and patterns                                                                                                                        | —                                                           |
 | `docs/GITHUB_ISSUES_PROTOCOL.md`      | Issue filing format and labels                                                                                                                     | —                                                           |
 
-Issue prioritization and TODO tracking live in **GitHub Issues/Projects**, not in docs.
+Issue prioritization and TODO tracking live in **GitHub Issues**, not in docs. Priority is expressed through two label families: `phase:*` (which roadmap phase it belongs to) and `severity:*` (how urgent within that phase). See `docs/GITHUB_ISSUES_PROTOCOL.md` for the full scheme.
 
 ### Other docs (organized)
 
 - **Operations**: `docs/ops/AI_GATEWAY_MONITORING.md`, `docs/ops/INDEXEDDB_RELIABILITY.md`, `docs/ops/PWA_CACHE_STRATEGY.md`
-- **Release**: `docs/GOOGLE_PLAY_SUBMISSION_GUIDE.md`
-- **Plans**: `docs/plan/` (execution plans)
+- **Release**: `docs/GOOGLE_PLAY_SUBMISSION_GUIDE.md`, `docs/ANDROID_PRODUCTION_REVIEW.md`
+- **Plans**: `docs/plan/` (forward-looking design specs; deleted after shipping)
 - **Archive**: `docs/archive/` (point-in-time reports)
 
 ### Onboarding essentials
@@ -120,7 +120,7 @@ If you don’t want AI locally, set `VITE_AI_ENABLED=false` (the app will fall b
 
 #### Production note (auth + limits)
 
-In production, the AI gateway is expected to require **Supabase bearer auth** and enforce **rate limiting** (see the production readiness checklist / issue `#129`). Practically:
+In production, the AI gateway is expected to require **Supabase bearer auth** and enforce **rate limiting**. Practically:
 
 - You generally need to be **signed in** for AI requests to succeed.
 - Curio remains usable without AI — metadata extraction falls back to **manual entry** when AI is unavailable or blocked.

@@ -1,10 +1,7 @@
 # Execution Plans
 
-These documents are execution plans or forward-looking specs. They are expected to
-become obsolete once the work ships; track ongoing status in GitHub Issues.
+Forward-looking design specs that guide upcoming implementation work. Once shipped, these should be deleted (behavior moves into `PRODUCT_DESIGN.md` / `TECHNICAL_DESIGN.md`) and any outstanding follow-ups are tracked as GitHub Issues.
 
-For strategic context, see `docs/PRODUCT_STRATEGY.md`. For the execution roadmap, see `docs/ROADMAP.md`.
+For strategic context, see `docs/PRODUCT_STRATEGY.md`. For execution phases and exit criteria, see `docs/ROADMAP.md`. For prioritization, see GitHub Issues (filtered by `phase:*` labels — see `docs/GITHUB_ISSUES_PROTOCOL.md`).
 
-- **Production readiness checklist**: `PRODUCTION_READINESS_CHECKLIST.md`
-- **Flexible collection creation**: `DESIGN_flexible_collection_creation.md` (aligns with Roadmap Phase 1)
-- **AI image features + capture simplification**: `DESIGN_REQUIREMENTS_ai_image_features_and_capture_simplification.md` (AI image-to-image features are deferred per strategy; capture simplification remains relevant)
+- **Flexible collection creation**: `DESIGN_flexible_collection_creation.md` — aligns with Phase 1 (Shareability & Identity), tracked as issue [#190](https://github.com/Akkkkkkki/curio/issues/190).

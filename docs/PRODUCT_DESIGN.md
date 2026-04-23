@@ -70,13 +70,15 @@ This section captures **current behavior in the codebase** (so docs stay actiona
 ### Mobile development guidelines (Curio-first, industry-aligned)
 
 - **Mobile-first layout**: design for narrow viewports first, then scale up with responsive breakpoints. If a layout works at 360–430px width, it will scale cleanly. Avoid relying on hover to discover critical actions.
-- **Thumb-friendly actions**: primary actions should be near the top or bottom and have comfortable spacing. Treat **44×44px** as the minimum interactive target size for tap areas.
+- **Thumb-friendly actions**: primary actions should be near the top or bottom and have comfortable spacing. Treat **44×44px** (iOS) / **48×48dp** (Android) as the minimum interactive target size for tap areas, including filter chips, modal close buttons, header icons, and rating stars.
 - **Content density**: prioritize scannability (short headings, two-line clamp where needed). If content is hidden, provide an obvious path to reveal it without navigation churn.
 - **Input ergonomics**: use appropriate input types (e.g., numeric keyboards for years, decimal for prices) and avoid wide multi-step forms on small screens—keep flows on one page when possible.
 - **Safe-area + fixed UI**: respect safe-area insets for top/bottom fixed elements and ensure floating bars do not cover important content.
-- **Performance perception**: keep first screen fast and provide immediate feedback for save/sync actions. If an operation is async, show status and keep the UI usable.
-- **Accessibility baseline**: maintain readable contrast and font sizes; avoid tiny labels on mobile. Ensure focus states are visible for keyboard and assistive tech.
-- **Testing expectation**: validate changes at common mobile sizes (e.g., 360×740, 390×844) and at least one small Android device size. Include screenshots for perceptible UI changes.
+- **Performance perception**: keep first screen fast and provide immediate feedback for save/sync actions. Prefer **skeleton placeholders** over spinner-only loading states for content-heavy views (collection grid, item detail, image placeholders). Spinners are acceptable for short in-flight actions only.
+- **Motion and timing**: keep all animations behind `motion-safe:` so `prefers-reduced-motion` is always respected. Use a small, consistent timing scale — roughly 100ms for micro-interactions, 150ms for button feedback, 220ms for modal/card entry, 350ms for page-level transitions. Anything longer than ~500ms needs explicit justification.
+- **Bottom-sheet modals**: modals that slide from the bottom should support swipe-to-dismiss with a visible drag handle. Backdrop tap and Escape must also dismiss; sheets must respect safe-area insets.
+- **Accessibility baseline**: maintain readable contrast and font sizes; avoid tiny labels on mobile. Ensure focus states are visible for keyboard and assistive tech. Every image and exhibition slide must have meaningful alt text.
+- **Testing expectation**: validate changes at common mobile sizes (e.g., 360×740, 390×844) and at least one small Android device size. Include screenshots for perceptible UI changes. Verify at 60fps on a real mid-range Android device before claiming an animation is shipped.
 
 ### Collection browsing (production baseline)
 
