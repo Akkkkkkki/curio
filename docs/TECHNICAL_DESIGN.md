@@ -9,9 +9,7 @@
 
 ### See also
 
-- **IndexedDB reliability**: `docs/ops/INDEXEDDB_RELIABILITY.md`
 - **AI gateway monitoring**: `docs/ops/AI_GATEWAY_MONITORING.md`
-- **PWA caching**: `docs/ops/PWA_CACHE_STRATEGY.md`
 
 ## 1.1 MVP UX Requirements (Time-to-Value)
 
@@ -38,6 +36,27 @@ If a user has existing IndexedDB data from older builds, they can trigger a manu
 ### Public Sample Collections
 
 Curated sample collections live in the same tables and are flagged with `is_public = true`. All authenticated users can read them, but only admin users (profiles with `is_admin = true`) can edit or delete them. The client treats public collections as read-only for non-admins.
+
+### Local cache and retry invariants
+
+IndexedDB exists to make Curio feel trustworthy on slow or unreliable networks. The durable rules are:
+
+- local writes happen before cloud sync
+- cloud sync failures do not discard local changes
+- pending collection syncs are queued and retried later
+- failed asset uploads are queued and retried later
+- corruption recovery should be user-visible, not silent
+
+Primary stores:
+
+- `collections`: cached collections and items
+- `assets`: original image blobs
+- `display`: downsampled display blobs
+- `settings`: preferences and retry queue metadata
+
+Known remaining gap:
+
+- storage quota warnings are still not implemented and remain tracked in issue [#83](https://github.com/Akkkkkkki/curio/issues/83)
 
 ## 3. Asset Pipeline
 
@@ -92,7 +111,7 @@ We support both:
   - `synced` → toast **Synced**
   - `offline` → toast **Will sync / retrying**
   - `error` → toast **Sync failed** (with retry action when online)
-- Pending changes can be retried via a queued sync mechanism (see `docs/ops/INDEXEDDB_RELIABILITY.md` for the deeper operational details).
+- Pending changes are kept in an IndexedDB-backed retry queue until a later sync succeeds.
 
 ### Sync status definitions & transitions (state diagrams)
 
@@ -169,7 +188,28 @@ If no match exists, the card is hidden.
   - Item titles within a collection
 - If the collection name doesn’t match but an item title does, the UI shows an **item-match badge** on the collection card.
 
-## 8. AI gateway configuration (runtime)
+## 4.3 PWA and cache behavior
+
+The service worker should stay minimal and predictable.
+
+### Request strategy
+
+| Request type                                           | Strategy                              | Rationale                                                     |
+| ------------------------------------------------------ | ------------------------------------- | ------------------------------------------------------------- |
+| HTML navigations (`/`, `/index.html`, route refresh)   | **Network-first** with cache fallback | Fresh HTML should point at the latest hashed assets.          |
+| Static assets (`/assets/*.js`, `/assets/*.css`, fonts) | **Stale-while-revalidate**            | Fast loads with background refresh.                           |
+| Shell assets (manifest + icons)                        | **Cache-first**                       | Rarely change and are safe to cache.                          |
+| API/auth/Supabase requests                             | **Network-only**                      | Dynamic data should never be cached by the service worker.    |
+
+### Cache invalidation
+
+- cache names should be versioned per release
+- activation should delete older caches
+- `/sw.js`, `/`, and `/index.html` should be served with `Cache-Control: no-store, no-cache, must-revalidate`
+
+The goal is simple: a refresh should pick up the newest build without forcing users to clear browser data.
+
+## 5. AI gateway configuration (runtime)
 
 The client composes requests as `${VITE_API_BASE_URL}<path>` where `<path>` includes `/api/...` (e.g., `/api/health`, `/api/gemini/analyze`).
 
@@ -187,7 +227,7 @@ In production, the AI gateway must be treated as a cost + abuse surface:
 
 These requirements are tracked in: [#129](https://github.com/Akkkkkkki/curio/issues/129).
 
-## 8.1 AI feature flags (design-time requirements)
+## 5.1 AI feature flags (design-time requirements)
 
 We want to be able to toggle AI capabilities on/off independently (especially image-to-image, which is newer and higher-cost).
 
@@ -205,12 +245,12 @@ We want to be able to toggle AI capabilities on/off independently (especially im
 
 For Google’s Gemini-native image editing/generation models (Nano Banana), see: [Gemini image editing](https://ai.google.dev/gemini-api/docs/image-generation#gemini-image-editing).
 
-## 5. Security
+## 6. Security
 
 - **RLS Policies**: Users can access their own rows. Public collections (`is_public = true`) are readable by all authenticated users, and admins can mutate them.
 - **Storage Buckets**: Assets are stored in user-specific folders (`bucket/user_uuid/asset_id`) to ensure strict isolation.
 
-## 6. Supabase Schema Notes
+## 7. Supabase Schema Notes
 
 Timestamp-based conflict resolution (`VITE_SUPABASE_SYNC_TIMESTAMPS=true`) requires `created_at`/`updated_at` columns and an update trigger (included in `supabase/1_schema.sql`):
 
@@ -256,17 +296,16 @@ Key columns added for the public sample flow:
 - `items.photo_enhanced_path` (current enhanced image pointer)
 - `item_images` table for image versions + metadata (role, status, recipe, timestamp)
 
-## 7. UI Utilities
+## 8. UI Utilities
 
 - **Theming:** `theme.tsx` exposes a `ThemeProvider` / `useTheme` hook that persists the selected theme (Gallery, Vault, Atelier) in IndexedDB and is consumed by modals (`AddItemModal`, `AuthModal`, `CreateCollectionModal`, `FilterModal`) for consistent surfaces.
 - **Feedback:** A lightweight `StatusToast` component in `App.tsx` surfaces save/sync/import success and error states so users see clear outcomes even during transient network issues.
 
 ## 9. Production readiness gaps (shortlist)
 
-These are known gaps that should be closed before a full production launch. They are tracked in issues and
-expanded in the production readiness checklist.
+These are known gaps that should be closed before a full production launch. They are tracked in GitHub Issues.
 
-- **Asset upload retry queue** and **storage quota warnings** in IndexedDB (see `docs/ops/INDEXEDDB_RELIABILITY.md`).
+- **Storage quota warnings** for large local caches.
 - **AI gateway hardening** (CORS restrictions, auth/signed requests, rate limiting).
 - **Operational monitoring** for the AI gateway and sync error rates (metrics + alerting).
 - **Documentation alignment** so testing status reflects actual E2E coverage.
