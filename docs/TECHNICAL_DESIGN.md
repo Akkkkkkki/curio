@@ -194,12 +194,12 @@ The service worker should stay minimal and predictable.
 
 ### Request strategy
 
-| Request type                                           | Strategy                              | Rationale                                                     |
-| ------------------------------------------------------ | ------------------------------------- | ------------------------------------------------------------- |
-| HTML navigations (`/`, `/index.html`, route refresh)   | **Network-first** with cache fallback | Fresh HTML should point at the latest hashed assets.          |
-| Static assets (`/assets/*.js`, `/assets/*.css`, fonts) | **Stale-while-revalidate**            | Fast loads with background refresh.                           |
-| Shell assets (manifest + icons)                        | **Cache-first**                       | Rarely change and are safe to cache.                          |
-| API/auth/Supabase requests                             | **Network-only**                      | Dynamic data should never be cached by the service worker.    |
+| Request type                                           | Strategy                              | Rationale                                                  |
+| ------------------------------------------------------ | ------------------------------------- | ---------------------------------------------------------- |
+| HTML navigations (`/`, `/index.html`, route refresh)   | **Network-first** with cache fallback | Fresh HTML should point at the latest hashed assets.       |
+| Static assets (`/assets/*.js`, `/assets/*.css`, fonts) | **Stale-while-revalidate**            | Fast loads with background refresh.                        |
+| Shell assets (manifest + icons)                        | **Cache-first**                       | Rarely change and are safe to cache.                       |
+| API/auth/Supabase requests                             | **Network-only**                      | Dynamic data should never be cached by the service worker. |
 
 ### Cache invalidation
 

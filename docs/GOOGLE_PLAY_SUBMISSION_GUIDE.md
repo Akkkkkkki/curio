@@ -225,12 +225,12 @@ Google Play requires these answers to match real behavior, not intended behavior
 
 ### Data types currently expected
 
-| Data Type                | Collected? | Shared? | Purpose                               |
-| ------------------------ | ---------- | ------- | ------------------------------------- |
-| Personal info: Email     | Yes        | No      | Account functionality                 |
-| Photos and videos        | Yes        | No      | App functionality                     |
-| App activity             | Yes        | No      | Diagnostics or analytics, if enabled  |
-| Device or other IDs      | Maybe      | No      | Diagnostics, only if tooling collects |
+| Data Type            | Collected? | Shared? | Purpose                               |
+| -------------------- | ---------- | ------- | ------------------------------------- |
+| Personal info: Email | Yes        | No      | Account functionality                 |
+| Photos and videos    | Yes        | No      | App functionality                     |
+| App activity         | Yes        | No      | Diagnostics or analytics, if enabled  |
+| Device or other IDs  | Maybe      | No      | Diagnostics, only if tooling collects |
 
 ### Additional checks
 
@@ -277,8 +277,10 @@ cd android
 ./gradlew bundleRelease
 
 # 3. Upload new AAB to Play Console
+
 # 4. Submit for review (usually faster for updates)
-```
+
+````
 
 ---
 
@@ -315,7 +317,7 @@ cd android && ./gradlew assembleRelease
 
 # Install APK on device
 adb install android/app/build/outputs/apk/release/app-release.apk
-```
+````
 
 ---
 
