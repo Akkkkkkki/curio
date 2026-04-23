@@ -1,6 +1,6 @@
 # Testing
 
-> **See also:** [`tests/README.md`](../tests/README.md) for detailed test infrastructure, directory structure, and writing tests.
+This document is the source of truth for how Curio is tested. Keep it high-signal and current. Avoid putting point-in-time pass counts here because they go stale quickly.
 
 Curio uses **Vitest** for unit/component tests and **Playwright** for end-to-end tests.
 
@@ -21,6 +21,7 @@ environment/contract issues without being exhaustive.
 npm test
 npm run test:watch
 npm run test:coverage
+npm run test:ui
 
 # Live integration smoke tests (real network/services)
 # Requires the Gemini proxy to be running and configured (see below).
@@ -42,6 +43,20 @@ npm run test:e2e:debug
   - PWA cache strategy checks: `tests/unit/pwaCaching.test.ts`
 - **E2E tests**: `tests/e2e/`
 - **Live integration smoke tests**: `tests/live/`
+
+## Test infrastructure
+
+- Global setup: `tests/setup.ts`
+- Shared render helpers: `tests/utils/test-utils.tsx`
+- Supabase and Gemini mocks: `tests/mocks/`
+- Browser/API fakes: `fake-indexeddb`, `msw`, `happy-dom`, `canvas`
+
+## Writing tests
+
+- Prefer unit and component tests for deterministic behavior.
+- Use E2E tests for critical user flows and regressions that depend on routing, browser behavior, or multiple layers working together.
+- Keep live integration tests narrow and explicit about external cost.
+- When behavior depends on sync or offline recovery, test both the immediate local result and the later cloud outcome.
 
 ## E2E credentials
 
@@ -79,3 +94,4 @@ npm run server
 
 - Playwright will start (or reuse) the dev server automatically (see `playwright.config.ts`).
 - Unit tests use mocked Supabase; do **not** rely on a local Supabase instance.
+- `tests/README.md` is intentionally short and points back here to avoid duplicate guidance.

@@ -4,5 +4,6 @@ build
 coverage
 .vite
 .vercel
+.context
 supabase
 package-lock.json
