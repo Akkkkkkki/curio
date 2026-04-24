@@ -110,13 +110,22 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
     if (!node) return null;
     const imgs = Array.from(node.querySelectorAll('img'));
     await Promise.all(
-      imgs.map((img) => {
-        if (img.complete && img.naturalWidth > 0) return Promise.resolve();
-        return new Promise<void>((resolve) => {
-          img.addEventListener('load', () => resolve(), { once: true });
-          img.addEventListener('error', () => resolve(), { once: true });
-        });
-      }),
+      imgs.map(
+        (img) =>
+          new Promise<void>((resolve) => {
+            // `complete` is terminal for both success and error — a broken image
+            // has `complete: true` + `naturalWidth: 0` and will never fire load/error again.
+            if (img.complete) {
+              resolve();
+              return;
+            }
+            const done = () => resolve();
+            img.addEventListener('load', done, { once: true });
+            img.addEventListener('error', done, { once: true });
+            // Safety net: never block export on a stuck network request.
+            setTimeout(done, 3000);
+          }),
+      ),
     );
     return toBlob(node, {
       pixelRatio: 2,
