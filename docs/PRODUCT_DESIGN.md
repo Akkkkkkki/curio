@@ -236,13 +236,13 @@ Phase 1 uses a **hybrid opt-in** model: the museum profile is opt-in, and collec
 
 Phase 1 should treat every outward-facing surface as part of one coherent share system. Export images, OG cards, and embeds should all resolve back to a canonical public page rather than acting as disconnected artifacts.
 
-| Surface | Purpose | Required content | Primary destination |
-| ------- | ------- | ---------------- | ------------------- |
-| Profile | Share the whole museum identity | cover image, curator identity, featured collections, theme | public museum page |
-| Collection | Share a specific gallery | collection hero, title, icon, 1-2 pinned fields, representative items | public collection page |
-| Item | Share one meaningful object | hero image, item title, curator identity, parent collection, pinned fields | public item page |
-| Wrapped | Share a time-based story of the museum | year title, strongest themes, selected objects, story-led highlights | public Wrapped page |
-| Widget | Embed a shelf on another site | compact item shelf, collection identity, link back | public collection or profile page |
+| Surface    | Purpose                                | Required content                                                           | Primary destination               |
+| ---------- | -------------------------------------- | -------------------------------------------------------------------------- | --------------------------------- |
+| Profile    | Share the whole museum identity        | cover image, curator identity, featured collections, theme                 | public museum page                |
+| Collection | Share a specific gallery               | collection hero, title, icon, 1-2 pinned fields, representative items      | public collection page            |
+| Item       | Share one meaningful object            | hero image, item title, curator identity, parent collection, pinned fields | public item page                  |
+| Wrapped    | Share a time-based story of the museum | year title, strongest themes, selected objects, story-led highlights       | public Wrapped page               |
+| Widget     | Embed a shelf on another site          | compact item shelf, collection identity, link back                         | public collection or profile page |
 
 #### Shared visual system
 
@@ -449,12 +449,12 @@ Curio should feel warm, editorial, and museum-like without becoming precious or 
 
 Curio should sound like a thoughtful friend who appreciates meaningful objects.
 
-| Avoid | Prefer |
-| ----- | ------ |
-| Archive entity | Item in your museum |
-| Target destination | Choose a collection |
-| Auto detect | Let Curio identify this |
-| Digital twin | Your story |
+| Avoid              | Prefer                  |
+| ------------------ | ----------------------- |
+| Archive entity     | Item in your museum     |
+| Target destination | Choose a collection     |
+| Auto detect        | Let Curio identify this |
+| Digital twin       | Your story              |
 
 ### 4.4 Empty states
 
