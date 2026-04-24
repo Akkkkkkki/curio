@@ -22,7 +22,9 @@ To ensure users gain value within the first **5 minutes**, the system must suppo
 
 ## 2. Identity & Sync Logic
 
-Curio uses Supabase Auth for user-owned data. Users can browse the Public Sample Gallery without signing in; authentication is required before creating/saving their own collections and items.
+Curio uses Supabase Auth for user-owned data. Users can browse the Public Sample Gallery without signing in; authentication is required before creating or saving their own collections and items.
+
+Phase 1 public sharing adds a second requirement on top of that baseline: canonical public museum surfaces should be anonymous-readable, but only for content the owner has explicitly made public. The current collection-level `is_public` model is the foundation for that work, not the full finished design.
 
 ### Access gating (pre-login sample)
 
@@ -35,7 +37,9 @@ If a user has existing IndexedDB data from older builds, they can trigger a manu
 
 ### Public Sample Collections
 
-Curated sample collections live in the same tables and are flagged with `is_public = true`. All authenticated users can read them, but only admin users (profiles with `is_admin = true`) can edit or delete them. The client treats public collections as read-only for non-admins.
+Curated sample collections live in the same tables and are flagged with `is_public = true`. In the current implementation, authenticated users can read them, but only admin users (profiles with `is_admin = true`) can edit or delete them. The client treats public collections as read-only for non-admins.
+
+For Phase 1, that public-collection foundation should extend into anonymous-readable public museum routes for profile, collection, item, Wrapped, and widget surfaces. Those routes must expose only content derived from explicitly public collections.
 
 ### Local cache and retry invariants
 
@@ -247,7 +251,7 @@ For Google’s Gemini-native image editing/generation models (Nano Banana), see:
 
 ## 6. Security
 
-- **RLS Policies**: Users can access their own rows. Public collections (`is_public = true`) are readable by all authenticated users, and admins can mutate them.
+- **RLS Policies**: Users can access their own rows. Public collections (`is_public = true`) are currently readable by authenticated users, and admins can mutate them. Phase 1 public sharing requires extending the access model so anonymous public routes can read only explicitly public museum content.
 - **Storage Buckets**: Assets are stored in user-specific folders (`bucket/user_uuid/asset_id`) to ensure strict isolation.
 
 ## 7. Supabase Schema Notes
