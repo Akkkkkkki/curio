@@ -1,19 +1,16 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import {
-  X,
-  Printer,
-  Share2,
-  Download,
-  Maximize2,
-  Minimize2,
-  Check,
-  Loader2,
-  Camera,
-} from 'lucide-react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { X, Printer, Share2, Download, Maximize2, Minimize2, Loader2, Camera } from 'lucide-react';
+import { toBlob } from 'html-to-image';
 import { CollectionItem, FieldDefinition } from '../types';
 import { Button } from './ui/Button';
 import { extractCurioAssetPath, getAsset, getEnhancedAsset } from '../services/db';
 import { useTranslation } from '../i18n';
+
+const sanitizeFilename = (value: string) =>
+  value
+    .replace(/[\\/:*?"<>|]+/g, '')
+    .replace(/\s+/g, '-')
+    .slice(0, 80) || 'curio-card';
 
 interface ExportModalProps {
   isOpen: boolean;
@@ -34,6 +31,9 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
   const [isExpanded, setIsExpanded] = useState(false);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [isLoadingImage, setIsLoadingImage] = useState(true);
+  const [exportAction, setExportAction] = useState<null | 'save' | 'share'>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const cardRef = useRef<HTMLDivElement | null>(null);
   const remoteAssetPath = useMemo(() => {
     if (!item.photoUrl || item.photoUrl === 'asset') return null;
     const extracted = extractCurioAssetPath(item.photoUrl);
@@ -105,6 +105,85 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
     }
   }, [isOpen]);
 
+  const renderCardToBlob = useCallback(async (): Promise<Blob | null> => {
+    const node = cardRef.current;
+    if (!node) return null;
+    const imgs = Array.from(node.querySelectorAll('img'));
+    await Promise.all(
+      imgs.map((img) => {
+        if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+        return new Promise<void>((resolve) => {
+          img.addEventListener('load', () => resolve(), { once: true });
+          img.addEventListener('error', () => resolve(), { once: true });
+        });
+      }),
+    );
+    return toBlob(node, {
+      pixelRatio: 2,
+      cacheBust: true,
+      backgroundColor: '#ffffff',
+    });
+  }, []);
+
+  const handleSaveImage = useCallback(async () => {
+    if (exportAction) return;
+    setExportAction('save');
+    setExportError(null);
+    try {
+      const blob = await renderCardToBlob();
+      if (!blob) throw new Error('render-failed');
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `${sanitizeFilename(item.title || 'curio-card')}.png`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    } catch (err) {
+      console.error('Save image failed:', err);
+      setExportError(t('saveImageFailed'));
+    } finally {
+      setExportAction(null);
+    }
+  }, [exportAction, item.title, renderCardToBlob, t]);
+
+  const handleShare = useCallback(async () => {
+    if (exportAction) return;
+    setExportAction('share');
+    setExportError(null);
+    try {
+      const blob = await renderCardToBlob();
+      if (!blob) throw new Error('render-failed');
+      const filename = `${sanitizeFilename(item.title || 'curio-card')}.png`;
+      const file = new File([blob], filename, { type: 'image/png' });
+      const nav = navigator as Navigator & {
+        canShare?: (data: { files: File[] }) => boolean;
+      };
+      if (typeof nav.share === 'function' && nav.canShare?.({ files: [file] })) {
+        await nav.share({ files: [file], title: item.title || t('exportCard') });
+        return;
+      }
+      // No share target — fall back to download so the user still gets the image.
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+      setExportError(t('shareFailed'));
+    } catch (err) {
+      const error = err as DOMException;
+      if (error?.name === 'AbortError') return;
+      console.error('Share failed:', err);
+      setExportError(t('saveImageFailed'));
+    } finally {
+      setExportAction(null);
+    }
+  }, [exportAction, item.title, renderCardToBlob, t]);
+
   if (!isOpen) return null;
 
   const getValue = (fieldId: string) => {
@@ -122,19 +201,18 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
     const titleSize = aspectRatio === '1:1' ? 'text-xl' : 'text-3xl';
     const metaSize = aspectRatio === '1:1' ? 'text-[8px]' : 'text-[10px]';
     const [ratioW, ratioH] = aspectRatio.split(':').map(Number);
-    const previewWidth = 'max(260px, min(85vw, 560px))';
     const previewMaxWidth = 'min(85vw, 560px)';
-    const previewMaxHeight = 'min(80dvh, 720px)';
 
     return (
       <div
         id="card-preview"
-        className={`shadow-2xl transition-all duration-300 overflow-hidden relative group select-none h-auto mx-auto print:h-auto print:!w-[100mm]`}
+        ref={cardRef}
+        className={`isolate shadow-2xl transition-all duration-300 overflow-hidden relative group select-none mx-auto print:h-auto print:!w-[100mm]`}
         style={{
           aspectRatio: `${ratioW} / ${ratioH}`,
-          width: previewWidth,
+          width: previewMaxWidth,
           maxWidth: previewMaxWidth,
-          maxHeight: previewMaxHeight,
+          maxHeight: '100%',
         }}
       >
         <div className={`w-full h-full ${containerStyles[style]} transition-all duration-300`}>
@@ -243,14 +321,15 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
     );
   };
 
-  const sheetHeight = isExpanded ? '85dvh' : '55dvh';
-
   return (
     <div
       data-export-modal
       className={`fixed inset-0 z-50 bg-stone-950/90 backdrop-blur-md animate-in fade-in duration-200 print:bg-white print:static print:block print:inset-auto print:h-auto print:overflow-visible overflow-hidden md:[--sheet-height:0px] pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)] pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)] ${isExpanded ? '[--sheet-height:85dvh]' : '[--sheet-height:55dvh]'}`}
     >
-      <div className="absolute inset-0 flex flex-col items-center justify-center px-6 py-6 md:pr-[calc(24rem+1.5rem)] overflow-hidden print:static print:inset-auto print:p-0 print:block pointer-events-none">
+      <div
+        className="absolute top-0 left-0 right-0 flex flex-col items-center justify-center px-6 py-6 md:bottom-0 md:pr-[calc(24rem+1.5rem)] overflow-hidden print:static print:inset-auto print:p-0 print:block pointer-events-none transition-[bottom] duration-300 ease-out"
+        style={{ bottom: 'var(--sheet-height, 0px)' }}
+      >
         <div className="h-full w-full flex items-center justify-center print:block print:h-auto print:w-auto">
           {renderCardPreview()}
         </div>
@@ -340,20 +419,50 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
           </div>
         </div>
         <div className="sticky bottom-0 border-t border-stone-100 bg-stone-50 space-y-3 shrink-0 px-4 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] md:px-6 md:pt-6 md:pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] min-h-[var(--export-footer-height)]">
-          <Button className="w-full" size="lg" icon={<Download size={18} />}>
-            {t('saveImage')}
+          {exportError && (
+            <p className="text-xs text-rose-600" role="alert">
+              {exportError}
+            </p>
+          )}
+          <Button
+            className="w-full"
+            size="lg"
+            onClick={handleSaveImage}
+            disabled={exportAction !== null || isLoadingImage}
+            icon={
+              exportAction === 'save' ? (
+                <Loader2 size={18} className="animate-spin" />
+              ) : (
+                <Download size={18} />
+              )
+            }
+          >
+            {exportAction === 'save' ? t('saving') : t('saveImage')}
           </Button>
           <div className="flex gap-2">
             <Button
               variant="outline"
               className="flex-1"
               onClick={() => window.print()}
+              disabled={exportAction !== null}
               icon={<Printer size={16} />}
             >
               {t('print')}
             </Button>
-            <Button variant="outline" className="flex-1" icon={<Share2 size={16} />}>
-              {t('share')}
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={handleShare}
+              disabled={exportAction !== null || isLoadingImage}
+              icon={
+                exportAction === 'share' ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <Share2 size={16} />
+                )
+              }
+            >
+              {exportAction === 'share' ? t('sharing') : t('share')}
             </Button>
           </div>
         </div>
