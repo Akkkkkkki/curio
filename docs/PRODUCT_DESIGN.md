@@ -1,251 +1,512 @@
 # Curio - Product Design Document
 
-> This document owns **UX requirements, interaction design, mobile guidelines, and design language**. For product thesis, principles, and strategic decisions, see `docs/PRODUCT_STRATEGY.md`. For execution phases and metrics, see `docs/ROADMAP.md`.
+> This document owns **UX requirements, interaction design, mobile guidance, and design language**. For product thesis, positioning, and deferred scope, see `docs/PRODUCT_STRATEGY.md`. For execution phases, metrics, and go-to-market sequencing, see `docs/ROADMAP.md`. For architecture, sync behavior, and runtime constraints, see `docs/TECHNICAL_DESIGN.md`.
 
-## 1. Vision & Purpose
+## 1. Product Design North Star
 
-Curio is a personal museum for meaningful objects. Unlike marketplace-driven apps or generic inventory tools, Curio is an **identity-driven archival product**. It is designed around personal narratives, strong aesthetics, and the emotional value of a curated collection.
+Curio is a personal museum for meaningful objects. It is not a generic inventory utility, a resale marketplace, or a database builder with prettier styling. The product should help people capture objects, write the human story behind them, organize them in a flexible way, and share them proudly when they are ready.
 
-## 1.1 MVP North Star: Value in the First 5 Minutes
+The design bar for every major flow is:
 
-**Goal:** A brand-new user should experience Curio’s “museum-grade” feel and successfully create **one high-quality item record** within 5 minutes, without confusion or dead-ends.
+- **Story-first:** visible narrative should feel human-authored, not machine-invented
+- **Trust-first:** save, edit, sync, and upload states must feel reliable before growth mechanics matter
+- **Shareable identity:** museums should feel worth showing, not merely useful to maintain
+- **Broad product, narrow beachhead:** the product remains category-agnostic, while examples and early polish can lean on specialty food/drink collectors where it clarifies the experience
 
-### The 5-Minute Aha Flow (MVP)
+This document is intentionally split into two layers:
 
-- **Minute 0–1: Immediate delight (no friction)**
-  - User lands in a beautiful **Public Sample Gallery** (read-only) or can enter it with one click.
-  - One-line positioning explains Curio: _a personal museum, not a marketplace or spreadsheet_.
-- **Minute 1–3: One clear action**
-  - One primary CTA: **Add your first item** (secondary: **Explore sample**).
-  - Capture is guided by a single, mobile-first screen (Upload photo → Details) where AI can auto-fill in the background (never blocking Save).
-- **Minute 3–5: Trust + completion**
-  - AI produces a usable draft (title + key fields). User confirms and saves.
-  - Clear feedback: **Saved** and **Synced / Will sync**. User sees the item in the collection grid.
+- **Phase 0 baseline:** current shipped behavior and constraints that must not regress
+- **Phase 1 target design:** the canonical UX specification for **Shareability And Identity**
 
-### MVP Onboarding Principles
+## 2. Phase 0 Baseline — Foundation And Soul
 
-- **Delight before auth:** Users should be able to see the sample gallery before creating an account. Auth can be requested when they attempt to save their own content.
-- **Single-path first-run:** Avoid presenting many choices up front. Default path: Explore sample → Add item → Review → Save.
-- **AI must be recoverable:** AI latency/failure must never block the flow. Provide a clear fallback to manual entry and keep the user’s progress.
-- **Templates must be self-explanatory:** Template selection should show a short description + field preview so users can pick confidently in seconds.
-- **Read-only must be obvious:** Public/sample content must always show a persistent read-only indicator and disabled edit affordances.
-- **Defer distractions:** Museum Guide, AI image enhancement, Vault Lock, and heavy social mechanics should not compete with the first-save experience.
+Phase 0 is the trust-and-story baseline that Phase 1 builds on. The product should not add public identity features on top of flows that still feel unreliable or impersonal.
 
-## 1.3 MVP Behaviors (as implemented)
+### 2.1 First 5-minute value
 
-This section captures **current behavior in the codebase** (so docs stay actionable, not aspirational).
+**Goal:** a brand-new user should understand Curio's taste and successfully create one meaningful item within five minutes.
 
-### Home (museum “bento”)
+#### The 5-minute aha flow
 
-- **Search**
-  - Searches across **collection names** and **item titles**.
-  - If a collection name doesn’t match but an item title does, the collection card shows an **“Item match”** badge.
-  - When search yields no matches, Home shows a themed **empty state** (“No matches found”).
-- **Archive Archeology (“On This Day”)**
-  - The card only appears when a matching item exists.
-  - Matching is **cascading** (highest priority first):
-    - Same month/day in a **prior year**
-    - Fallback: same day in the **prior month** (days 1–28 only)
-    - Fallback: same day in the **prior week**
+- **Minute 0-1: immediate delight**
+  - The user can enter a **Public Sample Gallery** without signing in.
+  - The product clearly frames itself as a personal museum, not a spreadsheet.
+- **Minute 1-3: one clear action**
+  - The primary CTA is **Add your first item**.
+  - Capture stays on a single mobile-first screen whenever possible.
+  - AI may help in the background, but never becomes a blocking step.
+- **Minute 3-5: trust and completion**
+  - The user can confirm a draft, save, and immediately see the result in the collection grid.
+  - Save feedback is explicit: **Saved**, then **Synced** or **Will sync / retrying**.
 
-### Item creation (guided + recoverable)
+#### Onboarding principles
 
-- **Single-screen capture**: Pick photo → Edit details (collection is a compact dropdown when multiple exist).
-- **Non-blocking AI**: AI auto-fill happens in the background and never blocks manual entry or saving.
-- **Recoverable AI**: Users can disable/skip AI and proceed with manual entry if AI is unavailable or fails.
-- **Title guidance**: Users are nudged to keep titles **concise for cards** and put extra detail in metadata fields (localized EN/ZH).
-- **Lightweight photo edits**: Rotate or crop to square before saving without leaving the flow.
+- **Delight before auth:** read-only sample content should be available before sign-in.
+- **Single-path first run:** avoid presenting many branching choices up front.
+- **Recoverable AI:** manual completion must remain available and preserve progress.
+- **Read-only must be obvious:** sample and public content should show persistent non-editable cues.
+- **Defer distractions:** Museum Guide, heavy social features, and creative AI output should not compete with the first-save experience.
 
-### Design notes: Make capture “feel simple” on mobile
+### 2.2 Current production baseline
 
-- **Default view is minimal but expressive**: photo + title + a few “primary” fields + Story prompt + rating + Save.
-- **Progress never blocks**: any AI-assisted work is communicated as “filling in” rather than “step 3/4”.
-- **Advanced inputs are secondary**:
-  - **Story** is visible by default and should be easy to fill in.
-  - Extra notes or technical detail can sit behind a lightweight secondary toggle.
-  - Remaining metadata fields are hidden behind a “More details” / “Technical spec” toggle.
-  - Batch mode is present but not primary (it’s discoverable as an optional link).
-- **AI failures are boring**: show a short “AI unavailable—continue manually” message and keep the user on the same screen.
+This section captures the durable baseline behavior that the product design assumes today.
 
-### Mobile development guidelines (Curio-first, industry-aligned)
+#### Home
 
-- **Mobile-first layout**: design for narrow viewports first, then scale up with responsive breakpoints. If a layout works at 360–430px width, it will scale cleanly. Avoid relying on hover to discover critical actions.
-- **Thumb-friendly actions**: primary actions should be near the top or bottom and have comfortable spacing. Treat **44×44px** (iOS) / **48×48dp** (Android) as the minimum interactive target size for tap areas, including filter chips, modal close buttons, header icons, and rating stars.
-- **Content density**: prioritize scannability (short headings, two-line clamp where needed). If content is hidden, provide an obvious path to reveal it without navigation churn.
-- **Input ergonomics**: use appropriate input types (e.g., numeric keyboards for years, decimal for prices) and avoid wide multi-step forms on small screens—keep flows on one page when possible.
-- **Safe-area + fixed UI**: respect safe-area insets for top/bottom fixed elements and ensure floating bars do not cover important content.
-- **Performance perception**: keep first screen fast and provide immediate feedback for save/sync actions. Prefer **skeleton placeholders** over spinner-only loading states for content-heavy views (collection grid, item detail, image placeholders). Spinners are acceptable for short in-flight actions only.
-- **Motion and timing**: keep all animations behind `motion-safe:` so `prefers-reduced-motion` is always respected. Use a small, consistent timing scale — roughly 100ms for micro-interactions, 150ms for button feedback, 220ms for modal/card entry, 350ms for page-level transitions. Anything longer than ~500ms needs explicit justification.
-- **Bottom-sheet modals**: modals that slide from the bottom should support swipe-to-dismiss with a visible drag handle. Backdrop tap and Escape must also dismiss; sheets must respect safe-area insets.
-- **Accessibility baseline**: maintain readable contrast and font sizes; avoid tiny labels on mobile. Ensure focus states are visible for keyboard and assistive tech. Every image and exhibition slide must have meaningful alt text.
-- **Testing expectation**: validate changes at common mobile sizes (e.g., 360×740, 390×844) and at least one small Android device size. Include screenshots for perceptible UI changes. Verify at 60fps on a real mid-range Android device before claiming an animation is shipped.
+- Search matches **collection names** and **item titles**.
+- If a collection name does not match but an item title does, the collection card shows an **item match** indicator.
+- When search yields no matches, Home shows a themed empty state rather than a blank list.
+- **On This Day** appears only when a matching historical item exists.
+- Historical matching cascades in this order:
+  1. Same month/day in a prior year
+  2. Same day in the prior month for days 1-28
+  3. Same day in the prior week
 
-### Collection browsing (production baseline)
+#### Item creation
 
-- **Sorting**: Allow quick ordering by newest, oldest, title, or rating.
-- **Bulk actions**: Support a simple selection mode with multi-delete for faster cleanup.
-- **Conflict awareness**: If cloud updates overwrite local edits, provide a review prompt.
-- **Offline clarity**: Persistent banner explains that edits are saved locally and will sync later.
-- **Undo/redo**: Lightweight history for in-session item edits to reduce accidental changes.
+- Capture is single-screen and recoverable.
+- AI autofill is non-blocking and must not prevent manual completion.
+- AI should never overwrite fields the user has already edited.
+- Story capture should remain prominent and easy to reach.
+- Lightweight photo edits such as crop and rotate can happen inside the flow.
 
-## 2.0 Quick-add mode
+#### Collection browsing
 
-Alongside the full capture wizard, Curio should offer a "quick add" mode for low-friction capture:
+- Users can sort by newest, oldest, title, or rating.
+- Multi-select cleanup should remain lightweight and understandable.
+- Offline and conflict states need explicit feedback, not silent failure.
+- In-session editing should feel reversible and forgiving.
 
-- **Flow:** photo → AI auto-categorizes → item appears in collection → user can enrich later
-- **Purpose:** accommodates "capture now, curate later" behavior alongside "tell the full story" behavior
-- **The full wizard remains** for users who want to write stories upfront
-- Quick-add items should be visually distinguishable (e.g., subtle "enrich me" indicator) to encourage users to return and add their personal story
+### 2.3 Quick-add mode
 
-## 2.1 Active AI stance
+Curio supports both **capture now, curate later** and **write the story up front**.
 
-Curio’s active AI work should stay **explicitly optional**, **recoverable**, and **cost-aware**.
+- Quick add flow: **photo -> AI identifies object -> item appears in collection -> user enriches later**
+- The full guided flow remains available for users who want to write stories immediately.
+- Quick-add items should carry a subtle cue that they still need enrichment, especially story completion.
+
+### 2.4 Active AI stance
+
+Curio's active AI work should remain:
+
+- **optional**
+- **recoverable**
+- **cost-aware**
 
 Current active use:
 
-- **Metadata extraction**: image to structured fields, titles, and prompts
+- metadata extraction from item photos
+- prompting or structuring help for story capture
 
 Current non-goals:
 
-- AI image enhancement
-- poster generation
-- multi-variant image editing workflows
+- AI-generated visible stories
+- AI image enhancement as part of the core collecting flow
+- novelty creative outputs that do not deepen the museum
 
-If AI is unavailable or inaccurate, the user must still be able to complete the flow manually without losing progress.
+If AI is unavailable or inaccurate, the user must still be able to finish the task without losing progress.
 
-## 2.2 Mobile-first capture simplification (consolidated requirements)
+### 2.5 Capture simplification requirements
 
-This section consolidates prior standalone design docs into a single durable source of truth.
+The add-item flow should continue to feel simple on mobile even as Phase 1 adds more collection flexibility.
 
-### Goals
+- Default capture surface should prioritize:
+  - photo
+  - title
+  - key `primary` fields
+  - story prompt
+  - rating
+  - save
+- Story should remain visible by default rather than hidden behind advanced settings
+- Extra notes or technical detail can sit behind a lightweight **More details** affordance
+- Save should stay easy to reach on small screens, including sticky-action treatment when needed
+- AI autofill should begin after photo selection, fill the form in place, and never force a separate step
+- AI failure should be communicated with a short continue-manually message while keeping the user on the same screen
+- Keyboard behavior, input types, and layout stability should be tuned for narrow screens so the form does not feel jumpy while AI updates arrive
 
-- **Make “Add item” effortless on mobile**: fast time-to-save; avoids “wizard” feel.
-- **Recoverable AI**: AI can be slow/fail; saving never blocks; progress never lost.
-- **Progressive disclosure**: show only what’s needed to save; reveal advanced fields when desired.
+## 3. Phase 1 — Shareability And Identity
 
-### Default capture surface (single-screen)
+Phase 1 turns a trusted private archive into something worth showing. The product should make public identity legible without collapsing into generic social features or compromising privacy.
 
-- **Primary action**: add photo (camera or upload)
-- **Always available**: title, key template fields, Story prompt, rating (optional), Save
-- **Secondary / optional**: extra notes, “More details”/technical spec, batch mode (discoverable, not primary)
+### 3.1 Core loop
 
-### Non-blocking AI autofill behavior
+The Phase 1 core loop is:
 
-- Starts automatically after photo selection (when enabled)
-- Fills the form **in place** (no additional step required)
-- Must **not overwrite** fields the user already edited
-- On failure: show a small “AI unavailable — continue manually” message and keep the user on the same screen
+1. Create or refine collections so the museum feels coherent
+2. Publish a museum identity and select which collections belong in public
+3. Share a profile, collection, item, Wrapped, or widget
+4. Visitors land on a beautiful public museum surface
+5. The owner gets reinforcing signals, such as profile visits, collection engagement, and story depth cues
+6. The owner returns to add more stories, improve metadata, and refine presentation
 
-### Mobile UX requirements (must-have)
+The product should make that loop feel identity-led, not growth-hacky. The point is not "share because apps want growth." The point is "share because this looks like you."
 
-- **Sticky primary action**: Save is always reachable without scrolling to the bottom
-- **Sectioned form**: basic info + key fields + additional details + notes
-- **Keyboard ergonomics**: sensible Next/Done, correct input types, no jumpy layout when AI updates
-- **Clear AI state**: subtle “filling in…” indicator; no blocking spinners as the only signal
+### 3.2 Product-facing contracts
 
-## 2.3 Deferred AI image experiments
+Phase 1 UX assumes the following public-facing objects, regardless of whether technical implementation uses tables, derived views, or computed routes.
 
-Image-to-image enhancement and poster generation are deferred.
+```ts
+interface MuseumProfile {
+  slug: string;
+  displayName: string;
+  shortBio?: string;
+  coverImage?: string;
+  theme?: AppTheme;
+  publicEnabled: boolean;
+  featuredCollectionIds: string[];
+}
 
-Reasons:
+type CollectionVisibility = 'private' | 'public';
 
-- they are expensive relative to current product value
-- they do not fix the core trust and story loop
-- they risk distracting from capture, editing, and sharing
+type ShareSurface = 'profile' | 'collection' | 'item' | 'wrapped' | 'widget';
 
-If reintroduced later, they should be treated as explicit, premium, opt-in creative tools rather than part of the core collecting flow.
+interface BulkImportMapping {
+  sourceColumn: string;
+  target: 'title' | 'story' | 'rating' | 'photo' | 'field';
+  fieldId?: string;
+}
+```
 
-## 6. UX review findings (2026-01-13) — consolidated summary
+Additional Phase 1 assumptions:
 
-This is a short synthesis of the 2026-01-13 external UX review. Action items should be tracked in GitHub Issues (not duplicated in docs).
+- `FieldDefinition.displayMode` remains the common display contract
+- Only `primary` fields are shown by default on public cards
+- Public sharing is intended to be anonymous-readable for canonical share URLs
+- The current collection-level `is_public` model in technical design is a foundation, not the complete public museum experience
 
-### Critical reliability issues to protect the MVP
+### 3.3 Public Museum Profile
 
-- **Data persistence across language toggles**: switching EN/ZH must not load separate datasets or appear to “erase” items.
-- **Add-item save reliability**: successful completion must reliably produce a visible item + consistent counts.
+The museum profile is the owner's public front door. It should feel like a curated exhibition page, not a settings screen and not a social feed.
 
-### UX friction points (high-signal)
+#### Profile activation model
 
-- **Hidden scrolling in add-item**: avoid narrow internal scrollbars and “missing fields” failure modes.
-- **No feedback after key actions**: show clear confirmation after add/save and reliable error states when something fails.
-- **Unclear icon meaning**: tooltips/labels for non-obvious actions (some are tracked: [#68](https://github.com/Akkkkkkki/curio/issues/68), [#95](https://github.com/Akkkkkkki/curio/issues/95)).
-- **Metadata editing**: users need an edit path on item detail without delete-and-readd.
-- **Museum Guide readiness**: if disabled or non-functional, keep it fully hidden or clearly feature-flagged to avoid confusing users.
+- Public museum profiles are **opt-in**
+- The public profile is **off by default**
+- Turning the profile on creates a canonical public URL and previewable share surface
+- A public profile can exist while most collections remain private
 
-### Card readability
+#### Required profile elements
 
-- Long titles are discoverable via **hover/focus tooltips** on collection and item cards (so we keep cards scannable while preserving full text).
+- display name
+- stable public slug / share URL
+- short curator bio
+- cover image or hero object
+- profile theme
+- featured public collections
+- lightweight identity signals such as total public collections or museum age
 
-### Save / sync feedback
+#### Presentation rules
 
-- Saving an item/collection shows explicit feedback:
-  - **Saved** immediately after local update
-  - **Synced** when cloud sync completes
-  - **Will sync / retrying** when offline or when sync errors occur (with a **Retry** action when applicable)
+- The profile should read editorially: hero image, curator statement, featured collections, and selected objects
+- The layout should privilege imagery, titles, and story cues over counts and controls
+- Public profiles should feel welcoming to anonymous visitors who know nothing about Curio
+- The owner-facing edit controls should never appear on the public-facing view
 
-## 1.2 MVP Checklist (tracking)
+### 3.4 Publishing And Privacy
 
-We avoid keeping long-lived “implementation checklists” in `docs/` because they go stale quickly.
+Phase 1 uses a **hybrid opt-in** model: the museum profile is opt-in, and collections remain private until individually published.
 
-- **Product constraints** (must not regress): see `README.md` and `CLAUDE.md`.
-- **Work tracking**: use GitHub Issues/Projects as the source of truth.
+#### Visibility rules
 
-If you need a checklist for a short-lived push, keep it inside the relevant GitHub issue/PR description instead of a new doc.
+- All user collections start **private**
+- Enabling the museum profile does **not** automatically publish any collection
+- Each collection requires an explicit publish decision
+- Item pages inherit visibility from their parent collection
+- Widgets, OG cards, and share links can only be generated from public surfaces
 
-## 2. Active Priorities
+#### Leak-prevention rules
 
-See `docs/PRODUCT_STRATEGY.md` for product decisions and `docs/ROADMAP.md` for execution phases. The UX implications of those priorities are reflected throughout this document.
+- Private collections must never appear on profile pages
+- Private items must never generate public item pages
+- Private data must never be included in OG metadata, widgets, or share cards
+- Shared Wrapped outputs must exclude private collections unless the user explicitly includes only public-ready content
+- If a public collection is later made private, all dependent public surfaces should stop resolving cleanly rather than exposing stale content
 
-## 3. Design Language
+#### UX requirements
 
-- **Typography**: _DM Serif Display_ for elegance; _Inter_ for precision. Clean sans-serif, consistent English, sentence case throughout.
-- **Visual Layout**: "Bento Grid" home screen for a modern museum feel; Masonry grids for item browsing.
-- **Theming**: Global theme selection replaces collection-specific accents for a unified aesthetic experience. Light mode (gallery/museum aesthetic) is the default; dark mode is optional.
-- **Sharing surfaces**: exported cards and public pages should feel intentional, collectible, and aesthetically credible without becoming gimmicky.
-- **Density**: medium-low with generous whitespace — let objects breathe.
-- **Photography direction**: objects in natural context (lifestyle photography aesthetic), not objects on dark backgrounds.
-- **Color palette**: warm neutrals, earth tones, restrained accent color. Avoid neon, gaming-adjacent, or tech-forward aesthetics.
-- **Metaphor consistency**: gallery/museum language throughout (exhibitions, curated collections, stories). Not gaming (levels, equipment), not tech (digital twin, archive entity).
+- Visibility state should be understandable at a glance
+- Publish actions should explain their consequence in plain language
+- Public previews should be available before final publishing
+- The product should distinguish clearly between:
+  - profile visibility
+  - collection visibility
+  - private owner-only analytics or previews
 
-### 3.1 Visual category picker
+### 3.5 Share surfaces
 
-Collection selection during item creation should use image-backed category cards rather than a text dropdown. Each card shows the collection's cover image (or a representative item photo) as the card background. This reinforces the museum metaphor — you're choosing which gallery to place an item in.
+Phase 1 should treat every outward-facing surface as part of one coherent share system. Export images, OG cards, and embeds should all resolve back to a canonical public page rather than acting as disconnected artifacts.
 
-### 3.2 Voice and tone
+| Surface | Purpose | Required content | Primary destination |
+| ------- | ------- | ---------------- | ------------------- |
+| Profile | Share the whole museum identity | cover image, curator identity, featured collections, theme | public museum page |
+| Collection | Share a specific gallery | collection hero, title, icon, 1-2 pinned fields, representative items | public collection page |
+| Item | Share one meaningful object | hero image, item title, curator identity, parent collection, pinned fields | public item page |
+| Wrapped | Share a time-based story of the museum | year title, strongest themes, selected objects, story-led highlights | public Wrapped page |
+| Widget | Embed a shelf on another site | compact item shelf, collection identity, link back | public collection or profile page |
 
-Curio's voice should feel like a thoughtful friend who appreciates beautiful things — not a tech platform, not a database, not an eco-warrior.
+#### Shared visual system
 
-| Instead of           | Use                       |
-| -------------------- | ------------------------- |
-| "Archive Entity"     | "Add to your museum"      |
-| "Target Destination" | "Choose a collection"     |
-| "Auto Detect"        | "Let Curio identify this" |
-| "Digital Twin"       | "Your story"              |
+- Public cards and public pages should use the same visual language
+- Hero imagery matters more than data density
+- Curator identity should always be visible, even on item-level share surfaces
+- Share surfaces should feel collectible and intentional, not like generic preview cards
 
-### 3.3 Empty state design
+#### OG and share-card rules
 
-Empty states must feel inviting, not cold:
+- Default structure: **hero image + title + curator identity + up to 1-2 pinned fields**
+- Story excerpt may appear only when it is clearly user-authored and strong enough to stand alone
+- Never expose:
+  - AI-only metadata
+  - private notes
+  - draft or partial fields
+  - internal system language
+- If a collection or item has weak imagery, the system should fall back to a tasteful branded composition rather than a broken or cluttered card
 
-- **Pre-populated example museum:** Show the Public Sample Gallery (beautifully curated with rich personal stories and photos) so new users immediately understand the vision.
-- **First-item prompt:** After signup, immediately prompt the user to add their first item with guided story questions. Don't drop them on an empty grid.
-- **Progressive disclosure:** Focus the UI on adding and enriching items until the user has enough content (3+ items) for the full museum layout to feel meaningful.
+### 3.6 Flexible Collections And Category Picking
 
-## 4. Onboarding & Cloud Access
+Phase 1 must move beyond hardcoded category templates without turning Curio into a heavy schema-building tool.
 
-Curio is cloud-first for user-owned data: signing in is required to **create and save** your own collections/items. Users can still explore the **Public Sample Gallery** without signing in to get value immediately.
+#### Collection creation flow
 
-### MVP Requirement: Sample-first entry
+The primary entry question is:
 
-To ensure fast time-to-value, Curio must support **pre-login access** to the **Public Sample Gallery** (read-only). A user should be prompted to sign in only when they attempt to create or save their own collection/items.
+- **What do you collect?**
 
-### Manual Local Import
+The flow should support two paths:
 
-Users with legacy local data can import it into their account from the profile menu.
+- **Custom path:** the user describes what they collect in natural language, then Curio suggests useful fields
+- **Preset path:** the user chooses a starter template when they want a fast, familiar setup
 
-### Public Sample Gallery
+Durable rules for the flexible path:
 
-A curated public sample collection is visible to all users as inspiration. It is read-only for everyone except admins, keeping the showcase consistent while allowing staff to update it centrally.
+- users select **3-6 fields**
+- **1-2 fields** are pinned as `primary`
+- remaining fields default to `detail` unless the template or UI deliberately promotes them
+- field terminology stays **fields**, not tags
+- reserved built-in concepts such as title, story, and rating are not duplicated as custom fields
 
-## 5. Future Roadmap
+#### Stable mixed-schema browsing
 
-See `docs/ROADMAP.md` for execution phases and `docs/PRODUCT_STRATEGY.md` for platform stance and deferred features.
+Mixed-schema browsing should still feel coherent across the product.
+
+- Every collection must support a common card contract
+- `displayMode` remains the stable mechanism for deciding what surfaces on cards versus detail views
+- Public cards should show only the most legible identity fields, not a dump of every schema attribute
+- Item detail views remain the place where the full schema becomes visible
+
+#### Visual category picker
+
+Collection choice during add-item should become more visual and museum-like.
+
+- Use image-backed cards rather than a plain dropdown when the number of collections is manageable
+- Each card should show:
+  - cover image or representative item image
+  - collection icon
+  - collection name
+  - item count
+- Order by recent use so the likely destination is easiest to reach
+- When the user has many collections, fall back to a simpler searchable text list or compact sheet rather than forcing a dense card wall
+
+### 3.7 Collection Wrapped
+
+Wrapped is the first intentionally viral feature in Curio, but it must still feel like Curio.
+
+#### What Wrapped should celebrate
+
+- story depth
+- taste and identity
+- recurring themes, makers, origins, or moods
+- the emotional shape of a year in objects
+
+#### What Wrapped should avoid
+
+- quantity-first trophies
+- speed or streak mechanics
+- generic gamification language
+- charts that feel like work dashboards
+
+#### Baseline Wrapped modules
+
+- museum title and year framing
+- standout objects
+- strongest stories
+- recurring categories or themes
+- a small number of elegant identity stats
+- a final shareable summary card
+
+Baseline Wrapped is free. Premium Wrapped treatments, expanded themes, and enhanced personalization can sit in paid tiers later per `docs/PRODUCT_STRATEGY.md`.
+
+### 3.8 Basic Stats And Analytics
+
+Phase 1 stats should reinforce identity, not turn the app into an analytics product.
+
+#### Good basic stats
+
+- items with stories
+- public collections count
+- museum age
+- top categories or themes
+- origins, makers, or places when relevant
+- profile visits and share taps
+
+#### Poor stats for Phase 1
+
+- leaderboard-style comparisons
+- productivity framing
+- novelty metrics with no identity value
+
+#### Product tracking requirements
+
+The event taxonomy should stay aligned with `docs/ROADMAP.md` and remain stable across web and Android. Phase 1 design assumes tracking for:
+
+- profile public-enabled / disabled
+- collection published / unpublished
+- share initiated by surface
+- public profile visit
+- Wrapped generated
+- Wrapped shared
+- field suggestion accepted
+- bulk import started / completed / failed
+
+### 3.9 Bulk Import
+
+CSV import is a supporting utility, not the star of the product.
+
+#### Positioning
+
+- Bulk import should live in collection setup, collection management, or profile/settings utilities
+- It should never displace the main storytelling capture flow for new users
+
+#### Supported paths
+
+- create a new collection from CSV
+- import rows into an existing collection
+
+#### Mapping requirements
+
+- Required mapping support:
+  - title
+  - story
+  - rating
+  - photo
+  - custom field IDs
+- Users should be able to preview mappings before final import
+- Validation errors should be specific and recoverable
+- The import flow should preserve user-authored story text exactly as provided
+
+Bulk import should feel like a practical accelerant for serious collectors, not a signal that Curio's primary value is data migration.
+
+### 3.10 AI Assist In Phase 1
+
+AI in Phase 1 should expand useful autofill without taking over the visible narrative layer.
+
+#### Good Phase 1 AI
+
+- suggest fields from a collection description
+- identify objects and fill metadata using collection context
+- suggest story prompts or follow-up questions
+- assist with draft cleanup after the user has written something
+
+#### Bad Phase 1 AI
+
+- auto-writing the visible story
+- inventing sentimental memory copy
+- generating public captions without review
+- replacing public identity with synthetic polish
+
+#### Guardrails
+
+- AI output should always be visibly optional
+- User edits always win
+- AI should never overwrite a field the user has already touched
+- Public-facing story surfaces must prefer human-authored text
+- Machine-generated metadata should remain distinguishable from human story
+
+## 4. Design Language
+
+Curio should feel warm, editorial, and museum-like without becoming precious or theatrical.
+
+### 4.1 Visual direction
+
+- **Typography:** DM Serif Display for elegance, Inter for precision and utility
+- **Layout:** bento-like composition on home; gallery-minded collection and public profile layouts
+- **Density:** medium-low density with generous whitespace
+- **Palette:** warm neutrals and restrained accents, not neon or gaming-adjacent
+- **Photography:** objects in lived-in or natural context when possible, not sterile catalog cutouts only
+
+### 4.2 Shareability-specific direction
+
+- Public pages should feel like a collector's exhibition, not a social profile template
+- OG cards and widgets should inherit the same design system as in-product public pages
+- Stats should appear as quiet context, not dominant dashboard chrome
+- The visual hierarchy should consistently privilege:
+  1. object imagery
+  2. object or collection title
+  3. curator identity
+  4. a small number of meaningful fields
+
+### 4.3 Voice and tone
+
+Curio should sound like a thoughtful friend who appreciates meaningful objects.
+
+| Avoid | Prefer |
+| ----- | ------ |
+| Archive entity | Item in your museum |
+| Target destination | Choose a collection |
+| Auto detect | Let Curio identify this |
+| Digital twin | Your story |
+
+### 4.4 Empty states
+
+Empty states should invite curation rather than punish incompleteness.
+
+- show sample content when the user has no museum yet
+- prompt the first item or first public collection clearly
+- after publishing is enabled, nudge the user toward featuring one collection rather than exposing a barren public profile
+
+## 5. Mobile And Responsive Guidance
+
+Phase 1 sharing features must still feel strong on mobile, because the product's most important actions begin and end on a phone-sized screen.
+
+- Design mobile-first, then scale up
+- Keep primary actions within thumb reach
+- Use tap targets at or above platform comfort minimums
+- Prefer sectioned single-page flows over multi-step wizards on small screens
+- Respect safe areas for fixed controls and bottom sheets
+- Use skeletons for content loading and reserve spinners for short in-flight actions
+- Keep motion restrained and `prefers-reduced-motion` safe
+- Ensure public share pages, Wrapped, and widgets remain readable on narrow screens
+
+Bottom-sheet and modal rules remain important:
+
+- bottom sheets should support swipe-to-dismiss, backdrop tap, and Escape
+- drag handles and safe-area padding should be explicit
+- important share actions should not be hidden behind hover-only affordances
+
+## 6. Onboarding And Cloud Access
+
+Curio remains cloud-first for user-owned museums, but the product should continue to offer a sample-first path.
+
+### 6.1 Sample-first entry
+
+- Users can browse a public sample museum without signing in
+- Sign-in is requested when they try to save their own content or enable their own public museum
+
+### 6.2 Manual local import
+
+- Legacy local users can import their data from the profile area
+- This remains a migration utility, not a primary acquisition flow
+
+### 6.3 Public sample gallery
+
+- The sample gallery should model the standard for public museum presentation
+- It should demonstrate strong story writing, thoughtful imagery, and tasteful collection identity
+- It should remain read-only for non-admin users
+
+## 7. Future Roadmap
+
+`docs/PRODUCT_DESIGN.md` should fully own the UX requirements for Phase 0 and Phase 1. For later execution phases such as community, discovery, monetization expansion, and Android distribution strategy, see:
+
+- `docs/ROADMAP.md`
+- `docs/PRODUCT_STRATEGY.md`
+- `docs/TECHNICAL_DESIGN.md`
