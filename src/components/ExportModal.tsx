@@ -33,7 +33,15 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
   const [isLoadingImage, setIsLoadingImage] = useState(true);
   const [exportAction, setExportAction] = useState<null | 'save' | 'share'>(null);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [dragHeight, setDragHeight] = useState<number | null>(null);
   const cardRef = useRef<HTMLDivElement | null>(null);
+  const sheetRef = useRef<HTMLDivElement | null>(null);
+  const dragStateRef = useRef<{
+    startY: number;
+    startHeight: number;
+    pointerId: number;
+    moved: boolean;
+  } | null>(null);
   const remoteAssetPath = useMemo(() => {
     if (!item.photoUrl || item.photoUrl === 'asset') return null;
     const extracted = extractCurioAssetPath(item.photoUrl);
@@ -57,13 +65,36 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
     return null;
   }, [item.photoUrl]);
 
+  const directPhotoUrl = useMemo(() => {
+    const url = item.photoUrl;
+    if (!url || url === 'asset') return null;
+    if (remoteAssetPath) return null;
+    if (
+      url.startsWith('http') ||
+      url.startsWith('data:') ||
+      url.startsWith('blob:') ||
+      url.startsWith('/')
+    ) {
+      return url;
+    }
+    return `${import.meta.env.BASE_URL}${url}`;
+  }, [item.photoUrl, remoteAssetPath]);
+
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      setImageUrl(null);
+      return;
+    }
+    if (directPhotoUrl) {
+      setImageUrl(directPhotoUrl);
+      setIsLoadingImage(false);
+      return;
+    }
     let objectUrl: string | null = null;
     const loadImage = async () => {
       setIsLoadingImage(true);
+      setImageUrl(null);
       try {
-        // Try enhanced first, then fall back to original
         let blob = await getEnhancedAsset(item.id, {
           enhancedPath: item.photoEnhancedPath,
           collectionId: item.collectionId,
@@ -76,7 +107,15 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
             item.collectionId,
           );
         }
-        if (blob) {
+        if (!blob || blob.size === 0) {
+          blob = await getAsset(
+            item.id,
+            'display',
+            remoteAssetPath || undefined,
+            item.collectionId,
+          );
+        }
+        if (blob && blob.size > 0) {
           objectUrl = URL.createObjectURL(blob);
           setImageUrl(objectUrl);
         }
@@ -90,7 +129,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
     return () => {
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [isOpen, item.id, item.collectionId, item.photoEnhancedPath, remoteAssetPath]);
+  }, [isOpen, item.id, item.collectionId, item.photoEnhancedPath, remoteAssetPath, directPhotoUrl]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -192,6 +231,55 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
       setExportAction(null);
     }
   }, [exportAction, item.title, renderCardToBlob, t]);
+
+  const PEEK_HEIGHT_PX = 88;
+
+  const handleSheetPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (window.matchMedia('(min-width: 768px)').matches) return;
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    const startHeight = sheetRef.current?.offsetHeight ?? PEEK_HEIGHT_PX;
+    dragStateRef.current = {
+      startY: e.clientY,
+      startHeight,
+      pointerId: e.pointerId,
+      moved: false,
+    };
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      /* noop */
+    }
+  };
+
+  const handleSheetPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const drag = dragStateRef.current;
+    if (!drag || drag.pointerId !== e.pointerId) return;
+    const dy = e.clientY - drag.startY;
+    if (Math.abs(dy) > 4) drag.moved = true;
+    const minH = PEEK_HEIGHT_PX;
+    const maxH = window.innerHeight * 0.92;
+    const next = Math.max(minH, Math.min(maxH, drag.startHeight - dy));
+    setDragHeight(next);
+  };
+
+  const handleSheetPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    const drag = dragStateRef.current;
+    if (!drag || drag.pointerId !== e.pointerId) return;
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      /* noop */
+    }
+    const finalHeight = dragHeight ?? drag.startHeight;
+    if (drag.moved) {
+      const threshold = window.innerHeight * 0.35;
+      setIsExpanded(finalHeight > threshold);
+    } else {
+      setIsExpanded((prev) => !prev);
+    }
+    setDragHeight(null);
+    dragStateRef.current = null;
+  };
 
   if (!isOpen) return null;
 
@@ -330,27 +418,53 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
     );
   };
 
+  const isDragging = dragHeight !== null;
+  const mobileSheetHeight = isDragging
+    ? `${dragHeight}px`
+    : isExpanded
+      ? '85dvh'
+      : `${PEEK_HEIGHT_PX}px`;
+
   return (
     <div
       data-export-modal
-      className={`fixed inset-0 z-50 bg-stone-950/90 backdrop-blur-md animate-in fade-in duration-200 print:bg-white print:static print:block print:inset-auto print:h-auto print:overflow-visible overflow-hidden md:[--sheet-height:0px] pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)] pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)] ${isExpanded ? '[--sheet-height:85dvh]' : '[--sheet-height:55dvh]'}`}
+      className={`fixed inset-0 z-50 bg-stone-950/90 backdrop-blur-md animate-in fade-in duration-200 print:bg-white print:static print:block print:inset-auto print:h-auto print:overflow-visible overflow-hidden pt-[env(safe-area-inset-top,0px)] pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)]`}
+      style={
+        {
+          '--peek-height': `calc(${PEEK_HEIGHT_PX}px + env(safe-area-inset-bottom, 0px))`,
+        } as React.CSSProperties
+      }
     >
       <div
-        className="absolute top-0 left-0 right-0 flex flex-col items-center justify-center px-6 py-6 md:bottom-0 md:pr-[calc(24rem+1.5rem)] overflow-hidden print:static print:inset-auto print:p-0 print:block pointer-events-none transition-[bottom] duration-300 ease-out"
-        style={{ bottom: 'var(--sheet-height, 0px)' }}
+        className="absolute top-0 left-0 right-0 flex flex-col items-center justify-center px-6 py-6 md:!bottom-0 md:pr-[calc(24rem+1.5rem)] overflow-hidden print:static print:inset-auto print:p-0 print:block pointer-events-none"
+        style={{ bottom: 'var(--peek-height, 0px)' }}
       >
         <div className="h-full w-full flex items-center justify-center print:block print:h-auto print:w-auto">
           {renderCardPreview()}
         </div>
       </div>
+      {isExpanded && (
+        <button
+          type="button"
+          aria-label={t('close')}
+          onClick={() => setIsExpanded(false)}
+          className="md:hidden absolute inset-0 z-[5] bg-transparent print:hidden"
+          style={{ bottom: mobileSheetHeight }}
+        />
+      )}
       <div
-        className={`absolute inset-x-0 bottom-0 md:absolute md:top-0 md:left-auto md:inset-x-auto md:right-0 md:w-96 md:h-full bg-white rounded-t-3xl md:rounded-none shadow-2xl flex flex-col transition-all duration-300 ease-out z-10 h-[var(--sheet-height)] md:h-full print:hidden [--export-footer-height:8.5rem] md:[--export-footer-height:9.5rem]`}
+        ref={sheetRef}
+        className={`absolute inset-x-0 bottom-0 md:absolute md:top-0 md:left-auto md:inset-x-auto md:right-0 md:w-96 md:!h-full bg-white rounded-t-3xl md:rounded-none shadow-2xl flex flex-col z-10 print:hidden [--export-footer-height:8.5rem] md:[--export-footer-height:9.5rem] ${isDragging ? '' : 'transition-[height] duration-300 ease-out'}`}
+        style={{ height: mobileSheetHeight }}
       >
         <div
-          className="md:hidden w-full flex justify-center py-3 cursor-pointer"
-          onClick={() => setIsExpanded(!isExpanded)}
+          className="md:hidden w-full flex justify-center py-3 cursor-grab active:cursor-grabbing touch-none"
+          onPointerDown={handleSheetPointerDown}
+          onPointerMove={handleSheetPointerMove}
+          onPointerUp={handleSheetPointerUp}
+          onPointerCancel={handleSheetPointerUp}
         >
-          <div className="w-12 h-1.5 bg-stone-200 rounded-full" />
+          <div className="w-12 h-1.5 bg-stone-300 rounded-full" />
         </div>
         <div className="px-6 pb-4 md:pt-6 border-b border-stone-100 flex justify-between items-center shrink-0">
           <div>
