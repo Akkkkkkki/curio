@@ -168,7 +168,6 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
     );
     return toBlob(node, {
       pixelRatio: 2,
-      cacheBust: true,
       backgroundColor: '#ffffff',
     });
   }, []);
@@ -232,7 +231,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
     }
   }, [exportAction, item.title, renderCardToBlob, t]);
 
-  const PEEK_HEIGHT_PX = 88;
+  const PEEK_HEIGHT_PX = 56;
 
   const handleSheetPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (window.matchMedia('(min-width: 768px)').matches) return;
@@ -423,7 +422,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
     ? `${dragHeight}px`
     : isExpanded
       ? '85dvh'
-      : `${PEEK_HEIGHT_PX}px`;
+      : 'var(--peek-height)';
 
   return (
     <div
@@ -454,11 +453,11 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
       )}
       <div
         ref={sheetRef}
-        className={`absolute inset-x-0 bottom-0 md:absolute md:top-0 md:left-auto md:inset-x-auto md:right-0 md:w-96 md:!h-full bg-white rounded-t-3xl md:rounded-none shadow-2xl flex flex-col z-10 print:hidden [--export-footer-height:8.5rem] md:[--export-footer-height:9.5rem] ${isDragging ? '' : 'transition-[height] duration-300 ease-out'}`}
+        className={`absolute inset-x-0 bottom-0 md:absolute md:top-0 md:left-auto md:inset-x-auto md:right-0 md:w-96 md:!h-full min-h-0 overflow-hidden bg-white rounded-t-3xl md:rounded-none shadow-2xl flex flex-col z-10 print:hidden [--export-footer-height:8.5rem] md:[--export-footer-height:9.5rem] ${isDragging ? '' : 'transition-[height] duration-300 ease-out'}`}
         style={{ height: mobileSheetHeight }}
       >
         <div
-          className="md:hidden w-full flex justify-center py-3 cursor-grab active:cursor-grabbing touch-none"
+          className="md:hidden w-full h-14 shrink-0 flex items-center justify-center cursor-grab active:cursor-grabbing touch-none"
           onPointerDown={handleSheetPointerDown}
           onPointerMove={handleSheetPointerMove}
           onPointerUp={handleSheetPointerUp}
