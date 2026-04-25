@@ -1468,6 +1468,7 @@ export const AppContent: React.FC = () => {
     > | null>(null);
     const isApplyingHistoryRef = useRef(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const titleTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
     const collection = collections.find((c) => c.id === id);
     const item = collection?.items.find((i) => i.id === itemId);
@@ -1476,6 +1477,13 @@ export const AppContent: React.FC = () => {
     useEffect(() => {
       refreshAiImageEditEnabled().then(setAiImageEditEnabled);
     }, []);
+
+    useEffect(() => {
+      const ta = titleTextareaRef.current;
+      if (!ta) return;
+      ta.style.height = 'auto';
+      ta.style.height = `${ta.scrollHeight}px`;
+    }, [item?.title]);
 
     if (!collection || !item) return <Navigate to={`/collection/${id}`} replace />;
     const isReadOnly = Boolean(collection.isPublic) && !isAdmin;
@@ -1722,7 +1730,7 @@ export const AppContent: React.FC = () => {
           }}
         >
           <div
-            className={`relative ${hasPhoto ? 'aspect-[4/5] sm:aspect-[16/9] md:aspect-[21/9]' : 'h-32 sm:h-48'} bg-stone-950 group transition-all duration-700 ease-in-out`}
+            className={`relative ${hasPhoto ? 'aspect-[4/5] max-h-[55vh] sm:aspect-[16/9] sm:max-h-none md:aspect-[21/9]' : 'h-32 sm:h-48'} bg-stone-950 group transition-all duration-700 ease-in-out`}
           >
             <ItemImage
               key={imageKey}
@@ -1740,7 +1748,7 @@ export const AppContent: React.FC = () => {
             {!isReadOnly && (
               <>
                 <div
-                  className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${hasPhoto ? 'opacity-100 sm:opacity-0 sm:group-hover:opacity-100' : 'opacity-100'}`}
+                  className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${hasPhoto ? 'hidden sm:flex sm:opacity-0 sm:group-hover:opacity-100' : 'opacity-100'}`}
                 >
                   <button
                     disabled={isProcessing}
@@ -1768,17 +1776,33 @@ export const AppContent: React.FC = () => {
             <button
               onClick={() => navigate(-1)}
               aria-label={t('back')}
-              className={`absolute top-4 left-4 sm:top-8 sm:left-8 w-10 h-10 sm:w-14 sm:h-14 backdrop-blur-md rounded-xl sm:rounded-2xl flex items-center justify-center shadow-xl transition-all hover:scale-105 z-10 ${theme === 'vault' ? 'bg-white/10 text-white' : 'bg-white/80 text-stone-800'}`}
+              className={`absolute top-4 left-4 sm:top-8 sm:left-8 w-11 h-11 sm:w-14 sm:h-14 backdrop-blur-md rounded-xl sm:rounded-2xl flex items-center justify-center shadow-xl transition-all hover:scale-105 z-10 ${theme === 'vault' ? 'bg-white/10 text-white' : 'bg-white/80 text-stone-800'}`}
             >
               <ArrowLeft size={20} className="sm:w-6 sm:h-6" />
             </button>
 
             <div className="absolute top-4 right-4 sm:top-8 sm:right-8 flex gap-2 sm:gap-4 z-10">
+              {/* Mobile-only quick action to update the photo (desktop reveals the centered pill on hover) */}
+              {!isReadOnly && hasPhoto && (
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isProcessing}
+                  className={`sm:hidden w-11 h-11 backdrop-blur-md rounded-xl flex items-center justify-center shadow-xl transition-all hover:scale-105 disabled:opacity-50 ${theme === 'vault' ? 'bg-white/10 text-white' : 'bg-white/80 text-stone-800'}`}
+                  title={t('updatePhoto')}
+                  aria-label={t('updatePhoto')}
+                >
+                  {isProcessing ? (
+                    <Loader2 size={18} className="animate-spin" />
+                  ) : (
+                    <Camera size={18} />
+                  )}
+                </button>
+              )}
               {/* Enhance Image Button - only show when AI is enabled, not read-only, and has photo */}
               {aiImageEditEnabled && !isReadOnly && isAssetPhoto && (
                 <button
                   onClick={() => setIsEnhanceOpen(true)}
-                  className={`w-10 h-10 sm:w-14 sm:h-14 backdrop-blur-md rounded-xl sm:rounded-2xl flex items-center justify-center shadow-xl transition-all hover:scale-105 ${theme === 'vault' ? 'bg-white/10 text-white' : 'bg-white/80 text-stone-800'}`}
+                  className={`w-11 h-11 sm:w-14 sm:h-14 backdrop-blur-md rounded-xl sm:rounded-2xl flex items-center justify-center shadow-xl transition-all hover:scale-105 ${theme === 'vault' ? 'bg-white/10 text-white' : 'bg-white/80 text-stone-800'}`}
                   title={t('enhanceImage')}
                   aria-label={t('enhanceImage')}
                 >
@@ -1787,7 +1811,7 @@ export const AppContent: React.FC = () => {
               )}
               <button
                 onClick={() => setIsExportOpen(true)}
-                className={`w-10 h-10 sm:w-14 sm:h-14 backdrop-blur-md rounded-xl sm:rounded-2xl flex items-center justify-center shadow-xl transition-all hover:scale-105 ${theme === 'vault' ? 'bg-white/10 text-white' : 'bg-white/80 text-stone-800'}`}
+                className={`w-11 h-11 sm:w-14 sm:h-14 backdrop-blur-md rounded-xl sm:rounded-2xl flex items-center justify-center shadow-xl transition-all hover:scale-105 ${theme === 'vault' ? 'bg-white/10 text-white' : 'bg-white/80 text-stone-800'}`}
                 title={t('exportCard')}
                 aria-label={t('exportCard')}
                 data-testid="item-export"
@@ -1817,15 +1841,22 @@ export const AppContent: React.FC = () => {
             )}
             <div className="flex flex-col md:flex-row justify-between items-start gap-8 sm:gap-12">
               <div className="flex-1 w-full">
-                <input
-                  type="text"
-                  className={`${typographyClasses.titleDisplay} mb-2 sm:mb-3 w-full bg-transparent border-b-2 ${
+                <textarea
+                  ref={titleTextareaRef}
+                  rows={1}
+                  className={`${typographyClasses.titleDisplay} mb-2 sm:mb-3 w-full bg-transparent border-b-2 resize-none overflow-hidden break-words leading-tight ${
                     titleIsEmpty && !isReadOnly
                       ? 'border-red-400 focus:border-red-500'
                       : 'border-transparent'
                   } focus:border-amber-100 outline-none transition-all placeholder:italic ${theme === 'vault' ? 'text-white' : 'text-stone-900'} ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
                   value={item.title}
                   onChange={(e) => applyItemUpdate({ title: e.target.value })}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      e.currentTarget.blur();
+                    }
+                  }}
                   placeholder={t('itemTitlePlaceholder')}
                   disabled={isReadOnly}
                 />
@@ -2053,7 +2084,7 @@ export const AppContent: React.FC = () => {
                 >
                   {t('technicalSpec')}
                 </dt>
-                <div className="grid grid-cols-2 lg:grid-cols-1 gap-6 sm:gap-8">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-6 sm:gap-8">
                   {collection.customFields.map((field) => {
                     const val = item.data[field.id];
                     const label = getLabel(field.id);
