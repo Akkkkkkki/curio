@@ -669,6 +669,12 @@ export const AppContent: React.FC = () => {
     collectionId: string,
     itemData: Omit<CollectionItem, 'id' | 'createdAt' | 'updatedAt'>,
   ) => {
+    const exists = collections.some((c) => c.id === collectionId);
+    if (!exists) {
+      console.warn('handleAddItem: target collection not found', collectionId);
+      showStatus(t('statusSaveFailedMissingCollection'), 'error');
+      return;
+    }
     if (!canEditCollection(collectionId)) return;
     pendingSyncToastRef.current = true;
     if (!isSupabaseReady) pendingSyncToastRef.current = false;
