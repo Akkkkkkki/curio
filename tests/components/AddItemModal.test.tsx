@@ -70,6 +70,40 @@ describe('AddItemModal', () => {
     expect(screen.queryByText('Rapid-Fire Mode')).not.toBeInTheDocument();
   });
 
+  it('preserves the selected collection when the parent re-renders with a new collections array (CUR-44)', async () => {
+    const user = userEvent.setup();
+    const c1 = createMockCollection({ id: 'c1', name: 'Vinyl Vault' });
+    const c2 = createMockCollection({ id: 'c2', name: 'Chocolate Vault' });
+
+    const { rerender } = renderWithProviders(
+      <AddItemModal isOpen onClose={mockOnClose} collections={[c1, c2]} onSave={mockOnSave} />,
+    );
+
+    // Starts on the select-type step with both collections offered.
+    expect(screen.getByText('New Archive')).toBeInTheDocument();
+    expect(screen.getByText('Vinyl Vault')).toBeInTheDocument();
+
+    // Pick Vinyl Vault → advances to the upload step.
+    await user.click(screen.getByText('Vinyl Vault'));
+    await screen.findByRole('heading', { name: 'Upload Photo' });
+
+    // Parent re-renders with a brand-new collections array of identical content
+    // (simulates a cloud merge / unrelated setCollections firing mid-flow).
+    rerender(
+      <AddItemModal
+        isOpen
+        onClose={mockOnClose}
+        collections={[{ ...c1 }, { ...c2 }]}
+        onSave={mockOnSave}
+      />,
+    );
+
+    // Should remain on the upload step. Previously this would snap back to
+    // select-type and silently drop `selectedCollectionId`.
+    expect(screen.getByRole('heading', { name: 'Upload Photo' })).toBeInTheDocument();
+    expect(screen.queryByText('New Archive')).not.toBeInTheDocument();
+  });
+
   it('processes a batch upload and renders the analyzed item', async () => {
     const user = userEvent.setup();
     mockRefreshAiEnabled.mockResolvedValue(true);

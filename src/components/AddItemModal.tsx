@@ -115,27 +115,29 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
   };
 
   useEffect(() => {
-    if (isOpen) {
-      lastFocusedElementRef.current =
-        document.activeElement instanceof HTMLElement ? document.activeElement : null;
-      setStep(collections.length === 1 ? 'upload' : 'select-type');
-      if (collections.length === 1) setSelectedCollectionId(collections[0].id);
-      setImagePreview(null);
-      setBatchItems([]);
-      setBatchVisibleCount(8);
-      setFormData(createEmptyForm());
-      setError(null);
-      setIsSaving(false);
-      setAnalysisError(false);
-      setAnalysisNeedsReview(false);
-      setLowConfidence(false);
-      setBatchProgress(null);
-      setTitleError(null);
-      setBatchTitleErrors({});
-      setIsImageEditorOpen(false);
-      analysisRunId.current += 1;
-    }
-  }, [isOpen, collections]);
+    if (!isOpen) return;
+    lastFocusedElementRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setStep(collections.length === 1 ? 'upload' : 'select-type');
+    if (collections.length === 1) setSelectedCollectionId(collections[0].id);
+    setImagePreview(null);
+    setBatchItems([]);
+    setBatchVisibleCount(8);
+    setFormData(createEmptyForm());
+    setError(null);
+    setIsSaving(false);
+    setAnalysisError(false);
+    setAnalysisNeedsReview(false);
+    setLowConfidence(false);
+    setBatchProgress(null);
+    setTitleError(null);
+    setBatchTitleErrors({});
+    setIsImageEditorOpen(false);
+    analysisRunId.current += 1;
+    // Reacting to `collections` here would wipe the in-flight form whenever the
+    // parent re-renders with a new array reference (cloud sync, etc.) — CUR-44.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -550,7 +552,12 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
   };
 
   const handleSave = async () => {
-    if (!currentCollection || isSaving) return;
+    if (isSaving) return;
+    if (!currentCollection) {
+      setError(t('selectCollectionFirst'));
+      setStep(collections.length === 1 ? 'upload' : 'select-type');
+      return;
+    }
     const trimmedTitle = formData.title.trim();
     if (!trimmedTitle) {
       setTitleError(t('titleRequired'));
@@ -577,7 +584,12 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
   };
 
   const handleBatchSave = async () => {
-    if (!currentCollection || isSaving) return;
+    if (isSaving) return;
+    if (!currentCollection) {
+      setError(t('selectCollectionFirst'));
+      setStep(collections.length === 1 ? 'upload' : 'select-type');
+      return;
+    }
     const missingTitles = batchItems.filter((item) => !item.title.trim());
     if (missingTitles.length > 0) {
       const errors = missingTitles.reduce<Record<string, boolean>>((acc, item) => {

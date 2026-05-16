@@ -669,6 +669,12 @@ export const AppContent: React.FC = () => {
     collectionId: string,
     itemData: Omit<CollectionItem, 'id' | 'createdAt' | 'updatedAt'>,
   ) => {
+    const exists = collections.some((c) => c.id === collectionId);
+    if (!exists) {
+      console.warn('handleAddItem: target collection not found', collectionId);
+      showStatus(t('statusSaveFailedMissingCollection'), 'error');
+      return;
+    }
     if (!canEditCollection(collectionId)) return;
     pendingSyncToastRef.current = true;
     if (!isSupabaseReady) pendingSyncToastRef.current = false;
@@ -697,19 +703,24 @@ export const AppContent: React.FC = () => {
       updatedAt: now,
     };
 
+    let added = false;
     setCollections((prev) => {
       const target = prev.find((c) => c.id === collectionId);
-      if (target) {
-        const newC = { ...target, items: [newItem, ...target.items], updatedAt: now };
-        saveCollection(newC).catch((e) => {
-          console.error('Save failed:', e);
-          showStatus(t('statusSyncError').replace('{error}', e.message), 'error');
-        });
-        return prev.map((c) => (c.id === collectionId ? newC : c));
-      }
-      return prev;
+      if (!target) return prev;
+      added = true;
+      const newC = { ...target, items: [newItem, ...target.items], updatedAt: now };
+      saveCollection(newC).catch((e) => {
+        console.error('Save failed:', e);
+        showStatus(t('statusSyncError').replace('{error}', e.message), 'error');
+      });
+      return prev.map((c) => (c.id === collectionId ? newC : c));
     });
-    showStatus(t('statusSaved'), 'success');
+    if (added) {
+      showStatus(t('statusSaved'), 'success');
+    } else {
+      console.warn('handleAddItem: target collection not found', collectionId);
+      showStatus(t('statusSaveFailedMissingCollection'), 'error');
+    }
   };
 
   const updateItem = (collectionId: string, itemId: string, updates: Partial<CollectionItem>) => {
