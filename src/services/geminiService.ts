@@ -110,7 +110,14 @@ type CollectionContext = {
 };
 
 export type AnalyzeResult =
-  | { status: 'success'; title: string; data: Record<string, any>; notes: string }
+  | {
+      status: 'success';
+      title: string;
+      data: Record<string, any>;
+      aiDescription: string;
+      /** @deprecated Mirrors aiDescription. Will be removed once CUR-13 settles. */
+      notes: string;
+    }
   | { status: 'disabled' }
   | { status: 'error'; message: string };
 
@@ -123,16 +130,25 @@ export const analyzeImage = async (
     if (!(await refreshAiEnabled())) {
       return { status: 'disabled' };
     }
-    const result = await postJson<{ title: string; data: Record<string, any>; notes: string }>(
-      '/api/gemini/analyze',
-      {
-        imageBase64: base64Image,
-        fields,
-        collectionContext: options.collectionContext,
-        locale: options.locale,
-      },
-    );
-    return { status: 'success', ...result };
+    const result = await postJson<{
+      title: string;
+      data: Record<string, any>;
+      aiDescription?: string;
+      notes?: string;
+    }>('/api/gemini/analyze', {
+      imageBase64: base64Image,
+      fields,
+      collectionContext: options.collectionContext,
+      locale: options.locale,
+    });
+    const aiDescription = result.aiDescription ?? result.notes ?? '';
+    return {
+      status: 'success',
+      title: result.title,
+      data: result.data ?? {},
+      aiDescription,
+      notes: aiDescription,
+    };
   } catch (error) {
     console.warn('AI analysis failed:', error);
     return {

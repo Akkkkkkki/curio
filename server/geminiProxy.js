@@ -277,9 +277,10 @@ app.post('/api/gemini/analyze', ipLimiter, requireAuth, userLimiter, async (req,
       type: Type.STRING,
       description: 'A short, descriptive title for the item.',
     },
-    notes: {
+    aiDescription: {
       type: Type.STRING,
-      description: 'A brief summary of visual observations about the item.',
+      description:
+        'A factual, neutral visual observation of the item (1-2 sentences). This is hidden metadata; it must NOT attempt to tell a story, infer emotional meaning, or speculate about the owner. Describe only what is visible.',
     },
   };
 
@@ -328,10 +329,14 @@ app.post('/api/gemini/analyze', ipLimiter, requireAuth, userLimiter, async (req,
     });
 
     const result = JSON.parse(response.text || '{}');
-    const { title, notes, ...data } = result || {};
+    const { title, aiDescription, ...data } = result || {};
+    const description = aiDescription || '';
     return res.json({
       title: title || 'New Item',
-      notes: notes || '',
+      aiDescription: description,
+      // Backwards-compatible alias for clients still reading `notes` from this
+      // endpoint. Remove after the CUR-13 rollout settles (CUR-13 commit E).
+      notes: description,
       data: data || {},
     });
   } catch (error) {
