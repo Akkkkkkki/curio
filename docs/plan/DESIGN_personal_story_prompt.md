@@ -16,8 +16,8 @@ Today, the item's most prominent long-form field — labelled "Archive Narrative
 The current behaviour lives in three places:
 
 - `server/geminiProxy.js:275-284` — the analyze schema asks Gemini for `notes` ("A brief summary of visual observations about the item").
-- `services/geminiService.ts:117-143` — the client receives `{ title, data, notes }` and treats `notes` as a regular field.
-- `components/AddItemModal.tsx:487-497, 980-992` — `result.notes` is written straight into `formData.notes`, which the verify step exposes as the "Archive Narrative" textarea, then persisted to `CollectionItem.notes` (`types.ts:41`).
+- `src/services/geminiService.ts:117-143` — the client receives `{ title, data, notes }` and treats `notes` as a regular field.
+- `src/components/AddItemModal.tsx:487-497, 980-992` — `result.notes` is written straight into `formData.notes`, which the verify step exposes as the "Archive Narrative" textarea, then persisted to `CollectionItem.notes` (`src/types.ts:41`).
 
 This spec resolves all four open questions raised in CUR-5 and CUR-13, plus the migration question for items already in the DB.
 
@@ -31,43 +31,43 @@ The four open questions, with chosen options and rationale tied back to the stra
 
 **Decision:** **Option C — separate fields.** AI fills a new hidden `aiDescription` field; the visible Story field is user-only.
 
-| Why                                                                                                                                                                                          |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Why                                                                                                                                                                                         |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Strategy §5.1: _"AI-generated object descriptions should not appear as the main story. They can remain as hidden metadata that the user can inspect when useful."_ — explicitly endorses C. |
-| Keeping the AI text as hidden metadata preserves its utility for future search/discovery (Phase 2) without polluting the story layer.                                                        |
-| Cleanly separates ownership: `story` is human, `aiDescription` is machine. Resolves the long-running question of "is this text mine or the AI's?"                                            |
+| Keeping the AI text as hidden metadata preserves its utility for future search/discovery (Phase 2) without polluting the story layer.                                                       |
+| Cleanly separates ownership: `story` is human, `aiDescription` is machine. Resolves the long-running question of "is this text mine or the AI's?"                                           |
 
 ### Q2 · What's the prompt UX?
 
 **Decision:** **Option C — both modes, free text as default.** The verify step shows a single Story textarea with an inviting placeholder. A subtle `✨ Need a prompt?` button reveals 3 AI-suggested questions tailored to the object. Users can tap a question to seed the textarea with it as a starting line (their cursor lands at the end), or close the prompts and keep writing freely.
 
-| Why                                                                                                                                                                                |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Strategy §5.1: _"Story prompting assistance (suggesting questions, not generating answers)."_                                                                                      |
-| Design §2.5: capture flow should prioritise simple defaults — a free textarea matches "easy over comprehensive" from §1 principles in `DESIGN_flexible_collection_creation.md`.    |
+| Why                                                                                                                                                                                 |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Strategy §5.1: _"Story prompting assistance (suggesting questions, not generating answers)."_                                                                                       |
+| Design §2.5: capture flow should prioritise simple defaults — a free textarea matches "easy over comprehensive" from §1 principles in `DESIGN_flexible_collection_creation.md`.     |
 | Guided questions help first-timers and writer's-block moments, but forcing them every time would feel bureaucratic — violating "beauty before bureaucracy" (`PRODUCT_STRATEGY.md`). |
-| Tapping a question seeds the textarea but does **not** auto-generate the answer — preserves the "AI suggests, user writes" boundary.                                               |
+| Tapping a question seeds the textarea but does **not** auto-generate the answer — preserves the "AI suggests, user writes" boundary.                                                |
 
 ### Q3 · When does the story prompt appear?
 
 **Decision:** **Option C — quick optional prompt in Add Item, with a persistent nudge in Item Detail.** The Story field is part of the verify step (visible, but skippable). Saving without a story is allowed; the item is then tagged with a soft "needs story" cue (already implied by `docs/PRODUCT_DESIGN.md` §2.5: _"Quick-add items should carry a subtle cue that they still need enrichment, especially story completion"_) and surfaced both in the item detail view and via a future homepage nudge ("3 items still need a story").
 
-| Why                                                                                                                                                                       |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Design §2.5 lists "story prompt" in the default capture surface — it belongs in Add Item.                                                                                 |
-| Design §2.4: _"Curio supports both capture now, curate later and write the story up front."_ — making it optional respects both modes.                                    |
-| Strategy: _"Make story prompts engaging, not obligatory. Show beautiful examples."_ — forcing it would create drop-off; nudging later creates a return-visit hook.        |
-| The "needs story" cue creates a healthy backlog of low-friction enrichment tasks, which drive Phase 0's retention metric (`ROADMAP.md` §metrics: _story field usage_).    |
+| Why                                                                                                                                                                    |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Design §2.5 lists "story prompt" in the default capture surface — it belongs in Add Item.                                                                              |
+| Design §2.4: _"Curio supports both capture now, curate later and write the story up front."_ — making it optional respects both modes.                                 |
+| Strategy: _"Make story prompts engaging, not obligatory. Show beautiful examples."_ — forcing it would create drop-off; nudging later creates a return-visit hook.     |
+| The "needs story" cue creates a healthy backlog of low-friction enrichment tasks, which drive Phase 0's retention metric (`ROADMAP.md` §metrics: _story field usage_). |
 
 ### Q4 · Can AI still assist with stories?
 
 **Decision:** **Option A — AI suggests questions only, never generates story text.** Hard rule, enforced in the prompt template, the UI copy, and the QA checklist.
 
-| Why                                                                                                                                                                              |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Strategy §5.1 and §6: _"AI helps extract metadata and suggest prompts, but does not invent the user's story."_                                                                   |
-| Design §4.1 (Phase 1 AI stance): _"AI should NOT auto-write the visible story."_                                                                                                 |
-| Tying our hands here is intentional — the moment we ship "AI write my story" we eliminate the moat. This must be a documented constraint, not an implementation detail.         |
+| Why                                                                                                                                                                     |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Strategy §5.1 and §6: _"AI helps extract metadata and suggest prompts, but does not invent the user's story."_                                                          |
+| Design §4.1 (Phase 1 AI stance): _"AI should NOT auto-write the visible story."_                                                                                        |
+| Tying our hands here is intentional — the moment we ship "AI write my story" we eliminate the moat. This must be a documented constraint, not an implementation detail. |
 
 ### Q5 (new) · Migration of existing items
 
@@ -86,7 +86,7 @@ Why not a backend migration? It would require classifying which `notes` strings 
 
 ## 3. Data Model
 
-### 3.1 Type changes (`types.ts`)
+### 3.1 Type changes (`src/types.ts`)
 
 ```diff
  export interface CollectionItem {
@@ -175,7 +175,7 @@ System prompt (sketch):
 
 Quality bar: questions like "Who introduced you to vinyl?" or "What were you doing the first time you opened this bar?" — not "What's the story?"
 
-### 4.2 Client (`services/geminiService.ts`)
+### 4.2 Client (`src/services/geminiService.ts`)
 
 - `analyzeImage()` returns `{ title, data, aiDescription }` (drop the public `notes` shape; the proxy keeps a `notes` alias for one release for backward compat).
 - New `fetchStoryPrompts({ ... }): Promise<{ prompts: string[] }>`. Failures return `{ prompts: [] }` and the UI silently hides the "Need a prompt?" button — story capture is never blocked by AI availability (`PRODUCT_DESIGN.md` §2.4: _"AI must never be a hard blocker"_).
@@ -302,25 +302,25 @@ The verify step on mobile keeps Story above custom fields, with the textarea siz
 
 ## 6. i18n
 
-New / renamed keys (`i18n.ts`):
+New / renamed keys (`src/i18n.ts`):
 
-| Key                            | English                                             | Chinese                                       | Notes                                              |
-| ------------------------------ | --------------------------------------------------- | --------------------------------------------- | -------------------------------------------------- |
-| `story` (rename `archiveNarrative`) | Story                                          | 故事                                          | Used as label in verify and detail.                |
-| `storyPlaceholder` (rename `provenancePlaceholder`) | What's the story behind this piece?       | 这件物品背后有什么故事？                       | Textarea placeholder.                              |
-| `storyPromptCta`               | Need a prompt?                                     | 需要灵感？                                    | Reveals AI questions.                              |
-| `storyPromptHelp`              | Try one of these to get started:                  | 试试这些灵感：                                | Above suggested questions.                         |
-| `storyPromptInsert`            | Insert                                            | 插入                                          | Tooltip for the `+` action.                        |
-| `storyPromptHide`              | Hide prompts                                       | 隐藏灵感                                      | Dismisses the suggestion stack.                    |
-| `storySaveWithout`             | Save without story                                | 暂不写故事                                    | Primary CTA when textarea is empty.                |
-| `storySaveWithoutHint`         | You can add a story later.                        | 可以稍后补上故事。                            | Hint under the button when empty.                  |
-| `storyEmptyDetailHint`         | Tell the story behind this one.                   | 讲讲这件物品背后的故事。                      | Empty-state copy on item detail.                   |
-| `storyEmptyDetailCta`          | Write your story                                  | 写下你的故事                                  | Empty-state primary action.                        |
-| `storyMigrationBanner`         | This narrative was written by AI when you first saved this item. Curio is now story-first — would you like to rewrite it? | 这段描述是 Curio 最初保存时由 AI 生成的。Curio 现在以故事为核心，你想重新写吗？ | Legacy banner body.       |
-| `storyMigrationKeep`           | Keep AI text                                      | 保留 AI 文本                                  | Banner action.                                     |
-| `storyMigrationStart`          | Start fresh                                       | 重新开始                                      | Banner action.                                     |
-| `storyMigrationEdit`           | Edit current                                      | 在现有基础上修改                              | Banner action.                                     |
-| `storyAiObservationLabel`      | AI observation (hidden from public view)          | AI 观察（不会公开显示）                       | Label for `aiDescription` under technical metadata. |
+| Key                                                 | English                                                                                                                   | Chinese                                                                         | Notes                                               |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | --------------------------------------------------- |
+| `story` (rename `archiveNarrative`)                 | Story                                                                                                                     | 故事                                                                            | Used as label in verify and detail.                 |
+| `storyPlaceholder` (rename `provenancePlaceholder`) | What's the story behind this piece?                                                                                       | 这件物品背后有什么故事？                                                        | Textarea placeholder.                               |
+| `storyPromptCta`                                    | Need a prompt?                                                                                                            | 需要灵感？                                                                      | Reveals AI questions.                               |
+| `storyPromptHelp`                                   | Try one of these to get started:                                                                                          | 试试这些灵感：                                                                  | Above suggested questions.                          |
+| `storyPromptInsert`                                 | Insert                                                                                                                    | 插入                                                                            | Tooltip for the `+` action.                         |
+| `storyPromptHide`                                   | Hide prompts                                                                                                              | 隐藏灵感                                                                        | Dismisses the suggestion stack.                     |
+| `storySaveWithout`                                  | Save without story                                                                                                        | 暂不写故事                                                                      | Primary CTA when textarea is empty.                 |
+| `storySaveWithoutHint`                              | You can add a story later.                                                                                                | 可以稍后补上故事。                                                              | Hint under the button when empty.                   |
+| `storyEmptyDetailHint`                              | Tell the story behind this one.                                                                                           | 讲讲这件物品背后的故事。                                                        | Empty-state copy on item detail.                    |
+| `storyEmptyDetailCta`                               | Write your story                                                                                                          | 写下你的故事                                                                    | Empty-state primary action.                         |
+| `storyMigrationBanner`                              | This narrative was written by AI when you first saved this item. Curio is now story-first — would you like to rewrite it? | 这段描述是 Curio 最初保存时由 AI 生成的。Curio 现在以故事为核心，你想重新写吗？ | Legacy banner body.                                 |
+| `storyMigrationKeep`                                | Keep AI text                                                                                                              | 保留 AI 文本                                                                    | Banner action.                                      |
+| `storyMigrationStart`                               | Start fresh                                                                                                               | 重新开始                                                                        | Banner action.                                      |
+| `storyMigrationEdit`                                | Edit current                                                                                                              | 在现有基础上修改                                                                | Banner action.                                      |
+| `storyAiObservationLabel`                           | AI observation (hidden from public view)                                                                                  | AI 观察（不会公开显示）                                                         | Label for `aiDescription` under technical metadata. |
 
 Keys to retire after one release: `archiveNarrative`, `provenancePlaceholder` (keep aliases for one minor version to avoid breaking external translations, then remove).
 
@@ -332,16 +332,16 @@ Keys to retire after one release: `archiveNarrative`, `provenancePlaceholder` (k
 
 For the implementer (CUR-13). Read this list together with §3, §4, §5.
 
-| File                                       | Change                                                                                                                          |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
-| `types.ts`                                 | Add `aiDescription?: string` and `_storyMigrationDismissed` convention; deprecate `AIAnalysisResult.notes` in favour of `aiDescription`. |
-| `server/geminiProxy.js`                    | Rename `notes` → `aiDescription` in the analyze schema; tighten description copy; add `POST /api/gemini/story-prompts` endpoint. |
-| `services/geminiService.ts`                | Update `analyzeImage` response handling; add `fetchStoryPrompts()` with graceful empty fallback.                                |
-| `components/AddItemModal.tsx`              | Verify step: stop auto-filling `formData.notes` from analyze; show empty Story textarea above custom fields; add prompt reveal; add "Save without story" CTA branch; route `aiDescription` into `data._aiDescription`. |
-| `App.tsx` (item detail screen)             | Rename label "Archive Narrative" → "Story"; render empty-state block when `notes` is empty; render legacy migration banner once per item; move `aiDescription` display under "More details → technical metadata". |
-| `i18n.ts`                                  | Add keys per §6; deprecate `archiveNarrative` and `provenancePlaceholder` (alias for one release).                              |
-| `docs/PRODUCT_DESIGN.md`                   | No change — already aligned. Cross-reference this spec from §2.5.                                                              |
-| `tests/`                                   | Add unit test: analyze response with `aiDescription` does not fill `formData.notes`. E2E: user can complete add-item without writing a story; legacy migration banner appears and dismisses correctly. |
+| File                               | Change                                                                                                                                                                                                                 |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/types.ts`                     | Add `aiDescription?: string` and `_storyMigrationDismissed` convention; deprecate `AIAnalysisResult.notes` in favour of `aiDescription`.                                                                               |
+| `server/geminiProxy.js`            | Rename `notes` → `aiDescription` in the analyze schema; tighten description copy; add `POST /api/gemini/story-prompts` endpoint.                                                                                       |
+| `src/services/geminiService.ts`    | Update `analyzeImage` response handling; add `fetchStoryPrompts()` with graceful empty fallback.                                                                                                                       |
+| `src/components/AddItemModal.tsx`  | Verify step: stop auto-filling `formData.notes` from analyze; show empty Story textarea above custom fields; add prompt reveal; add "Save without story" CTA branch; route `aiDescription` into `data._aiDescription`. |
+| `src/App.tsx` (item detail screen) | Rename label "Archive Narrative" → "Story"; render empty-state block when `notes` is empty; render legacy migration banner once per item; move `aiDescription` display under "More details → technical metadata".      |
+| `src/i18n.ts`                      | Add keys per §6; deprecate `archiveNarrative` and `provenancePlaceholder` (alias for one release).                                                                                                                     |
+| `docs/PRODUCT_DESIGN.md`           | No change — already aligned. Cross-reference this spec from §2.5.                                                                                                                                                      |
+| `tests/`                           | Add unit test: analyze response with `aiDescription` does not fill `formData.notes`. E2E: user can complete add-item without writing a story; legacy migration banner appears and dismisses correctly.                 |
 
 ---
 
