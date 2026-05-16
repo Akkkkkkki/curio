@@ -103,6 +103,30 @@ import { StatusToast, StatusTone } from './components/StatusToast';
 import { StatusBanner } from './components/StatusBanner';
 import { ConflictResolutionModal } from './components/ConflictResolutionModal';
 import { CURRENT_SEED_VERSION, INITIAL_COLLECTIONS } from './services/seedCollections';
+import { trackEvent } from './services/analytics';
+
+/**
+ * CUR-13: items created before this timestamp may have AI-authored notes
+ * ("Archive Narrative"). The legacy migration banner is offered for those
+ * items only, exactly once each. New items default to user-authored Story.
+ *
+ * Setting this to the merge moment of the CUR-13 rollout PR — the cutoff
+ * is conservative on purpose; the user can still dismiss the banner if
+ * the heuristic mis-fires.
+ */
+const STORY_FEATURE_LAUNCHED_AT = '2026-05-16T00:00:00.000Z';
+
+const isLegacyAiNoteItem = (item: CollectionItem): boolean => {
+  const story = item.notes;
+  if (!story || !story.trim()) return false;
+  const data = item.data || {};
+  if (data._isLegacyAiNotes === false) return false; // explicit exemption (e.g. seed items)
+  if (data._storyMigrationDismissed === true) return false;
+  if (data._aiDescription) return false; // already on the new schema
+  const createdAt = Date.parse(item.createdAt);
+  if (Number.isNaN(createdAt)) return false;
+  return createdAt < Date.parse(STORY_FEATURE_LAUNCHED_AT);
+};
 import {
   getEnvValidationErrors,
   STORAGE_QUOTA_CHECK_INTERVAL_MS,
@@ -1816,16 +1840,91 @@ export const AppContent: React.FC = () => {
                   <dt
                     className={`min-w-0 ${typographyClasses.label} ${labelColorClasses[theme]} break-words`}
                   >
-                    {t('archiveNarrative')}
+                    {t('story')}
                   </dt>
                 </div>
-                <textarea
-                  className={`w-full p-6 sm:p-8 rounded-2xl sm:rounded-[2.5rem] italic border font-serif text-xl sm:text-2xl leading-relaxed min-h-[200px] sm:min-h-[240px] focus:ring-8 focus:ring-amber-500/5 focus:border-amber-100 outline-none transition-all shadow-inner placeholder:text-stone-200 ${theme === 'vault' ? 'bg-white/5 border-white/5 text-white' : 'bg-stone-50/50 border-stone-100 text-stone-800'} ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
-                  value={item.notes}
-                  onChange={(e) => applyItemUpdate({ notes: e.target.value })}
-                  placeholder={t('provenancePlaceholder')}
-                  disabled={isReadOnly}
-                />
+                {(() => {
+                  const isLegacy = isLegacyAiNoteItem(item);
+                  const isEmpty = !(item.notes || '').trim();
+                  const showEmptyCard = isEmpty && !isReadOnly;
+
+                  const dismissMigration = () => {
+                    applyItemUpdate({
+                      data: { ...item.data, _storyMigrationDismissed: true },
+                    });
+                    trackEvent('story_legacy_banner_action', { action: 'keep' });
+                  };
+                  const editLegacy = () => {
+                    applyItemUpdate({
+                      data: { ...item.data, _storyMigrationDismissed: true },
+                    });
+                    trackEvent('story_legacy_banner_action', { action: 'edit' });
+                  };
+                  const startFresh = () => {
+                    applyItemUpdate({
+                      notes: '',
+                      data: {
+                        ...item.data,
+                        _aiDescription: item.notes,
+                        _storyMigrationDismissed: true,
+                      },
+                    });
+                    trackEvent('story_legacy_banner_action', { action: 'start_fresh' });
+                  };
+
+                  return (
+                    <>
+                      {isLegacy && !isReadOnly && (
+                        <div
+                          className={`p-4 sm:p-5 rounded-2xl border ${theme === 'vault' ? 'bg-amber-500/10 border-amber-500/30 text-amber-100' : 'bg-amber-50 border-amber-200 text-amber-900'}`}
+                        >
+                          <p className="text-sm leading-relaxed mb-3">
+                            {t('storyMigrationBanner')}
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            <Button size="sm" onClick={startFresh}>
+                              {t('storyMigrationStart')}
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={editLegacy}>
+                              {t('storyMigrationEdit')}
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={dismissMigration}>
+                              {t('storyMigrationKeep')}
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                      {showEmptyCard ? (
+                        <div
+                          className={`w-full p-6 sm:p-8 rounded-2xl sm:rounded-[2.5rem] border-2 border-dashed flex flex-col items-center justify-center text-center gap-3 min-h-[200px] sm:min-h-[240px] ${theme === 'vault' ? 'border-white/10 bg-white/5 text-stone-300' : 'border-stone-200 bg-stone-50/40 text-stone-500'}`}
+                        >
+                          <p className={`${typographyClasses.quote} text-base sm:text-lg max-w-md`}>
+                            {t('storyEmptyDetailHint')}
+                          </p>
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              const el = document.getElementById(
+                                'item-story-textarea',
+                              ) as HTMLTextAreaElement | null;
+                              el?.focus();
+                            }}
+                          >
+                            {t('storyEmptyDetailCta')}
+                          </Button>
+                        </div>
+                      ) : null}
+                      <textarea
+                        id="item-story-textarea"
+                        className={`w-full p-6 sm:p-8 rounded-2xl sm:rounded-[2.5rem] italic border font-serif text-xl sm:text-2xl leading-relaxed min-h-[200px] sm:min-h-[240px] focus:ring-8 focus:ring-amber-500/5 focus:border-amber-100 outline-none transition-all shadow-inner placeholder:text-stone-200 ${theme === 'vault' ? 'bg-white/5 border-white/5 text-white' : 'bg-stone-50/50 border-stone-100 text-stone-800'} ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''} ${showEmptyCard ? 'hidden' : ''}`}
+                        value={item.notes}
+                        onChange={(e) => applyItemUpdate({ notes: e.target.value })}
+                        placeholder={t('storyPlaceholder')}
+                        disabled={isReadOnly}
+                      />
+                    </>
+                  );
+                })()}
               </div>
 
               <div className="space-y-8 sm:space-y-10">
@@ -1862,6 +1961,23 @@ export const AppContent: React.FC = () => {
                     );
                   })}
                 </div>
+                {typeof item.data?._aiDescription === 'string' &&
+                  item.data._aiDescription.trim().length > 0 && (
+                    <details
+                      className={`mt-6 sm:mt-8 pt-4 sm:pt-6 border-t ${theme === 'vault' ? 'border-white/5' : `${dividerClasses[theme]}`}`}
+                    >
+                      <summary
+                        className={`${typographyClasses.label} cursor-pointer text-stone-400 hover:text-amber-500 transition-colors`}
+                      >
+                        {t('storyAiObservationLabel')}
+                      </summary>
+                      <p
+                        className={`mt-3 text-xs sm:text-sm leading-relaxed ${theme === 'vault' ? 'text-stone-300' : 'text-stone-500'} font-mono whitespace-pre-wrap`}
+                      >
+                        {item.data._aiDescription}
+                      </p>
+                    </details>
+                  )}
               </div>
             </div>
           </div>

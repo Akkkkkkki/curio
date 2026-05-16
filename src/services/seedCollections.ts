@@ -1,7 +1,7 @@
 import { UserCollection } from '../types';
 import { TEMPLATES } from '../constants';
 
-export const CURRENT_SEED_VERSION = 3;
+export const CURRENT_SEED_VERSION = 4;
 export const SEED_IMAGE_PATH = `${import.meta.env.BASE_URL}assets/sample-vinyl.jpg`;
 const SEED_TIMESTAMP = new Date().toISOString();
 
@@ -27,6 +27,7 @@ export const INITIAL_COLLECTIONS: UserCollection[] = [
           year: 1959,
           genre: 'Modal Jazz',
           speed: '33 1/3 RPM',
+          _isLegacyAiNotes: false,
           condition: 'Mint (M)',
         },
         createdAt: SEED_TIMESTAMP,
@@ -47,6 +48,7 @@ export const INITIAL_COLLECTIONS: UserCollection[] = [
           year: 1965,
           genre: 'Spiritual Jazz',
           speed: '33 1/3 RPM',
+          _isLegacyAiNotes: false,
           condition: 'Near Mint (NM)',
         },
         createdAt: SEED_TIMESTAMP,
@@ -67,6 +69,7 @@ export const INITIAL_COLLECTIONS: UserCollection[] = [
           year: 1971,
           genre: 'Soul',
           speed: '33 1/3 RPM',
+          _isLegacyAiNotes: false,
           condition: 'Very Good Plus (VG+)',
         },
         createdAt: SEED_TIMESTAMP,
@@ -87,6 +90,7 @@ export const INITIAL_COLLECTIONS: UserCollection[] = [
           year: 1977,
           genre: 'Soft Rock',
           speed: '33 1/3 RPM',
+          _isLegacyAiNotes: false,
           condition: 'Near Mint (NM)',
         },
         createdAt: SEED_TIMESTAMP,
@@ -107,6 +111,7 @@ export const INITIAL_COLLECTIONS: UserCollection[] = [
           year: 2001,
           genre: 'French House',
           speed: '33 1/3 RPM',
+          _isLegacyAiNotes: false,
           condition: 'Very Good Plus (VG+)',
         },
         createdAt: SEED_TIMESTAMP,
