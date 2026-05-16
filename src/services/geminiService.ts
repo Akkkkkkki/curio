@@ -158,6 +158,43 @@ export const analyzeImage = async (
   }
 };
 
+const STORY_PROMPTS_TIMEOUT_MS = 3000;
+
+export interface StoryPromptsRequest {
+  title: string;
+  collectionContext?: CollectionContext;
+  aiDescription?: string;
+  knownFields?: Record<string, string | number>;
+  locale?: string;
+}
+
+/**
+ * Fetch 3 short, object-specific story prompts from the proxy. Returns
+ * `{ prompts: [] }` on any failure — prompts are an enhancement and must
+ * never block the capture flow (PRODUCT_DESIGN §2.4).
+ */
+export const fetchStoryPrompts = async (
+  req: StoryPromptsRequest,
+): Promise<{ prompts: string[] }> => {
+  try {
+    if (!(await refreshAiEnabled())) {
+      return { prompts: [] };
+    }
+    const result = await postJson<{ prompts?: unknown }>(
+      '/api/gemini/story-prompts',
+      req,
+      STORY_PROMPTS_TIMEOUT_MS,
+    );
+    const prompts = Array.isArray(result?.prompts)
+      ? result.prompts.filter((p): p is string => typeof p === 'string' && p.trim().length > 0)
+      : [];
+    return { prompts };
+  } catch (error) {
+    console.warn('Story prompts fetch failed:', error);
+    return { prompts: [] };
+  }
+};
+
 export const suggestCollectionFields = async (
   description: string,
   locale?: string,

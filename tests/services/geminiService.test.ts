@@ -223,6 +223,85 @@ describe('services/geminiService.ts - analyzeImage (Phase 3.1)', () => {
   });
 });
 
+describe('services/geminiService.ts - fetchStoryPrompts (CUR-13)', () => {
+  beforeEach(() => {
+    vi.unstubAllEnvs();
+    vi.stubEnv('VITE_API_BASE_URL', 'http://localhost:8787');
+    vi.stubEnv('VITE_AI_ENABLED', 'true');
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+    vi.clearAllMocks();
+  });
+
+  it('returns server prompts when the proxy responds happily', async () => {
+    const fetchSpy = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url =
+        typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      if (url.endsWith('/gemini/story-prompts')) {
+        const body = JSON.parse(String(init?.body ?? 'null'));
+        expect(body).toMatchObject({ title: 'Kind of Blue', locale: 'en' });
+        return createOkJsonResponse({
+          prompts: ['Where did you first hear it?', 'What does it remind you of?', 'Why this one?'],
+        });
+      }
+      return createOkJsonResponse({ geminiConfigured: true });
+    });
+    vi.stubGlobal('fetch', fetchSpy);
+
+    const mod = await importGeminiServiceFresh();
+    const result = await mod.fetchStoryPrompts({ title: 'Kind of Blue', locale: 'en' });
+    expect(result.prompts).toHaveLength(3);
+  });
+
+  it('returns an empty array (never throws) on network failure', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(async (url: string) => {
+        if (url.includes('/health')) {
+          return createOkJsonResponse({ geminiConfigured: true });
+        }
+        throw new Error('Network down');
+      }),
+    );
+
+    const mod = await importGeminiServiceFresh();
+    const result = await mod.fetchStoryPrompts({ title: 'X' });
+    expect(result).toEqual({ prompts: [] });
+    warnSpy.mockRestore();
+  });
+
+  it('returns an empty array when AI is disabled', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(createOkJsonResponse({ geminiConfigured: false })),
+    );
+    const mod = await importGeminiServiceFresh({ aiEnabled: 'false' });
+
+    const result = await mod.fetchStoryPrompts({ title: 'X' });
+    expect(result).toEqual({ prompts: [] });
+  });
+
+  it('filters non-strings and empties out of the proxy response', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(async (url: string) => {
+        if (url.includes('/health')) {
+          return createOkJsonResponse({ geminiConfigured: true });
+        }
+        return createOkJsonResponse({ prompts: ['Real prompt', '', null, 42, 'Another'] });
+      }),
+    );
+    const mod = await importGeminiServiceFresh();
+    const result = await mod.fetchStoryPrompts({ title: 'X' });
+    expect(result.prompts).toEqual(['Real prompt', 'Another']);
+  });
+});
+
 describe('services/geminiService.ts - suggestCollectionFields', () => {
   beforeEach(() => {
     vi.unstubAllEnvs();

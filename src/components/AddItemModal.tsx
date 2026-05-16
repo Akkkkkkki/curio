@@ -17,7 +17,8 @@ import {
 } from 'lucide-react';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { UserCollection, CollectionItem } from '../types';
-import { analyzeImage, refreshAiEnabled } from '../services/geminiService';
+import { analyzeImage, fetchStoryPrompts, refreshAiEnabled } from '../services/geminiService';
+import { trackEvent, storyLengthBucket } from '../services/analytics';
 import { Button } from './ui/Button';
 import { useTranslation, getFieldTranslation } from '../i18n';
 import { useTheme, panelSurfaceClasses, overlaySurfaceClasses, mutedTextClasses } from '../theme';
@@ -87,11 +88,16 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
   const [titleError, setTitleError] = useState<string | null>(null);
   const [batchTitleErrors, setBatchTitleErrors] = useState<Record<string, boolean>>({});
   const [isImageEditorOpen, setIsImageEditorOpen] = useState(false);
+  const [promptsOpen, setPromptsOpen] = useState(false);
+  const [promptsLoading, setPromptsLoading] = useState(false);
+  const [storyPrompts, setStoryPrompts] = useState<string[]>([]);
+  const [promptsFetched, setPromptsFetched] = useState(false);
 
   const batchInputRef = useRef<HTMLInputElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const lastFocusedElementRef = useRef<HTMLElement | null>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
+  const storyInputRef = useRef<HTMLTextAreaElement>(null);
   const analysisRunId = useRef(0);
 
   const surfaceClass = panelSurfaceClasses[theme];
@@ -114,6 +120,56 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     return getFieldTranslation(t, fieldId, fallback);
   };
 
+  const openStoryPromptsPanel = async () => {
+    setPromptsOpen(true);
+    if (promptsFetched || promptsLoading || !currentCollection) return;
+    trackEvent('story_prompt_panel_opened', {});
+    setPromptsLoading(true);
+    try {
+      const knownFields: Record<string, string | number> = {};
+      for (const [k, v] of Object.entries(formData.data || {})) {
+        if (k.startsWith('_')) continue;
+        if (typeof v === 'string' || typeof v === 'number') knownFields[k] = v;
+      }
+      const result = await fetchStoryPrompts({
+        title: formData.title || '',
+        collectionContext: {
+          name: currentCollection.name,
+          description: currentCollection.collectionDescription,
+        },
+        aiDescription: (formData.data?._aiDescription as string | undefined) || undefined,
+        knownFields,
+        locale: language,
+      });
+      setStoryPrompts(result.prompts);
+      setPromptsFetched(true);
+    } finally {
+      setPromptsLoading(false);
+    }
+  };
+
+  const insertStoryPrompt = (prompt: string) => {
+    const el = storyInputRef.current;
+    const current = formData.notes || '';
+    const snippet = `> ${prompt}\n\n`;
+    const insertAt = el?.selectionStart ?? current.length;
+    const next = current.slice(0, insertAt) + snippet + current.slice(insertAt);
+    setFormData({ ...formData, notes: next });
+    trackEvent('story_prompt_inserted', { prompt_length: prompt.length });
+    // Focus the textarea after the state update; caret moves to end of insert.
+    requestAnimationFrame(() => {
+      const t = storyInputRef.current;
+      if (!t) return;
+      t.focus();
+      const caret = insertAt + snippet.length;
+      try {
+        t.setSelectionRange(caret, caret);
+      } catch {
+        /* selection not supported in some test envs */
+      }
+    });
+  };
+
   useEffect(() => {
     if (!isOpen) return;
     lastFocusedElementRef.current =
@@ -133,6 +189,10 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     setTitleError(null);
     setBatchTitleErrors({});
     setIsImageEditorOpen(false);
+    setPromptsOpen(false);
+    setPromptsLoading(false);
+    setStoryPrompts([]);
+    setPromptsFetched(false);
     analysisRunId.current += 1;
     // Reacting to `collections` here would wipe the in-flight form whenever the
     // parent re-renders with a new array reference (cloud sync, etc.) — CUR-44.
@@ -333,8 +393,12 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
           createBatchItem(image, {
             id: existingIds[idx] || Math.random().toString(36).slice(2, 10),
             title: result.title || '',
-            notes: result.notes || '',
-            data: cleanAiData(result.data || {}),
+            // notes (Story) is now user-authored only — never AI-filled.
+            notes: '',
+            data: {
+              ...cleanAiData(result.data || {}),
+              ...(result.aiDescription ? { _aiDescription: result.aiDescription } : {}),
+            },
           }),
         );
       } catch (err) {
@@ -493,8 +557,12 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
 
       setFormData({
         title: result.title || '',
-        notes: result.notes || '',
-        data: cleanedData,
+        // notes (Story) is now user-authored only — never AI-filled.
+        notes: '',
+        data: {
+          ...cleanedData,
+          ...(result.aiDescription ? { _aiDescription: result.aiDescription } : {}),
+        },
         rating: 0,
       });
       setStep('verify');
@@ -566,14 +634,19 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     }
     setIsSaving(true);
     try {
+      const story = formData.notes || '';
       await onSave(currentCollection.id, {
         collectionId: currentCollection.id,
         photoUrl: imagePreview || '',
         title: trimmedTitle,
         rating: formData.rating || 0,
-        notes: formData.notes || '',
+        notes: story,
         data: formData.data || {},
       });
+      trackEvent(
+        story.trim().length > 0 ? 'add_item_saved_with_story' : 'add_item_saved_without_story',
+        { story_length_bucket: storyLengthBucket(story.trim().length) },
+      );
       onClose();
     } catch (e) {
       console.error('Save failed:', e);
@@ -603,14 +676,19 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     setIsSaving(true);
     try {
       for (const item of batchItems) {
+        const story = item.notes || '';
         await onSave(currentCollection.id, {
           collectionId: currentCollection.id,
           photoUrl: item.image,
           title: item.title || 'Untitled',
           rating: item.rating || 0,
-          notes: item.notes || '',
+          notes: story,
           data: item.data || {},
         });
+        trackEvent(
+          story.trim().length > 0 ? 'add_item_saved_with_story' : 'add_item_saved_without_story',
+          { story_length_bucket: storyLengthBucket(story.trim().length) },
+        );
       }
       onClose();
     } catch (e) {
@@ -991,16 +1069,69 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
       <div className="space-y-3 sm:space-y-4 px-1">
         <div>
           <label
+            htmlFor="add-item-story"
             className={`block text-[11px] font-semibold uppercase tracking-[0.12em] ${mutedText} mb-1 sm:mb-2`}
           >
-            {t('archiveNarrative')}
+            {t('story')}
           </label>
           <textarea
-            className={`w-full p-3 sm:p-4 rounded-xl font-serif italic text-base leading-relaxed min-h-[96px] ${inputSurface} placeholder:not-italic placeholder:font-sans placeholder:text-sm`}
+            id="add-item-story"
+            ref={storyInputRef}
+            className={`w-full p-3 sm:p-4 rounded-xl font-serif italic text-base leading-relaxed min-h-[128px] sm:min-h-[160px] ${inputSurface} placeholder:not-italic placeholder:font-sans placeholder:text-sm`}
             value={formData.notes || ''}
             onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-            placeholder={t('provenancePlaceholder')}
+            placeholder={t('storyPlaceholder')}
           />
+          {!promptsOpen && (
+            <button
+              type="button"
+              onClick={openStoryPromptsPanel}
+              className={`mt-2 text-[11px] sm:text-xs font-medium ${mutedText} hover:text-amber-600 transition-colors inline-flex items-center gap-1`}
+            >
+              <Sparkles size={12} aria-hidden /> {t('storyPromptCta')}
+            </button>
+          )}
+          {promptsOpen && (
+            <div
+              className={`mt-3 rounded-xl border ${borderClass} p-3 sm:p-4 ${theme === 'vault' ? 'bg-white/5' : 'bg-amber-50/40'}`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <p className={`text-[11px] font-semibold uppercase tracking-[0.12em] ${mutedText}`}>
+                  {t('storyPromptHelp')}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setPromptsOpen(false)}
+                  className={`text-[11px] ${mutedText} hover:text-stone-700`}
+                >
+                  {t('storyPromptHide')}
+                </button>
+              </div>
+              {promptsLoading && (
+                <p className={`text-[12px] ${mutedText} italic`}>{t('storyPromptLoading')}</p>
+              )}
+              {!promptsLoading && storyPrompts.length === 0 && (
+                // Empty result — hide the panel silently after a beat so the user
+                // isn't left staring at a useless box.
+                <p className={`text-[12px] ${mutedText} italic`}>—</p>
+              )}
+              <ul className="space-y-1.5 mt-1">
+                {storyPrompts.map((prompt, idx) => (
+                  <li key={`${idx}-${prompt}`}>
+                    <button
+                      type="button"
+                      onClick={() => insertStoryPrompt(prompt)}
+                      className={`w-full text-left text-[12px] sm:text-[13px] px-2 py-1.5 rounded-lg flex items-start gap-2 transition-colors ${theme === 'vault' ? 'hover:bg-white/10 text-stone-200' : 'hover:bg-white text-stone-700'}`}
+                    >
+                      <Plus size={12} className="mt-0.5 shrink-0" aria-hidden />
+                      <span>{prompt}</span>
+                      <span className="sr-only">{t('storyPromptInsert')}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
         {currentCollection?.customFields.map((field) => (
           <div key={field.id}>
@@ -1089,23 +1220,41 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
             {step === 'analyzing' && renderAnalyzing()}
             {step === 'verify' && renderVerify()}
           </div>
-          {step === 'verify' && (
-            <div
-              className={`border-t ${borderClass} p-4 sm:p-5 ${theme === 'vault' ? 'bg-stone-950' : 'bg-white'}`}
-            >
-              <Button
-                className="w-full"
-                size="lg"
-                onClick={handleSave}
-                icon={
-                  isSaving ? <Loader2 size={18} className="animate-spin" /> : <Check size={18} />
-                }
-                disabled={isSaving}
-              >
-                {isSaving ? t('analyzingPhoto').split('...')[0] : t('addToCollection')}
-              </Button>
-            </div>
-          )}
+          {step === 'verify' &&
+            (() => {
+              const storyEmpty = !(formData.notes || '').trim();
+              const label = isSaving
+                ? t('analyzingPhoto').split('...')[0]
+                : storyEmpty
+                  ? t('storySaveWithout')
+                  : t('addToCollection');
+              return (
+                <div
+                  className={`border-t ${borderClass} p-4 sm:p-5 ${theme === 'vault' ? 'bg-stone-950' : 'bg-white'}`}
+                >
+                  <Button
+                    className="w-full"
+                    size="lg"
+                    onClick={handleSave}
+                    icon={
+                      isSaving ? (
+                        <Loader2 size={18} className="animate-spin" />
+                      ) : (
+                        <Check size={18} />
+                      )
+                    }
+                    disabled={isSaving}
+                  >
+                    {label}
+                  </Button>
+                  {storyEmpty && !isSaving && (
+                    <p className={`mt-2 text-center text-[11px] ${mutedText}`}>
+                      {t('storySaveWithoutHint')}
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
           {step === 'batch-verify' && (
             <div
               className={`border-t ${borderClass} p-4 sm:p-5 ${theme === 'vault' ? 'bg-stone-950' : 'bg-white'}`}
