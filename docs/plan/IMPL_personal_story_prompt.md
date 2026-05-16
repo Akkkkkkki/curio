@@ -77,7 +77,7 @@ Goal: the `✨ Need a prompt?` affordance returns 3 tailored questions; failure 
   - Add `/api/gemini/story-prompts` to the `METRICS_ROUTES` set (line 21-26).
 - `src/services/geminiService.ts` — add `fetchStoryPrompts({ title, collectionContext, aiDescription, knownFields, locale }): Promise<{ prompts: string[] }>`. On any throw or `status === 'disabled'`, resolve `{ prompts: [] }` (never reject). 3-second timeout via a tighter `REQUEST_TIMEOUT_MS` override (spec §8: 3s p95 budget; if we miss, UI silently hides the affordance).
 - `src/components/AddItemModal.tsx` — hook the panel up:
-  - Lazy-call `fetchStoryPrompts` when the user first opens the panel _or_ after the textarea is focused for >10s with no input (once per session, per spec §5.1). Cache the result on the batch-item / formData so reopening doesn't re-fetch.
+  - Lazy-call `fetchStoryPrompts` only when the user explicitly opens the panel (no idle-timer auto-reveal — see §5 open call #1). Cache the result on the batch-item / formData so reopening doesn't re-fetch.
   - Render 3 rows with `+` buttons. Tapping inserts the question as `> {question}\n\n` at the cursor (textarea focused, caret moved to the end). If the array is empty, hide the panel entirely — don't show a loading skeleton (spec §4.2: prompts are an enhancement, never required).
 - `tests/services/geminiService.test.ts` — new test: `fetchStoryPrompts` returns `{ prompts: [] }` when the proxy returns 500 / 503 / times out.
 - `tests/integration/AppNavigation.test.tsx:109` (or a tighter component test) — interaction test: opening the prompts panel triggers the fetch exactly once; tapping a question inserts text into the textarea.
@@ -96,7 +96,7 @@ Goal: the visible "Archive Narrative" label is now "Story" everywhere; legacy it
 
 **Migration detection — how do we know an item is "legacy"?** The spec leaves this open, so resolve it here:
 
-- Define a one-time backfill at app load: in `services/db.ts` (or the loader called by `useCollections`), after fetching items, mark any item where `notes && !data._aiDescription && !data._storyMigrationDismissed && createdAt < <flag-cutoff>` with `data._isLegacyAiNotes = true`. The cutoff is a constant equal to "first commit timestamp that introduces this feature" — committed to `services/db.ts` as `STORY_FEATURE_LAUNCHED_AT`.
+- Define a one-time backfill at app load: in `services/db.ts` (or the loader called by `useCollections`), after fetching items, mark any item where `notes && !data._aiDescription && !data._storyMigrationDismissed && data._isLegacyAiNotes !== false && createdAt < <flag-cutoff>` with `data._isLegacyAiNotes = true`. The cutoff is a constant equal to "first commit timestamp that introduces this feature" — committed to `services/db.ts` as `STORY_FEATURE_LAUNCHED_AT`. The explicit `!== false` check preserves seed/editorial exemptions (see commit D, seedCollections change).
 - The flag is a derived hint; if the user dismisses or rewrites, we set `_storyMigrationDismissed = true` and never recompute. Items created _after_ the cutoff are presumed to have correct `notes` (user-authored) and never show the banner.
 - This is intentionally a heuristic — see spec §2 Q5 rationale. No backend migration.
 
@@ -148,16 +148,17 @@ Item-detail-side events (`story_started_from_empty`, `story_prompt_inserted`, `l
 The five things most likely to trip us up:
 
 1. **`cleanAiData` filter behaviour.** If it nukes underscore keys, commit B fails silently. Read it during commit A and fix in the same commit if needed.
-2. **Story prompts cost.** Every Add Item flow that opens the panel triggers one Gemini call. Spec §10 Q1 leaves the auto-reveal-after-10s open. **Recommendation: ship without auto-reveal in commit C.** Easier to add later than to roll back. Confirm with owner.
+2. **Story prompts cost.** Every Add Item flow that opens the panel triggers one Gemini call. Owner confirmed this cost is acceptable (2026-05-16). We still ship without an idle-timer auto-reveal — opening the panel is an explicit user action — so the cost is bounded by intent, not by dwell time.
 3. **Legacy detection false positives.** Anyone who manually edited their AI-generated text before this change will still see the banner. The spec acknowledges this is unavoidable without server-side ML classification. We just need to make sure `Keep AI text` is the easiest action.
 4. **Public sample items.** The Vinyl seed items have editorial prose, not AI text. Without the `_isLegacyAiNotes: false` marker (commit D), every new user would see the migration banner on every sample item — terrible first impression. Don't forget the seed bump.
 5. **Aliases in tests.** The live test (`tests/live/geminiProxy.live.test.ts:63-64`) is the contract guard. Make sure it asserts both `notes` and `aiDescription` after commit A, and only `aiDescription` after commit E — never neither.
 
-Open questions to confirm with owner before commit C:
+Owner decisions (2026-05-16):
 
-- Auto-reveal of prompts after 10s idle: ship or defer? (Recommend defer.)
-- `story_*` analytics shim: stub now and let CUR-8 wire, or block on CUR-8? (Recommend stub.)
-- Commit E timing: at +7 days, or hold until the next minor release? (Recommend +7 days.)
+1. **Auto-reveal of prompts after 10s idle:** Deferred. Prompts open on explicit click only. (Cost was approved; we still skip auto-reveal to keep behaviour predictable and easy to roll forward later.)
+2. **`story_*` analytics shim:** Stub now in `src/services/analytics.ts`; CUR-8 will wire the real sink.
+3. **Commit E timing:** Filed as followup ticket; land ≥ 7 days after A–D ship.
+4. **Renaming `notes` → `story` in storage:** Punted to a separate Linear ticket so this change stays focused on UX.
 
 ---
 
