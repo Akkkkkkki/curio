@@ -4,6 +4,7 @@ const METRICS_ROUTES = new Set([
   '/api/gemini/analyze',
   '/api/gemini/enhance',
   '/api/gemini/suggest-fields',
+  '/api/gemini/story-prompts',
 ]);
 const metrics = new Map();
 
