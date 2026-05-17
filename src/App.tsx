@@ -1566,8 +1566,10 @@ export const AppContent: React.FC = () => {
         if (result.prompts.length > 0) {
           setDetailPromptsFetchedFor(detailPromptsCacheKey);
         } else {
+          // Leave the panel open with an informative message; the user can
+          // dismiss with "Hide prompts" and retry once they've edited the
+          // title or other context.
           setDetailPromptsFetchedFor(null);
-          setDetailPromptsOpen(false);
         }
       } finally {
         setDetailPromptsLoading(false);
@@ -2025,6 +2027,13 @@ export const AppContent: React.FC = () => {
                               className={`text-[12px] italic ${theme === 'vault' ? 'text-stone-400' : 'text-stone-500'}`}
                             >
                               {t('storyPromptLoading')}
+                            </p>
+                          )}
+                          {!detailPromptsLoading && detailStoryPrompts.length === 0 && (
+                            <p
+                              className={`text-[12px] ${theme === 'vault' ? 'text-stone-300' : 'text-stone-600'}`}
+                            >
+                              {t('storyPromptEmpty')}
                             </p>
                           )}
                           <ul className="space-y-1.5 mt-1">

@@ -49,6 +49,8 @@ export const translations = {
     storyPromptHide: 'Hide prompts',
     storyPromptInsert: 'Insert',
     storyPromptLoading: 'Thinking of prompts…',
+    storyPromptEmpty:
+      "Couldn't generate prompts for this item. Try again after adding a title or a few details.",
     storySaveWithout: 'Save without story',
     storySaveWithoutHint: 'You can add a story later.',
     storyEmptyDetailHint: 'Tell the story behind this one.',
@@ -457,6 +459,7 @@ export const translations = {
     storyPromptHide: '隐藏灵感',
     storyPromptInsert: '插入',
     storyPromptLoading: '正在生成灵感…',
+    storyPromptEmpty: '暂时想不出灵感。等标题或一些细节填好后再试试。',
     storySaveWithout: '暂不写故事',
     storySaveWithoutHint: '可以稍后补上故事。',
     storyEmptyDetailHint: '讲讲这件物品背后的故事。',

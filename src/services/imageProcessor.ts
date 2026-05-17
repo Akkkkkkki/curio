@@ -88,6 +88,11 @@ const blobToBase64 = (blob: Blob): Promise<string> =>
     reader.readAsDataURL(blob);
   });
 
+const rawBase64FromDataUrl = (dataUrl: string): string => {
+  const idx = dataUrl.indexOf(',');
+  return idx >= 0 ? dataUrl.slice(idx + 1) : dataUrl;
+};
+
 /**
  * Compress a data-URL image into a smaller JPEG base64 suitable for sending
  * to the AI analysis proxy. Returns the bare base64 string (no data: prefix).
@@ -96,24 +101,38 @@ const blobToBase64 = (blob: Blob): Promise<string> =>
  * as a 413 on `/api/gemini/analyze`. Downscaling client-side keeps the call
  * within budget without losing useful detail (vision models don't benefit
  * from > ~1500px).
+ *
+ * Never throws: if anything in the canvas pipeline fails — e.g. an
+ * undecodable format like HEIC, a canvas-context error on a constrained
+ * mobile browser, or an oversized source — we return the original base64
+ * and let the proxy decide. That preserves the prior behavior in failure
+ * cases instead of turning a payload problem into a hard "analysis failed".
  */
 export const compressImageForAi = async (dataUrl: string): Promise<string> => {
-  const blob = dataUrl.startsWith('data:')
-    ? await dataUrlToBlob(dataUrl)
-    : await (await fetch(dataUrl)).blob();
+  try {
+    const blob = dataUrl.startsWith('data:')
+      ? await dataUrlToBlob(dataUrl)
+      : await (await fetch(dataUrl)).blob();
 
-  if (blob.size > MAX_INPUT_FILE_SIZE) {
-    throw new ImageProcessingError(
-      `Image is too large (${(blob.size / 1024 / 1024).toFixed(1)}MB). Maximum is ${MAX_INPUT_FILE_SIZE / 1024 / 1024}MB.`,
-    );
+    if (blob.size > MAX_INPUT_FILE_SIZE) {
+      // Don't refuse here — let the caller send the raw payload and surface
+      // the upstream 413 with its actual error message.
+      console.warn(
+        `compressImageForAi: source ${(blob.size / 1024 / 1024).toFixed(1)}MB exceeds ${MAX_INPUT_FILE_SIZE / 1024 / 1024}MB cap; sending raw.`,
+      );
+      return rawBase64FromDataUrl(dataUrl);
+    }
+
+    const img = await loadImageFromBlob(blob);
+    const compressed = await jpegFromImage(img, {
+      maxDim: AI_ANALYZE_MAX_DIM,
+      quality: AI_ANALYZE_QUALITY,
+    });
+    return blobToBase64(compressed);
+  } catch (err) {
+    console.warn('compressImageForAi: compression failed, falling back to raw base64:', err);
+    return rawBase64FromDataUrl(dataUrl);
   }
-
-  const img = await loadImageFromBlob(blob);
-  const compressed = await jpegFromImage(img, {
-    maxDim: AI_ANALYZE_MAX_DIM,
-    quality: AI_ANALYZE_QUALITY,
-  });
-  return blobToBase64(compressed);
 };
 
 /**
