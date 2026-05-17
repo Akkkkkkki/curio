@@ -41,7 +41,7 @@ const getChangedFields = (local: any, cloud: any, type: 'item' | 'collection') =
   if (type === 'item') {
     if (local.title !== cloud.title) changes.push('Title');
     if (local.rating !== cloud.rating) changes.push('Rating');
-    if (local.notes !== cloud.notes) changes.push('Notes');
+    if (local.notes !== cloud.notes) changes.push('Story');
     // Simple check for data fields
     const localData = JSON.stringify(local.data || {});
     const cloudData = JSON.stringify(cloud.data || {});

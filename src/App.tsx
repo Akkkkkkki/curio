@@ -83,7 +83,7 @@ import { ExhibitionView } from './components/ExhibitionView';
 import { ExportModal } from './components/ExportModal';
 import { FilterModal } from './components/FilterModal';
 import { EnhanceImageModal } from './components/EnhanceImageModal';
-import { refreshAiImageEditEnabled } from './services/geminiService';
+import { fetchStoryPrompts, refreshAiImageEditEnabled } from './services/geminiService';
 import { DeleteCollectionModal } from './components/DeleteCollectionModal';
 import { DeleteItemModal } from './components/DeleteItemModal';
 import { DeleteItemsModal } from './components/DeleteItemsModal';
@@ -1460,6 +1460,14 @@ export const AppContent: React.FC = () => {
     const [imageKey, setImageKey] = useState(0); // Used to force re-render of ItemImage after enhancement
     const [imageEditSource, setImageEditSource] = useState<string | null>(null);
     const [isImageEditorOpen, setIsImageEditorOpen] = useState(false);
+    // Story (CUR-13): when the user dismisses the empty-state card by tapping
+    // "Write your story", switch to the textarea even though notes is still empty.
+    const [storyEditingOverride, setStoryEditingOverride] = useState(false);
+    const [detailPromptsOpen, setDetailPromptsOpen] = useState(false);
+    const [detailPromptsLoading, setDetailPromptsLoading] = useState(false);
+    const [detailStoryPrompts, setDetailStoryPrompts] = useState<string[]>([]);
+    const [detailPromptsFetchedFor, setDetailPromptsFetchedFor] = useState<string | null>(null);
+    const detailStoryRef = useRef<HTMLTextAreaElement | null>(null);
     const [history, setHistory] = useState<
       Pick<CollectionItem, 'title' | 'notes' | 'rating' | 'data'>[]
     >([]);
@@ -1521,6 +1529,72 @@ export const AppContent: React.FC = () => {
       updateItem(collection.id, item.id, updates);
     };
 
+    const focusStoryTextarea = () => {
+      setStoryEditingOverride(true);
+      requestAnimationFrame(() => detailStoryRef.current?.focus());
+    };
+
+    const detailPromptsCacheKey = `${item.title || ''} ${(item.data?._aiDescription as string | undefined) || ''}`;
+
+    const openDetailPromptsPanel = async () => {
+      setDetailPromptsOpen(true);
+      // Make sure the textarea is mounted so insertions land in a real element.
+      if (!storyEditingOverride) setStoryEditingOverride(true);
+      if (detailPromptsLoading) return;
+      if (detailPromptsFetchedFor === detailPromptsCacheKey && detailStoryPrompts.length > 0) {
+        return;
+      }
+      trackEvent('story_prompt_panel_opened', { surface: 'item_detail' });
+      setDetailPromptsLoading(true);
+      try {
+        const knownFields: Record<string, string | number> = {};
+        for (const [k, v] of Object.entries(item.data || {})) {
+          if (k.startsWith('_')) continue;
+          if (typeof v === 'string' || typeof v === 'number') knownFields[k] = v;
+        }
+        const result = await fetchStoryPrompts({
+          title: item.title || '',
+          collectionContext: {
+            name: collection.name,
+            description: collection.collectionDescription,
+          },
+          aiDescription: (item.data?._aiDescription as string | undefined) || undefined,
+          knownFields,
+          locale: language,
+        });
+        setDetailStoryPrompts(result.prompts);
+        if (result.prompts.length > 0) {
+          setDetailPromptsFetchedFor(detailPromptsCacheKey);
+        } else {
+          setDetailPromptsFetchedFor(null);
+          setDetailPromptsOpen(false);
+        }
+      } finally {
+        setDetailPromptsLoading(false);
+      }
+    };
+
+    const insertDetailStoryPrompt = (prompt: string) => {
+      const el = detailStoryRef.current;
+      const current = item.notes || '';
+      const snippet = `> ${prompt}\n\n`;
+      const insertAt = el?.selectionStart ?? current.length;
+      const next = current.slice(0, insertAt) + snippet + current.slice(insertAt);
+      applyItemUpdate({ notes: next });
+      trackEvent('story_prompt_inserted', { surface: 'item_detail', prompt_length: prompt.length });
+      requestAnimationFrame(() => {
+        const t = detailStoryRef.current;
+        if (!t) return;
+        t.focus();
+        const caret = insertAt + snippet.length;
+        try {
+          t.setSelectionRange(caret, caret);
+        } catch {
+          /* selection not supported in some test envs */
+        }
+      });
+    };
+
     const handleUndo = () => {
       if (history.length === 0 || isReadOnly) return;
       const previous = history[history.length - 1];
@@ -1553,6 +1627,12 @@ export const AppContent: React.FC = () => {
         clearTimeout(historyTimeoutRef.current);
         historyTimeoutRef.current = null;
       }
+      // Reset Story UI state when navigating between items so the empty card
+      // and stale prompt cache don't leak across items.
+      setStoryEditingOverride(false);
+      setDetailPromptsOpen(false);
+      setDetailStoryPrompts([]);
+      setDetailPromptsFetchedFor(null);
     }, [item.id]);
 
     const handleDelete = () => {
@@ -1846,7 +1926,7 @@ export const AppContent: React.FC = () => {
                 {(() => {
                   const isLegacy = isLegacyAiNoteItem(item);
                   const isEmpty = !(item.notes || '').trim();
-                  const showEmptyCard = isEmpty && !isReadOnly;
+                  const showEmptyCard = isEmpty && !isReadOnly && !storyEditingOverride;
 
                   const dismissMigration = () => {
                     applyItemUpdate({
@@ -1869,7 +1949,9 @@ export const AppContent: React.FC = () => {
                         _storyMigrationDismissed: true,
                       },
                     });
+                    setStoryEditingOverride(true);
                     trackEvent('story_legacy_banner_action', { action: 'start_fresh' });
+                    requestAnimationFrame(() => detailStoryRef.current?.focus());
                   };
 
                   return (
@@ -1901,27 +1983,69 @@ export const AppContent: React.FC = () => {
                           <p className={`${typographyClasses.quote} text-base sm:text-lg max-w-md`}>
                             {t('storyEmptyDetailHint')}
                           </p>
-                          <Button
-                            size="sm"
-                            onClick={() => {
-                              const el = document.getElementById(
-                                'item-story-textarea',
-                              ) as HTMLTextAreaElement | null;
-                              el?.focus();
-                            }}
-                          >
-                            {t('storyEmptyDetailCta')}
-                          </Button>
+                          <div className="flex flex-wrap items-center justify-center gap-2">
+                            <Button size="sm" onClick={focusStoryTextarea}>
+                              {t('storyEmptyDetailCta')}
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={openDetailPromptsPanel}>
+                              {t('storyPromptCta')}
+                            </Button>
+                          </div>
                         </div>
-                      ) : null}
-                      <textarea
-                        id="item-story-textarea"
-                        className={`w-full p-6 sm:p-8 rounded-2xl sm:rounded-[2.5rem] italic border font-serif text-xl sm:text-2xl leading-relaxed min-h-[200px] sm:min-h-[240px] focus:ring-8 focus:ring-amber-500/5 focus:border-amber-100 outline-none transition-all shadow-inner placeholder:text-stone-200 ${theme === 'vault' ? 'bg-white/5 border-white/5 text-white' : 'bg-stone-50/50 border-stone-100 text-stone-800'} ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''} ${showEmptyCard ? 'hidden' : ''}`}
-                        value={item.notes}
-                        onChange={(e) => applyItemUpdate({ notes: e.target.value })}
-                        placeholder={t('storyPlaceholder')}
-                        disabled={isReadOnly}
-                      />
+                      ) : (
+                        <textarea
+                          ref={detailStoryRef}
+                          className={`w-full p-6 sm:p-8 rounded-2xl sm:rounded-[2.5rem] italic border font-serif text-xl sm:text-2xl leading-relaxed min-h-[200px] sm:min-h-[240px] focus:ring-8 focus:ring-amber-500/5 focus:border-amber-100 outline-none transition-all shadow-inner placeholder:text-stone-200 ${theme === 'vault' ? 'bg-white/5 border-white/5 text-white' : 'bg-stone-50/50 border-stone-100 text-stone-800'} ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                          value={item.notes}
+                          onChange={(e) => applyItemUpdate({ notes: e.target.value })}
+                          placeholder={t('storyPlaceholder')}
+                          disabled={isReadOnly}
+                        />
+                      )}
+                      {detailPromptsOpen && !isReadOnly && (
+                        <div
+                          className={`rounded-xl border p-3 sm:p-4 ${theme === 'vault' ? 'bg-white/5 border-white/10' : 'bg-amber-50/40 border-stone-200'}`}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <p
+                              className={`text-[11px] font-semibold uppercase tracking-[0.12em] ${theme === 'vault' ? 'text-stone-400' : 'text-stone-500'}`}
+                            >
+                              {t('storyPromptHelp')}
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => setDetailPromptsOpen(false)}
+                              className={`text-[11px] ${theme === 'vault' ? 'text-stone-400' : 'text-stone-500'} hover:text-stone-700`}
+                            >
+                              {t('storyPromptHide')}
+                            </button>
+                          </div>
+                          {detailPromptsLoading && (
+                            <p
+                              className={`text-[12px] italic ${theme === 'vault' ? 'text-stone-400' : 'text-stone-500'}`}
+                            >
+                              {t('storyPromptLoading')}
+                            </p>
+                          )}
+                          <ul className="space-y-1.5 mt-1">
+                            {detailStoryPrompts.map((prompt, idx) => (
+                              <li key={`${idx}-${prompt}`}>
+                                <button
+                                  type="button"
+                                  onClick={() => insertDetailStoryPrompt(prompt)}
+                                  className={`w-full text-left text-[12px] sm:text-[13px] px-2 py-1.5 rounded-lg flex items-start gap-2 transition-colors ${theme === 'vault' ? 'hover:bg-white/10 text-stone-200' : 'hover:bg-white text-stone-700'}`}
+                                >
+                                  <span className="mt-0.5 shrink-0" aria-hidden>
+                                    +
+                                  </span>
+                                  <span>{prompt}</span>
+                                  <span className="sr-only">{t('storyPromptInsert')}</span>
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                     </>
                   );
                 })()}
