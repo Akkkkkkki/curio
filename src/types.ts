@@ -35,9 +35,14 @@ export interface CollectionItem {
   photoEnhancedPath?: string;
   title: string; // Core field
   rating: number; // Core field (0-5)
-  data: Record<string, any>; // Dynamic data keyed by FieldDefinition.id
+  // Dynamic data keyed by FieldDefinition.id. Underscore-prefixed keys are
+  // system-managed (e.g. _aiDescription, _storyMigrationDismissed, _isLegacyAiNotes)
+  // and must not be exposed as user-defined custom fields.
+  data: Record<string, any>;
   createdAt: string;
   updatedAt?: string;
+  // The visible, human-authored Story. May be empty if the user hasn't written one yet.
+  // AI observations live in data._aiDescription, never here. See CUR-56 for the storage rename.
   notes: string;
   seedKey?: string; // Stability for versioned seeding
 }
@@ -60,7 +65,9 @@ export interface UserCollection {
 export interface AIAnalysisResult {
   title?: string;
   data: Record<string, any>;
+  /** @deprecated Kept as an alias for one release; read aiDescription instead. */
   notes?: string;
+  aiDescription?: string;
 }
 
 export type EnhancementStatus = 'none' | 'processing' | 'ready' | 'failed';

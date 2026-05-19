@@ -7,6 +7,7 @@ export const mockGeminiAnalysisSuccess = {
   success: true,
   data: {
     title: 'Rare Vinyl Record',
+    aiDescription: 'Classic album in excellent condition',
     notes: 'Classic album in excellent condition',
     fields: {
       artist: 'The Beatles',
@@ -22,6 +23,7 @@ export const mockGeminiAnalysisChocolate = {
   success: true,
   data: {
     title: 'Dark Chocolate Bar',
+    aiDescription: '70% cacao from Ecuador',
     notes: '70% cacao from Ecuador',
     fields: {
       brand: 'Valrhona',
@@ -64,6 +66,7 @@ export function createMockGeminiResponse(templateId: string) {
         success: true,
         data: {
           title: 'Mock Item',
+          aiDescription: 'Mock description',
           notes: 'Mock description',
           fields: {},
         },

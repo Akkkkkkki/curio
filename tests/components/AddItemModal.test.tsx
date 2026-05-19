@@ -13,7 +13,23 @@ vi.mock('@/theme', async () => {
 vi.mock('@/services/geminiService', () => ({
   analyzeImage: vi.fn(),
   refreshAiEnabled: vi.fn(),
+  fetchStoryPrompts: vi.fn().mockResolvedValue({ prompts: [] }),
 }));
+
+// JSDOM can't decode <img>, so the real canvas path in compressImageForAi
+// fails on fake data URLs. Stub it to return the raw base64 unchanged.
+vi.mock('@/services/imageProcessor', async () => {
+  const actual = await vi.importActual<typeof import('@/services/imageProcessor')>(
+    '@/services/imageProcessor',
+  );
+  return {
+    ...actual,
+    compressImageForAi: vi.fn(async (dataUrl: string) => {
+      const idx = dataUrl.indexOf(',');
+      return idx >= 0 ? dataUrl.slice(idx + 1) : dataUrl;
+    }),
+  };
+});
 
 vi.mock('@capacitor/camera', () => ({
   Camera: {

@@ -110,7 +110,14 @@ type CollectionContext = {
 };
 
 export type AnalyzeResult =
-  | { status: 'success'; title: string; data: Record<string, any>; notes: string }
+  | {
+      status: 'success';
+      title: string;
+      data: Record<string, any>;
+      aiDescription: string;
+      /** @deprecated Mirrors aiDescription. Will be removed once CUR-13 settles. */
+      notes: string;
+    }
   | { status: 'disabled' }
   | { status: 'error'; message: string };
 
@@ -123,22 +130,68 @@ export const analyzeImage = async (
     if (!(await refreshAiEnabled())) {
       return { status: 'disabled' };
     }
-    const result = await postJson<{ title: string; data: Record<string, any>; notes: string }>(
-      '/api/gemini/analyze',
-      {
-        imageBase64: base64Image,
-        fields,
-        collectionContext: options.collectionContext,
-        locale: options.locale,
-      },
-    );
-    return { status: 'success', ...result };
+    const result = await postJson<{
+      title: string;
+      data: Record<string, any>;
+      aiDescription?: string;
+      notes?: string;
+    }>('/api/gemini/analyze', {
+      imageBase64: base64Image,
+      fields,
+      collectionContext: options.collectionContext,
+      locale: options.locale,
+    });
+    const aiDescription = result.aiDescription ?? result.notes ?? '';
+    return {
+      status: 'success',
+      title: result.title,
+      data: result.data ?? {},
+      aiDescription,
+      notes: aiDescription,
+    };
   } catch (error) {
     console.warn('AI analysis failed:', error);
     return {
       status: 'error',
       message: error instanceof Error ? error.message : 'AI analysis failed',
     };
+  }
+};
+
+const STORY_PROMPTS_TIMEOUT_MS = 3000;
+
+export interface StoryPromptsRequest {
+  title: string;
+  collectionContext?: CollectionContext;
+  aiDescription?: string;
+  knownFields?: Record<string, string | number>;
+  locale?: string;
+}
+
+/**
+ * Fetch 3 short, object-specific story prompts from the proxy. Returns
+ * `{ prompts: [] }` on any failure — prompts are an enhancement and must
+ * never block the capture flow (PRODUCT_DESIGN §2.4).
+ */
+export const fetchStoryPrompts = async (
+  req: StoryPromptsRequest,
+): Promise<{ prompts: string[] }> => {
+  try {
+    if (!(await refreshAiEnabled())) {
+      return { prompts: [] };
+    }
+    const result = await postJson<{ prompts?: unknown }>(
+      '/api/gemini/story-prompts',
+      req,
+      STORY_PROMPTS_TIMEOUT_MS,
+    );
+    const prompts = Array.isArray(result?.prompts)
+      ? result.prompts.filter((p): p is string => typeof p === 'string' && p.trim().length > 0)
+      : [];
+    return { prompts };
+  } catch (error) {
+    console.warn('Story prompts fetch failed:', error);
+    return { prompts: [] };
   }
 };
 

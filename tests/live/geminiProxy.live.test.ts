@@ -60,6 +60,9 @@ describe('live: Gemini proxy smoke', () => {
     expect(json).toHaveProperty('title');
     expect(typeof json.title).toBe('string');
     expect(json.title.length).toBeGreaterThan(0);
+    expect(json).toHaveProperty('aiDescription');
+    expect(typeof json.aiDescription).toBe('string');
+    // `notes` is a backwards-compat alias for one release (CUR-13 commit E removes it).
     expect(json).toHaveProperty('notes');
     expect(typeof json.notes).toBe('string');
     expect(json).toHaveProperty('data');

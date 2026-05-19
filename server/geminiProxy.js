@@ -23,6 +23,7 @@ const METRICS_ROUTES = new Set([
   '/api/gemini/analyze',
   '/api/gemini/enhance',
   '/api/gemini/suggest-fields',
+  '/api/gemini/story-prompts',
 ]);
 const metrics = new Map();
 
@@ -277,9 +278,10 @@ app.post('/api/gemini/analyze', ipLimiter, requireAuth, userLimiter, async (req,
       type: Type.STRING,
       description: 'A short, descriptive title for the item.',
     },
-    notes: {
+    aiDescription: {
       type: Type.STRING,
-      description: 'A brief summary of visual observations about the item.',
+      description:
+        'A factual, neutral visual observation of the item (1-2 sentences). This is hidden metadata; it must NOT attempt to tell a story, infer emotional meaning, or speculate about the owner. Describe only what is visible.',
     },
   };
 
@@ -328,10 +330,14 @@ app.post('/api/gemini/analyze', ipLimiter, requireAuth, userLimiter, async (req,
     });
 
     const result = JSON.parse(response.text || '{}');
-    const { title, notes, ...data } = result || {};
+    const { title, aiDescription, ...data } = result || {};
+    const description = aiDescription || '';
     return res.json({
       title: title || 'New Item',
-      notes: notes || '',
+      aiDescription: description,
+      // Backwards-compatible alias for clients still reading `notes` from this
+      // endpoint. Remove after the CUR-13 rollout settles (CUR-13 commit E).
+      notes: description,
       data: data || {},
     });
   } catch (error) {
@@ -394,6 +400,88 @@ app.post('/api/gemini/suggest-fields', ipLimiter, requireAuth, userLimiter, asyn
     return res.json({ fields });
   } catch (error) {
     console.error('Field suggestion failed:', error);
+    return res.status(500).json({ error: sanitizeErrorMessage(error) });
+  }
+});
+
+app.post('/api/gemini/story-prompts', ipLimiter, requireAuth, userLimiter, async (req, res) => {
+  if (!ai) {
+    return res.status(503).json({ error: 'GEMINI_API_KEY is not configured' });
+  }
+
+  const { title, collectionContext, aiDescription, knownFields, locale = 'en' } = req.body || {};
+
+  if (!title || typeof title !== 'string') {
+    return res.status(400).json({ error: 'Missing title' });
+  }
+
+  const contextLines = [`- Title: "${title}"`];
+  if (collectionContext?.name) contextLines.push(`- Collection: "${collectionContext.name}"`);
+  if (collectionContext?.description)
+    contextLines.push(`- Collection description: "${collectionContext.description}"`);
+  if (aiDescription) contextLines.push(`- Visual observation: "${aiDescription}"`);
+  if (knownFields && typeof knownFields === 'object') {
+    const knownEntries = Object.entries(knownFields)
+      .filter(([, v]) => v !== null && v !== undefined && v !== '')
+      .slice(0, 8)
+      .map(([k, v]) => `  - ${k}: ${v}`);
+    if (knownEntries.length) {
+      contextLines.push(`- Known facts:\n${knownEntries.join('\n')}`);
+    }
+  }
+
+  const systemPrompt = `You are a thoughtful curator helping a collector reflect on an object. Given the object's title and known facts, produce 3 short open-ended questions (max 12 words each) that would help the owner write a personal story about it.
+
+Rules:
+- Questions must be specific to the object — mention details from the title or fields where possible.
+- Never include the answer.
+- Never narrate. Never speculate about feelings.
+- Match the user's language: ${locale}.
+
+Context:
+${contextLines.join('\n')}
+
+Return only the questions as a JSON object of the schema { "prompts": [string, string, string] }.`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: GEMINI_ANALYZE_MODEL,
+      contents: { parts: [{ text: systemPrompt }] },
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            prompts: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING },
+            },
+          },
+        },
+      },
+    });
+
+    const result = JSON.parse(response.text || '{}');
+    const raw = Array.isArray(result?.prompts) ? result.prompts : [];
+    const prompts = [];
+    const seen = new Set();
+    for (const candidate of raw) {
+      if (typeof candidate !== 'string') continue;
+      const cleaned = candidate.trim().replace(/^[-*•\d.\s]+/, '');
+      if (!cleaned) continue;
+      const key = cleaned.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      // Cap each prompt at ~12 words; if longer, truncate gracefully.
+      const words = cleaned.split(/\s+/);
+      const capped = words.length > 14 ? words.slice(0, 12).join(' ') + '…' : cleaned;
+      prompts.push(capped);
+      if (prompts.length >= 3) break;
+    }
+
+    return res.json({ prompts });
+  } catch (error) {
+    console.error('Story prompt generation failed:', error);
     return res.status(500).json({ error: sanitizeErrorMessage(error) });
   }
 });

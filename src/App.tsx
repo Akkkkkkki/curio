@@ -83,7 +83,7 @@ import { ExhibitionView } from './components/ExhibitionView';
 import { ExportModal } from './components/ExportModal';
 import { FilterModal } from './components/FilterModal';
 import { EnhanceImageModal } from './components/EnhanceImageModal';
-import { refreshAiImageEditEnabled } from './services/geminiService';
+import { fetchStoryPrompts, refreshAiImageEditEnabled } from './services/geminiService';
 import { DeleteCollectionModal } from './components/DeleteCollectionModal';
 import { DeleteItemModal } from './components/DeleteItemModal';
 import { DeleteItemsModal } from './components/DeleteItemsModal';
@@ -103,6 +103,30 @@ import { StatusToast, StatusTone } from './components/StatusToast';
 import { StatusBanner } from './components/StatusBanner';
 import { ConflictResolutionModal } from './components/ConflictResolutionModal';
 import { CURRENT_SEED_VERSION, INITIAL_COLLECTIONS } from './services/seedCollections';
+import { trackEvent } from './services/analytics';
+
+/**
+ * CUR-13: items created before this timestamp may have AI-authored notes
+ * ("Archive Narrative"). The legacy migration banner is offered for those
+ * items only, exactly once each. New items default to user-authored Story.
+ *
+ * Setting this to the merge moment of the CUR-13 rollout PR — the cutoff
+ * is conservative on purpose; the user can still dismiss the banner if
+ * the heuristic mis-fires.
+ */
+const STORY_FEATURE_LAUNCHED_AT = '2026-05-16T00:00:00.000Z';
+
+const isLegacyAiNoteItem = (item: CollectionItem): boolean => {
+  const story = item.notes;
+  if (!story || !story.trim()) return false;
+  const data = item.data || {};
+  if (data._isLegacyAiNotes === false) return false; // explicit exemption (e.g. seed items)
+  if (data._storyMigrationDismissed === true) return false;
+  if (data._aiDescription) return false; // already on the new schema
+  const createdAt = Date.parse(item.createdAt);
+  if (Number.isNaN(createdAt)) return false;
+  return createdAt < Date.parse(STORY_FEATURE_LAUNCHED_AT);
+};
 import {
   getEnvValidationErrors,
   STORAGE_QUOTA_CHECK_INTERVAL_MS,
@@ -1436,6 +1460,14 @@ export const AppContent: React.FC = () => {
     const [imageKey, setImageKey] = useState(0); // Used to force re-render of ItemImage after enhancement
     const [imageEditSource, setImageEditSource] = useState<string | null>(null);
     const [isImageEditorOpen, setIsImageEditorOpen] = useState(false);
+    // Story (CUR-13): when the user dismisses the empty-state card by tapping
+    // "Write your story", switch to the textarea even though notes is still empty.
+    const [storyEditingOverride, setStoryEditingOverride] = useState(false);
+    const [detailPromptsOpen, setDetailPromptsOpen] = useState(false);
+    const [detailPromptsLoading, setDetailPromptsLoading] = useState(false);
+    const [detailStoryPrompts, setDetailStoryPrompts] = useState<string[]>([]);
+    const [detailPromptsFetchedFor, setDetailPromptsFetchedFor] = useState<string | null>(null);
+    const detailStoryRef = useRef<HTMLTextAreaElement | null>(null);
     const [history, setHistory] = useState<
       Pick<CollectionItem, 'title' | 'notes' | 'rating' | 'data'>[]
     >([]);
@@ -1497,6 +1529,74 @@ export const AppContent: React.FC = () => {
       updateItem(collection.id, item.id, updates);
     };
 
+    const focusStoryTextarea = () => {
+      setStoryEditingOverride(true);
+      requestAnimationFrame(() => detailStoryRef.current?.focus());
+    };
+
+    const detailPromptsCacheKey = `${item.title || ''} ${(item.data?._aiDescription as string | undefined) || ''}`;
+
+    const openDetailPromptsPanel = async () => {
+      setDetailPromptsOpen(true);
+      // Make sure the textarea is mounted so insertions land in a real element.
+      if (!storyEditingOverride) setStoryEditingOverride(true);
+      if (detailPromptsLoading) return;
+      if (detailPromptsFetchedFor === detailPromptsCacheKey && detailStoryPrompts.length > 0) {
+        return;
+      }
+      trackEvent('story_prompt_panel_opened', { surface: 'item_detail' });
+      setDetailPromptsLoading(true);
+      try {
+        const knownFields: Record<string, string | number> = {};
+        for (const [k, v] of Object.entries(item.data || {})) {
+          if (k.startsWith('_')) continue;
+          if (typeof v === 'string' || typeof v === 'number') knownFields[k] = v;
+        }
+        const result = await fetchStoryPrompts({
+          title: item.title || '',
+          collectionContext: {
+            name: collection.name,
+            description: collection.collectionDescription,
+          },
+          aiDescription: (item.data?._aiDescription as string | undefined) || undefined,
+          knownFields,
+          locale: language,
+        });
+        setDetailStoryPrompts(result.prompts);
+        if (result.prompts.length > 0) {
+          setDetailPromptsFetchedFor(detailPromptsCacheKey);
+        } else {
+          // Leave the panel open with an informative message; the user can
+          // dismiss with "Hide prompts" and retry once they've edited the
+          // title or other context.
+          setDetailPromptsFetchedFor(null);
+        }
+      } finally {
+        setDetailPromptsLoading(false);
+      }
+    };
+
+    const insertDetailStoryPrompt = (prompt: string) => {
+      const el = detailStoryRef.current;
+      const current = item.notes || '';
+      const snippet = `> ${prompt}\n\n`;
+      const insertAt = el?.selectionStart ?? current.length;
+      const next = current.slice(0, insertAt) + snippet + current.slice(insertAt);
+      applyItemUpdate({ notes: next });
+      trackEvent('story_prompt_inserted', { surface: 'item_detail', prompt_length: prompt.length });
+      requestAnimationFrame(() => {
+        const t = detailStoryRef.current;
+        if (!t) return;
+        t.focus();
+        const caret = insertAt + snippet.length;
+        try {
+          t.setSelectionRange(caret, caret);
+        } catch {
+          /* selection not supported in some test envs */
+        }
+      });
+    };
+
     const handleUndo = () => {
       if (history.length === 0 || isReadOnly) return;
       const previous = history[history.length - 1];
@@ -1529,6 +1629,12 @@ export const AppContent: React.FC = () => {
         clearTimeout(historyTimeoutRef.current);
         historyTimeoutRef.current = null;
       }
+      // Reset Story UI state when navigating between items so the empty card
+      // and stale prompt cache don't leak across items.
+      setStoryEditingOverride(false);
+      setDetailPromptsOpen(false);
+      setDetailStoryPrompts([]);
+      setDetailPromptsFetchedFor(null);
     }, [item.id]);
 
     const handleDelete = () => {
@@ -1816,16 +1922,142 @@ export const AppContent: React.FC = () => {
                   <dt
                     className={`min-w-0 ${typographyClasses.label} ${labelColorClasses[theme]} break-words`}
                   >
-                    {t('archiveNarrative')}
+                    {t('story')}
                   </dt>
                 </div>
-                <textarea
-                  className={`w-full p-6 sm:p-8 rounded-2xl sm:rounded-[2.5rem] italic border font-serif text-xl sm:text-2xl leading-relaxed min-h-[200px] sm:min-h-[240px] focus:ring-8 focus:ring-amber-500/5 focus:border-amber-100 outline-none transition-all shadow-inner placeholder:text-stone-200 ${theme === 'vault' ? 'bg-white/5 border-white/5 text-white' : 'bg-stone-50/50 border-stone-100 text-stone-800'} ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
-                  value={item.notes}
-                  onChange={(e) => applyItemUpdate({ notes: e.target.value })}
-                  placeholder={t('provenancePlaceholder')}
-                  disabled={isReadOnly}
-                />
+                {(() => {
+                  const isLegacy = isLegacyAiNoteItem(item);
+                  const isEmpty = !(item.notes || '').trim();
+                  const showEmptyCard = isEmpty && !isReadOnly && !storyEditingOverride;
+
+                  const dismissMigration = () => {
+                    applyItemUpdate({
+                      data: { ...item.data, _storyMigrationDismissed: true },
+                    });
+                    trackEvent('story_legacy_banner_action', { action: 'keep' });
+                  };
+                  const editLegacy = () => {
+                    applyItemUpdate({
+                      data: { ...item.data, _storyMigrationDismissed: true },
+                    });
+                    trackEvent('story_legacy_banner_action', { action: 'edit' });
+                  };
+                  const startFresh = () => {
+                    applyItemUpdate({
+                      notes: '',
+                      data: {
+                        ...item.data,
+                        _aiDescription: item.notes,
+                        _storyMigrationDismissed: true,
+                      },
+                    });
+                    setStoryEditingOverride(true);
+                    trackEvent('story_legacy_banner_action', { action: 'start_fresh' });
+                    requestAnimationFrame(() => detailStoryRef.current?.focus());
+                  };
+
+                  return (
+                    <>
+                      {isLegacy && !isReadOnly && (
+                        <div
+                          className={`p-4 sm:p-5 rounded-2xl border ${theme === 'vault' ? 'bg-amber-500/10 border-amber-500/30 text-amber-100' : 'bg-amber-50 border-amber-200 text-amber-900'}`}
+                        >
+                          <p className="text-sm leading-relaxed mb-3">
+                            {t('storyMigrationBanner')}
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            <Button size="sm" onClick={startFresh}>
+                              {t('storyMigrationStart')}
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={editLegacy}>
+                              {t('storyMigrationEdit')}
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={dismissMigration}>
+                              {t('storyMigrationKeep')}
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                      {showEmptyCard ? (
+                        <div
+                          className={`w-full p-6 sm:p-8 rounded-2xl sm:rounded-[2.5rem] border-2 border-dashed flex flex-col items-center justify-center text-center gap-3 min-h-[200px] sm:min-h-[240px] ${theme === 'vault' ? 'border-white/10 bg-white/5 text-stone-300' : 'border-stone-200 bg-stone-50/40 text-stone-500'}`}
+                        >
+                          <p className={`${typographyClasses.quote} text-base sm:text-lg max-w-md`}>
+                            {t('storyEmptyDetailHint')}
+                          </p>
+                          <div className="flex flex-wrap items-center justify-center gap-2">
+                            <Button size="sm" onClick={focusStoryTextarea}>
+                              {t('storyEmptyDetailCta')}
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={openDetailPromptsPanel}>
+                              {t('storyPromptCta')}
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <textarea
+                          ref={detailStoryRef}
+                          className={`w-full p-6 sm:p-8 rounded-2xl sm:rounded-[2.5rem] italic border font-serif text-xl sm:text-2xl leading-relaxed min-h-[200px] sm:min-h-[240px] focus:ring-8 focus:ring-amber-500/5 focus:border-amber-100 outline-none transition-all shadow-inner placeholder:text-stone-200 ${theme === 'vault' ? 'bg-white/5 border-white/5 text-white' : 'bg-stone-50/50 border-stone-100 text-stone-800'} ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                          value={item.notes}
+                          onChange={(e) => applyItemUpdate({ notes: e.target.value })}
+                          placeholder={t('storyPlaceholder')}
+                          disabled={isReadOnly}
+                        />
+                      )}
+                      {detailPromptsOpen && !isReadOnly && (
+                        <div
+                          className={`rounded-xl border p-3 sm:p-4 ${theme === 'vault' ? 'bg-white/5 border-white/10' : 'bg-amber-50/40 border-stone-200'}`}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <p
+                              className={`text-[11px] font-semibold uppercase tracking-[0.12em] ${theme === 'vault' ? 'text-stone-400' : 'text-stone-500'}`}
+                            >
+                              {t('storyPromptHelp')}
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => setDetailPromptsOpen(false)}
+                              className={`text-[11px] ${theme === 'vault' ? 'text-stone-400' : 'text-stone-500'} hover:text-stone-700`}
+                            >
+                              {t('storyPromptHide')}
+                            </button>
+                          </div>
+                          {detailPromptsLoading && (
+                            <p
+                              className={`text-[12px] italic ${theme === 'vault' ? 'text-stone-400' : 'text-stone-500'}`}
+                            >
+                              {t('storyPromptLoading')}
+                            </p>
+                          )}
+                          {!detailPromptsLoading && detailStoryPrompts.length === 0 && (
+                            <p
+                              className={`text-[12px] ${theme === 'vault' ? 'text-stone-300' : 'text-stone-600'}`}
+                            >
+                              {t('storyPromptEmpty')}
+                            </p>
+                          )}
+                          <ul className="space-y-1.5 mt-1">
+                            {detailStoryPrompts.map((prompt, idx) => (
+                              <li key={`${idx}-${prompt}`}>
+                                <button
+                                  type="button"
+                                  onClick={() => insertDetailStoryPrompt(prompt)}
+                                  className={`w-full text-left text-[12px] sm:text-[13px] px-2 py-1.5 rounded-lg flex items-start gap-2 transition-colors ${theme === 'vault' ? 'hover:bg-white/10 text-stone-200' : 'hover:bg-white text-stone-700'}`}
+                                >
+                                  <span className="mt-0.5 shrink-0" aria-hidden>
+                                    +
+                                  </span>
+                                  <span>{prompt}</span>
+                                  <span className="sr-only">{t('storyPromptInsert')}</span>
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
 
               <div className="space-y-8 sm:space-y-10">
@@ -1862,6 +2094,23 @@ export const AppContent: React.FC = () => {
                     );
                   })}
                 </div>
+                {typeof item.data?._aiDescription === 'string' &&
+                  item.data._aiDescription.trim().length > 0 && (
+                    <details
+                      className={`mt-6 sm:mt-8 pt-4 sm:pt-6 border-t ${theme === 'vault' ? 'border-white/5' : `${dividerClasses[theme]}`}`}
+                    >
+                      <summary
+                        className={`${typographyClasses.label} cursor-pointer text-stone-400 hover:text-amber-500 transition-colors`}
+                      >
+                        {t('storyAiObservationLabel')}
+                      </summary>
+                      <p
+                        className={`mt-3 text-xs sm:text-sm leading-relaxed ${theme === 'vault' ? 'text-stone-300' : 'text-stone-500'} font-mono whitespace-pre-wrap`}
+                      >
+                        {item.data._aiDescription}
+                      </p>
+                    </details>
+                  )}
               </div>
             </div>
           </div>

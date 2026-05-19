@@ -16,6 +16,7 @@ export const geminiHandlers = [
       success: true,
       data: {
         title: 'Analyzed Item',
+        aiDescription: 'AI-generated description',
         notes: 'AI-generated description',
         fields: {},
       },
