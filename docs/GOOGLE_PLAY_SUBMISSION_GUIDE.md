@@ -2,7 +2,7 @@
 
 This document is the single source of truth for Curio's Android readiness and Google Play submission flow.
 
-> **Strategic context:** This supports **Phase 1.5 - Android Market Test** in `docs/ROADMAP.md`. Keep the product web-first, use Android as a distribution and pricing test, and avoid native-only scope unless it is required for launch trust.
+> **Strategic context:** This supports **Phase 1.5 - Android Market Test** in `docs/ROADMAP.md`. Keep the product web-first, use Android as a distribution and willingness-to-pay signal, and avoid native-only scope unless it is required for launch trust. Verify platform billing rules before exposing paid digital subscription flows inside a Play-distributed build.
 
 ## What this doc owns
 
@@ -57,6 +57,12 @@ These are the Android-specific issues worth treating as stop-ship for a public m
 - Save succeeds locally before cloud sync.
 - Offline or failed sync states are visible.
 - Silent failure paths are not acceptable for a public launch.
+
+### 7. Billing policy must be explicit before paid features
+
+- If the Android market test ships as a free app, hide or disable Stripe-powered subscription CTAs inside the Play-distributed build.
+- If paid Pro or Patron features are enabled in the Android build, confirm the applicable Google Play Billing or alternative billing requirements before submission.
+- Web/PWA Stripe subscriptions remain the default web billing path; the Play build must not route users to Stripe for digital subscriptions unless current policy and program eligibility allow it.
 
 ## Pre-submission checklist
 

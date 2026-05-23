@@ -6,6 +6,7 @@
 
 - **Storage**: Supabase (PostgreSQL + Auth + Storage) as source of truth, IndexedDB as cache.
 - **AI Inference**: Gemini-3-flash-preview via a server-side proxy (local dev: `server/geminiProxy.js`; deploy: same-origin `/api/*` via Vercel rewrites and/or `api/*` handlers) to keep API keys off the client.
+- **Billing (planned)**: Stripe-hosted Checkout Sessions for web/PWA subscriptions, Stripe Customer Portal for self-service billing, and Stripe webhooks into Supabase for entitlement state.
 
 ### See also
 
@@ -40,6 +41,17 @@ If a user has existing IndexedDB data from older builds, they can trigger a manu
 Curated sample collections live in the same tables and are flagged with `is_public = true`. In the current implementation, authenticated users can read them, but only admin users (profiles with `is_admin = true`) can edit or delete them. The client treats public collections as read-only for non-admins.
 
 For Phase 1, that public-collection foundation should extend into anonymous-readable public museum routes for profile, collection, item, Wrapped, and widget surfaces. Those routes must expose only content derived from explicitly public collections.
+
+## 2.1 Billing and Entitlements (Planned)
+
+Curio's default billing path is web-first and low-maintenance:
+
+- **Purchase flow**: create Stripe Checkout Sessions server-side with `mode: 'subscription'` for Pro and Patron plans, then redirect the user to Stripe-hosted Checkout.
+- **Plan management**: send paid users to Stripe Customer Portal for cancellation, card updates, invoices, and plan changes.
+- **Entitlement source of truth**: Stripe webhooks reconcile subscription lifecycle events into Supabase. The client must read server-owned entitlement state rather than trusting checkout redirects or local state.
+- **Early validation shortcut**: Stripe Payment Links or Stripe Pricing Table are acceptable for fast market tests, but paid access should not be enforced until webhook reconciliation maps the purchase back to a Supabase user.
+- **Avoid for v1**: raw PaymentIntents, custom card collection, or a custom Payment Element checkout. Those paths increase PCI, tax, discount, renewal, and support surface without a current product requirement.
+- **Native-store caveat**: for PWA/browser usage, Stripe is the default. For Apple App Store or Google Play-distributed native shells, do not expose Stripe purchase links or prompts for digital subscriptions unless current store policy, regional programs, and review requirements allow it. Native packages may need app-store billing while web subscribers keep web-managed entitlements where policy permits.
 
 ### Local cache and retry invariants
 
