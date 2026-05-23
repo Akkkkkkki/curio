@@ -1,4 +1,4 @@
-import { FieldDefinition, UserCollection, EnhancementStrength } from '../types';
+import { FieldDefinition, EnhancementStrength } from '../types';
 import { supabase } from './supabase';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
@@ -7,7 +7,6 @@ const AI_ENABLED = AI_ENABLED_ENV === undefined ? null : AI_ENABLED_ENV === 'tru
 const AI_IMAGE_EDIT_ENABLED_ENV = import.meta.env.VITE_AI_IMAGE_EDIT_ENABLED;
 const AI_IMAGE_EDIT_ENABLED =
   AI_IMAGE_EDIT_ENABLED_ENV === undefined ? null : AI_IMAGE_EDIT_ENABLED_ENV === 'true';
-const VOICE_GUIDE_ENABLED = import.meta.env.VITE_VOICE_GUIDE_ENABLED === 'true';
 const REQUEST_TIMEOUT_MS = 30000;
 const ENHANCEMENT_TIMEOUT_MS = 60000; // Longer timeout for image generation
 let aiEnabledCache: boolean | null = AI_ENABLED;
@@ -81,7 +80,6 @@ export const refreshAiEnabled = async (): Promise<boolean> => {
 };
 
 export const isAiEnabled = () => aiEnabledCache === true;
-export const isVoiceGuideEnabled = () => isAiEnabled() && VOICE_GUIDE_ENABLED;
 
 // Image editing is enabled if: AI is enabled AND the feature flag is not explicitly false
 export const refreshAiImageEditEnabled = async (): Promise<boolean> => {
@@ -192,19 +190,4 @@ export const enhanceImage = async (
     console.warn('Image enhancement failed:', error);
     throw error; // Re-throw so UI can show error message
   }
-};
-
-export interface MuseumGuideSession {
-  sendRealtimeInput: (input: { media: { data: string; mimeType: string } }) => void;
-}
-
-export const connectMuseumGuide = async (
-  _col: UserCollection,
-  _cb: any,
-  _inst?: string,
-): Promise<MuseumGuideSession> => {
-  if (!isVoiceGuideEnabled()) {
-    throw new Error('Voice guide is disabled');
-  }
-  throw new Error('Voice guide is not available in this build');
 };

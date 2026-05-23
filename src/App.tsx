@@ -35,7 +35,6 @@ import {
   Search,
   Loader2,
   Sparkles,
-  Mic,
   Play,
   Quote,
   Globe,
@@ -78,7 +77,6 @@ import {
 } from './services/db';
 import { processImage } from './services/imageProcessor';
 import { ItemImage } from './components/ItemImage';
-import { MuseumGuide } from './components/MuseumGuide';
 import { ExhibitionView } from './components/ExhibitionView';
 import { ExportModal } from './components/ExportModal';
 import { FilterModal } from './components/FilterModal';
@@ -119,7 +117,6 @@ export const AppContent: React.FC = () => {
   const { t, language, setLanguage } = useTranslation();
   const { theme, setTheme } = useTheme();
   useAndroidBackButton();
-  const isVoiceGuideEnabled = import.meta.env.VITE_VOICE_GUIDE_ENABLED === 'true';
   const [collections, setCollections] = useState<UserCollection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -133,10 +130,6 @@ export const AppContent: React.FC = () => {
   const [importMessage, setImportMessage] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isCreateCollectionOpen, setIsCreateCollectionOpen] = useState(false);
-  const [isGuideOpen, setIsGuideOpen] = useState(false);
-  const [activeCollectionForGuide, setActiveCollectionForGuide] = useState<UserCollection | null>(
-    null,
-  );
   const [status, setStatus] = useState<{
     message: string;
     tone: StatusTone;
@@ -1147,22 +1140,6 @@ export const AppContent: React.FC = () => {
               >
                 {t('enterExhibition')}
               </Button>
-              {isVoiceGuideEnabled && (
-                <div className="w-full sm:w-auto">
-                  <Button
-                    variant="outline"
-                    className={`${theme === 'vault' ? 'bg-stone-900 text-white border-white/10' : 'bg-white'} w-full sm:w-auto`}
-                    onClick={() => {
-                      setActiveCollectionForGuide(collection);
-                      setIsGuideOpen(true);
-                    }}
-                    disabled={collection.items.length === 0}
-                    icon={<Mic size={16} />}
-                  >
-                    {t('vocalGuide')}
-                  </Button>
-                </div>
-              )}
             </div>
             <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full">
               {!isReadOnly && (
@@ -2236,13 +2213,6 @@ export const AppContent: React.FC = () => {
               onCreate={handleCreateCollection}
               onAddFirstItem={() => setIsAddModalOpen(true)}
             />
-            {isVoiceGuideEnabled && activeCollectionForGuide && (
-              <MuseumGuide
-                collection={activeCollectionForGuide}
-                isOpen={isGuideOpen}
-                onClose={() => setIsGuideOpen(false)}
-              />
-            )}
           </>
         )}
       </Layout>
