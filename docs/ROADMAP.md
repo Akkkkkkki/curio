@@ -107,11 +107,12 @@ Key work:
 - ensure Android packaging is reliable enough for internal / closed / public testing as appropriate
 - keep the product logic shared with web
 - avoid native-only features unless directly required for the test
+- validate platform billing constraints before exposing any Stripe-powered subscription CTA inside a store-distributed native shell
 
 Exit criteria:
 
 - Android users can install, onboard, capture, save, and share without platform-specific blockers
-- subscription willingness and usage can be measured from Google Play traffic
+- subscription willingness and usage can be measured from Android / Google Play traffic without locking Curio into native-only billing architecture
 
 ### Phase 2 — Community And Discovery (12 weeks)
 
@@ -149,6 +150,14 @@ Primary model (see `PRODUCT_STRATEGY.md` § Business Model for pricing):
 - Free (limited items and AI scans)
 - Pro (unlimited items, full features)
 - Patron (premium extras, early access)
+
+Payment implementation default:
+
+- use Stripe-hosted Checkout Sessions for web/PWA subscription purchase
+- use Stripe Customer Portal for cancellation, payment method updates, invoices, and plan management
+- use Stripe webhooks to reconcile paid status into Supabase before enforcing Pro/Patron entitlements
+- keep Payment Links or Stripe Pricing Table acceptable only as quick validation shortcuts; production entitlement enforcement still depends on webhook reconciliation
+- avoid raw PaymentIntents or a custom Payment Element checkout unless the product proves it needs deeper checkout control
 
 Targets:
 

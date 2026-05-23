@@ -147,9 +147,10 @@ Curio should remain web-first in product architecture.
 That does **not** mean avoiding Android or Google Play. It means:
 
 - keep the core product logic shared with web
-- use Android / Google Play as an early distribution and payment test channel
+- use Android / Google Play as an early distribution and willingness-to-pay signal
 - ship native packaging when it helps market validation
 - avoid broad native-only feature work until demand is proven
+- do not assume web Stripe checkout can be promoted inside store-distributed native shells for digital subscriptions; verify platform billing rules before launch
 
 The strategic distinction matters:
 
@@ -184,6 +185,8 @@ Current stance:
 - willingness to pay is still a hypothesis to validate
 - ads are not the primary plan
 - marketplace or affiliate models are possible later, not the first business
+- for the web/PWA product, the default payment integration is Stripe-hosted Checkout Sessions in subscription mode, paired with Stripe Customer Portal for self-service billing
+- do not build a custom card form, raw PaymentIntents subscription flow, or bespoke billing management until checkout customization becomes a proven product need
 
 Planned tiers:
 
