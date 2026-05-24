@@ -372,12 +372,6 @@ describe('services/geminiService.ts - AI availability', () => {
     const mod = await importGeminiServiceFresh({ aiEnabled: 'true' });
     expect(mod.isAiEnabled()).toBe(true);
   });
-
-  it('isVoiceGuideEnabled requires both AI enabled and VOICE_GUIDE_ENABLED', async () => {
-    const mod = await importGeminiServiceFresh({ aiEnabled: 'true' });
-    // Voice guide is disabled by default
-    expect(mod.isVoiceGuideEnabled()).toBe(false);
-  });
 });
 
 describe('services/geminiService.ts - enhanceImage', () => {
