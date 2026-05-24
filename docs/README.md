@@ -15,7 +15,8 @@ This directory keeps a small set of source-of-truth documents. If a doc is just 
 ## Supporting docs
 
 - `ops/AI_GATEWAY_MONITORING.md`: operational monitoring reference for the Gemini gateway and sync logs.
-- `plan/DESIGN_flexible_collection_creation.md`: active forward-looking spec for Phase 1 work. Delete once shipped and move enduring behavior into the canonical docs above.
+- `plan/DESIGN_flexible_collection_creation.md`: active forward-looking spec for Phase 1 flexible collection work. Delete once shipped and move enduring behavior into the canonical docs above.
+- `plan/DESIGN_shareable_urls_and_og_tags.md`: active forward-looking spec for Phase 1 public sharing URLs and Open Graph metadata. Delete once shipped and move enduring behavior into the canonical docs above.
 - `archive/CODE_REVIEW_REPORT.md`: historical point-in-time report. Keep archived, do not update.
 
 ## Documentation rules
