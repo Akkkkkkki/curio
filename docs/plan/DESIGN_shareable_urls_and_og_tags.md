@@ -1,7 +1,8 @@
 # Shareable URLs and OG Tags - Design Decision
 
 > **Status:** Design (Ready for Implementation)
-> **Linear:** [CUR-4](https://linear.app/qiuyue/issue/CUR-4/design-spec-shareable-urls-and-og-tags-hashrouter-migration-decision)
+> **Linear:**
+> [CUR-4](https://linear.app/qiuyue/issue/CUR-4/design-spec-shareable-urls-and-og-tags-hashrouter-migration-decision)
 > **Last Updated:** 2026-05-24
 
 This is a forward-looking design spec for Phase 1 sharing work. Durable product rules live in
@@ -11,27 +12,27 @@ This is a forward-looking design spec for Phase 1 sharing work. Durable product 
 
 ## 1. Decision
 
-Curio should keep the authenticated app on `HashRouter` for the first Phase 1 sharing release and add a
-server-rendered public share route layer for canonical public URLs and Open Graph metadata.
+Curio should keep the authenticated app on `HashRouter` for the first Phase 1 sharing release and
+add a server-rendered public share route layer for canonical public URLs and Open Graph metadata.
 
 This chooses **Option B: server-side OG route layer** as the first implementation path.
 
 ### Why this path
 
-- Social crawlers need complete Open Graph tags in the first HTML response. Changing from `HashRouter` to
-  `BrowserRouter` gives clean app URLs, but a static Vite SPA still serves the same `index.html` unless a
-  server route injects per-profile, per-collection, or per-item metadata.
-- The current Vercel config already rewrites all non-API routes to `index.html`, so direct browser refreshes
-  can be supported later without changing hosting providers.
-- Keeping `HashRouter` avoids breaking existing owner-facing links while Phase 1 validates public profiles,
-  privacy controls, and share-card quality.
-- Public share surfaces are anonymous-readable and privacy-sensitive. They should be served from a narrow
-  public route layer that checks visibility before emitting metadata.
+- Social crawlers need complete Open Graph tags in the first HTML response. Changing from
+  `HashRouter` to `BrowserRouter` gives clean app URLs, but a static Vite SPA still serves the same
+  `index.html` unless a server route injects per-profile, per-collection, or per-item metadata.
+- The current Vercel config already rewrites all non-API routes to `index.html`, so direct browser
+  refreshes can be supported later without changing hosting providers.
+- Keeping `HashRouter` avoids breaking existing owner-facing links while Phase 1 validates public
+  profiles, privacy controls, and share-card quality.
+- Public share surfaces are anonymous-readable and privacy-sensitive. They should be served from a
+  narrow public route layer that checks visibility before emitting metadata.
 
 ### Explicit non-decision
 
-This does not permanently ban a `BrowserRouter` migration. It defers the owner-app migration until public
-sharing proves value and the team has a clean compatibility plan for old hash links.
+This does not permanently ban a `BrowserRouter` migration. It defers the owner-app migration until
+public sharing proves value and the team has a clean compatibility plan for old hash links.
 
 ---
 
@@ -39,13 +40,13 @@ sharing proves value and the team has a clean compatibility plan for old hash li
 
 Use `/u/:username` as the public profile root.
 
-| Surface    | Canonical public URL                                      | Notes                                                                  |
-| ---------- | --------------------------------------------------------- | ---------------------------------------------------------------------- |
-| Profile    | `/u/:username`                                            | Public museum front door.                                              |
-| Collection | `/u/:username/collections/:collectionSlug`                | Slug should be stable and human-readable; item IDs stay internal.      |
-| Item       | `/u/:username/collections/:collectionSlug/items/:itemSlug` | Keeps item context inside its parent collection.                       |
-| Wrapped    | `/u/:username/wrapped/:year`                              | Only resolves after the owner publishes that Wrapped output.           |
-| Widget     | `/embed/:username/:collectionSlug`                        | Embeddable shelf route; links back to the canonical collection page.   |
+| Surface    | Canonical public URL                                       | Notes                                                                |
+| ---------- | ---------------------------------------------------------- | -------------------------------------------------------------------- |
+| Profile    | `/u/:username`                                             | Public museum front door.                                            |
+| Collection | `/u/:username/collections/:collectionSlug`                 | Slug should be stable and human-readable; item IDs stay internal.    |
+| Item       | `/u/:username/collections/:collectionSlug/items/:itemSlug` | Keeps item context inside its parent collection.                     |
+| Wrapped    | `/u/:username/wrapped/:year`                               | Only resolves after the owner publishes that Wrapped output.         |
+| Widget     | `/embed/:username/:collectionSlug`                         | Embeddable shelf route; links back to the canonical collection page. |
 
 Rejected alternatives:
 
@@ -71,14 +72,15 @@ Minimum username rules:
 - reserved words blocked (`api`, `app`, `admin`, `embed`, `login`, `privacy`, `settings`, `u`)
 - one owner-controlled change path, with old URLs not guaranteed until redirects are designed
 
-Display names remain separate from usernames. The username is the stable URL handle; display name is the
-curator-facing presentation label.
+Display names remain separate from usernames. The username is the stable URL handle; display name
+is the curator-facing presentation label.
 
 ---
 
 ## 4. Data Model Changes
 
-Exact SQL belongs in the implementation PR, but the Phase 1 route layer needs these durable concepts.
+Exact SQL belongs in the implementation PR, but the Phase 1 route layer needs these durable
+concepts.
 
 ### `profiles`
 
@@ -126,13 +128,15 @@ Constraints:
 
 ## 5. Route Layer Contract
 
-The server-rendered public route layer should return metadata-first HTML for crawlers and normal browsers.
+The server-rendered public route layer should return metadata-first HTML for crawlers and normal
+browsers.
 
 For a public request:
 
 1. Parse and validate the route params.
 2. Fetch only anonymous-readable public data from Supabase.
-3. If the profile, collection, item, or Wrapped output is private or missing, return a non-indexable 404.
+3. If the profile, collection, item, or Wrapped output is private or missing, return a
+   non-indexable 404.
 4. Render HTML with Open Graph and Twitter card tags.
 5. Include a client entry point or redirect target for interactive viewing.
 
@@ -148,8 +152,8 @@ Required OG fields:
 - `twitter:description`
 - `twitter:image`
 
-Metadata must never include private collections, private items, draft fields, internal IDs, private notes, or
-AI-only metadata.
+Metadata must never include private collections, private items, draft fields, internal IDs, private
+notes, or AI-only metadata.
 
 ---
 
