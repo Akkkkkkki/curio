@@ -120,6 +120,56 @@ describe('AddItemModal', () => {
     expect(screen.queryByText('New Archive')).not.toBeInTheDocument();
   });
 
+  it('skips collection picker when defaultCollectionId matches a known collection', async () => {
+    const c1 = createMockCollection({ id: 'c1', name: 'Vinyl Vault' });
+    const c2 = createMockCollection({ id: 'c2', name: 'Chocolate Vault' });
+
+    renderWithProviders(
+      <AddItemModal
+        isOpen
+        onClose={mockOnClose}
+        collections={[c1, c2]}
+        defaultCollectionId="c2"
+        onSave={mockOnSave}
+      />,
+    );
+
+    // Should skip select-type and land on upload step directly.
+    expect(screen.getByRole('heading', { name: 'Upload Photo' })).toBeInTheDocument();
+    expect(screen.queryByText('New Archive')).not.toBeInTheDocument();
+  });
+
+  it('falls back to collection picker when defaultCollectionId does not match any collection', async () => {
+    const c1 = createMockCollection({ id: 'c1', name: 'Vinyl Vault' });
+    const c2 = createMockCollection({ id: 'c2', name: 'Chocolate Vault' });
+
+    renderWithProviders(
+      <AddItemModal
+        isOpen
+        onClose={mockOnClose}
+        collections={[c1, c2]}
+        defaultCollectionId="deleted-id"
+        onSave={mockOnSave}
+      />,
+    );
+
+    // Should show the collection picker since the default ID is stale.
+    expect(screen.getByText('New Archive')).toBeInTheDocument();
+    expect(screen.getByText('Vinyl Vault')).toBeInTheDocument();
+  });
+
+  it('shows collection picker when no defaultCollectionId and multiple collections', async () => {
+    const c1 = createMockCollection({ id: 'c1', name: 'Vinyl Vault' });
+    const c2 = createMockCollection({ id: 'c2', name: 'Chocolate Vault' });
+
+    renderWithProviders(
+      <AddItemModal isOpen onClose={mockOnClose} collections={[c1, c2]} onSave={mockOnSave} />,
+    );
+
+    // Without a default, multi-collection modal starts on picker.
+    expect(screen.getByText('New Archive')).toBeInTheDocument();
+  });
+
   it('processes a batch upload and renders the analyzed item', async () => {
     const user = userEvent.setup();
     mockRefreshAiEnabled.mockResolvedValue(true);
