@@ -1238,7 +1238,7 @@ export const AppContent: React.FC = () => {
               <div className="relative flex gap-2 flex-1 min-w-[12rem]">
                 <input
                   type="text"
-                  placeholder="..."
+                  placeholder={t('collectionSearchPlaceholder')}
                   value={filterInput}
                   onChange={(e) => setFilterInput(e.target.value)}
                   className={`pl-4 pr-4 py-2 rounded-xl border focus:ring-4 focus:ring-amber-500/5 outline-none text-sm w-full transition-all shadow-sm font-serif italic ${theme === 'vault' ? 'bg-stone-900 border-white/10 text-white' : 'bg-white border-stone-200 text-stone-900'}`}
@@ -1816,7 +1816,7 @@ export const AppContent: React.FC = () => {
                   } focus:border-amber-100 outline-none transition-all placeholder:italic ${theme === 'vault' ? 'text-white' : 'text-stone-900'} ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
                   value={item.title}
                   onChange={(e) => applyItemUpdate({ title: e.target.value })}
-                  placeholder="..."
+                  placeholder={t('itemTitlePlaceholder')}
                   disabled={isReadOnly}
                 />
                 {titleIsEmpty && !isReadOnly && (
