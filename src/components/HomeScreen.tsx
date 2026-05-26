@@ -86,14 +86,24 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   if (loadError)
     return (
       <div className="flex flex-col items-center justify-center px-4 py-16 sm:py-24">
-        <div className="max-w-md w-full text-center bg-white/70 border border-stone-200 rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-10 shadow-xl">
-          <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto mb-5 sm:mb-6">
+        <div
+          className={`max-w-md w-full text-center border rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-10 shadow-xl ${theme === 'vault' ? 'bg-white/5 border-white/10' : theme === 'atelier' ? 'bg-[#EDE4D3]/70 border-[#D4C9B8]' : 'bg-white/70 border-stone-200'}`}
+        >
+          <div
+            className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center mx-auto mb-5 sm:mb-6 ${theme === 'vault' ? 'bg-amber-500/10 text-amber-400' : theme === 'atelier' ? 'bg-[#A86F3C]/10 text-[#A86F3C]' : 'bg-amber-50 text-amber-600'}`}
+          >
             <AlertCircle size={24} />
           </div>
-          <h2 className="font-serif text-2xl font-bold text-stone-900 mb-2">
+          <h2
+            className={`font-serif text-2xl font-bold mb-2 ${theme === 'vault' ? 'text-white' : theme === 'atelier' ? 'text-[#3D3530]' : 'text-stone-900'}`}
+          >
             {t('syncPausedTitle')}
           </h2>
-          <p className="text-sm text-stone-500 mb-6">{loadError}</p>
+          <p
+            className={`text-sm mb-6 ${theme === 'vault' ? 'text-stone-400' : theme === 'atelier' ? 'text-[#8C7B6B]' : 'text-stone-500'}`}
+          >
+            {loadError}
+          </p>
           <Button onClick={() => refreshCollections()} size="lg" className="w-full">
             {t('actionRetry')}
           </Button>
@@ -218,7 +228,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             className={`relative overflow-hidden rounded-[2rem] p-6 sm:p-7 border flex flex-col justify-between transition-all duration-500 ${themeBaseClasses[theme]} shadow-md`}
           >
             <div className="flex items-center justify-between mb-3 sm:mb-4">
-              <div className="p-2 bg-amber-50 rounded-xl text-amber-600">
+              <div
+                className={`p-2 rounded-xl ${theme === 'vault' ? 'bg-amber-500/10 text-amber-400' : theme === 'atelier' ? 'bg-[#A86F3C]/10 text-[#A86F3C]' : 'bg-amber-50 text-amber-600'}`}
+              >
                 <Calendar size={18} />
               </div>
               <span className={`${typographyClasses.labelSmall} ${labelColorClasses[theme]}`}>
@@ -252,11 +264,17 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                         key={item.id}
                         type="button"
                         onClick={() => navigate(`/collection/${item.collectionId}/item/${item.id}`)}
-                        className="w-full text-left rounded-xl border border-stone-200/60 bg-white/70 px-3 py-2 text-xs sm:text-sm shadow-sm transition hover:border-amber-200 hover:bg-amber-50/60"
+                        className={`w-full text-left rounded-xl border px-3 py-2 text-xs sm:text-sm shadow-sm transition ${theme === 'vault' ? 'border-white/10 bg-white/5 hover:border-[#D4A574]/30 hover:bg-white/10' : theme === 'atelier' ? 'border-[#D4C9B8]/60 bg-[#EDE4D3]/70 hover:border-[#A86F3C]/30 hover:bg-[#EDE4D3]' : 'border-stone-200/60 bg-white/70 hover:border-amber-200 hover:bg-amber-50/60'}`}
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <span className="truncate font-medium text-stone-700">{item.title}</span>
-                          <span className="text-[11px] uppercase tracking-wide text-stone-400">
+                          <span
+                            className={`truncate font-medium ${theme === 'vault' ? 'text-white' : theme === 'atelier' ? 'text-[#3D3530]' : 'text-stone-700'}`}
+                          >
+                            {item.title}
+                          </span>
+                          <span
+                            className={`text-[11px] uppercase tracking-wide ${theme === 'vault' ? 'text-stone-500' : theme === 'atelier' ? 'text-[#8C7B6B]' : 'text-stone-400'}`}
+                          >
                             {itemYear}
                           </span>
                         </div>
@@ -265,7 +283,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                   })}
                 </div>
                 {historyOverflow > 0 && (
-                  <p className="text-xs text-stone-400">
+                  <p
+                    className={`text-xs ${theme === 'vault' ? 'text-stone-500' : theme === 'atelier' ? 'text-[#8C7B6B]' : 'text-stone-400'}`}
+                  >
                     {t('onThisDayMore', { count: historyOverflow })}
                   </p>
                 )}
