@@ -1202,13 +1202,13 @@ export const AppContent: React.FC = () => {
                 </Button>
               )}
               <div
-                className={`flex rounded-xl p-1 ${theme === 'vault' ? 'bg-white/5' : 'bg-stone-200/50'}`}
+                className={`flex rounded-xl p-1 ${theme === 'vault' ? 'bg-white/5' : theme === 'atelier' ? 'bg-[#D4C9B8]/30' : 'bg-stone-200/50'}`}
               >
                 <button
                   onClick={() => setViewMode('grid')}
                   aria-label={t('viewGrid')}
                   title={t('viewGrid')}
-                  className={`w-11 h-11 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}
+                  className={`w-11 h-11 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg transition-all ${viewMode === 'grid' ? (theme === 'vault' ? 'bg-white/10 text-white shadow-sm' : theme === 'atelier' ? 'bg-[#F5EFE4] text-[#3D3530] shadow-sm' : 'bg-white text-stone-900 shadow-sm') : theme === 'vault' ? 'text-stone-500 hover:text-stone-300' : theme === 'atelier' ? 'text-[#8C7B6B] hover:text-[#3D3530]' : 'text-stone-400 hover:text-stone-600'}`}
                 >
                   <LayoutGrid size={18} />
                 </button>
@@ -1216,7 +1216,7 @@ export const AppContent: React.FC = () => {
                   onClick={() => setViewMode('waterfall')}
                   aria-label={t('viewWaterfall')}
                   title={t('viewWaterfall')}
-                  className={`w-11 h-11 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg transition-all ${viewMode === 'waterfall' ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}
+                  className={`w-11 h-11 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg transition-all ${viewMode === 'waterfall' ? (theme === 'vault' ? 'bg-white/10 text-white shadow-sm' : theme === 'atelier' ? 'bg-[#F5EFE4] text-[#3D3530] shadow-sm' : 'bg-white text-stone-900 shadow-sm') : theme === 'vault' ? 'text-stone-500 hover:text-stone-300' : theme === 'atelier' ? 'text-[#8C7B6B] hover:text-[#3D3530]' : 'text-stone-400 hover:text-stone-600'}`}
                 >
                   <LayoutTemplate size={18} className="rotate-180" />
                 </button>
@@ -2307,22 +2307,30 @@ export const AppContent: React.FC = () => {
       className="flex flex-col items-center justify-center px-4 py-16 sm:py-24"
       data-testid="access-gate"
     >
-      <div className="max-w-md w-full text-center bg-white/70 border border-stone-200 rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-10 shadow-xl">
-        <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-stone-100 text-stone-500 flex items-center justify-center mx-auto mb-5 sm:mb-6">
+      <div
+        className={`max-w-md w-full text-center border rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-10 shadow-xl ${theme === 'vault' ? 'bg-white/5 border-white/10' : theme === 'atelier' ? 'bg-[#EDE4D3]/70 border-[#D4C9B8]' : 'bg-white/70 border-stone-200'}`}
+      >
+        <div
+          className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center mx-auto mb-5 sm:mb-6 ${theme === 'vault' ? 'bg-white/10 text-stone-400' : theme === 'atelier' ? 'bg-[#D4C9B8]/50 text-[#8C7B6B]' : 'bg-stone-100 text-stone-500'}`}
+        >
           {!authReady && isSupabaseReady ? (
             <Loader2 size={24} className="animate-spin" />
           ) : (
             <Lock size={24} />
           )}
         </div>
-        <h1 className="font-serif text-2xl font-bold text-stone-900 mb-2">
+        <h1
+          className={`font-serif text-2xl font-bold mb-2 ${theme === 'vault' ? 'text-white' : theme === 'atelier' ? 'text-[#3D3530]' : 'text-stone-900'}`}
+        >
           {!authReady && isSupabaseReady
             ? t('authLoading')
             : isSupabaseReady
               ? t('authRequiredTitle')
               : t('cloudRequiredTitle')}
         </h1>
-        <p className="text-sm text-stone-500 mb-6">
+        <p
+          className={`text-sm mb-6 ${theme === 'vault' ? 'text-stone-400' : theme === 'atelier' ? 'text-[#8C7B6B]' : 'text-stone-500'}`}
+        >
           {!authReady && isSupabaseReady
             ? t('authLoadingDesc')
             : isSupabaseReady
@@ -2350,12 +2358,18 @@ export const AppContent: React.FC = () => {
             </Button>
           )}
           {!isSupabaseReady ? (
-            <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-stone-400">
+            <div
+              className={`text-[11px] font-semibold uppercase tracking-[0.16em] ${theme === 'vault' ? 'text-stone-500' : theme === 'atelier' ? 'text-[#8C7B6B]' : 'text-stone-400'}`}
+            >
               {t('cloudRequiredAction')}
             </div>
           ) : null}
         </div>
-        <p className="text-[12px] text-stone-400 mt-5 leading-relaxed">{t('ctaPromise')}</p>
+        <p
+          className={`text-[12px] mt-5 leading-relaxed ${theme === 'vault' ? 'text-stone-500' : theme === 'atelier' ? 'text-[#8C7B6B]' : 'text-stone-400'}`}
+        >
+          {t('ctaPromise')}
+        </p>
       </div>
     </div>
   );
