@@ -133,15 +133,19 @@ describe('App Integration Tests', () => {
       </MemoryRouter>,
     );
 
-    // Wait for collections to load
-    await waitFor(() => {
-      expect(screen.getByText('Test Collection')).toBeInTheDocument();
-    });
+    await waitFor(
+      () => {
+        expect(screen.getByText('Test Collection')).toBeInTheDocument();
+      },
+      { timeout: 3000 },
+    );
 
-    // Check if items are rendered (lazy-loaded screen may render items on a later tick)
-    await waitFor(() => {
-      expect(screen.getAllByText('Test Item')[0]).toBeInTheDocument();
-    });
+    await waitFor(
+      () => {
+        expect(screen.getAllByText('Test Item')[0]).toBeInTheDocument();
+      },
+      { timeout: 3000 },
+    );
   });
 
   it('shows the public sample gallery instead of a dead-end gate when cloud is not configured', async () => {
