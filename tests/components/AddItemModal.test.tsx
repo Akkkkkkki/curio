@@ -270,6 +270,82 @@ describe('AddItemModal', () => {
     expect(screen.getByText('Sneaker Gallery')).toBeInTheDocument();
   });
 
+  it('recovers the verify flow when the selected collection is removed mid-session', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    const onSave = vi.fn();
+    const c1 = createMockCollection({ id: 'c1', name: 'Vinyl Vault' });
+    const c2 = createMockCollection({ id: 'c2', name: 'Chocolate Vault' });
+
+    const { rerender } = renderWithProviders(
+      <AddItemModal
+        isOpen
+        onClose={onClose}
+        collections={[c1, c2]}
+        defaultCollectionId="c2"
+        onSave={onSave}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Skip and add manually' }));
+    await user.type(screen.getAllByRole('textbox')[0], 'Recovered Artifact');
+
+    rerender(
+      <AddItemModal
+        isOpen
+        onClose={onClose}
+        collections={[c1]}
+        defaultCollectionId="c2"
+        onSave={onSave}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Save without story' }));
+
+    expect(onSave).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(
+      screen.getByText("Couldn't save — that collection no longer exists."),
+    ).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Recovered Artifact')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Save without story' }));
+
+    await waitFor(() => {
+      expect(onSave).toHaveBeenCalledWith(
+        'c1',
+        expect.objectContaining({ collectionId: 'c1', title: 'Recovered Artifact' }),
+      );
+    });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the modal open when saving fails', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    const onSave = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("Couldn't save — that collection no longer exists."));
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const collection = createMockCollection({ id: 'c1', name: 'Vinyl Vault' });
+
+    renderWithProviders(
+      <AddItemModal isOpen onClose={onClose} collections={[collection]} onSave={onSave} />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Skip and add manually' }));
+    await user.type(screen.getAllByRole('textbox')[0], 'Unsaved Artifact');
+    await user.click(screen.getByRole('button', { name: 'Save without story' }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onClose).not.toHaveBeenCalled();
+    expect(
+      screen.getByText("Couldn't save — that collection no longer exists."),
+    ).toBeInTheDocument();
+
+    consoleError.mockRestore();
+  });
+
   it('processes a batch upload and renders the analyzed item', async () => {
     const user = userEvent.setup();
     mockRefreshAiEnabled.mockResolvedValue(true);

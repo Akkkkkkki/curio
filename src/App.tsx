@@ -692,10 +692,15 @@ export const AppContent: React.FC = () => {
     const exists = collections.some((c) => c.id === collectionId);
     if (!exists) {
       console.warn('handleAddItem: target collection not found', collectionId);
-      showStatus(t('statusSaveFailedMissingCollection'), 'error');
-      return;
+      const message = t('statusSaveFailedMissingCollection');
+      showStatus(message, 'error');
+      throw new Error(message);
     }
-    if (!canEditCollection(collectionId)) return;
+    if (!canEditCollection(collectionId)) {
+      const message = t('readOnlyControls');
+      showStatus(message, 'error');
+      throw new Error(message);
+    }
     pendingSyncToastRef.current = true;
     if (!isSupabaseReady) pendingSyncToastRef.current = false;
     const itemId = Math.random().toString(36).substr(2, 9);
@@ -739,7 +744,9 @@ export const AppContent: React.FC = () => {
       showStatus(t('statusSaved'), 'success');
     } else {
       console.warn('handleAddItem: target collection not found', collectionId);
-      showStatus(t('statusSaveFailedMissingCollection'), 'error');
+      const message = t('statusSaveFailedMissingCollection');
+      showStatus(message, 'error');
+      throw new Error(message);
     }
   };
 
