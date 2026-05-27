@@ -196,4 +196,16 @@ describe('App Integration Tests', () => {
     expect(screen.getByTestId('cta-primary-add-first')).toBeInTheDocument();
     expect(screen.getByTestId('cta-secondary-explore-sample')).toBeInTheDocument();
   });
+
+  it('has i18n keys for collection search empty state', async () => {
+    const { translations } = await import('@/i18n');
+
+    expect(translations.en.collectionSearchNoResults).toContain('{query}');
+    expect(translations.en.collectionFilterNoResults).toBeTruthy();
+    expect(translations.en.clearSearch).toBeTruthy();
+
+    expect(translations.zh.collectionSearchNoResults).toContain('{query}');
+    expect(translations.zh.collectionFilterNoResults).toBeTruthy();
+    expect(translations.zh.clearSearch).toBeTruthy();
+  });
 });
