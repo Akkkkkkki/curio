@@ -170,6 +170,106 @@ describe('AddItemModal', () => {
     expect(screen.getByText('New Archive')).toBeInTheDocument();
   });
 
+  it('routes to collection picker (not upload dead-end) when defaultCollectionId becomes stale mid-session', async () => {
+    const c1 = createMockCollection({ id: 'c1', name: 'Vinyl Vault' });
+    const c2 = createMockCollection({ id: 'c2', name: 'Chocolate Vault' });
+
+    const { rerender } = renderWithProviders(
+      <AddItemModal
+        isOpen
+        onClose={mockOnClose}
+        collections={[c1, c2]}
+        defaultCollectionId="c2"
+        onSave={mockOnSave}
+      />,
+    );
+
+    // Opens on upload step with c2 preselected (skip picker).
+    expect(screen.getByRole('heading', { name: 'Upload Photo' })).toBeInTheDocument();
+
+    // Mid-session: c2 is deleted, parent re-renders with only c1.
+    // The reset effect does NOT re-run (isOpen is still true — CUR-44 guard),
+    // so selectedCollectionId is still 'c2' but currentCollection is now null.
+    rerender(
+      <AddItemModal
+        isOpen
+        onClose={mockOnClose}
+        collections={[c1]}
+        defaultCollectionId="c2"
+        onSave={mockOnSave}
+      />,
+    );
+
+    // Close and reopen the modal to trigger the reset effect with the stale default.
+    rerender(
+      <AddItemModal
+        isOpen={false}
+        onClose={mockOnClose}
+        collections={[c1]}
+        defaultCollectionId="c2"
+        onSave={mockOnSave}
+      />,
+    );
+    rerender(
+      <AddItemModal
+        isOpen
+        onClose={mockOnClose}
+        collections={[c1]}
+        defaultCollectionId="c2"
+        onSave={mockOnSave}
+      />,
+    );
+
+    // With only 1 collection remaining and stale default, should skip to upload
+    // (single-collection auto-select), NOT get stuck in a dead-end.
+    // If there were 2+ collections, it would show the picker instead.
+    expect(screen.getByRole('heading', { name: 'Upload Photo' })).toBeInTheDocument();
+  });
+
+  it('shows picker on reopen when stale default and multiple collections remain', async () => {
+    const c1 = createMockCollection({ id: 'c1', name: 'Vinyl Vault' });
+    const c2 = createMockCollection({ id: 'c2', name: 'Chocolate Vault' });
+    const c3 = createMockCollection({ id: 'c3', name: 'Sneaker Gallery' });
+
+    const { rerender } = renderWithProviders(
+      <AddItemModal
+        isOpen
+        onClose={mockOnClose}
+        collections={[c1, c2, c3]}
+        defaultCollectionId="c2"
+        onSave={mockOnSave}
+      />,
+    );
+
+    // Opens directly on upload (c2 preselected).
+    expect(screen.getByRole('heading', { name: 'Upload Photo' })).toBeInTheDocument();
+
+    // c2 deleted mid-session. Close and reopen with stale default.
+    rerender(
+      <AddItemModal
+        isOpen={false}
+        onClose={mockOnClose}
+        collections={[c1, c3]}
+        defaultCollectionId="c2"
+        onSave={mockOnSave}
+      />,
+    );
+    rerender(
+      <AddItemModal
+        isOpen
+        onClose={mockOnClose}
+        collections={[c1, c3]}
+        defaultCollectionId="c2"
+        onSave={mockOnSave}
+      />,
+    );
+
+    // Stale default + multiple collections → must show picker, not upload dead-end.
+    expect(screen.getByText('New Archive')).toBeInTheDocument();
+    expect(screen.getByText('Vinyl Vault')).toBeInTheDocument();
+    expect(screen.getByText('Sneaker Gallery')).toBeInTheDocument();
+  });
+
   it('processes a batch upload and renders the analyzed item', async () => {
     const user = userEvent.setup();
     mockRefreshAiEnabled.mockResolvedValue(true);
