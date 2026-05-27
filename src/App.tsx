@@ -153,6 +153,9 @@ export const AppContent: React.FC = () => {
   const [importState, setImportState] = useState<'idle' | 'running' | 'done' | 'error'>('idle');
   const [importMessage, setImportMessage] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [addModalDefaultCollectionId, setAddModalDefaultCollectionId] = useState<
+    string | undefined
+  >();
   const [isCreateCollectionOpen, setIsCreateCollectionOpen] = useState(false);
   const [status, setStatus] = useState<{
     message: string;
@@ -1159,7 +1162,10 @@ export const AppContent: React.FC = () => {
               {canAddItems && (
                 <Button
                   variant="primary"
-                  onClick={() => setIsAddModalOpen(true)}
+                  onClick={() => {
+                    setAddModalDefaultCollectionId(collection?.id);
+                    setIsAddModalOpen(true);
+                  }}
                   icon={<Plus size={16} />}
                   className="shadow-md w-full sm:w-auto"
                 >
@@ -1339,7 +1345,10 @@ export const AppContent: React.FC = () => {
               <Button
                 size="lg"
                 className="px-12 py-4 text-lg rounded-2xl shadow-xl"
-                onClick={() => setIsAddModalOpen(true)}
+                onClick={() => {
+                  setAddModalDefaultCollectionId(collection?.id);
+                  setIsAddModalOpen(true);
+                }}
               >
                 {t('catalogFirst')}
               </Button>
@@ -2265,6 +2274,7 @@ export const AppContent: React.FC = () => {
       setIsCreateCollectionOpen(true);
       return;
     }
+    setAddModalDefaultCollectionId(undefined);
     setIsAddModalOpen(true);
   }, [editableCollections.length, isAuthenticated]);
 
@@ -2479,13 +2489,17 @@ export const AppContent: React.FC = () => {
               isOpen={isAddModalOpen}
               onClose={() => setIsAddModalOpen(false)}
               collections={editableCollections}
+              defaultCollectionId={addModalDefaultCollectionId}
               onSave={handleAddItem}
             />
             <CreateCollectionModal
               isOpen={isCreateCollectionOpen}
               onClose={() => setIsCreateCollectionOpen(false)}
               onCreate={handleCreateCollection}
-              onAddFirstItem={() => setIsAddModalOpen(true)}
+              onAddFirstItem={() => {
+                setAddModalDefaultCollectionId(undefined);
+                setIsAddModalOpen(true);
+              }}
             />
           </>
         )}
