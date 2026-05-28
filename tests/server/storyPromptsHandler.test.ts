@@ -12,11 +12,13 @@ vi.mock('@google/genai', () => ({
     OBJECT: 'OBJECT',
     STRING: 'STRING',
   },
-  GoogleGenAI: vi.fn(() => ({
-    models: {
-      generateContent: generateContentMock,
-    },
-  })),
+  GoogleGenAI: vi.fn(function GoogleGenAI() {
+    return {
+      models: {
+        generateContent: generateContentMock,
+      },
+    };
+  }),
 }));
 
 const createMockResponse = () => {
