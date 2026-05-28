@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeAll } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '../utils/test-utils';
 import { AddItemModal } from '@/components/AddItemModal';
@@ -300,5 +300,38 @@ describe('AddItemModal', () => {
     });
 
     expect(await screen.findByDisplayValue('Mock Artifact')).toBeInTheDocument();
+  });
+
+  it('fades the verify-step scroll edge while fields remain below the fold (CUR-45)', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <AddItemModal
+        isOpen
+        onClose={mockOnClose}
+        collections={[createMockCollection()]}
+        onSave={mockOnSave}
+      />,
+    );
+
+    // Single collection auto-selects the upload step; skip AI to reach verify.
+    await user.click(await screen.findByRole('button', { name: 'Skip and add manually' }));
+
+    const fade = await screen.findByTestId('add-item-scroll-fade');
+    const scroller = screen.getByTestId('add-item-scroll');
+
+    // No measurable overflow yet (happy-dom reports 0 height) → fade hidden.
+    expect(fade.className).toContain('opacity-0');
+
+    // Simulate overflowing content with room left to scroll down.
+    Object.defineProperty(scroller, 'scrollHeight', { configurable: true, value: 1000 });
+    Object.defineProperty(scroller, 'clientHeight', { configurable: true, value: 300 });
+    Object.defineProperty(scroller, 'scrollTop', { configurable: true, value: 0 });
+    fireEvent.scroll(scroller);
+    expect(fade.className).toContain('opacity-100');
+
+    // Scrolled to the bottom → fade clears so the last field reads as complete.
+    Object.defineProperty(scroller, 'scrollTop', { configurable: true, value: 700 });
+    fireEvent.scroll(scroller);
+    expect(fade.className).toContain('opacity-0');
   });
 });
