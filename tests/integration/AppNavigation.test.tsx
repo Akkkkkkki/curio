@@ -166,4 +166,34 @@ describe('App Integration Tests', () => {
     expect(screen.getByText('5')).toBeInTheDocument();
     expect(screen.queryByTestId('access-gate')).not.toBeInTheDocument();
   });
+
+  it('greets signed-out visitors with a product-explaining welcome gate', async () => {
+    const { ThemeProvider } = await import('@/theme');
+    vi.mocked(supabaseService.isSupabaseConfigured).mockReturnValue(true);
+    vi.mocked(supabaseService.supabase!.auth.getSession).mockResolvedValue({
+      data: { session: null },
+    } as never);
+
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('access-gate')).toBeInTheDocument();
+    });
+
+    // Gate explains what Curio is before asking for sign-in (CUR-63)
+    expect(screen.getByText('Welcome to Curio')).toBeInTheDocument();
+    expect(screen.getByText(/personal museum/i)).toBeInTheDocument();
+
+    // Both first-run CTAs remain available
+    expect(screen.getByTestId('cta-primary-add-first')).toBeInTheDocument();
+    expect(screen.getByTestId('cta-secondary-explore-sample')).toBeInTheDocument();
+  });
 });

@@ -40,6 +40,7 @@ import {
   Globe,
   Calendar,
   Lock,
+  Landmark,
   AlertCircle,
   X,
   CheckSquare,
@@ -2325,6 +2326,8 @@ export const AppContent: React.FC = () => {
         >
           {!authReady && isSupabaseReady ? (
             <Loader2 size={24} className="animate-spin" />
+          ) : isSupabaseReady ? (
+            <Landmark size={24} />
           ) : (
             <Lock size={24} />
           )}
@@ -2338,6 +2341,13 @@ export const AppContent: React.FC = () => {
               ? t('authRequiredTitle')
               : t('cloudRequiredTitle')}
         </h1>
+        {authReady && isSupabaseReady && (
+          <p
+            className={`font-serif italic text-base mb-4 ${theme === 'vault' ? 'text-stone-300' : theme === 'atelier' ? 'text-[#6B5344]' : 'text-stone-600'}`}
+          >
+            {t('accessGateTagline')}
+          </p>
+        )}
         <p
           className={`text-sm mb-6 ${theme === 'vault' ? 'text-stone-400' : theme === 'atelier' ? 'text-[#8C7B6B]' : 'text-stone-500'}`}
         >
