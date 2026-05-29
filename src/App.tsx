@@ -2411,6 +2411,7 @@ export const AppContent: React.FC = () => {
         onImportLocal={handleImportLocal}
         statusBanner={statusBanner}
         onAddItem={handleAddAction}
+        onExploreSamples={handleExploreSamples}
         headerExtras={
           <div className="flex items-center gap-2 sm:gap-3">
             {sampleCollection && (
