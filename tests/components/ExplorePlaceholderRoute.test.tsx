@@ -10,7 +10,7 @@ vi.mock('@/theme', async () => {
   return createThemeMock();
 });
 
-describe('Explore placeholder routing', () => {
+describe('Explore navigation routing', () => {
   const defaultProps = {
     onOpenAuth: vi.fn(),
     onSignOut: vi.fn(),
@@ -22,14 +22,24 @@ describe('Explore placeholder routing', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     setMockTheme('gallery');
+    window.location.hash = '#/';
   });
 
-  it('navigates to the explore placeholder from the bottom nav', async () => {
+  it('routes the bottom-nav Explore tab straight to the sample collection in one tap', async () => {
+    const onExploreSamples = vi.fn();
     renderWithProviders(
-      <Layout {...defaultProps}>
+      <Layout
+        {...defaultProps}
+        sampleCollectionId="sample-vinyl-1"
+        onExploreSamples={onExploreSamples}
+      >
         <Routes>
           <Route path="/" element={<div>Home</div>} />
           <Route path="/explore" element={<ExplorePlaceholder />} />
+          <Route
+            path="/collection/:id"
+            element={<div data-testid="sample-gallery">Sample gallery</div>}
+          />
         </Routes>
       </Layout>,
     );
@@ -37,7 +47,31 @@ describe('Explore placeholder routing', () => {
     const exploreLink = screen.getByRole('link', { name: /explore/i });
     fireEvent.click(exploreLink);
 
-    expect(await screen.findByTestId('explore-placeholder')).toBeInTheDocument();
+    expect(await screen.findByTestId('sample-gallery')).toBeInTheDocument();
+    expect(screen.queryByText('Community features are coming soon.')).not.toBeInTheDocument();
+    expect(onExploreSamples).toHaveBeenCalledTimes(1);
+  });
+
+  it('hides the Explore tab when no sample collection exists (no dead end)', () => {
+    renderWithProviders(
+      <Layout {...defaultProps} sampleCollectionId={null}>
+        <Routes>
+          <Route path="/" element={<div>Home</div>} />
+        </Routes>
+      </Layout>,
+    );
+
+    expect(screen.queryByRole('link', { name: /explore/i })).not.toBeInTheDocument();
+  });
+
+  it('keeps the Explore placeholder as a destination for the future feed', () => {
+    renderWithProviders(<ExplorePlaceholder sampleCollectionId="sample-vinyl-1" />);
+
+    expect(screen.getByTestId('explore-placeholder')).toBeInTheDocument();
     expect(screen.getByText('Community features are coming soon.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /sample gallery/i })).toHaveAttribute(
+      'href',
+      '#/collection/sample-vinyl-1',
+    );
   });
 });

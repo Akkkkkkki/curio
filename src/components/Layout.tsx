@@ -32,6 +32,7 @@ interface LayoutProps {
   headerExtras?: React.ReactNode;
   statusBanner?: React.ReactNode;
   onAddItem?: () => void;
+  onExploreSamples?: () => void;
 }
 
 export const Layout: React.FC<LayoutProps> = ({
@@ -48,6 +49,7 @@ export const Layout: React.FC<LayoutProps> = ({
   headerExtras,
   statusBanner,
   onAddItem,
+  onExploreSamples,
 }) => {
   const { t } = useTranslation();
   const { theme } = useTheme();
@@ -138,6 +140,7 @@ export const Layout: React.FC<LayoutProps> = ({
   const bottomNavMuted = theme === 'vault' ? 'text-white/60' : 'text-stone-400';
   const statusBadgeSurface =
     theme === 'vault' ? 'bg-stone-900 border-white/10' : 'bg-white border-stone-200';
+  const exploreTo = sampleCollectionId ? `/collection/${sampleCollectionId}` : null;
   const isExploreActive =
     location.pathname === '/explore' ||
     (sampleCollectionId
@@ -310,7 +313,7 @@ export const Layout: React.FC<LayoutProps> = ({
         style={{ height: 'var(--bottom-nav-height, 5.5rem)' }}
       >
         <div className="mx-auto max-w-4xl h-full px-2 pb-[env(safe-area-inset-bottom,0px)] pt-2 flex items-center">
-          <div className="grid grid-cols-4 items-center w-full">
+          <div className={`grid ${exploreTo ? 'grid-cols-4' : 'grid-cols-3'} items-center w-full`}>
             <Link
               to="/"
               className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition-colors ${location.pathname === '/' ? 'text-amber-500' : bottomNavMuted}`}
@@ -319,13 +322,16 @@ export const Layout: React.FC<LayoutProps> = ({
               {t('navHome')}
             </Link>
 
-            <Link
-              to="/explore"
-              className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition-colors ${isExploreActive ? 'text-amber-500' : bottomNavMuted}`}
-            >
-              <Compass size={22} />
-              {t('exploreSample')}
-            </Link>
+            {exploreTo && (
+              <Link
+                to={exploreTo}
+                onClick={onExploreSamples}
+                className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition-colors ${isExploreActive ? 'text-amber-500' : bottomNavMuted}`}
+              >
+                <Compass size={22} />
+                {t('exploreSample')}
+              </Link>
+            )}
 
             <button
               onClick={onAddItem}
