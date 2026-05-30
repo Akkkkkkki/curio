@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Home,
   User,
@@ -15,6 +15,8 @@ import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from '../i18n';
 import { ThemePicker } from './ThemePicker';
 import { useTheme, cardSurfaceClasses } from '../theme';
+
+type ProfileSource = 'header' | 'bottomNav';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -51,19 +53,33 @@ export const Layout: React.FC<LayoutProps> = ({
   const { theme } = useTheme();
   const location = useLocation();
   const isHome = location.pathname === '/';
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [profileSource, setProfileSource] = useState<ProfileSource | null>(null);
+  const isProfileOpen = profileSource !== null;
   const profileRef = useRef<HTMLDivElement>(null);
+  const closeProfile = useCallback(() => setProfileSource(null), []);
 
+  // Click-outside applies only to the header-anchored dropdown.
+  // The mobile bottom sheet has its own backdrop.
   useEffect(() => {
-    if (!isProfileOpen) return;
+    if (profileSource !== 'header') return;
     const handleClick = (e: MouseEvent) => {
       if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
-        setIsProfileOpen(false);
+        closeProfile();
       }
     };
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
-  }, [isProfileOpen]);
+  }, [profileSource, closeProfile]);
+
+  // Escape closes either surface.
+  useEffect(() => {
+    if (!isProfileOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeProfile();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [isProfileOpen, closeProfile]);
   const isAuthenticated = Boolean(user);
   const statusLabel = !isSupabaseConfigured
     ? t('cloudRequiredStatus')
@@ -128,6 +144,92 @@ export const Layout: React.FC<LayoutProps> = ({
       ? location.pathname.startsWith(`/collection/${sampleCollectionId}`)
       : false);
 
+  const profileMenuBody = (
+    <>
+      <div className={`p-4 border-b ${borderClass} mb-1`}>
+        <p className="text-[12px] font-bold uppercase tracking-[0.14em] opacity-70 mb-1">
+          {t('authStatus')}
+        </p>
+
+        <div className="flex items-start gap-3 mt-3">
+          <div
+            className={`p-2 rounded-xl ${isSupabaseConfigured ? (isAuthenticated ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600') : theme === 'vault' ? 'bg-white/10 text-white/60' : 'bg-stone-50 text-stone-400'}`}
+          >
+            {statusIcon}
+          </div>
+          <div className="flex-1 overflow-hidden">
+            <p className="text-sm font-bold">{statusLabel}</p>
+            <p className="text-[12px] opacity-80 leading-snug">{statusDesc}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="px-4 pb-3 pt-1">
+        <p className="text-[11px] font-bold uppercase tracking-[0.14em] opacity-70 mb-2">
+          {t('themeSelection')}
+        </p>
+        <div className="w-full">
+          <ThemePicker layout="stacked" />
+        </div>
+      </div>
+
+      {isAuthenticated ? (
+        <button
+          onClick={() => {
+            onSignOut();
+            closeProfile();
+          }}
+          className={`w-full flex items-center gap-2 px-4 py-3 text-sm rounded-xl transition-colors font-medium ${theme === 'vault' ? 'text-white/70 hover:text-red-200 hover:bg-white/5' : 'text-stone-400 hover:text-red-500 hover:bg-red-50'}`}
+        >
+          <LogOut size={16} />
+          {t('signOut')}
+        </button>
+      ) : (
+        <div className="p-2">
+          <button
+            onClick={() => {
+              onOpenAuth();
+              closeProfile();
+            }}
+            className={`w-full flex items-center justify-between px-4 py-3 text-sm rounded-xl transition-all font-bold ${theme === 'vault' ? 'bg-amber-500 text-stone-950 hover:bg-amber-400' : 'bg-stone-900 text-white hover:bg-stone-800'}`}
+          >
+            <div className="flex items-center gap-2">
+              <Zap size={16} />
+              {t('login')}
+            </div>
+            <ArrowUpRight size={16} className="opacity-50" />
+          </button>
+        </div>
+      )}
+
+      {hasLocalImport && isAuthenticated && onImportLocal && (
+        <div className="p-2 border-t border-stone-50">
+          <div className="p-3 rounded-xl border border-amber-100 bg-amber-50/60">
+            <p className="text-[12px] font-bold text-amber-900 uppercase tracking-[0.18em] mb-1">
+              {t('importLocalTitle')}
+            </p>
+            <p className="text-[12px] text-stone-600 leading-snug mb-3">{t('importLocalDesc')}</p>
+            <button
+              onClick={onImportLocal}
+              disabled={importState === 'running'}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-bold rounded-lg bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-60"
+            >
+              <Download size={14} />
+              {importState === 'running' ? t('importing') : t('importLocalAction')}
+            </button>
+            {importMessage && (
+              <p
+                className={`text-[12px] mt-2 ${importState === 'error' ? 'text-red-500' : 'text-amber-700'}`}
+              >
+                {importMessage}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  );
+
   return (
     <div
       className={`min-h-screen min-h-[100dvh] font-sans selection:bg-amber-200 transition-colors ${shellClass}`}
@@ -152,9 +254,11 @@ export const Layout: React.FC<LayoutProps> = ({
 
             <div className="relative" ref={profileRef}>
               <button
-                onClick={() => setIsProfileOpen(!isProfileOpen)}
+                onClick={() => setProfileSource((prev) => (prev === 'header' ? null : 'header'))}
                 aria-label={t('account')}
                 title={statusLabel}
+                aria-haspopup="menu"
+                aria-expanded={profileSource === 'header'}
                 className={`p-2 rounded-full transition-colors ${navGhost} ${statusColor} relative`}
               >
                 <User size={20} />
@@ -165,93 +269,13 @@ export const Layout: React.FC<LayoutProps> = ({
                 </span>
               </button>
 
-              {isProfileOpen && (
+              {profileSource === 'header' && (
                 <div
+                  data-testid="profile-dropdown"
+                  role="menu"
                   className={`absolute right-0 mt-2 w-72 max-w-[calc(100vw-2rem)] ${dropdownSurface} rounded-[1.5rem] shadow-2xl border p-2 animate-in slide-in-from-top-2 duration-200 z-50`}
                 >
-                  <div className={`p-4 border-b ${borderClass} mb-1`}>
-                    <p className="text-[12px] font-bold uppercase tracking-[0.14em] opacity-70 mb-1">
-                      {t('authStatus')}
-                    </p>
-
-                    <div className="flex items-start gap-3 mt-3">
-                      <div
-                        className={`p-2 rounded-xl ${isSupabaseConfigured ? (isAuthenticated ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600') : theme === 'vault' ? 'bg-white/10 text-white/60' : 'bg-stone-50 text-stone-400'}`}
-                      >
-                        {statusIcon}
-                      </div>
-                      <div className="flex-1 overflow-hidden">
-                        <p className="text-sm font-bold">{statusLabel}</p>
-                        <p className="text-[12px] opacity-80 leading-snug">{statusDesc}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="px-4 pb-3 pt-1">
-                    <p className="text-[11px] font-bold uppercase tracking-[0.14em] opacity-70 mb-2">
-                      {t('themeSelection')}
-                    </p>
-                    <div className="w-full">
-                      <ThemePicker layout="stacked" />
-                    </div>
-                  </div>
-
-                  {isAuthenticated ? (
-                    <button
-                      onClick={() => {
-                        onSignOut();
-                        setIsProfileOpen(false);
-                      }}
-                      className={`w-full flex items-center gap-2 px-4 py-3 text-sm rounded-xl transition-colors font-medium ${theme === 'vault' ? 'text-white/70 hover:text-red-200 hover:bg-white/5' : 'text-stone-400 hover:text-red-500 hover:bg-red-50'}`}
-                    >
-                      <LogOut size={16} />
-                      {t('signOut')}
-                    </button>
-                  ) : (
-                    <div className="p-2">
-                      <button
-                        onClick={() => {
-                          onOpenAuth();
-                          setIsProfileOpen(false);
-                        }}
-                        className={`w-full flex items-center justify-between px-4 py-3 text-sm rounded-xl transition-all font-bold ${theme === 'vault' ? 'bg-amber-500 text-stone-950 hover:bg-amber-400' : 'bg-stone-900 text-white hover:bg-stone-800'}`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <Zap size={16} />
-                          {t('login')}
-                        </div>
-                        <ArrowUpRight size={16} className="opacity-50" />
-                      </button>
-                    </div>
-                  )}
-
-                  {hasLocalImport && isAuthenticated && onImportLocal && (
-                    <div className="p-2 border-t border-stone-50">
-                      <div className="p-3 rounded-xl border border-amber-100 bg-amber-50/60">
-                        <p className="text-[12px] font-bold text-amber-900 uppercase tracking-[0.18em] mb-1">
-                          {t('importLocalTitle')}
-                        </p>
-                        <p className="text-[12px] text-stone-600 leading-snug mb-3">
-                          {t('importLocalDesc')}
-                        </p>
-                        <button
-                          onClick={onImportLocal}
-                          disabled={importState === 'running'}
-                          className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-bold rounded-lg bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-60"
-                        >
-                          <Download size={14} />
-                          {importState === 'running' ? t('importing') : t('importLocalAction')}
-                        </button>
-                        {importMessage && (
-                          <p
-                            className={`text-[12px] mt-2 ${importState === 'error' ? 'text-red-500' : 'text-amber-700'}`}
-                          >
-                            {importMessage}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  )}
+                  {profileMenuBody}
                 </div>
               )}
             </div>
@@ -314,8 +338,10 @@ export const Layout: React.FC<LayoutProps> = ({
             </button>
 
             <button
-              onClick={() => setIsProfileOpen(true)}
-              className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition-colors ${isProfileOpen ? 'text-amber-500' : bottomNavMuted}`}
+              onClick={() => setProfileSource('bottomNav')}
+              aria-haspopup="dialog"
+              aria-expanded={profileSource === 'bottomNav'}
+              className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition-colors ${profileSource === 'bottomNav' ? 'text-amber-500' : bottomNavMuted}`}
             >
               <User size={22} />
               {t('profile')}
@@ -323,6 +349,33 @@ export const Layout: React.FC<LayoutProps> = ({
           </div>
         </div>
       </nav>
+
+      {profileSource === 'bottomNav' && (
+        <div
+          className="fixed inset-0 z-[60] flex items-end justify-center sm:hidden"
+          data-testid="profile-bottom-sheet"
+        >
+          <button
+            type="button"
+            onClick={closeProfile}
+            aria-label={t('close')}
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm motion-overlay"
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={t('account')}
+            className={`relative w-full ${dropdownSurface} rounded-t-[2.5rem] shadow-2xl border max-h-[85vh] overflow-hidden flex flex-col animate-in slide-in-from-bottom duration-200 pb-[env(safe-area-inset-bottom,0px)]`}
+          >
+            <div className="flex items-center justify-center pt-3 pb-1">
+              <span
+                className={`${theme === 'vault' ? 'bg-white/20' : 'bg-stone-300'} h-1.5 w-12 rounded-full`}
+              />
+            </div>
+            <div className="overflow-y-auto p-2">{profileMenuBody}</div>
+          </div>
+        </div>
+      )}
 
       <footer
         className={`fixed bottom-0 left-0 w-full bg-gradient-to-t ${footerGradient} pointer-events-none h-12 z-10`}
