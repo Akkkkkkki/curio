@@ -361,6 +361,19 @@ export const AppContent: React.FC = () => {
 
     let unsubscribe: (() => void) | undefined;
     const initAuth = async () => {
+      // Subscribe before reading the session so PASSWORD_RECOVERY emitted
+      // during Supabase's URL-detection phase isn't missed.
+      const {
+        data: { subscription },
+      } = supabase.auth.onAuthStateChange((event, session) => {
+        setUser(session?.user || null);
+        if (event === 'PASSWORD_RECOVERY') {
+          setIsPasswordRecovery(true);
+          setIsAuthModalOpen(true);
+        }
+      });
+      unsubscribe = () => subscription.unsubscribe();
+
       try {
         const {
           data: { session },
@@ -372,17 +385,6 @@ export const AppContent: React.FC = () => {
       } finally {
         setAuthReady(true);
       }
-
-      const {
-        data: { subscription },
-      } = supabase.auth.onAuthStateChange((event, session) => {
-        setUser(session?.user || null);
-        if (event === 'PASSWORD_RECOVERY') {
-          setIsPasswordRecovery(true);
-          setIsAuthModalOpen(true);
-        }
-      });
-      unsubscribe = () => subscription.unsubscribe();
     };
 
     initAuth();
