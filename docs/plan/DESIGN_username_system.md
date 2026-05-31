@@ -45,15 +45,15 @@ Canonical validation should be identical client-side and server-side.
 | Rule               | Spec                                                                                  |
 | ------------------ | ------------------------------------------------------------------------------------- |
 | Normalization      | Trim, lowercase, collapse validation against the lowercase string                     |
-| Allowed characters | `a-z`, `0-9`, single hyphens between alphanumeric characters                          |
-| Regex              | `^[a-z0-9](?:[a-z0-9-]{1,28}[a-z0-9])$`                                               |
+| Allowed characters | `a-z`, `0-9`, single hyphens between alphanumeric segments                            |
+| Regex              | `^[a-z0-9]+(?:-[a-z0-9]+)*$` plus 3-30 character length check                         |
 | Length             | 3-30 characters                                                                       |
 | Disallowed         | underscores, periods, spaces, emoji, uppercase-only variants, leading/trailing hyphen |
-| Uniqueness         | Case-insensitive unique username, enforced by a lowercased column/check               |
+| Uniqueness         | Case-insensitive unique username, enforced by normalized lowercase storage            |
 | Mutability         | One self-serve change per 90 days after publish                                       |
 | Redirects          | No v1 redirects for changed usernames                                                 |
 
-Hyphens are allowed because they read well in URLs. Underscores are not allowed because they are harder to communicate verbally and often disappear in underlined links.
+Hyphens are allowed because they read well in URLs. The segment-based regex rejects leading hyphens, trailing hyphens, and consecutive hyphens such as `a--b`. Underscores are not allowed because they are harder to communicate verbally and often disappear in underlined links.
 
 #### Reserved Words
 
@@ -171,7 +171,13 @@ alter table public.profiles
 
 alter table public.profiles
   add constraint profiles_username_format_check
-  check (username is null or username ~ '^[a-z0-9](?:[a-z0-9-]{1,28}[a-z0-9])$');
+  check (
+    username is null
+    or (
+      char_length(username) between 3 and 30
+      and username ~ '^[a-z0-9]+(-[a-z0-9]+)*$'
+    )
+  );
 
 alter table public.profiles
   add constraint profiles_display_name_length_check
@@ -189,14 +195,60 @@ create index if not exists profiles_public_lookup_idx
   on public.profiles (username)
   where public_enabled = true and username is not null;
 
--- Anonymous public profile lookup. This exposes only rows the owner has published.
-drop policy if exists "profiles: read public profiles" on public.profiles;
-create policy "profiles: read public profiles"
-on public.profiles for select to anon, authenticated
-using (public_enabled = true and username is not null);
+-- Do not grant anonymous clients direct SELECT on public.profiles.
+-- RLS is row-level, not column-level, so direct table reads could expose fields
+-- such as is_admin. Public reads go through a safe-column RPC instead.
+create or replace function public.get_public_profile(profile_username text)
+returns table (
+  username text,
+  display_name text,
+  bio text,
+  avatar_url text,
+  cover_image_path text,
+  public_enabled boolean
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    p.username,
+    p.display_name,
+    p.bio,
+    p.avatar_url,
+    p.cover_image_path,
+    p.public_enabled
+  from public.profiles p
+  where p.username = lower(profile_username)
+    and p.public_enabled = true
+    and p.username is not null
+  limit 1;
+$$;
+
+revoke all on function public.get_public_profile(text) from public;
+grant execute on function public.get_public_profile(text) to anon, authenticated;
+
+-- Availability must see unpublished profile drafts without exposing rows.
+create or replace function public.is_username_available(candidate text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select not exists (
+    select 1
+    from public.profiles p
+    where p.username = lower(candidate)
+  );
+$$;
+
+revoke all on function public.is_username_available(text) from public;
+grant execute on function public.is_username_available(text) to authenticated;
 ```
 
-Reserved words should be enforced in application/service validation rather than a database `check` constraint so the list can evolve without lock-heavy schema changes. If public profile updates move behind an RPC, the RPC should enforce the same reserved list transactionally before updating `profiles.username`.
+Reserved words should be enforced in application/service validation before either RPC is called. If public profile updates move behind an RPC, the RPC should enforce the same reserved list transactionally before updating `profiles.username`.
 
 ### Existing User Migration
 
@@ -256,7 +308,7 @@ Suggested copy:
 
 ### 4.3 Availability Check Contract
 
-The client should call a service function that resolves to:
+The client should call a server-side function that checks all usernames without exposing profile rows:
 
 ```ts
 type UsernameAvailability =
@@ -268,7 +320,7 @@ type UsernameAvailability =
     };
 ```
 
-Implementation can start with a Supabase query against `profiles.username` plus local reserved-word validation. If username updates later need stricter race protection, move claim/update into a Postgres RPC.
+Implementation should validate format and reserved words locally first, then call `is_username_available(candidate)` for the final availability result. A direct Supabase `profiles.username` query is not sufficient because RLS would hide unpublished usernames reserved by other users and could incorrectly show them as available.
 
 ---
 
@@ -294,20 +346,22 @@ Future public route family:
 
 ### 5.2 Lookup Rules
 
-- Public profile routes resolve by `profiles.username`.
+- Public profile routes resolve through `get_public_profile(username)`.
 - Username lookup is lowercase and exact.
-- If no row exists or `public_enabled = false`, return a public 404.
+- If the RPC returns no row because the username does not exist or `public_enabled = false`, return a public 404.
 - Private app routes continue to use internal IDs and Supabase Auth user IDs.
+- Anonymous clients must not query `public.profiles` directly; public payloads must be assembled from safe-column RPC results and explicitly public collection/item summaries.
 
 ---
 
 ## 6. Privacy And Security Requirements
 
 - Publishing a username must not publish collections automatically.
-- Public profile reads may expose only profile identity fields and explicitly public collection/item summaries.
+- Public profile reads may expose only safe profile identity fields and explicitly public collection/item summaries.
 - Email addresses must never appear on public surfaces.
 - Private collections and private items must never be reachable through username routes.
-- Admin status must remain owner-visible only; do not expose `is_admin` through public profile payloads.
+- Admin status must remain owner-visible only; do not expose `is_admin` through public profile payloads, direct table reads, public RPCs, views, widgets, or OG metadata.
+- Username availability checks must not expose whether a private profile exists beyond a boolean availability result.
 - Username changes should be audited through `username_changed_at`; if abuse becomes a concern, add a server-owned `username_change_count`.
 
 ---
@@ -315,23 +369,26 @@ Future public route family:
 ## 7. Implementation Checklist
 
 1. Add the profile schema migration from §3.
-2. Add shared username validation constants and tests.
-3. Add a profile service with `getProfile`, `updateProfile`, and `checkUsernameAvailability`.
-4. Add the public-profile setup UI in profile/settings.
-5. Gate `public_enabled = true` behind valid username and display name.
-6. Add `/u/:username` route shell that renders public profile data only when enabled.
-7. Add unit tests for validation, reserved words, availability states, and publish gating.
-8. Add RLS/integration checks for anonymous read of public profiles and no anonymous read of private profiles.
+2. Add shared username validation constants and tests, including adjacent-hyphen rejection.
+3. Add safe-column public profile RPC and username availability RPC.
+4. Add a profile service with `getProfile`, `updateProfile`, and `checkUsernameAvailability`.
+5. Add the public-profile setup UI in profile/settings.
+6. Gate `public_enabled = true` behind valid username and display name.
+7. Add `/u/:username` route shell that renders public profile data only when enabled.
+8. Add unit tests for validation, reserved words, availability states, and publish gating.
+9. Add RLS/integration checks that anonymous clients cannot read `profiles.is_admin`, cannot read unpublished profiles, and can resolve only safe public profile fields through the RPC.
 
 ---
 
 ## 8. Acceptance Criteria Mapping
 
-| CUR-1 deliverable                     | Covered by |
-| ------------------------------------- | ---------- |
-| Username rules and validation spec    | §2.2, §4.2 |
-| Supabase migration SQL                | §3         |
-| UI flow for username selection        | §4         |
-| Decision on when username is required | §2.1, §4.1 |
-| Display/name/avatar decisions         | §2.3, §2.4 |
-| Existing-user migration prompt        | §3         |
+| CUR-1 deliverable                     | Covered by      |
+| ------------------------------------- | --------------- |
+| Username rules and validation spec    | §2.2, §4.2      |
+| Supabase migration SQL                | §3              |
+| UI flow for username selection        | §4              |
+| Decision on when username is required | §2.1, §4.1      |
+| Display/name/avatar decisions         | §2.3, §2.4      |
+| Existing-user migration prompt        | §3              |
+| Safe public profile reads             | §3, §5.2, §6    |
+| RLS-safe username availability checks | §3, §4.3, §6    |
