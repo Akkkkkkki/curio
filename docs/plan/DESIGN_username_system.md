@@ -382,13 +382,13 @@ Future public route family:
 
 ## 8. Acceptance Criteria Mapping
 
-| CUR-1 deliverable                     | Covered by      |
-| ------------------------------------- | --------------- |
-| Username rules and validation spec    | §2.2, §4.2      |
-| Supabase migration SQL                | §3              |
-| UI flow for username selection        | §4              |
-| Decision on when username is required | §2.1, §4.1      |
-| Display/name/avatar decisions         | §2.3, §2.4      |
-| Existing-user migration prompt        | §3              |
-| Safe public profile reads             | §3, §5.2, §6    |
-| RLS-safe username availability checks | §3, §4.3, §6    |
+| CUR-1 deliverable                     | Covered by   |
+| ------------------------------------- | ------------ |
+| Username rules and validation spec    | §2.2, §4.2   |
+| Supabase migration SQL                | §3           |
+| UI flow for username selection        | §4           |
+| Decision on when username is required | §2.1, §4.1   |
+| Display/name/avatar decisions         | §2.3, §2.4   |
+| Existing-user migration prompt        | §3           |
+| Safe public profile reads             | §3, §5.2, §6 |
+| RLS-safe username availability checks | §3, §4.3, §6 |
