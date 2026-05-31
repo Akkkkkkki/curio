@@ -181,11 +181,66 @@ alter table public.profiles
 
 alter table public.profiles
   add constraint profiles_display_name_length_check
-  check (display_name is null or char_length(display_name) between 1 and 80);
+  check (display_name is null or char_length(btrim(display_name)) between 1 and 80);
 
 alter table public.profiles
   add constraint profiles_bio_length_check
   check (bio is null or char_length(bio) <= 280);
+
+alter table public.profiles
+  add constraint profiles_username_reserved_check
+  check (
+    username is null
+    or username <> all (array[
+      'about',
+      'account',
+      'admin',
+      'api',
+      'app',
+      'auth',
+      'blog',
+      'collection',
+      'collections',
+      'curio',
+      'dashboard',
+      'explore',
+      'help',
+      'home',
+      'item',
+      'items',
+      'legal',
+      'login',
+      'logout',
+      'me',
+      'museum',
+      'new',
+      'privacy',
+      'profile',
+      'profiles',
+      'public',
+      'settings',
+      'share',
+      'signin',
+      'signup',
+      'support',
+      'terms',
+      'u',
+      'user',
+      'users',
+      'www'
+    ]::text[])
+  );
+
+alter table public.profiles
+  add constraint profiles_public_identity_required_check
+  check (
+    public_enabled = false
+    or (
+      username is not null
+      and display_name is not null
+      and char_length(btrim(display_name)) between 1 and 80
+    )
+  );
 
 create unique index if not exists profiles_username_key
   on public.profiles (username)
@@ -248,7 +303,7 @@ revoke all on function public.is_username_available(text) from public;
 grant execute on function public.is_username_available(text) to authenticated;
 ```
 
-Reserved words should be enforced in application/service validation before either RPC is called. If public profile updates move behind an RPC, the RPC should enforce the same reserved list transactionally before updating `profiles.username`.
+Reserved words must be enforced by the database constraint above so direct owner updates cannot bypass the invariant. Application/service validation should mirror the same list before either RPC is called for better UX. If public profile updates move behind an RPC, the RPC should enforce the same reserved list transactionally before updating `profiles.username`.
 
 ### Existing User Migration
 
@@ -362,6 +417,7 @@ Future public route family:
 - Private collections and private items must never be reachable through username routes.
 - Admin status must remain owner-visible only; do not expose `is_admin` through public profile payloads, direct table reads, public RPCs, views, widgets, or OG metadata.
 - Username availability checks must not expose whether a private profile exists beyond a boolean availability result.
+- Publish identity requirements and reserved username rejection must be database-enforced, not only UI/service-enforced, because authenticated users can call Supabase update policies directly.
 - Username changes should be audited through `username_changed_at`; if abuse becomes a concern, add a server-owned `username_change_count`.
 
 ---
@@ -373,10 +429,11 @@ Future public route family:
 3. Add safe-column public profile RPC and username availability RPC.
 4. Add a profile service with `getProfile`, `updateProfile`, and `checkUsernameAvailability`.
 5. Add the public-profile setup UI in profile/settings.
-6. Gate `public_enabled = true` behind valid username and display name.
+6. Gate `public_enabled = true` behind valid username and display name in both the service layer and database constraints.
 7. Add `/u/:username` route shell that renders public profile data only when enabled.
 8. Add unit tests for validation, reserved words, availability states, and publish gating.
 9. Add RLS/integration checks that anonymous clients cannot read `profiles.is_admin`, cannot read unpublished profiles, and can resolve only safe public profile fields through the RPC.
+10. Add database integration checks that direct authenticated profile updates cannot publish without `username`/`display_name` or save reserved usernames.
 
 ---
 
