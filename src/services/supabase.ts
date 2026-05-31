@@ -70,3 +70,19 @@ export const signOutUser = async () => {
   if (!supabase) return;
   await supabase.auth.signOut();
 };
+
+export const resetPasswordForEmail = async (email: string) => {
+  if (!supabase) throw new Error('Supabase is not configured.');
+  // Supabase rewrites this redirect into the recovery email link; the SDK
+  // then detects the recovery params on return and fires PASSWORD_RECOVERY.
+  const redirectTo = typeof window !== 'undefined' ? window.location.origin : undefined;
+  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+  if (error) throw error;
+};
+
+export const updateUserPassword = async (newPassword: string) => {
+  if (!supabase) throw new Error('Supabase is not configured.');
+  const { data, error } = await supabase.auth.updateUser({ password: newPassword });
+  if (error) throw error;
+  return data.user;
+};

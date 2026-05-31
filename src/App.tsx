@@ -149,6 +149,7 @@ export const AppContent: React.FC = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [authReady, setAuthReady] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
   const [allowPublicBrowse, setAllowPublicBrowse] = useState(false);
   const [hasLocalImport, setHasLocalImport] = useState(false);
   const [importState, setImportState] = useState<'idle' | 'running' | 'done' | 'error'>('idle');
@@ -374,8 +375,12 @@ export const AppContent: React.FC = () => {
 
       const {
         data: { subscription },
-      } = supabase.auth.onAuthStateChange((_event, session) => {
+      } = supabase.auth.onAuthStateChange((event, session) => {
         setUser(session?.user || null);
+        if (event === 'PASSWORD_RECOVERY') {
+          setIsPasswordRecovery(true);
+          setIsAuthModalOpen(true);
+        }
       });
       unsubscribe = () => subscription.unsubscribe();
     };
@@ -2294,9 +2299,14 @@ export const AppContent: React.FC = () => {
 
   const handleAuthClose = () => {
     setIsAuthModalOpen(false);
+    setIsPasswordRecovery(false);
   };
 
   const handleAuthSuccess = () => {
+    if (isPasswordRecovery) {
+      setIsPasswordRecovery(false);
+      showStatus(t('passwordUpdated'), 'success');
+    }
     if (pendingAuthAction) {
       setAuthActionQueue(pendingAuthAction);
       setPendingAuthAction(null);
@@ -2533,6 +2543,7 @@ export const AppContent: React.FC = () => {
         isOpen={isAuthModalOpen}
         onClose={handleAuthClose}
         onAuthSuccess={handleAuthSuccess}
+        initialMode={isPasswordRecovery ? 'set-password' : undefined}
       />
       <ConflictResolutionModal
         isOpen={isConflictModalOpen}
