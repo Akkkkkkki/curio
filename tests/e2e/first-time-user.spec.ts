@@ -140,6 +140,10 @@ test.describe('First-Time User Experience', () => {
     await page.getByRole('button', { name: 'The Vault (Moody)' }).click();
     await expect(page.locator('[data-theme="vault"]')).toBeVisible();
 
+    // Dismiss the profile menu so subsequent clicks on the header aren't intercepted
+    // by the mobile bottom-sheet backdrop.
+    await page.keyboard.press('Escape');
+
     // Toggle language button in header.
     // Use a stable locator (Globe icon button) since the title changes with language.
     const langToggle = page.locator('button', { has: page.locator('text=ZH') });
