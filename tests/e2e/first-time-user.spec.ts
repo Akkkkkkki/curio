@@ -130,10 +130,19 @@ test.describe('First-Time User Experience', () => {
     await ensureSampleBrowse(page);
 
     // Open account menu → switch theme.
-    await page.getByRole('button', { name: 'Account' }).click();
+    // Account button is in the header on desktop; on mobile, it's the bottom-nav Profile.
+    await page
+      .getByRole('button', { name: 'Account' })
+      .or(page.getByRole('button', { name: 'Profile', exact: true }))
+      .first()
+      .click();
     // Avoid matching the "The Vinyl Vault" collection card button.
     await page.getByRole('button', { name: 'The Vault (Moody)' }).click();
     await expect(page.locator('[data-theme="vault"]')).toBeVisible();
+
+    // Dismiss the profile menu so subsequent clicks on the header aren't intercepted
+    // by the mobile bottom-sheet backdrop.
+    await page.keyboard.press('Escape');
 
     // Toggle language button in header.
     // Use a stable locator (Globe icon button) since the title changes with language.
