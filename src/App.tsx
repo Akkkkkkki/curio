@@ -1823,7 +1823,7 @@ export const AppContent: React.FC = () => {
                     titleIsEmpty && !isReadOnly
                       ? 'border-red-400 focus:border-red-500'
                       : 'border-transparent'
-                  } focus:border-amber-100 outline-none transition-all placeholder:italic ${theme === 'vault' ? 'text-white' : 'text-stone-900'} ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                  } focus:border-amber-500 outline-none transition-all placeholder:italic ${theme === 'vault' ? 'text-white' : 'text-stone-900'} ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
                   value={item.title}
                   onChange={(e) => applyItemUpdate({ title: e.target.value })}
                   placeholder={t('itemTitlePlaceholder')}
@@ -1984,7 +1984,7 @@ export const AppContent: React.FC = () => {
                       ) : (
                         <textarea
                           ref={detailStoryRef}
-                          className={`w-full p-6 sm:p-8 rounded-2xl sm:rounded-[2.5rem] italic border font-serif text-xl sm:text-2xl leading-relaxed min-h-[200px] sm:min-h-[240px] focus:ring-8 focus:ring-amber-500/5 focus:border-amber-100 outline-none transition-all shadow-inner placeholder:text-stone-200 ${theme === 'vault' ? 'bg-white/5 border-white/5 text-white' : 'bg-stone-50/50 border-stone-100 text-stone-800'} ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                          className={`w-full p-6 sm:p-8 rounded-2xl sm:rounded-[2.5rem] italic border font-serif text-xl sm:text-2xl leading-relaxed min-h-[200px] sm:min-h-[240px] focus:ring-8 focus:ring-amber-500/30 focus:border-amber-500 outline-none transition-all shadow-inner placeholder:text-stone-200 ${theme === 'vault' ? 'bg-white/5 border-white/5 text-white' : 'bg-stone-50/50 border-stone-100 text-stone-800'} ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
                           value={item.notes}
                           onChange={(e) => applyItemUpdate({ notes: e.target.value })}
                           placeholder={t('storyPlaceholder')}
