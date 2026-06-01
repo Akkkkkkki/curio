@@ -1335,33 +1335,60 @@ export const AppContent: React.FC = () => {
         )}
 
         {filteredItems.length === 0 ? (
-          <div
-            className={`text-center py-32 rounded-[3rem] border shadow-sm ${theme === 'vault' ? 'bg-white/5 border-white/5' : 'bg-white/50 border-stone-100'}`}
-          >
-            <div className="text-8xl mb-8 grayscale opacity-10">🏛️</div>
-            <h3
-              className={`text-3xl font-serif font-bold mb-2 italic tracking-tight ${theme === 'vault' ? 'text-white' : 'text-stone-800'}`}
+          hasFilterInput || activeFilterCount > 0 ? (
+            <div
+              className={`rounded-[2rem] border p-6 sm:p-8 text-center shadow-sm ${theme === 'vault' ? 'bg-white/5 border-white/10 text-stone-200' : 'bg-white/80 border-stone-100 text-stone-700'}`}
             >
-              {t('galleryAwaits')}
-            </h3>
-            <p
-              className={`${theme === 'vault' ? 'text-white/60' : 'text-stone-400'} mb-10 max-w-sm mx-auto leading-relaxed font-serif text-lg`}
+              <p className={`${typographyClasses.titleLarge} italic mb-2`}>
+                {t('searchNoResultsTitle')}
+              </p>
+              <p className={typographyClasses.labelMuted}>
+                {hasFilterInput
+                  ? t('collectionSearchNoResults', { query: filterInput.trim() })
+                  : t('collectionFilterNoResults')}
+              </p>
+              <div className="mt-6 flex justify-center gap-3">
+                {hasFilterInput && (
+                  <Button variant="outline" size="sm" onClick={() => setFilterInput('')}>
+                    {t('clearSearch')}
+                  </Button>
+                )}
+                {activeFilterCount > 0 && (
+                  <Button variant="outline" size="sm" onClick={handleClearFilters}>
+                    {t('clearAll')}
+                  </Button>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div
+              className={`text-center py-32 rounded-[3rem] border shadow-sm ${theme === 'vault' ? 'bg-white/5 border-white/5' : 'bg-white/50 border-stone-100'}`}
             >
-              {t('museumDefinition')}
-            </p>
-            {!isReadOnly && !hasFilterInput && activeFilterCount === 0 && (
-              <Button
-                size="lg"
-                className="px-12 py-4 text-lg rounded-2xl shadow-xl"
-                onClick={() => {
-                  setAddModalDefaultCollectionId(collection?.id);
-                  setIsAddModalOpen(true);
-                }}
+              <div className="text-8xl mb-8 grayscale opacity-10">🏛️</div>
+              <h3
+                className={`text-3xl font-serif font-bold mb-2 italic tracking-tight ${theme === 'vault' ? 'text-white' : 'text-stone-800'}`}
               >
-                {t('catalogFirst')}
-              </Button>
-            )}
-          </div>
+                {t('galleryAwaits')}
+              </h3>
+              <p
+                className={`${theme === 'vault' ? 'text-white/60' : 'text-stone-400'} mb-10 max-w-sm mx-auto leading-relaxed font-serif text-lg`}
+              >
+                {t('museumDefinition')}
+              </p>
+              {!isReadOnly && (
+                <Button
+                  size="lg"
+                  className="px-12 py-4 text-lg rounded-2xl shadow-xl"
+                  onClick={() => {
+                    setAddModalDefaultCollectionId(collection?.id);
+                    setIsAddModalOpen(true);
+                  }}
+                >
+                  {t('catalogFirst')}
+                </Button>
+              )}
+            </div>
+          )
         ) : (
           <>
             <div

@@ -133,15 +133,19 @@ describe('App Integration Tests', () => {
       </MemoryRouter>,
     );
 
-    // Wait for collections to load
-    await waitFor(() => {
-      expect(screen.getByText('Test Collection')).toBeInTheDocument();
-    });
+    await waitFor(
+      () => {
+        expect(screen.getByText('Test Collection')).toBeInTheDocument();
+      },
+      { timeout: 3000 },
+    );
 
-    // Check if items are rendered (lazy-loaded screen may render items on a later tick)
-    await waitFor(() => {
-      expect(screen.getAllByText('Test Item')[0]).toBeInTheDocument();
-    });
+    await waitFor(
+      () => {
+        expect(screen.getAllByText('Test Item')[0]).toBeInTheDocument();
+      },
+      { timeout: 3000 },
+    );
   });
 
   it('shows the public sample gallery instead of a dead-end gate when cloud is not configured', async () => {
@@ -195,5 +199,17 @@ describe('App Integration Tests', () => {
     // Both first-run CTAs remain available
     expect(screen.getByTestId('cta-primary-add-first')).toBeInTheDocument();
     expect(screen.getByTestId('cta-secondary-explore-sample')).toBeInTheDocument();
+  });
+
+  it('has i18n keys for collection search empty state', async () => {
+    const { translations } = await import('@/i18n');
+
+    expect(translations.en.collectionSearchNoResults).toContain('{query}');
+    expect(translations.en.collectionFilterNoResults).toBeTruthy();
+    expect(translations.en.clearSearch).toBeTruthy();
+
+    expect(translations.zh.collectionSearchNoResults).toContain('{query}');
+    expect(translations.zh.collectionFilterNoResults).toBeTruthy();
+    expect(translations.zh.clearSearch).toBeTruthy();
   });
 });
