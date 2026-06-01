@@ -54,6 +54,7 @@ import {
   fetchCloudCollections,
   getLocalCollections,
   getPendingAssetUploadCount,
+  getPendingDeletes,
   getPendingSyncIds,
   hasLocalOnlyData,
   importLocalCollectionsToCloud,
@@ -73,6 +74,7 @@ import {
   setSyncStatusCallback,
   syncPendingChanges,
   syncPendingAssetUploads,
+  syncPendingDeletes,
   extractCurioAssetPath,
   type SyncStatus,
 } from './services/db';
@@ -255,11 +257,13 @@ export const AppContent: React.FC = () => {
     try {
       const synced = await syncPendingChanges({ force: true });
       const assetsSynced = await syncPendingAssetUploads();
+      const deletesSynced = await syncPendingDeletes();
       void refreshPendingAssetUploads();
-      if (synced > 0) {
-        showStatus(t('statusPendingSynced').replace('{count}', String(synced)), 'success');
+      const dataSynced = synced + deletesSynced;
+      if (dataSynced > 0) {
+        showStatus(t('statusPendingSynced').replace('{count}', String(dataSynced)), 'success');
       }
-      if (synced === 0 && assetsSynced === 0) {
+      if (dataSynced === 0 && assetsSynced === 0) {
         showStatus(t('statusWillSync'), 'warning');
       }
     } catch (e) {
@@ -315,7 +319,10 @@ export const AppContent: React.FC = () => {
   }, [conflicts.length]);
 
   useEffect(() => {
-    const handleOnline = () => setIsOffline(false);
+    const handleOnline = () => {
+      setIsOffline(false);
+      void syncPendingDeletes();
+    };
     const handleOffline = () => setIsOffline(true);
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
@@ -572,10 +579,14 @@ export const AppContent: React.FC = () => {
         cloudCollections,
       });
 
-      const pendingSyncIds = await getPendingSyncIds();
+      const [pendingSyncIds, pendingDeletes] = await Promise.all([
+        getPendingSyncIds(),
+        getPendingDeletes(),
+      ]);
       const mergedCollections = mergeCollections(localCollections, cloudCollections, {
         includeLocalOnly: (collection) =>
           !collection.ownerId || pendingSyncIds.includes(collection.id),
+        pendingDeletes,
       });
 
       const detectedConflicts = detectConflicts(localCollections, cloudCollections);
@@ -607,6 +618,18 @@ export const AppContent: React.FC = () => {
       if (showSyncedStatus) {
         showStatusRef.current(tRef.current('statusSynced'), 'success');
       }
+      if (user && navigator.onLine) {
+        const synced = await syncPendingChanges();
+        if (synced > 0) {
+          showStatusRef.current(
+            tRef.current('statusPendingSynced').replace('{count}', String(synced)),
+            'success',
+          );
+        }
+        await syncPendingAssetUploads();
+        await syncPendingDeletes();
+        void refreshPendingAssetUploads();
+      }
     } catch (e) {
       console.error('Initialization failed:', e);
       setLoadError(tRef.current('loadErrorGeneric'));
@@ -622,6 +645,7 @@ export const AppContent: React.FC = () => {
     isAdmin,
     isSupabaseReady,
     withTimeout,
+    refreshPendingAssetUploads,
     fallbackSampleCollections,
     loadLocalCollectionsWithTimeout,
     loadCloudCollectionsWithTimeout,
@@ -701,9 +725,11 @@ export const AppContent: React.FC = () => {
     if (!exists) {
       console.warn('handleAddItem: target collection not found', collectionId);
       showStatus(t('statusSaveFailedMissingCollection'), 'error');
-      return;
+      throw new Error(t('statusSaveFailedMissingCollection'));
     }
-    if (!canEditCollection(collectionId)) return;
+    if (!canEditCollection(collectionId)) {
+      throw new Error(t('statusSaveFailedMissingCollection'));
+    }
     pendingSyncToastRef.current = true;
     if (!isSupabaseReady) pendingSyncToastRef.current = false;
     const itemId = Math.random().toString(36).substr(2, 9);
@@ -720,6 +746,8 @@ export const AppContent: React.FC = () => {
         hasPhoto = true;
       } catch (e) {
         console.error('Image processing failed', e);
+        showStatus(t('saveImageFailed'), 'error');
+        throw new Error(t('saveImageFailed'));
       }
     }
 
@@ -748,6 +776,7 @@ export const AppContent: React.FC = () => {
     } else {
       console.warn('handleAddItem: target collection not found', collectionId);
       showStatus(t('statusSaveFailedMissingCollection'), 'error');
+      throw new Error(t('statusSaveFailedMissingCollection'));
     }
   };
 

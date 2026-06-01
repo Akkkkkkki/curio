@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeAll } from 'vitest';
+import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 import { screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '../utils/test-utils';
@@ -71,6 +71,14 @@ describe('AddItemModal', () => {
       global.requestAnimationFrame = (cb: FrameRequestCallback) => window.setTimeout(cb, 0);
     }
     global.FileReader = MockFileReader as unknown as typeof FileReader;
+  });
+
+  beforeEach(() => {
+    mockOnClose.mockClear();
+    mockOnSave.mockReset();
+    mockOnSave.mockResolvedValue(undefined);
+    mockRefreshAiEnabled.mockResolvedValue(false);
+    mockAnalyzeImage.mockReset();
   });
 
   it('renders nothing when closed', () => {
@@ -226,6 +234,72 @@ describe('AddItemModal', () => {
     expect(screen.getByRole('heading', { name: 'Upload Photo' })).toBeInTheDocument();
   });
 
+  it('recovers a stale preselected collection before retrying save mid-session', async () => {
+    const user = userEvent.setup();
+    const c1 = createMockCollection({ id: 'c1', name: 'Vinyl Vault' });
+    const c2 = createMockCollection({ id: 'c2', name: 'Chocolate Vault' });
+
+    const { rerender } = renderWithProviders(
+      <AddItemModal
+        isOpen
+        onClose={mockOnClose}
+        collections={[c1, c2]}
+        defaultCollectionId="c2"
+        onSave={mockOnSave}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Skip and add manually' }));
+    await waitFor(() => {
+      expect(screen.getAllByRole('textbox').length).toBeGreaterThan(0);
+    });
+
+    rerender(
+      <AddItemModal
+        isOpen
+        onClose={mockOnClose}
+        collections={[c1]}
+        defaultCollectionId="c2"
+        onSave={mockOnSave}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Save without story' }));
+    expect(screen.getByRole('heading', { name: 'Upload Photo' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Skip and add manually' }));
+    await user.type(screen.getAllByRole('textbox')[0], 'Recovered Artifact');
+    await user.click(screen.getByRole('button', { name: 'Save without story' }));
+
+    await waitFor(() => {
+      expect(mockOnSave).toHaveBeenCalledWith(
+        'c1',
+        expect.objectContaining({ title: 'Recovered Artifact' }),
+      );
+    });
+  });
+
+  it('keeps the modal open and shows save errors returned by onSave', async () => {
+    const user = userEvent.setup();
+    mockOnSave.mockRejectedValue(new Error('Could not save image. Please try again.'));
+
+    renderWithProviders(
+      <AddItemModal
+        isOpen
+        onClose={mockOnClose}
+        collections={[createMockCollection()]}
+        onSave={mockOnSave}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Skip and add manually' }));
+    await user.type(screen.getAllByRole('textbox')[0], 'Fragile Artifact');
+    await user.click(screen.getByRole('button', { name: 'Save without story' }));
+
+    expect(await screen.findByText('Could not save image. Please try again.')).toBeInTheDocument();
+    expect(mockOnClose).not.toHaveBeenCalled();
+  });
+
   it('shows picker on reopen when stale default and multiple collections remain', async () => {
     const c1 = createMockCollection({ id: 'c1', name: 'Vinyl Vault' });
     const c2 = createMockCollection({ id: 'c2', name: 'Chocolate Vault' });
@@ -300,6 +374,65 @@ describe('AddItemModal', () => {
     });
 
     expect(await screen.findByDisplayValue('Mock Artifact')).toBeInTheDocument();
+  });
+
+  it('does not re-save already-saved items when a batch save fails partway and is retried', async () => {
+    const user = userEvent.setup();
+    mockRefreshAiEnabled.mockResolvedValue(true);
+    mockAnalyzeImage
+      .mockResolvedValueOnce({ status: 'success', title: 'Artifact A', notes: '', data: {} })
+      .mockResolvedValueOnce({ status: 'success', title: 'Artifact B', notes: '', data: {} });
+
+    const collection = createMockCollection({ name: 'Artifacts', customFields: [] });
+
+    renderWithProviders(
+      <AddItemModal isOpen onClose={mockOnClose} collections={[collection]} onSave={mockOnSave} />,
+    );
+
+    const file1 = new File(['a'], 'a.png', { type: 'image/png' });
+    const file2 = new File(['b'], 'b.png', { type: 'image/png' });
+    const input = screen.getByTestId('add-item-batch-input') as HTMLInputElement;
+
+    await user.upload(input, [file1, file2]);
+
+    // Wait until both analyzed items render on the batch-verify step.
+    expect(await screen.findByDisplayValue('Artifact A')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Artifact B')).toBeInTheDocument();
+
+    // First item saves, the second fails mid-batch.
+    mockOnSave.mockReset();
+    mockOnSave
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('Could not save image. Please try again.'));
+
+    await user.click(screen.getByRole('button', { name: /Archive \d+ Artifacts/ }));
+
+    expect(await screen.findByText('Could not save image. Please try again.')).toBeInTheDocument();
+    expect(mockOnClose).not.toHaveBeenCalled();
+    expect(mockOnSave).toHaveBeenCalledTimes(2);
+    expect(mockOnSave).toHaveBeenNthCalledWith(
+      1,
+      collection.id,
+      expect.objectContaining({ title: 'Artifact A' }),
+    );
+
+    // Retrying must only reprocess the failed item, never the already-saved one.
+    mockOnSave.mockReset();
+    mockOnSave.mockResolvedValue(undefined);
+
+    await user.click(screen.getByRole('button', { name: /Archive \d+ Artifacts/ }));
+
+    await waitFor(() => {
+      expect(mockOnSave).toHaveBeenCalledTimes(1);
+    });
+    expect(mockOnSave).toHaveBeenCalledWith(
+      collection.id,
+      expect.objectContaining({ title: 'Artifact B' }),
+    );
+    expect(mockOnSave).not.toHaveBeenCalledWith(
+      collection.id,
+      expect.objectContaining({ title: 'Artifact A' }),
+    );
   });
 
   it('fades the verify-step scroll edge while fields remain below the fold (CUR-45)', async () => {
