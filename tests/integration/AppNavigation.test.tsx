@@ -139,9 +139,12 @@ describe('App Integration Tests', () => {
     });
 
     // Check if items are rendered (lazy-loaded screen may render items on a later tick)
-    await waitFor(() => {
-      expect(screen.getAllByText('Test Item')[0]).toBeInTheDocument();
-    });
+    await waitFor(
+      () => {
+        expect(screen.getAllByText('Test Item')[0]).toBeInTheDocument();
+      },
+      { timeout: 5000 },
+    );
   });
 
   it('shows the public sample gallery instead of a dead-end gate when cloud is not configured', async () => {
