@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeAll } from 'vitest';
+import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 import { screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '../utils/test-utils';
@@ -71,6 +71,14 @@ describe('AddItemModal', () => {
       global.requestAnimationFrame = (cb: FrameRequestCallback) => window.setTimeout(cb, 0);
     }
     global.FileReader = MockFileReader as unknown as typeof FileReader;
+  });
+
+  beforeEach(() => {
+    mockOnClose.mockClear();
+    mockOnSave.mockReset();
+    mockOnSave.mockResolvedValue(undefined);
+    mockRefreshAiEnabled.mockResolvedValue(false);
+    mockAnalyzeImage.mockReset();
   });
 
   it('renders nothing when closed', () => {
@@ -224,6 +232,72 @@ describe('AddItemModal', () => {
     // (single-collection auto-select), NOT get stuck in a dead-end.
     // If there were 2+ collections, it would show the picker instead.
     expect(screen.getByRole('heading', { name: 'Upload Photo' })).toBeInTheDocument();
+  });
+
+  it('recovers a stale preselected collection before retrying save mid-session', async () => {
+    const user = userEvent.setup();
+    const c1 = createMockCollection({ id: 'c1', name: 'Vinyl Vault' });
+    const c2 = createMockCollection({ id: 'c2', name: 'Chocolate Vault' });
+
+    const { rerender } = renderWithProviders(
+      <AddItemModal
+        isOpen
+        onClose={mockOnClose}
+        collections={[c1, c2]}
+        defaultCollectionId="c2"
+        onSave={mockOnSave}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Skip and add manually' }));
+    await waitFor(() => {
+      expect(screen.getAllByRole('textbox').length).toBeGreaterThan(0);
+    });
+
+    rerender(
+      <AddItemModal
+        isOpen
+        onClose={mockOnClose}
+        collections={[c1]}
+        defaultCollectionId="c2"
+        onSave={mockOnSave}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Save without story' }));
+    expect(screen.getByRole('heading', { name: 'Upload Photo' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Skip and add manually' }));
+    await user.type(screen.getAllByRole('textbox')[0], 'Recovered Artifact');
+    await user.click(screen.getByRole('button', { name: 'Save without story' }));
+
+    await waitFor(() => {
+      expect(mockOnSave).toHaveBeenCalledWith(
+        'c1',
+        expect.objectContaining({ title: 'Recovered Artifact' }),
+      );
+    });
+  });
+
+  it('keeps the modal open and shows save errors returned by onSave', async () => {
+    const user = userEvent.setup();
+    mockOnSave.mockRejectedValue(new Error('Could not save image. Please try again.'));
+
+    renderWithProviders(
+      <AddItemModal
+        isOpen
+        onClose={mockOnClose}
+        collections={[createMockCollection()]}
+        onSave={mockOnSave}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Skip and add manually' }));
+    await user.type(screen.getAllByRole('textbox')[0], 'Fragile Artifact');
+    await user.click(screen.getByRole('button', { name: 'Save without story' }));
+
+    expect(await screen.findByText('Could not save image. Please try again.')).toBeInTheDocument();
+    expect(mockOnClose).not.toHaveBeenCalled();
   });
 
   it('shows picker on reopen when stale default and multiple collections remain', async () => {

@@ -694,17 +694,27 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     setAnalysisNeedsReview(true);
   };
 
-  const pickerStep: FlowStep =
-    (defaultCollectionId && collections.some((c) => c.id === defaultCollectionId)) ||
-    collections.length === 1
-      ? 'upload'
-      : 'select-type';
+  const recoverMissingCollection = () => {
+    const fallbackCollectionId =
+      defaultCollectionId && collections.some((c) => c.id === defaultCollectionId)
+        ? defaultCollectionId
+        : collections.length === 1
+          ? collections[0].id
+          : null;
+    if (fallbackCollectionId) {
+      setSelectedCollectionId(fallbackCollectionId);
+    }
+    setStep(fallbackCollectionId ? 'upload' : 'select-type');
+  };
+
+  const getSaveErrorMessage = (error: unknown) =>
+    error instanceof Error && error.message ? error.message : t('statusSyncPaused');
 
   const handleSave = async () => {
     if (isSaving) return;
     if (!currentCollection) {
       setError(t('selectCollectionFirst'));
-      setStep(pickerStep);
+      recoverMissingCollection();
       return;
     }
     const trimmedTitle = formData.title.trim();
@@ -731,7 +741,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
       onClose();
     } catch (e) {
       console.error('Save failed:', e);
-      setError(t('statusSyncPaused'));
+      setError(getSaveErrorMessage(e));
     } finally {
       setIsSaving(false);
     }
@@ -741,7 +751,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     if (isSaving) return;
     if (!currentCollection) {
       setError(t('selectCollectionFirst'));
-      setStep(pickerStep);
+      recoverMissingCollection();
       return;
     }
     const missingTitles = batchItems.filter((item) => !item.title.trim());
@@ -774,7 +784,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
       onClose();
     } catch (e) {
       console.error('Batch save failed:', e);
-      setError(t('statusSyncPaused'));
+      setError(getSaveErrorMessage(e));
     } finally {
       setIsSaving(false);
     }
