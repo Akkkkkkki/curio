@@ -164,17 +164,17 @@ Existing data should be treated conservatively.
 
 ## Control Model
 
-| Control                         | Owner action                         | Default  | Public effect                                      |
-| ------------------------------- | ------------------------------------ | -------- | -------------------------------------------------- |
-| Profile public                  | Toggle in profile settings           | Off      | Enables `/u/:slug` profile page                    |
-| Collection visibility           | Publish/unpublish in collection menu | Private  | Enables collection and inherited item public pages |
-| Feature on profile              | Checkbox in collection settings      | Off      | Adds collection to public profile modules          |
-| Collection story sharing        | Toggle while publishing              | Off      | Allows stories on public item pages/cards          |
-| Collection photo sharing        | Toggle while publishing              | On       | Allows item photos on public surfaces              |
-| Item hidden from public         | Toggle in item detail                | Off      | Removes item from all public surfaces              |
-| Item story override             | Toggle in item detail                | Inherit  | Shows/hides story independently                    |
-| Item photo override             | Toggle in item detail                | Inherit  | Shows/hides photo independently                    |
-| Public field selection          | Field picker in collection settings  | Primary  | Controls metadata shown publicly                   |
+| Control                  | Owner action                         | Default | Public effect                                      |
+| ------------------------ | ------------------------------------ | ------- | -------------------------------------------------- |
+| Profile public           | Toggle in profile settings           | Off     | Enables `/u/:slug` profile page                    |
+| Collection visibility    | Publish/unpublish in collection menu | Private | Enables collection and inherited item public pages |
+| Feature on profile       | Checkbox in collection settings      | Off     | Adds collection to public profile modules          |
+| Collection story sharing | Toggle while publishing              | Off     | Allows stories on public item pages/cards          |
+| Collection photo sharing | Toggle while publishing              | On      | Allows item photos on public surfaces              |
+| Item hidden from public  | Toggle in item detail                | Off     | Removes item from all public surfaces              |
+| Item story override      | Toggle in item detail                | Inherit | Shows/hides story independently                    |
+| Item photo override      | Toggle in item detail                | Inherit | Shows/hides photo independently                    |
+| Public field selection   | Field picker in collection settings  | Primary | Controls metadata shown publicly                   |
 
 ## UI Mockups
 
