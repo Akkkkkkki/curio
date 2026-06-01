@@ -149,6 +149,7 @@ export const AppContent: React.FC = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [authReady, setAuthReady] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
   const [allowPublicBrowse, setAllowPublicBrowse] = useState(false);
   const [hasLocalImport, setHasLocalImport] = useState(false);
   const [importState, setImportState] = useState<'idle' | 'running' | 'done' | 'error'>('idle');
@@ -360,6 +361,19 @@ export const AppContent: React.FC = () => {
 
     let unsubscribe: (() => void) | undefined;
     const initAuth = async () => {
+      // Subscribe before reading the session so PASSWORD_RECOVERY emitted
+      // during Supabase's URL-detection phase isn't missed.
+      const {
+        data: { subscription },
+      } = supabase.auth.onAuthStateChange((event, session) => {
+        setUser(session?.user || null);
+        if (event === 'PASSWORD_RECOVERY') {
+          setIsPasswordRecovery(true);
+          setIsAuthModalOpen(true);
+        }
+      });
+      unsubscribe = () => subscription.unsubscribe();
+
       try {
         const {
           data: { session },
@@ -371,13 +385,6 @@ export const AppContent: React.FC = () => {
       } finally {
         setAuthReady(true);
       }
-
-      const {
-        data: { subscription },
-      } = supabase.auth.onAuthStateChange((_event, session) => {
-        setUser(session?.user || null);
-      });
-      unsubscribe = () => subscription.unsubscribe();
     };
 
     initAuth();
@@ -2325,9 +2332,14 @@ export const AppContent: React.FC = () => {
 
   const handleAuthClose = () => {
     setIsAuthModalOpen(false);
+    setIsPasswordRecovery(false);
   };
 
   const handleAuthSuccess = () => {
+    if (isPasswordRecovery) {
+      setIsPasswordRecovery(false);
+      showStatus(t('passwordUpdated'), 'success');
+    }
     if (pendingAuthAction) {
       setAuthActionQueue(pendingAuthAction);
       setPendingAuthAction(null);
@@ -2564,6 +2576,7 @@ export const AppContent: React.FC = () => {
         isOpen={isAuthModalOpen}
         onClose={handleAuthClose}
         onAuthSuccess={handleAuthSuccess}
+        initialMode={isPasswordRecovery ? 'set-password' : undefined}
       />
       <ConflictResolutionModal
         isOpen={isConflictModalOpen}

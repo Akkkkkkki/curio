@@ -9,6 +9,8 @@ vi.mock('@/services/supabase', () => ({
   signInWithEmail: vi.fn(),
   signUpWithEmail: vi.fn(),
   isSupabaseConfigured: vi.fn(),
+  resetPasswordForEmail: vi.fn(),
+  updateUserPassword: vi.fn(),
 }));
 
 // Mock the theme module to use our test theme context
@@ -21,11 +23,19 @@ vi.mock('@/theme', async () => {
 });
 
 // Import the mocked functions
-import { signInWithEmail, signUpWithEmail, isSupabaseConfigured } from '@/services/supabase';
+import {
+  signInWithEmail,
+  signUpWithEmail,
+  isSupabaseConfigured,
+  resetPasswordForEmail,
+  updateUserPassword,
+} from '@/services/supabase';
 
 const mockSignIn = signInWithEmail as ReturnType<typeof vi.fn>;
 const mockSignUp = signUpWithEmail as ReturnType<typeof vi.fn>;
 const mockIsSupabaseConfigured = isSupabaseConfigured as ReturnType<typeof vi.fn>;
+const mockResetPassword = resetPasswordForEmail as ReturnType<typeof vi.fn>;
+const mockUpdatePassword = updateUserPassword as ReturnType<typeof vi.fn>;
 
 describe('AuthModal', () => {
   const mockOnClose = vi.fn();
@@ -42,6 +52,8 @@ describe('AuthModal', () => {
     mockIsSupabaseConfigured.mockReturnValue(true);
     mockSignIn.mockResolvedValue({ user: { id: 'test-user' } });
     mockSignUp.mockResolvedValue({ user: { id: 'test-user' } });
+    mockResetPassword.mockResolvedValue(undefined);
+    mockUpdatePassword.mockResolvedValue({ id: 'test-user' });
   });
 
   afterEach(() => {
@@ -322,6 +334,123 @@ describe('AuthModal', () => {
 
       const submitButton = screen.getByRole('button', { name: /sign in/i });
       expect(submitButton).toHaveAttribute('type', 'submit');
+    });
+  });
+
+  describe('Forgot Password Flow', () => {
+    it('shows a "Forgot password" link in sign-in mode', () => {
+      renderWithProviders(<AuthModal {...defaultProps} />);
+      expect(screen.getByRole('button', { name: /forgot password/i })).toBeInTheDocument();
+    });
+
+    it('switches to reset-request mode and hides the password field', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(<AuthModal {...defaultProps} />);
+
+      await user.click(screen.getByRole('button', { name: /forgot password/i }));
+
+      expect(screen.getByRole('button', { name: /send reset link/i })).toBeInTheDocument();
+      expect(screen.queryByPlaceholderText(/••••••••/)).not.toBeInTheDocument();
+      expect(screen.getByPlaceholderText(/curator@museum.com/i)).toBeInTheDocument();
+    });
+
+    it('calls resetPasswordForEmail and shows confirmation copy', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(<AuthModal {...defaultProps} />);
+
+      await user.click(screen.getByRole('button', { name: /forgot password/i }));
+      await user.type(screen.getByPlaceholderText(/curator@museum.com/i), 'lost@example.com');
+      await user.click(screen.getByRole('button', { name: /send reset link/i }));
+
+      await waitFor(() => {
+        expect(mockResetPassword).toHaveBeenCalledWith('lost@example.com');
+      });
+      expect(await screen.findByText(/check your email/i)).toBeInTheDocument();
+      expect(screen.getByText(/lost@example\.com/)).toBeInTheDocument();
+      // No submit button in the confirmation view — only "Back to sign in".
+      expect(screen.queryByRole('button', { name: /send reset link/i })).not.toBeInTheDocument();
+    });
+
+    it('lets the user return to sign-in from the reset flow', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(<AuthModal {...defaultProps} />);
+
+      await user.click(screen.getByRole('button', { name: /forgot password/i }));
+      await user.click(screen.getByRole('button', { name: /back to sign in/i }));
+
+      expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument();
+    });
+
+    it('surfaces a reset failure as an error', async () => {
+      mockResetPassword.mockRejectedValue(new Error('Email rate limit exceeded'));
+      const user = userEvent.setup();
+      renderWithProviders(<AuthModal {...defaultProps} />);
+
+      await user.click(screen.getByRole('button', { name: /forgot password/i }));
+      await user.type(screen.getByPlaceholderText(/curator@museum.com/i), 'lost@example.com');
+      await user.click(screen.getByRole('button', { name: /send reset link/i }));
+
+      await waitFor(() => {
+        expect(screen.getByRole('alert')).toHaveTextContent(/rate limit/i);
+      });
+      expect(screen.queryByText(/check your email/i)).not.toBeInTheDocument();
+    });
+  });
+
+  describe('Set Password Mode (recovery redirect)', () => {
+    it('opens in set-password mode when initialMode is set', () => {
+      renderWithProviders(<AuthModal {...defaultProps} initialMode="set-password" />);
+      expect(screen.getByRole('button', { name: /save password/i })).toBeInTheDocument();
+      expect(screen.queryByPlaceholderText(/curator@museum.com/i)).not.toBeInTheDocument();
+    });
+
+    it('rejects passwords shorter than 8 characters without calling the service', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(<AuthModal {...defaultProps} initialMode="set-password" />);
+
+      const newField = screen.getByLabelText('New password');
+      const confirmField = screen.getByLabelText('Confirm password');
+      // Strip the HTML5 minLength so we can exercise our own validation branch.
+      newField.removeAttribute('minLength');
+      confirmField.removeAttribute('minLength');
+
+      await user.type(newField, 'short');
+      await user.type(confirmField, 'short');
+      await user.click(screen.getByRole('button', { name: /save password/i }));
+
+      await waitFor(() => {
+        expect(screen.getByRole('alert')).toHaveTextContent(/at least 8/i);
+      });
+      expect(mockUpdatePassword).not.toHaveBeenCalled();
+    });
+
+    it('rejects mismatched confirmation without calling the service', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(<AuthModal {...defaultProps} initialMode="set-password" />);
+
+      await user.type(screen.getByLabelText('New password'), 'longenough1');
+      await user.type(screen.getByLabelText('Confirm password'), 'different1!');
+      await user.click(screen.getByRole('button', { name: /save password/i }));
+
+      await waitFor(() => {
+        expect(screen.getByRole('alert')).toHaveTextContent(/don't match/i);
+      });
+      expect(mockUpdatePassword).not.toHaveBeenCalled();
+    });
+
+    it('saves a valid new password and signals success', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(<AuthModal {...defaultProps} initialMode="set-password" />);
+
+      await user.type(screen.getByLabelText('New password'), 'brandnewpass1');
+      await user.type(screen.getByLabelText('Confirm password'), 'brandnewpass1');
+      await user.click(screen.getByRole('button', { name: /save password/i }));
+
+      await waitFor(() => {
+        expect(mockUpdatePassword).toHaveBeenCalledWith('brandnewpass1');
+        expect(mockOnAuthSuccess).toHaveBeenCalledTimes(1);
+        expect(mockOnClose).toHaveBeenCalledTimes(1);
+      });
     });
   });
 });
