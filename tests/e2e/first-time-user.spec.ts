@@ -95,8 +95,8 @@ test.describe('First-Time User Experience', () => {
 
     await page.getByTestId('item-card').first().click();
     await expect(page).toHaveURL(/#\/collection\/.*\/item\//);
-    // Item detail title is rendered as a (disabled) textbox in read-only mode.
-    const titleInput = page.getByRole('main').locator('input:disabled').first();
+    // Item detail title is rendered as a (disabled) textarea in read-only mode.
+    const titleInput = page.getByRole('main').locator('textarea:disabled').first();
     await expect(titleInput).toHaveValue('Kind of Blue');
   });
 
