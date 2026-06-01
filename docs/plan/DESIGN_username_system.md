@@ -242,6 +242,47 @@ alter table public.profiles
     )
   );
 
+create or replace function public.enforce_username_change_window()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if tg_op = 'INSERT' then
+    if new.username is not null then
+      new.username_changed_at := now();
+    else
+      new.username_changed_at := null;
+    end if;
+
+    return new;
+  end if;
+
+  if new.username is distinct from old.username then
+    if old.username is not null
+      and old.username_changed_at is not null
+      and old.username_changed_at > now() - interval '90 days'
+    then
+      raise exception 'username can only be changed once every 90 days'
+        using errcode = 'check_violation';
+    end if;
+
+    new.username_changed_at := now();
+  else
+    -- Treat username_changed_at as server-owned even when clients update it.
+    new.username_changed_at := old.username_changed_at;
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists profiles_username_change_guard on public.profiles;
+create trigger profiles_username_change_guard
+before insert or update of username, username_changed_at on public.profiles
+for each row execute function public.enforce_username_change_window();
+
 create unique index if not exists profiles_username_key
   on public.profiles (username)
   where username is not null;
@@ -418,7 +459,7 @@ Future public route family:
 - Admin status must remain owner-visible only; do not expose `is_admin` through public profile payloads, direct table reads, public RPCs, views, widgets, or OG metadata.
 - Username availability checks must not expose whether a private profile exists beyond a boolean availability result.
 - Publish identity requirements and reserved username rejection must be database-enforced, not only UI/service-enforced, because authenticated users can call Supabase update policies directly.
-- Username changes should be audited through `username_changed_at`; if abuse becomes a concern, add a server-owned `username_change_count`.
+- Username change cooldowns must be database-enforced. `username_changed_at` is server-owned by trigger logic so authenticated clients cannot reset or backdate it through direct profile updates; if abuse becomes a concern, add a server-owned `username_change_count`.
 
 ---
 
@@ -434,6 +475,7 @@ Future public route family:
 8. Add unit tests for validation, reserved words, availability states, and publish gating.
 9. Add RLS/integration checks that anonymous clients cannot read `profiles.is_admin`, cannot read unpublished profiles, and can resolve only safe public profile fields through the RPC.
 10. Add database integration checks that direct authenticated profile updates cannot publish without `username`/`display_name` or save reserved usernames.
+11. Add database integration checks that direct authenticated profile updates cannot change `username` inside the 90-day cooldown or manually edit `username_changed_at`.
 
 ---
 
