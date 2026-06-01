@@ -34,6 +34,12 @@ vi.mock('@/services/db', () => ({
   syncPendingAssetUploads: vi.fn(),
   syncPendingDeletes: vi.fn(),
   extractCurioAssetPath: vi.fn(),
+  compareTimestamps: vi.fn((a?: string, b?: string) => {
+    if (!a && !b) return 0;
+    if (!a) return -1;
+    if (!b) return 1;
+    return new Date(a).getTime() - new Date(b).getTime();
+  }),
 }));
 
 vi.mock('@/services/supabase', () => ({
