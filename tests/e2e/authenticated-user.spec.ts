@@ -20,7 +20,12 @@ async function signIn(page: Page) {
   if (await gate.isVisible()) {
     await page.getByTestId('cta-primary-add-first').click();
   } else {
-    await page.getByRole('button', { name: 'Account' }).click();
+    // Account button is in the header on desktop; on mobile, it's the bottom-nav Profile.
+    await page
+      .getByRole('button', { name: 'Account' })
+      .or(page.getByRole('button', { name: 'Profile', exact: true }))
+      .first()
+      .click();
     await page.getByRole('button', { name: /login/i }).click();
   }
 

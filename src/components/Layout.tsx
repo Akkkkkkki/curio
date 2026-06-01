@@ -252,7 +252,7 @@ export const Layout: React.FC<LayoutProps> = ({
           <nav className="flex items-center gap-2 justify-end">
             {headerExtras}
 
-            <div className="relative" ref={profileRef}>
+            <div className="relative hidden sm:block" ref={profileRef}>
               <button
                 onClick={() => setProfileSource((prev) => (prev === 'header' ? null : 'header'))}
                 aria-label={t('account')}
