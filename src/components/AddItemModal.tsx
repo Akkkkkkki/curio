@@ -766,7 +766,11 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     }
     setIsSaving(true);
     try {
-      for (const item of batchItems) {
+      // Iterate over a snapshot and drop each entry as it succeeds, so a
+      // mid-batch failure leaves only the unsaved items behind. Retrying then
+      // reprocesses just those, instead of re-saving already-persisted items
+      // (which would create duplicates with fresh IDs).
+      for (const item of [...batchItems]) {
         const story = item.notes || '';
         await onSave(currentCollection.id, {
           collectionId: currentCollection.id,
@@ -776,6 +780,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
           notes: story,
           data: item.data || {},
         });
+        setBatchItems((prev) => prev.filter((b) => b.id !== item.id));
         trackEvent(
           story.trim().length > 0 ? 'add_item_saved_with_story' : 'add_item_saved_without_story',
           { story_length_bucket: storyLengthBucket(story.trim().length) },

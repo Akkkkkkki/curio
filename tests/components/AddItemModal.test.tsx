@@ -376,6 +376,65 @@ describe('AddItemModal', () => {
     expect(await screen.findByDisplayValue('Mock Artifact')).toBeInTheDocument();
   });
 
+  it('does not re-save already-saved items when a batch save fails partway and is retried', async () => {
+    const user = userEvent.setup();
+    mockRefreshAiEnabled.mockResolvedValue(true);
+    mockAnalyzeImage
+      .mockResolvedValueOnce({ status: 'success', title: 'Artifact A', notes: '', data: {} })
+      .mockResolvedValueOnce({ status: 'success', title: 'Artifact B', notes: '', data: {} });
+
+    const collection = createMockCollection({ name: 'Artifacts', customFields: [] });
+
+    renderWithProviders(
+      <AddItemModal isOpen onClose={mockOnClose} collections={[collection]} onSave={mockOnSave} />,
+    );
+
+    const file1 = new File(['a'], 'a.png', { type: 'image/png' });
+    const file2 = new File(['b'], 'b.png', { type: 'image/png' });
+    const input = screen.getByTestId('add-item-batch-input') as HTMLInputElement;
+
+    await user.upload(input, [file1, file2]);
+
+    // Wait until both analyzed items render on the batch-verify step.
+    expect(await screen.findByDisplayValue('Artifact A')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Artifact B')).toBeInTheDocument();
+
+    // First item saves, the second fails mid-batch.
+    mockOnSave.mockReset();
+    mockOnSave
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('Could not save image. Please try again.'));
+
+    await user.click(screen.getByRole('button', { name: /Archive \d+ Artifacts/ }));
+
+    expect(await screen.findByText('Could not save image. Please try again.')).toBeInTheDocument();
+    expect(mockOnClose).not.toHaveBeenCalled();
+    expect(mockOnSave).toHaveBeenCalledTimes(2);
+    expect(mockOnSave).toHaveBeenNthCalledWith(
+      1,
+      collection.id,
+      expect.objectContaining({ title: 'Artifact A' }),
+    );
+
+    // Retrying must only reprocess the failed item, never the already-saved one.
+    mockOnSave.mockReset();
+    mockOnSave.mockResolvedValue(undefined);
+
+    await user.click(screen.getByRole('button', { name: /Archive \d+ Artifacts/ }));
+
+    await waitFor(() => {
+      expect(mockOnSave).toHaveBeenCalledTimes(1);
+    });
+    expect(mockOnSave).toHaveBeenCalledWith(
+      collection.id,
+      expect.objectContaining({ title: 'Artifact B' }),
+    );
+    expect(mockOnSave).not.toHaveBeenCalledWith(
+      collection.id,
+      expect.objectContaining({ title: 'Artifact A' }),
+    );
+  });
+
   it('fades the verify-step scroll edge while fields remain below the fold (CUR-45)', async () => {
     const user = userEvent.setup();
     renderWithProviders(
