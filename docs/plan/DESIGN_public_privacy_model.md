@@ -52,19 +52,24 @@ A public profile must not show:
 Users can hide a public collection from their profile without making the collection private. This
 supports direct collection links that are public but not promoted on the museum front door.
 
+Disabling the public profile disables anonymous access to user-owned public collections, item pages,
+widgets, and generated share surfaces. Public sample collections are the only exception because they
+are admin-owned product demos, not owner museum content.
+
 ### Collection Visibility
 
 Each collection has one owner-controlled visibility state:
 
-| State   | Meaning                                                   | Anonymous access |
-| ------- | --------------------------------------------------------- | ---------------- |
-| Private | Owner-only archive content. Default for user collections. | No               |
-| Public  | Public collection page, item pages, cards, and widgets.   | Yes              |
+| State   | Meaning                                                   | Anonymous access                     |
+| ------- | --------------------------------------------------------- | ------------------------------------ |
+| Private | Owner-only archive content. Default for user collections. | No                                   |
+| Public  | Public collection page, item pages, cards, and widgets.   | Yes, only when owner profile is live |
 
 A public collection can also be:
 
 - `featured`: appears on the public profile.
-- `unlisted`: reachable by direct URL but omitted from profile modules and discovery surfaces.
+- `unlisted`: reachable by direct URL while the owner profile is live, but omitted from profile
+  modules and discovery surfaces.
 
 Public sample collections remain a special admin-owned case. They can continue using
 `is_public = true`, but user-owned publishing should require a review/confirm step before public
@@ -76,14 +81,14 @@ Items inherit the parent collection visibility. Within a public collection, the 
 individual item from public surfaces. Hidden public items should not appear in collection grids,
 profile modules, widgets, OG data, or public search/discovery indexes.
 
-Direct item URLs for hidden or newly private items should return a clear not-found or private state,
-not stale cached content.
+Direct item URLs for hidden items, newly private items, or items owned by a profile that is no longer
+public should return a clear not-found or private state, not stale cached content.
 
 ### Data Exposure
 
 Public item pages and cards show a curated subset, not the complete private record.
 
-Always public when parent collection and item are public:
+Always public when the owner profile, parent collection, and item are all public:
 
 - item title
 - parent collection title and icon
@@ -156,9 +161,9 @@ Existing data should be treated conservatively.
 - Existing user collections must not be added to a public profile automatically.
 - Existing `collections.is_public = false` remains private.
 - Existing admin/sample collections with `is_public = true` remain public samples.
-- If any user-owned collection already has `is_public = true`, keep the database read behavior for
-  backwards compatibility but mark it as `review required` in the future publishing UI before it can
-  appear on a profile, widgets, discovery, or new share cards.
+- If any user-owned collection already has `is_public = true`, keep authenticated owner/admin
+  behavior for backwards compatibility but do not expose it anonymously until the owner profile is
+  enabled and the future publishing UI marks the collection as reviewed.
 - Public profile enablement should require a final confirmation that lists the public profile URL and
   any collections selected for profile display.
 
@@ -166,7 +171,7 @@ Existing data should be treated conservatively.
 
 | Control                  | Owner action                         | Default | Public effect                                      |
 | ------------------------ | ------------------------------------ | ------- | -------------------------------------------------- |
-| Profile public           | Toggle in profile settings           | Off     | Enables `/u/:slug` profile page                    |
+| Profile public           | Toggle in profile settings           | Off     | Enables `/u/:slug` and dependent public URLs       |
 | Collection visibility    | Publish/unpublish in collection menu | Private | Enables collection and inherited item public pages |
 | Feature on profile       | Checkbox in collection settings      | Off     | Adds collection to public profile modules          |
 | Collection story sharing | Toggle while publishing              | Off     | Allows stories on public item pages/cards          |
@@ -296,7 +301,8 @@ Required Phase 1 changes:
      fields, seed state, or future billing/entitlement columns.
 
 3. Extend collection publication metadata:
-   - `is_public` remains the hard anonymous-read gate.
+   - `is_public` remains the collection-level public intent flag, not a complete anonymous-read gate
+     by itself.
    - Add `listed_on_profile` or equivalent profile placement metadata.
    - Add story/photo defaults for public presentation.
    - Add a reviewed/confirmed timestamp for user-owned collections before they appear on profile or
@@ -309,11 +315,12 @@ Required Phase 1 changes:
 
 5. Enforce anonymous public reads with RLS:
    - Anonymous users can select only profile-safe fields for `public_enabled` profiles.
-   - Anonymous users can select public collections where `is_public = true`.
-   - Anonymous users can select public items only when the parent collection is public and the item
-     is not hidden.
-   - Anonymous users can select public item images only when the parent item is public and photo
-     visibility allows it.
+   - Anonymous users can select user-owned public collections only when the owner profile has
+     `public_enabled = true` and the collection has `is_public = true`.
+   - Anonymous users can select public items only when the owner profile is enabled, the parent
+     collection is public, and the item is not hidden.
+   - Anonymous users can select public item images only when the owner profile is enabled, the
+     parent item is public, and photo visibility allows it.
 
 6. Preserve owner/admin writes:
    - Owners can publish and unpublish their own collections.
@@ -321,6 +328,8 @@ Required Phase 1 changes:
    - Non-admin users cannot mutate public sample content.
 
 7. Invalidate dependent public surfaces on privacy changes:
+   - profile disabled -> collection pages, item pages, widgets, OG cards, and profile modules stop
+     resolving
    - collection unpublished -> item pages, widgets, OG cards, and profile modules stop resolving
    - item hidden -> item page and item cards stop resolving
    - story/photo hidden -> public payloads omit that content immediately
@@ -334,8 +343,9 @@ Required Phase 1 changes:
 - Public preview UI should call the same public loaders as anonymous visitors.
 - Public image URLs should be generated from a public-safe delivery layer rather than private
   storage paths.
-- The initial implementation can use collection-level visibility plus item hide/story/photo
-  overrides. Discovery ranking, comments, reactions, and follower feeds are out of scope.
+- The initial implementation can use profile-enabled collection-level visibility plus item
+  hide/story/photo overrides. Discovery ranking, comments, reactions, and follower feeds are out of
+  scope.
 
 ## Acceptance Checklist
 
