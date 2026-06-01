@@ -23,6 +23,9 @@ or `docs/plan/`.
   sync logs.
 - `plan/DESIGN_flexible_collection_creation.md`: active forward-looking spec for Phase 1 flexible
   collection work. Delete once shipped and move enduring behavior into the canonical docs above.
+- `plan/DESIGN_public_privacy_model.md`: active forward-looking spec for Phase 1 public profile,
+  collection, item, and share-surface privacy. Delete once shipped and move enduring behavior into
+  the canonical docs above.
 - `plan/DESIGN_shareable_urls_and_og_tags.md`: active forward-looking spec for Phase 1 public
   sharing URLs and Open Graph metadata. Delete once shipped and move enduring behavior into the
   canonical docs above.
