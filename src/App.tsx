@@ -2291,7 +2291,17 @@ export const AppContent: React.FC = () => {
   const isExploreRoute = location.pathname === '/explore';
   const shouldShowAccessGate = showAccessGate && !isExploreRoute;
   const fallbackSampleCollectionId = fallbackSampleCollections[0]?.id ?? null;
-  const sampleCollectionId = sampleCollection?.id ?? fallbackSampleCollectionId;
+  // Only expose a sample collection id that is actually present in `collections`.
+  // The fallback sample is not part of merged cloud state for an authenticated
+  // user with only private collections, so linking to it would bounce off
+  // CollectionScreen back to Home (a dead Explore tab). Fall back to null in that
+  // case so the bottom-nav Explore tab hides instead of dead-linking.
+  const sampleCollectionId = useMemo(() => {
+    if (sampleCollection) return sampleCollection.id;
+    return collections.some((c) => c.id === fallbackSampleCollectionId)
+      ? fallbackSampleCollectionId
+      : null;
+  }, [sampleCollection, collections, fallbackSampleCollectionId]);
 
   const statusBanner = useMemo(() => {
     if (!isSupabaseReady) {

@@ -263,6 +263,33 @@ describe('App Integration Tests', () => {
     expect(screen.getByTestId('cta-secondary-explore-sample')).toBeInTheDocument();
   });
 
+  it('hides the bottom-nav Explore tab when no sample collection is loaded (no dead link)', async () => {
+    const { ThemeProvider } = await import('@/theme');
+    // Authenticated user whose only collection is private and cloud returns no
+    // public collection: the fallback sample id is not present in `collections`,
+    // so the Explore tab must hide rather than link to a collection that
+    // CollectionScreen cannot find (which would bounce back to Home).
+    vi.mocked(supabaseService.isSupabaseConfigured).mockReturnValue(true);
+    vi.mocked(db.getLocalCollections).mockResolvedValue([mockCollection]);
+    vi.mocked(db.fetchCloudCollections).mockResolvedValue([]);
+
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Test Collection')[0]).toBeInTheDocument();
+    });
+
+    expect(screen.queryByRole('link', { name: /explore/i })).not.toBeInTheDocument();
+  });
+
   it('has i18n keys for collection search empty state', async () => {
     const { translations } = await import('@/i18n');
 
