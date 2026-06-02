@@ -363,9 +363,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     <input
                       type="email"
                       required
+                      disabled={loading}
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className={`w-full pl-11 pr-4 py-3.5 rounded-2xl focus:ring-4 focus:ring-amber-500/5 focus:border-amber-200 outline-none font-medium transition-all ${inputSurface}`}
+                      className={`w-full pl-11 pr-4 py-3.5 rounded-2xl focus:ring-4 focus:ring-amber-500/5 focus:border-amber-200 outline-none font-medium transition-all disabled:opacity-60 disabled:cursor-not-allowed ${inputSurface}`}
                       placeholder="curator@museum.com"
                     />
                   </div>
@@ -401,9 +402,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     <input
                       type="password"
                       required
+                      disabled={loading}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className={`w-full pl-11 pr-4 py-3.5 rounded-2xl focus:ring-4 focus:ring-amber-500/5 focus:border-amber-200 outline-none font-medium transition-all ${inputSurface}`}
+                      className={`w-full pl-11 pr-4 py-3.5 rounded-2xl focus:ring-4 focus:ring-amber-500/5 focus:border-amber-200 outline-none font-medium transition-all disabled:opacity-60 disabled:cursor-not-allowed ${inputSurface}`}
                       placeholder="••••••••"
                     />
                   </div>
@@ -428,11 +430,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                         id="auth-new-password"
                         type="password"
                         required
+                        disabled={loading}
                         minLength={MIN_PASSWORD_LENGTH}
                         autoComplete="new-password"
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
-                        className={`w-full pl-11 pr-4 py-3.5 rounded-2xl focus:ring-4 focus:ring-amber-500/5 focus:border-amber-200 outline-none font-medium transition-all ${inputSurface}`}
+                        className={`w-full pl-11 pr-4 py-3.5 rounded-2xl focus:ring-4 focus:ring-amber-500/5 focus:border-amber-200 outline-none font-medium transition-all disabled:opacity-60 disabled:cursor-not-allowed ${inputSurface}`}
                         placeholder="••••••••"
                       />
                     </div>
@@ -453,11 +456,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                         id="auth-confirm-password"
                         type="password"
                         required
+                        disabled={loading}
                         minLength={MIN_PASSWORD_LENGTH}
                         autoComplete="new-password"
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
-                        className={`w-full pl-11 pr-4 py-3.5 rounded-2xl focus:ring-4 focus:ring-amber-500/5 focus:border-amber-200 outline-none font-medium transition-all ${inputSurface}`}
+                        className={`w-full pl-11 pr-4 py-3.5 rounded-2xl focus:ring-4 focus:ring-amber-500/5 focus:border-amber-200 outline-none font-medium transition-all disabled:opacity-60 disabled:cursor-not-allowed ${inputSurface}`}
                         placeholder="••••••••"
                       />
                     </div>
@@ -468,9 +472,25 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           )}
 
           {mode !== 'reset-sent' && (
-            <Button type="submit" className="w-full h-14 text-lg" disabled={loading}>
+            <Button
+              type="submit"
+              className="w-full h-14 text-lg"
+              disabled={loading}
+              aria-busy={loading}
+            >
               {loading ? (
-                <Loader2 className="animate-spin" size={20} />
+                <span className="inline-flex items-center justify-center gap-2">
+                  <Loader2 className="animate-spin" size={20} aria-hidden="true" />
+                  <span>
+                    {mode === 'signin'
+                      ? t('signingIn')
+                      : mode === 'signup'
+                        ? t('creatingAccount')
+                        : mode === 'reset-request'
+                          ? t('sendingResetLink')
+                          : t('savingPassword')}
+                  </span>
+                </span>
               ) : mode === 'signin' ? (
                 t('login')
               ) : mode === 'signup' ? (
