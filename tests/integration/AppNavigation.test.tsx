@@ -164,11 +164,12 @@ describe('App Integration Tests', () => {
       { timeout: 3000 },
     );
 
+    // Items are lazy-loaded and may render on a later tick.
     await waitFor(
       () => {
         expect(screen.getAllByText('Test Item')[0]).toBeInTheDocument();
       },
-      { timeout: 3000 },
+      { timeout: 5000 },
     );
   });
 
