@@ -238,9 +238,12 @@ describe('AuthModal', () => {
 
   describe('Loading State', () => {
     it('shows loading indicator during authentication', async () => {
-      // Make sign in take some time
+      let resolveSignIn!: (v: { user: { id: string } }) => void;
       mockSignIn.mockImplementation(
-        () => new Promise((resolve) => setTimeout(() => resolve({ user: { id: 'test' } }), 1000)),
+        () =>
+          new Promise((resolve) => {
+            resolveSignIn = resolve;
+          }),
       );
 
       const user = userEvent.setup();
@@ -256,11 +259,18 @@ describe('AuthModal', () => {
       await waitFor(() => {
         expect(submitButton).toBeDisabled();
       });
+
+      resolveSignIn({ user: { id: 'test' } });
+      await waitFor(() => expect(mockOnAuthSuccess).toHaveBeenCalled());
     });
 
-    it('disables form inputs during authentication', async () => {
+    it('shows "Signing in…" label and aria-busy on submit during sign-in', async () => {
+      let resolveSignIn!: (v: { user: { id: string } }) => void;
       mockSignIn.mockImplementation(
-        () => new Promise((resolve) => setTimeout(() => resolve({ user: { id: 'test' } }), 1000)),
+        () =>
+          new Promise((resolve) => {
+            resolveSignIn = resolve;
+          }),
       );
 
       const user = userEvent.setup();
@@ -268,14 +278,67 @@ describe('AuthModal', () => {
 
       await user.type(screen.getByPlaceholderText(/curator@museum.com/i), 'test@example.com');
       await user.type(screen.getByPlaceholderText(/••••••••/), 'password123');
+      await user.click(screen.getByRole('button', { name: /sign in/i }));
 
-      const submitButton = screen.getByRole('button', { name: /sign in/i });
-      await user.click(submitButton);
+      const busyButton = await screen.findByRole('button', { name: /signing in/i });
+      expect(busyButton).toHaveAttribute('aria-busy', 'true');
+      expect(busyButton).toBeDisabled();
 
-      // Check button becomes disabled while loading
+      // Resolve the pending sign-in so the component finishes its work and
+      // does not leak a pending promise into later tests.
+      resolveSignIn({ user: { id: 'test' } });
+      await waitFor(() => expect(mockOnAuthSuccess).toHaveBeenCalled());
+    });
+
+    it('shows "Creating account…" label on submit during sign-up', async () => {
+      let resolveSignUp!: (v: { user: { id: string } }) => void;
+      mockSignUp.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveSignUp = resolve;
+          }),
+      );
+
+      const user = userEvent.setup();
+      renderWithProviders(<AuthModal {...defaultProps} />);
+
+      await user.click(screen.getByText(/Don't have an account/i));
+      await user.type(screen.getByPlaceholderText(/curator@museum.com/i), 'new@example.com');
+      await user.type(screen.getByPlaceholderText(/••••••••/), 'password123');
+      await user.click(screen.getByRole('button', { name: /create account/i }));
+
+      const busyButton = await screen.findByRole('button', { name: /creating account/i });
+      expect(busyButton).toHaveAttribute('aria-busy', 'true');
+
+      resolveSignUp({ user: { id: 'test' } });
+      await waitFor(() => expect(mockOnAuthSuccess).toHaveBeenCalled());
+    });
+
+    it('disables form inputs during authentication', async () => {
+      let resolveSignIn!: (v: { user: { id: string } }) => void;
+      mockSignIn.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveSignIn = resolve;
+          }),
+      );
+
+      const user = userEvent.setup();
+      renderWithProviders(<AuthModal {...defaultProps} />);
+
+      const emailInput = screen.getByPlaceholderText(/curator@museum.com/i);
+      const passwordInput = screen.getByPlaceholderText(/••••••••/);
+      await user.type(emailInput, 'test@example.com');
+      await user.type(passwordInput, 'password123');
+      await user.click(screen.getByRole('button', { name: /sign in/i }));
+
       await waitFor(() => {
-        expect(submitButton).toBeDisabled();
+        expect(emailInput).toBeDisabled();
+        expect(passwordInput).toBeDisabled();
       });
+
+      resolveSignIn({ user: { id: 'test' } });
+      await waitFor(() => expect(mockOnAuthSuccess).toHaveBeenCalled());
     });
   });
 

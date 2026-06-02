@@ -235,6 +235,10 @@ export const translations = {
     // Auth & Cloud
     login: 'Sign In',
     register: 'Create Account',
+    signingIn: 'Signing in…',
+    creatingAccount: 'Creating account…',
+    sendingResetLink: 'Sending reset link…',
+    savingPassword: 'Saving password…',
     close: 'Close',
     email: 'Email Address',
     password: 'Password',
@@ -660,6 +664,10 @@ export const translations = {
     // Auth & Cloud
     login: '登录',
     register: '创建账号',
+    signingIn: '正在登录…',
+    creatingAccount: '正在创建账号…',
+    sendingResetLink: '正在发送重置链接…',
+    savingPassword: '正在保存密码…',
     close: '关闭',
     email: '电子邮箱',
     password: '密码',
