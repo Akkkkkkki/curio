@@ -17,7 +17,12 @@ test.describe('Accessibility', () => {
     if (await gate.isVisible()) {
       await page.getByTestId('cta-primary-add-first').click();
     } else {
-      await page.getByRole('button', { name: 'Account' }).click();
+      // Account button is in the header on desktop; on mobile, it's the bottom-nav Profile.
+      await page
+        .getByRole('button', { name: 'Account' })
+        .or(page.getByRole('button', { name: 'Profile', exact: true }))
+        .first()
+        .click();
       // Button text is "Sign In" (t('login') = 'Sign In'); fall back gracefully if not found.
       const signInBtn = page.getByRole('button', { name: /sign in/i });
       if (!(await signInBtn.isVisible({ timeout: 3000 }).catch(() => false))) return false;

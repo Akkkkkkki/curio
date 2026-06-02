@@ -422,6 +422,65 @@ describe('Layout Component', () => {
         expect(screen.getByText('Account Status')).toBeInTheDocument();
       });
     });
+
+    it('renders profile menu as a bottom sheet (not the header dropdown) when triggered from bottom nav', async () => {
+      renderWithProviders(<Layout {...defaultProps} />);
+
+      const profileButton = screen.getByText('Profile').closest('button');
+      fireEvent.click(profileButton!);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('profile-bottom-sheet')).toBeInTheDocument();
+      });
+      expect(screen.queryByTestId('profile-dropdown')).not.toBeInTheDocument();
+    });
+
+    it('renders the header dropdown (not the bottom sheet) when triggered from the header account button', async () => {
+      renderWithProviders(<Layout {...defaultProps} />);
+
+      const accountButton = screen.getByRole('button', { name: /account/i });
+      fireEvent.click(accountButton);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('profile-dropdown')).toBeInTheDocument();
+      });
+      expect(screen.queryByTestId('profile-bottom-sheet')).not.toBeInTheDocument();
+    });
+
+    it('closes the bottom sheet when Escape is pressed', async () => {
+      renderWithProviders(<Layout {...defaultProps} />);
+
+      const profileButton = screen.getByText('Profile').closest('button');
+      fireEvent.click(profileButton!);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('profile-bottom-sheet')).toBeInTheDocument();
+      });
+
+      fireEvent.keyDown(document, { key: 'Escape' });
+
+      await waitFor(() => {
+        expect(screen.queryByTestId('profile-bottom-sheet')).not.toBeInTheDocument();
+      });
+    });
+
+    it('closes the bottom sheet when the backdrop is clicked', async () => {
+      renderWithProviders(<Layout {...defaultProps} />);
+
+      const profileButton = screen.getByText('Profile').closest('button');
+      fireEvent.click(profileButton!);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('profile-bottom-sheet')).toBeInTheDocument();
+      });
+
+      const backdrop = screen.getByRole('button', { name: /close/i });
+      fireEvent.click(backdrop);
+
+      await waitFor(() => {
+        expect(screen.queryByTestId('profile-bottom-sheet')).not.toBeInTheDocument();
+      });
+    });
   });
 
   describe('Theme Support', () => {

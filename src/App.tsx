@@ -54,6 +54,7 @@ import {
   fetchCloudCollections,
   getLocalCollections,
   getPendingAssetUploadCount,
+  getPendingDeletes,
   getPendingSyncIds,
   hasLocalOnlyData,
   importLocalCollectionsToCloud,
@@ -73,6 +74,7 @@ import {
   setSyncStatusCallback,
   syncPendingChanges,
   syncPendingAssetUploads,
+  syncPendingDeletes,
   extractCurioAssetPath,
   type SyncStatus,
 } from './services/db';
@@ -149,6 +151,7 @@ export const AppContent: React.FC = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [authReady, setAuthReady] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
   const [allowPublicBrowse, setAllowPublicBrowse] = useState(false);
   const [hasLocalImport, setHasLocalImport] = useState(false);
   const [importState, setImportState] = useState<'idle' | 'running' | 'done' | 'error'>('idle');
@@ -254,11 +257,13 @@ export const AppContent: React.FC = () => {
     try {
       const synced = await syncPendingChanges({ force: true });
       const assetsSynced = await syncPendingAssetUploads();
+      const deletesSynced = await syncPendingDeletes();
       void refreshPendingAssetUploads();
-      if (synced > 0) {
-        showStatus(t('statusPendingSynced').replace('{count}', String(synced)), 'success');
+      const dataSynced = synced + deletesSynced;
+      if (dataSynced > 0) {
+        showStatus(t('statusPendingSynced').replace('{count}', String(dataSynced)), 'success');
       }
-      if (synced === 0 && assetsSynced === 0) {
+      if (dataSynced === 0 && assetsSynced === 0) {
         showStatus(t('statusWillSync'), 'warning');
       }
     } catch (e) {
@@ -314,7 +319,10 @@ export const AppContent: React.FC = () => {
   }, [conflicts.length]);
 
   useEffect(() => {
-    const handleOnline = () => setIsOffline(false);
+    const handleOnline = () => {
+      setIsOffline(false);
+      void syncPendingDeletes();
+    };
     const handleOffline = () => setIsOffline(true);
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
@@ -360,6 +368,19 @@ export const AppContent: React.FC = () => {
 
     let unsubscribe: (() => void) | undefined;
     const initAuth = async () => {
+      // Subscribe before reading the session so PASSWORD_RECOVERY emitted
+      // during Supabase's URL-detection phase isn't missed.
+      const {
+        data: { subscription },
+      } = supabase.auth.onAuthStateChange((event, session) => {
+        setUser(session?.user || null);
+        if (event === 'PASSWORD_RECOVERY') {
+          setIsPasswordRecovery(true);
+          setIsAuthModalOpen(true);
+        }
+      });
+      unsubscribe = () => subscription.unsubscribe();
+
       try {
         const {
           data: { session },
@@ -371,13 +392,6 @@ export const AppContent: React.FC = () => {
       } finally {
         setAuthReady(true);
       }
-
-      const {
-        data: { subscription },
-      } = supabase.auth.onAuthStateChange((_event, session) => {
-        setUser(session?.user || null);
-      });
-      unsubscribe = () => subscription.unsubscribe();
     };
 
     initAuth();
@@ -565,10 +579,14 @@ export const AppContent: React.FC = () => {
         cloudCollections,
       });
 
-      const pendingSyncIds = await getPendingSyncIds();
+      const [pendingSyncIds, pendingDeletes] = await Promise.all([
+        getPendingSyncIds(),
+        getPendingDeletes(),
+      ]);
       const mergedCollections = mergeCollections(localCollections, cloudCollections, {
         includeLocalOnly: (collection) =>
           !collection.ownerId || pendingSyncIds.includes(collection.id),
+        pendingDeletes,
       });
 
       const detectedConflicts = detectConflicts(localCollections, cloudCollections);
@@ -600,6 +618,18 @@ export const AppContent: React.FC = () => {
       if (showSyncedStatus) {
         showStatusRef.current(tRef.current('statusSynced'), 'success');
       }
+      if (user && navigator.onLine) {
+        const synced = await syncPendingChanges();
+        if (synced > 0) {
+          showStatusRef.current(
+            tRef.current('statusPendingSynced').replace('{count}', String(synced)),
+            'success',
+          );
+        }
+        await syncPendingAssetUploads();
+        await syncPendingDeletes();
+        void refreshPendingAssetUploads();
+      }
     } catch (e) {
       console.error('Initialization failed:', e);
       setLoadError(tRef.current('loadErrorGeneric'));
@@ -615,6 +645,7 @@ export const AppContent: React.FC = () => {
     isAdmin,
     isSupabaseReady,
     withTimeout,
+    refreshPendingAssetUploads,
     fallbackSampleCollections,
     loadLocalCollectionsWithTimeout,
     loadCloudCollectionsWithTimeout,
@@ -693,10 +724,15 @@ export const AppContent: React.FC = () => {
     const exists = collections.some((c) => c.id === collectionId);
     if (!exists) {
       console.warn('handleAddItem: target collection not found', collectionId);
-      showStatus(t('statusSaveFailedMissingCollection'), 'error');
-      return;
+      const message = t('statusSaveFailedMissingCollection');
+      showStatus(message, 'error');
+      throw new Error(message);
     }
-    if (!canEditCollection(collectionId)) return;
+    if (!canEditCollection(collectionId)) {
+      const message = t('readOnlyControls');
+      showStatus(message, 'error');
+      throw new Error(message);
+    }
     pendingSyncToastRef.current = true;
     if (!isSupabaseReady) pendingSyncToastRef.current = false;
     const itemId = Math.random().toString(36).substr(2, 9);
@@ -713,6 +749,8 @@ export const AppContent: React.FC = () => {
         hasPhoto = true;
       } catch (e) {
         console.error('Image processing failed', e);
+        showStatus(t('saveImageFailed'), 'error');
+        throw new Error(t('saveImageFailed'));
       }
     }
 
@@ -740,7 +778,9 @@ export const AppContent: React.FC = () => {
       showStatus(t('statusSaved'), 'success');
     } else {
       console.warn('handleAddItem: target collection not found', collectionId);
-      showStatus(t('statusSaveFailedMissingCollection'), 'error');
+      const message = t('statusSaveFailedMissingCollection');
+      showStatus(message, 'error');
+      throw new Error(message);
     }
   };
 
@@ -1328,33 +1368,60 @@ export const AppContent: React.FC = () => {
         )}
 
         {filteredItems.length === 0 ? (
-          <div
-            className={`text-center py-32 rounded-[3rem] border shadow-sm ${theme === 'vault' ? 'bg-white/5 border-white/5' : 'bg-white/50 border-stone-100'}`}
-          >
-            <div className="text-8xl mb-8 grayscale opacity-10">🏛️</div>
-            <h3
-              className={`text-3xl font-serif font-bold mb-2 italic tracking-tight ${theme === 'vault' ? 'text-white' : 'text-stone-800'}`}
+          hasFilterInput || activeFilterCount > 0 ? (
+            <div
+              className={`rounded-[2rem] border p-6 sm:p-8 text-center shadow-sm ${theme === 'vault' ? 'bg-white/5 border-white/10 text-stone-200' : 'bg-white/80 border-stone-100 text-stone-700'}`}
             >
-              {t('galleryAwaits')}
-            </h3>
-            <p
-              className={`${theme === 'vault' ? 'text-white/60' : 'text-stone-400'} mb-10 max-w-sm mx-auto leading-relaxed font-serif text-lg`}
+              <p className={`${typographyClasses.titleLarge} italic mb-2`}>
+                {t('searchNoResultsTitle')}
+              </p>
+              <p className={typographyClasses.labelMuted}>
+                {hasFilterInput
+                  ? t('collectionSearchNoResults', { query: filterInput.trim() })
+                  : t('collectionFilterNoResults')}
+              </p>
+              <div className="mt-6 flex justify-center gap-3">
+                {hasFilterInput && (
+                  <Button variant="outline" size="sm" onClick={() => setFilterInput('')}>
+                    {t('clearSearch')}
+                  </Button>
+                )}
+                {activeFilterCount > 0 && (
+                  <Button variant="outline" size="sm" onClick={handleClearFilters}>
+                    {t('clearAll')}
+                  </Button>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div
+              className={`text-center py-32 rounded-[3rem] border shadow-sm ${theme === 'vault' ? 'bg-white/5 border-white/5' : 'bg-white/50 border-stone-100'}`}
             >
-              {t('museumDefinition')}
-            </p>
-            {!isReadOnly && !hasFilterInput && activeFilterCount === 0 && (
-              <Button
-                size="lg"
-                className="px-12 py-4 text-lg rounded-2xl shadow-xl"
-                onClick={() => {
-                  setAddModalDefaultCollectionId(collection?.id);
-                  setIsAddModalOpen(true);
-                }}
+              <div className="text-8xl mb-8 grayscale opacity-10">🏛️</div>
+              <h3
+                className={`text-3xl font-serif font-bold mb-2 italic tracking-tight ${theme === 'vault' ? 'text-white' : 'text-stone-800'}`}
               >
-                {t('catalogFirst')}
-              </Button>
-            )}
-          </div>
+                {t('galleryAwaits')}
+              </h3>
+              <p
+                className={`${theme === 'vault' ? 'text-white/60' : 'text-stone-400'} mb-10 max-w-sm mx-auto leading-relaxed font-serif text-lg`}
+              >
+                {t('museumDefinition')}
+              </p>
+              {!isReadOnly && (
+                <Button
+                  size="lg"
+                  className="px-12 py-4 text-lg rounded-2xl shadow-xl"
+                  onClick={() => {
+                    setAddModalDefaultCollectionId(collection?.id);
+                    setIsAddModalOpen(true);
+                  }}
+                >
+                  {t('catalogFirst')}
+                </Button>
+              )}
+            </div>
+          )
         ) : (
           <>
             <div
@@ -1468,6 +1535,7 @@ export const AppContent: React.FC = () => {
     > | null>(null);
     const isApplyingHistoryRef = useRef(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const titleTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
     const collection = collections.find((c) => c.id === id);
     const item = collection?.items.find((i) => i.id === itemId);
@@ -1476,6 +1544,13 @@ export const AppContent: React.FC = () => {
     useEffect(() => {
       refreshAiImageEditEnabled().then(setAiImageEditEnabled);
     }, []);
+
+    useEffect(() => {
+      const ta = titleTextareaRef.current;
+      if (!ta) return;
+      ta.style.height = 'auto';
+      ta.style.height = `${ta.scrollHeight}px`;
+    }, [item?.title]);
 
     if (!collection || !item) return <Navigate to={`/collection/${id}`} replace />;
     const isReadOnly = Boolean(collection.isPublic) && !isAdmin;
@@ -1722,7 +1797,7 @@ export const AppContent: React.FC = () => {
           }}
         >
           <div
-            className={`relative ${hasPhoto ? 'aspect-[4/5] sm:aspect-[16/9] md:aspect-[21/9]' : 'h-32 sm:h-48'} bg-stone-950 group transition-all duration-700 ease-in-out`}
+            className={`relative ${hasPhoto ? 'aspect-[4/5] max-h-[55vh] sm:aspect-[16/9] sm:max-h-none md:aspect-[21/9]' : 'h-32 sm:h-48'} bg-stone-950 group transition-all duration-700 ease-in-out`}
           >
             <ItemImage
               key={imageKey}
@@ -1740,7 +1815,7 @@ export const AppContent: React.FC = () => {
             {!isReadOnly && (
               <>
                 <div
-                  className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${hasPhoto ? 'opacity-100 sm:opacity-0 sm:group-hover:opacity-100' : 'opacity-100'}`}
+                  className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${hasPhoto ? 'hidden sm:flex sm:opacity-0 sm:group-hover:opacity-100' : 'opacity-100'}`}
                 >
                   <button
                     disabled={isProcessing}
@@ -1768,17 +1843,33 @@ export const AppContent: React.FC = () => {
             <button
               onClick={() => navigate(-1)}
               aria-label={t('back')}
-              className={`absolute top-4 left-4 sm:top-8 sm:left-8 w-10 h-10 sm:w-14 sm:h-14 backdrop-blur-md rounded-xl sm:rounded-2xl flex items-center justify-center shadow-xl transition-all hover:scale-105 z-10 ${theme === 'vault' ? 'bg-white/10 text-white' : 'bg-white/80 text-stone-800'}`}
+              className={`absolute top-4 left-4 sm:top-8 sm:left-8 w-11 h-11 sm:w-14 sm:h-14 backdrop-blur-md rounded-xl sm:rounded-2xl flex items-center justify-center shadow-xl transition-all hover:scale-105 z-10 ${theme === 'vault' ? 'bg-white/10 text-white' : 'bg-white/80 text-stone-800'}`}
             >
               <ArrowLeft size={20} className="sm:w-6 sm:h-6" />
             </button>
 
             <div className="absolute top-4 right-4 sm:top-8 sm:right-8 flex gap-2 sm:gap-4 z-10">
+              {/* Mobile-only quick action to update the photo (desktop reveals the centered pill on hover) */}
+              {!isReadOnly && hasPhoto && (
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isProcessing}
+                  className={`sm:hidden w-11 h-11 backdrop-blur-md rounded-xl flex items-center justify-center shadow-xl transition-all hover:scale-105 disabled:opacity-50 ${theme === 'vault' ? 'bg-white/10 text-white' : 'bg-white/80 text-stone-800'}`}
+                  title={t('updatePhoto')}
+                  aria-label={t('updatePhoto')}
+                >
+                  {isProcessing ? (
+                    <Loader2 size={18} className="animate-spin" />
+                  ) : (
+                    <Camera size={18} />
+                  )}
+                </button>
+              )}
               {/* Enhance Image Button - only show when AI is enabled, not read-only, and has photo */}
               {aiImageEditEnabled && !isReadOnly && isAssetPhoto && (
                 <button
                   onClick={() => setIsEnhanceOpen(true)}
-                  className={`w-10 h-10 sm:w-14 sm:h-14 backdrop-blur-md rounded-xl sm:rounded-2xl flex items-center justify-center shadow-xl transition-all hover:scale-105 ${theme === 'vault' ? 'bg-white/10 text-white' : 'bg-white/80 text-stone-800'}`}
+                  className={`w-11 h-11 sm:w-14 sm:h-14 backdrop-blur-md rounded-xl sm:rounded-2xl flex items-center justify-center shadow-xl transition-all hover:scale-105 ${theme === 'vault' ? 'bg-white/10 text-white' : 'bg-white/80 text-stone-800'}`}
                   title={t('enhanceImage')}
                   aria-label={t('enhanceImage')}
                 >
@@ -1787,7 +1878,7 @@ export const AppContent: React.FC = () => {
               )}
               <button
                 onClick={() => setIsExportOpen(true)}
-                className={`w-10 h-10 sm:w-14 sm:h-14 backdrop-blur-md rounded-xl sm:rounded-2xl flex items-center justify-center shadow-xl transition-all hover:scale-105 ${theme === 'vault' ? 'bg-white/10 text-white' : 'bg-white/80 text-stone-800'}`}
+                className={`w-11 h-11 sm:w-14 sm:h-14 backdrop-blur-md rounded-xl sm:rounded-2xl flex items-center justify-center shadow-xl transition-all hover:scale-105 ${theme === 'vault' ? 'bg-white/10 text-white' : 'bg-white/80 text-stone-800'}`}
                 title={t('exportCard')}
                 aria-label={t('exportCard')}
                 data-testid="item-export"
@@ -1817,15 +1908,22 @@ export const AppContent: React.FC = () => {
             )}
             <div className="flex flex-col md:flex-row justify-between items-start gap-8 sm:gap-12">
               <div className="flex-1 w-full">
-                <input
-                  type="text"
-                  className={`${typographyClasses.titleDisplay} mb-2 sm:mb-3 w-full bg-transparent border-b-2 ${
+                <textarea
+                  ref={titleTextareaRef}
+                  rows={1}
+                  className={`${typographyClasses.titleDisplay} mb-2 sm:mb-3 w-full bg-transparent border-b-2 resize-none overflow-hidden break-words leading-tight ${
                     titleIsEmpty && !isReadOnly
                       ? 'border-red-400 focus:border-red-500'
                       : 'border-transparent'
                   } focus:border-amber-500 outline-none transition-all placeholder:italic ${theme === 'vault' ? 'text-white' : 'text-stone-900'} ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
                   value={item.title}
                   onChange={(e) => applyItemUpdate({ title: e.target.value })}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      e.currentTarget.blur();
+                    }
+                  }}
                   placeholder={t('itemTitlePlaceholder')}
                   disabled={isReadOnly}
                 />
@@ -2053,7 +2151,7 @@ export const AppContent: React.FC = () => {
                 >
                   {t('technicalSpec')}
                 </dt>
-                <div className="grid grid-cols-2 lg:grid-cols-1 gap-6 sm:gap-8">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-6 sm:gap-8">
                   {collection.customFields.map((field) => {
                     const val = item.data[field.id];
                     const label = getLabel(field.id);
@@ -2294,9 +2392,14 @@ export const AppContent: React.FC = () => {
 
   const handleAuthClose = () => {
     setIsAuthModalOpen(false);
+    setIsPasswordRecovery(false);
   };
 
   const handleAuthSuccess = () => {
+    if (isPasswordRecovery) {
+      setIsPasswordRecovery(false);
+      showStatus(t('passwordUpdated'), 'success');
+    }
     if (pendingAuthAction) {
       setAuthActionQueue(pendingAuthAction);
       setPendingAuthAction(null);
@@ -2437,7 +2540,13 @@ export const AppContent: React.FC = () => {
             )}
             <button
               onClick={() => setLanguage(language === 'en' ? 'zh' : 'en')}
-              className="p-2 hover:bg-stone-100 dark:hover:bg-white/10 rounded-full text-stone-500 hover:text-stone-900 transition-colors flex items-center gap-1 sm:gap-1.5"
+              className={`p-2 rounded-full transition-colors flex items-center gap-1 sm:gap-1.5 ${
+                theme === 'vault'
+                  ? 'text-white/70 hover:text-white hover:bg-white/10'
+                  : theme === 'atelier'
+                    ? 'text-[#6B5344] hover:text-[#3D3530] hover:bg-[#EDE4D3]'
+                    : 'text-stone-500 hover:text-stone-900 hover:bg-stone-100'
+              }`}
               title={t('switchLanguage')}
             >
               <Globe size={18} />
@@ -2533,6 +2642,7 @@ export const AppContent: React.FC = () => {
         isOpen={isAuthModalOpen}
         onClose={handleAuthClose}
         onAuthSuccess={handleAuthSuccess}
+        initialMode={isPasswordRecovery ? 'set-password' : undefined}
       />
       <ConflictResolutionModal
         isOpen={isConflictModalOpen}

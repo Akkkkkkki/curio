@@ -12,6 +12,7 @@ vi.mock('@/services/db', () => ({
   getLocalCollections: vi.fn(),
   fetchCloudCollections: vi.fn(),
   getPendingAssetUploadCount: vi.fn(),
+  getPendingDeletes: vi.fn(),
   getPendingSyncIds: vi.fn(),
   hasLocalOnlyData: vi.fn(),
   importLocalCollectionsToCloud: vi.fn(),
@@ -31,7 +32,14 @@ vi.mock('@/services/db', () => ({
   setSyncStatusCallback: vi.fn(),
   syncPendingChanges: vi.fn(),
   syncPendingAssetUploads: vi.fn(),
+  syncPendingDeletes: vi.fn(),
   extractCurioAssetPath: vi.fn(),
+  compareTimestamps: vi.fn((a?: string, b?: string) => {
+    if (!a && !b) return 0;
+    if (!a) return -1;
+    if (!b) return 1;
+    return new Date(a).getTime() - new Date(b).getTime();
+  }),
 }));
 
 vi.mock('@/services/supabase', () => ({
@@ -115,9 +123,25 @@ describe('App Integration Tests', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(supabaseService.isSupabaseConfigured).mockReturnValue(true);
+    vi.mocked(supabaseService.supabase!.auth.getSession).mockResolvedValue({
+      data: { session: { user: { id: 'user1' } } },
+    } as never);
     vi.mocked(db.getLocalCollections).mockResolvedValue([mockCollection]);
     vi.mocked(db.fetchCloudCollections).mockResolvedValue([]);
     vi.mocked(db.getPendingSyncIds).mockResolvedValue([]);
+    vi.mocked(db.getPendingDeletes).mockResolvedValue([]);
+    vi.mocked(db.hasLocalOnlyData).mockReturnValue(false);
+    vi.mocked(db.mergeCollections).mockImplementation((local, cloud) =>
+      cloud.length ? cloud : local,
+    );
+    vi.mocked(db.getPendingAssetUploadCount).mockResolvedValue(0);
+    vi.mocked(db.syncPendingChanges).mockResolvedValue(0);
+    vi.mocked(db.syncPendingAssetUploads).mockResolvedValue(0);
+    vi.mocked(db.syncPendingDeletes).mockResolvedValue(0);
+    vi.mocked(db.requestPersistence).mockResolvedValue(true);
+    vi.mocked(db.saveAllCollections).mockResolvedValue(undefined);
+    vi.mocked(db.initDB).mockResolvedValue({} as never);
   });
 
   it('renders CollectionScreen without crashing', async () => {
@@ -133,18 +157,57 @@ describe('App Integration Tests', () => {
       </MemoryRouter>,
     );
 
-    // Wait for collections to load
-    await waitFor(() => {
-      expect(screen.getByText('Test Collection')).toBeInTheDocument();
-    });
+    await waitFor(
+      () => {
+        expect(screen.getByText('Test Collection')).toBeInTheDocument();
+      },
+      { timeout: 3000 },
+    );
 
-    // Check if items are rendered (lazy-loaded screen may render items on a later tick)
+    // Items are lazy-loaded and may render on a later tick.
     await waitFor(
       () => {
         expect(screen.getAllByText('Test Item')[0]).toBeInTheDocument();
       },
       { timeout: 5000 },
     );
+  });
+
+  it('keeps pending deletes in the production merge and retry path', async () => {
+    const { ThemeProvider } = await import('@/theme');
+    const pendingDeletes = [
+      {
+        type: 'item' as const,
+        collectionId: 'col1',
+        itemId: 'item1',
+        createdAt: '2026-06-01T00:00:00.000Z',
+      },
+    ];
+    vi.mocked(db.fetchCloudCollections).mockResolvedValue([mockCollection]);
+    vi.mocked(db.getPendingDeletes).mockResolvedValue(pendingDeletes);
+    vi.mocked(db.mergeCollections).mockReturnValue([{ ...mockCollection, items: [] }]);
+
+    render(
+      <MemoryRouter initialEntries={['/collection/col1']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(db.mergeCollections).toHaveBeenCalledWith(
+        [mockCollection],
+        [mockCollection],
+        expect.objectContaining({ pendingDeletes }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(db.syncPendingDeletes).toHaveBeenCalled();
+    });
   });
 
   it('shows the public sample gallery instead of a dead-end gate when cloud is not configured', async () => {
@@ -198,5 +261,17 @@ describe('App Integration Tests', () => {
     // Both first-run CTAs remain available
     expect(screen.getByTestId('cta-primary-add-first')).toBeInTheDocument();
     expect(screen.getByTestId('cta-secondary-explore-sample')).toBeInTheDocument();
+  });
+
+  it('has i18n keys for collection search empty state', async () => {
+    const { translations } = await import('@/i18n');
+
+    expect(translations.en.collectionSearchNoResults).toContain('{query}');
+    expect(translations.en.collectionFilterNoResults).toBeTruthy();
+    expect(translations.en.clearSearch).toBeTruthy();
+
+    expect(translations.zh.collectionSearchNoResults).toContain('{query}');
+    expect(translations.zh.collectionFilterNoResults).toBeTruthy();
+    expect(translations.zh.clearSearch).toBeTruthy();
   });
 });

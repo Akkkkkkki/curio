@@ -140,11 +140,12 @@ export const typographyClasses = {
   titleHero: 'font-serif text-3xl sm:text-5xl font-bold tracking-tight',
   titleDisplay: 'font-serif text-4xl sm:text-6xl font-bold tracking-tight',
 
-  // Labels/Metadata: Mono, 11-12px, uppercase, wide tracking
-  label: 'font-mono text-[11px] sm:text-[12px] uppercase tracking-[0.2em] font-bold',
+  // Labels/Metadata: Mono, 11-12px, uppercase, wide tracking (tighter on mobile so they fit narrow grid cells)
+  label:
+    'font-mono text-[11px] sm:text-[12px] uppercase tracking-[0.1em] sm:tracking-[0.2em] font-bold',
   labelMuted:
-    'font-mono text-[11px] sm:text-[12px] uppercase tracking-[0.2em] font-medium opacity-50',
-  labelSmall: 'font-mono text-[10px] uppercase tracking-[0.15em] font-medium',
+    'font-mono text-[11px] sm:text-[12px] uppercase tracking-[0.1em] sm:tracking-[0.2em] font-medium opacity-50',
+  labelSmall: 'font-mono text-[10px] uppercase tracking-[0.08em] sm:tracking-[0.15em] font-medium',
 
   // Body text: Sans, 14-16px, relaxed leading
   body: 'font-sans text-sm leading-relaxed',
