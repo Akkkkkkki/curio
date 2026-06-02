@@ -2536,7 +2536,13 @@ export const AppContent: React.FC = () => {
             )}
             <button
               onClick={() => setLanguage(language === 'en' ? 'zh' : 'en')}
-              className="p-2 hover:bg-stone-100 dark:hover:bg-white/10 rounded-full text-stone-500 hover:text-stone-900 transition-colors flex items-center gap-1 sm:gap-1.5"
+              className={`p-2 rounded-full transition-colors flex items-center gap-1 sm:gap-1.5 ${
+                theme === 'vault'
+                  ? 'text-white/70 hover:text-white hover:bg-white/10'
+                  : theme === 'atelier'
+                    ? 'text-[#6B5344] hover:text-[#3D3530] hover:bg-[#EDE4D3]'
+                    : 'text-stone-500 hover:text-stone-900 hover:bg-stone-100'
+              }`}
               title={t('switchLanguage')}
             >
               <Globe size={18} />
