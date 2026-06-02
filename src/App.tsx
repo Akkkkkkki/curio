@@ -2373,6 +2373,17 @@ export const AppContent: React.FC = () => {
     }
   };
 
+  // The bottom-nav Explore tab is only rendered when the sample collection is
+  // already present in `collections` (see `sampleCollectionId`), so it just
+  // needs to clear the access gate and let the <Link> navigate. We deliberately
+  // skip refreshCollections() here: a transient cloud failure during that
+  // click-time refresh would replace `collections` with local-only data and
+  // drop the already-loaded target, turning this one-tap link back into the
+  // dead link we set out to remove.
+  const handleExploreFromNav = useCallback(() => {
+    setAllowPublicBrowse(true);
+  }, []);
+
   const handleAddAction = useCallback(() => {
     if (!isAuthenticated) {
       setPendingAuthAction('add-item');
@@ -2524,7 +2535,7 @@ export const AppContent: React.FC = () => {
         onImportLocal={handleImportLocal}
         statusBanner={statusBanner}
         onAddItem={handleAddAction}
-        onExploreSamples={handleExploreSamples}
+        onExploreSamples={handleExploreFromNav}
         headerExtras={
           <div className="flex items-center gap-2 sm:gap-3">
             {sampleCollection && (
