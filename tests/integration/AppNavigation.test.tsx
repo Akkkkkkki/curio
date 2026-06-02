@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { AppContent } from '@/App';
 import { LanguageProvider } from '@/i18n';
@@ -261,6 +261,88 @@ describe('App Integration Tests', () => {
     // Both first-run CTAs remain available
     expect(screen.getByTestId('cta-primary-add-first')).toBeInTheDocument();
     expect(screen.getByTestId('cta-secondary-explore-sample')).toBeInTheDocument();
+  });
+
+  it('hides the bottom-nav Explore tab when no sample collection is loaded (no dead link)', async () => {
+    const { ThemeProvider } = await import('@/theme');
+    // Authenticated user whose only collection is private and cloud returns no
+    // public collection: the fallback sample id is not present in `collections`,
+    // so the Explore tab must hide rather than link to a collection that
+    // CollectionScreen cannot find (which would bounce back to Home).
+    vi.mocked(supabaseService.isSupabaseConfigured).mockReturnValue(true);
+    vi.mocked(db.getLocalCollections).mockResolvedValue([mockCollection]);
+    vi.mocked(db.fetchCloudCollections).mockResolvedValue([]);
+
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Test Collection')[0]).toBeInTheDocument();
+    });
+
+    expect(screen.queryByRole('link', { name: /explore/i })).not.toBeInTheDocument();
+  });
+
+  it('does not refetch cloud collections when following the bottom-nav Explore link', async () => {
+    const { ThemeProvider } = await import('@/theme');
+    // Signed-out visitor, Supabase configured, with a public sample collection
+    // already loaded. The bottom-nav Explore tap must clear the access gate and
+    // navigate to the loaded target WITHOUT a click-time cloud refetch — a
+    // transient failure in that refetch would drop the loaded collection and
+    // turn the one-tap link back into a dead link (Codex review on #241).
+    const publicSample = {
+      id: 'sample-vinyl',
+      name: 'The Vinyl Vault',
+      templateId: 'vinyl',
+      icon: '🎵',
+      customFields: [],
+      items: [],
+      isPublic: true,
+      updatedAt: new Date().toISOString(),
+    };
+    vi.mocked(supabaseService.isSupabaseConfigured).mockReturnValue(true);
+    vi.mocked(supabaseService.supabase!.auth.getSession).mockResolvedValue({
+      data: { session: null },
+    } as never);
+    vi.mocked(db.getLocalCollections).mockResolvedValue([]);
+    vi.mocked(db.fetchCloudCollections).mockResolvedValue([publicSample]);
+    vi.mocked(db.mergeCollections).mockImplementation((local, cloud) =>
+      cloud.length ? cloud : local,
+    );
+
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('access-gate')).toBeInTheDocument();
+    });
+    await waitFor(() => {
+      expect(vi.mocked(db.fetchCloudCollections)).toHaveBeenCalled();
+    });
+    const fetchCallsAfterLoad = vi.mocked(db.fetchCloudCollections).mock.calls.length;
+
+    const bottomNav = screen.getByRole('navigation', { name: 'Primary' });
+    fireEvent.click(within(bottomNav).getByRole('link', { name: /explore/i }));
+
+    // Gate clears (public browsing enabled) and no extra cloud fetch fires.
+    await waitFor(() => {
+      expect(screen.queryByTestId('access-gate')).not.toBeInTheDocument();
+    });
+    expect(vi.mocked(db.fetchCloudCollections).mock.calls.length).toBe(fetchCallsAfterLoad);
   });
 
   it('has i18n keys for collection search empty state', async () => {

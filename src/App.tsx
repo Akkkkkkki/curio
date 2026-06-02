@@ -2291,7 +2291,17 @@ export const AppContent: React.FC = () => {
   const isExploreRoute = location.pathname === '/explore';
   const shouldShowAccessGate = showAccessGate && !isExploreRoute;
   const fallbackSampleCollectionId = fallbackSampleCollections[0]?.id ?? null;
-  const sampleCollectionId = sampleCollection?.id ?? fallbackSampleCollectionId;
+  // Only expose a sample collection id that is actually present in `collections`.
+  // The fallback sample is not part of merged cloud state for an authenticated
+  // user with only private collections, so linking to it would bounce off
+  // CollectionScreen back to Home (a dead Explore tab). Fall back to null in that
+  // case so the bottom-nav Explore tab hides instead of dead-linking.
+  const sampleCollectionId = useMemo(() => {
+    if (sampleCollection) return sampleCollection.id;
+    return collections.some((c) => c.id === fallbackSampleCollectionId)
+      ? fallbackSampleCollectionId
+      : null;
+  }, [sampleCollection, collections, fallbackSampleCollectionId]);
 
   const statusBanner = useMemo(() => {
     if (!isSupabaseReady) {
@@ -2362,6 +2372,17 @@ export const AppContent: React.FC = () => {
       refreshCollections();
     }
   };
+
+  // The bottom-nav Explore tab is only rendered when the sample collection is
+  // already present in `collections` (see `sampleCollectionId`), so it just
+  // needs to clear the access gate and let the <Link> navigate. We deliberately
+  // skip refreshCollections() here: a transient cloud failure during that
+  // click-time refresh would replace `collections` with local-only data and
+  // drop the already-loaded target, turning this one-tap link back into the
+  // dead link we set out to remove.
+  const handleExploreFromNav = useCallback(() => {
+    setAllowPublicBrowse(true);
+  }, []);
 
   const handleAddAction = useCallback(() => {
     if (!isAuthenticated) {
@@ -2514,6 +2535,7 @@ export const AppContent: React.FC = () => {
         onImportLocal={handleImportLocal}
         statusBanner={statusBanner}
         onAddItem={handleAddAction}
+        onExploreSamples={handleExploreFromNav}
         headerExtras={
           <div className="flex items-center gap-2 sm:gap-3">
             {sampleCollection && (
