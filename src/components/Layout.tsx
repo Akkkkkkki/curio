@@ -138,6 +138,12 @@ export const Layout: React.FC<LayoutProps> = ({
         ? 'bg-[#F5EFE4]/95 border-[#D4C9B8]'
         : 'bg-white/95 border-stone-200/70';
   const bottomNavMuted = theme === 'vault' ? 'text-white/60' : 'text-stone-400';
+  const bottomNavAddPill =
+    theme === 'vault'
+      ? 'bg-[#D4A574]/20 text-[#D4A574]'
+      : theme === 'atelier'
+        ? 'bg-[#A86F3C]/15 text-[#A86F3C]'
+        : 'bg-amber-100 text-amber-700';
   const statusBadgeSurface =
     theme === 'vault' ? 'bg-stone-900 border-white/10' : 'bg-white border-stone-200';
   const exploreTo = sampleCollectionId ? `/collection/${sampleCollectionId}` : null;
@@ -337,7 +343,10 @@ export const Layout: React.FC<LayoutProps> = ({
               onClick={onAddItem}
               className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition-colors ${bottomNavMuted}`}
             >
-              <div className="p-1 rounded-full bg-amber-100 text-amber-700 -mt-1">
+              <div
+                data-testid="bottom-nav-add-pill"
+                className={`p-1 rounded-full -mt-1 ${bottomNavAddPill}`}
+              >
                 <Plus size={20} strokeWidth={2.5} />
               </div>
               {t('add')}
