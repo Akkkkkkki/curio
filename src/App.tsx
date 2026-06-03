@@ -1789,7 +1789,7 @@ export const AppContent: React.FC = () => {
     return (
       <>
         <div
-          className={`max-w-4xl mx-auto rounded-[2rem] sm:rounded-[4rem] border overflow-hidden animate-in zoom-in-95 duration-500 mb-20 ${detailBaseClasses[theme]}`}
+          className={`max-w-4xl mx-auto rounded-[2rem] sm:rounded-[4rem] border overflow-hidden animate-in zoom-in-95 duration-500 mb-[calc(var(--bottom-nav-height,5.5rem)+env(safe-area-inset-bottom,0px))] sm:mb-20 ${detailBaseClasses[theme]}`}
           onAnimationEnd={(e) => {
             // Remove animation classes after animation ends to fix fixed positioning in children
             e.currentTarget.classList.remove('animate-in', 'zoom-in-95', 'duration-500');
