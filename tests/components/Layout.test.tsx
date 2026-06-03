@@ -423,6 +423,22 @@ describe('Layout Component', () => {
       });
     });
 
+    describe('Add button pill is theme-aware', () => {
+      it.each([
+        { theme: 'gallery' as const, expected: ['bg-amber-100', 'text-amber-700'] },
+        { theme: 'vault' as const, expected: ['bg-[#D4A574]/20', 'text-[#D4A574]'] },
+        { theme: 'atelier' as const, expected: ['bg-[#A86F3C]/15', 'text-[#A86F3C]'] },
+      ])('uses theme accent in $theme', ({ theme, expected }) => {
+        setMockTheme(theme);
+        renderWithProviders(<Layout {...defaultProps} />);
+
+        const pill = screen.getByTestId('bottom-nav-add-pill');
+        for (const className of expected) {
+          expect(pill.className).toContain(className);
+        }
+      });
+    });
+
     it('renders profile menu as a bottom sheet (not the header dropdown) when triggered from bottom nav', async () => {
       renderWithProviders(<Layout {...defaultProps} />);
 
