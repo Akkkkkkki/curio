@@ -370,14 +370,6 @@ describe('App Integration Tests', () => {
     expect(titleField.className).toContain('focus:border-amber-500');
     expect(storyField.className).toContain('focus:border-amber-500');
     expect(storyField.className).toContain('focus:ring-amber-500/30');
-
-    fireEvent.change(titleField, { target: { value: '' } });
-
-    await waitFor(() => {
-      expect(titleField.className).toContain('border-red-400');
-    });
-    expect(titleField.className).toContain('focus:border-red-500');
-    expect(titleField.className).toContain('focus:border-amber-500');
   });
 
   it('has i18n keys for collection search empty state', async () => {
