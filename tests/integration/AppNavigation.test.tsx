@@ -373,7 +373,9 @@ describe('App Integration Tests', () => {
 
     fireEvent.change(titleField, { target: { value: '' } });
 
-    expect(titleField.className).toContain('border-red-400');
+    await waitFor(() => {
+      expect(titleField.className).toContain('border-red-400');
+    });
     expect(titleField.className).toContain('focus:border-red-500');
     expect(titleField.className).toContain('focus:border-amber-500');
   });
