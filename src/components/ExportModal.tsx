@@ -336,7 +336,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
               </div>
               <div className="flex-shrink-0 w-full">
                 <h3
-                  className={`font-serif ${titleSize} font-bold text-stone-900 leading-tight mb-2 line-clamp-2`}
+                  className={`font-serif ${titleSize} font-bold text-stone-900 leading-tight mb-2 break-words`}
                 >
                   {item.title}
                 </h3>
@@ -394,13 +394,13 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
                 )}
               </div>
               <div className="flex-shrink-0 text-left">
-                <div className="flex justify-between items-end border-b-2 border-stone-800 pb-2 mb-3">
+                <div className="flex justify-between items-end gap-3 border-b-2 border-stone-800 pb-2 mb-3">
                   <h3
-                    className={`font-serif ${aspectRatio === '1:1' ? 'text-lg' : 'text-2xl'} font-bold text-stone-900 uppercase tracking-tighter line-clamp-2`}
+                    className={`font-serif ${aspectRatio === '1:1' ? 'text-lg' : 'text-2xl'} font-bold text-stone-900 uppercase tracking-tighter break-words min-w-0 flex-1`}
                   >
                     {item.title}
                   </h3>
-                  <span className="font-mono text-xs font-bold bg-stone-900 text-[#f4ebd9] px-1">
+                  <span className="font-mono text-xs font-bold bg-stone-900 text-[#f4ebd9] px-1 flex-shrink-0">
                     NO. {item.rating}
                   </span>
                 </div>
