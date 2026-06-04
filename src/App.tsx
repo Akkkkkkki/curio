@@ -1930,7 +1930,7 @@ export const AppContent: React.FC = () => {
                 {titleIsEmpty && !isReadOnly && (
                   <p className="text-xs font-semibold text-red-500 mb-3">{t('titleRequired')}</p>
                 )}
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   {[1, 2, 3, 4, 5].map((star) => (
                     <button
                       key={star}
@@ -1950,11 +1950,13 @@ export const AppContent: React.FC = () => {
                       </span>
                     </button>
                   ))}
-                  <span className={`ml-3 sm:ml-4 ${typographyClasses.label} text-stone-300`}>
+                  <span
+                    className={`shrink-0 whitespace-nowrap sm:ml-2 ${typographyClasses.label} text-stone-300`}
+                  >
                     {t('registryQuality')}
                   </span>
                   {isReadOnly && (
-                    <span className="ml-2 text-[12px] text-amber-500 font-semibold">
+                    <span className="shrink-0 whitespace-nowrap text-[12px] text-amber-500 font-semibold">
                       {t('readOnlyControls')}
                     </span>
                   )}
