@@ -36,20 +36,21 @@ const formatTime = (isoString?: string) => {
   }).format(date);
 };
 
-const getChangedFields = (local: any, cloud: any, type: 'item' | 'collection') => {
+// Returns i18n keys for fields that differ between local and cloud payloads.
+// The caller maps each key to a localized label via t().
+const getChangedFieldKeys = (local: any, cloud: any, type: 'item' | 'collection'): string[] => {
   const changes: string[] = [];
   if (type === 'item') {
-    if (local.title !== cloud.title) changes.push('Title');
-    if (local.rating !== cloud.rating) changes.push('Rating');
-    if (local.notes !== cloud.notes) changes.push('Story');
-    // Simple check for data fields
+    if (local.title !== cloud.title) changes.push('title');
+    if (local.rating !== cloud.rating) changes.push('rating');
+    if (local.notes !== cloud.notes) changes.push('story');
     const localData = JSON.stringify(local.data || {});
     const cloudData = JSON.stringify(cloud.data || {});
-    if (localData !== cloudData) changes.push('Details');
+    if (localData !== cloudData) changes.push('conflictFieldDetails');
   } else {
-    if (local.name !== cloud.name) changes.push('Name');
-    if (local.icon !== cloud.icon) changes.push('Icon');
-    if (local.description !== cloud.description) changes.push('Description');
+    if (local.name !== cloud.name) changes.push('name');
+    if (local.icon !== cloud.icon) changes.push('icon');
+    if (local.description !== cloud.description) changes.push('conflictFieldDescription');
   }
   return changes;
 };
@@ -113,11 +114,12 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
             const cloudTime = new Date(conflict.cloudUpdatedAt || 0).getTime();
             const isLocalNewer = localTime > cloudTime;
             const isCloudNewer = cloudTime > localTime;
-            const changes = getChangedFields(
+            const changeKeys = getChangedFieldKeys(
               conflict.localPayload,
               conflict.cloudPayload,
               conflict.type,
             );
+            const changeLabels = changeKeys.map((key) => t(key));
 
             return (
               <div
@@ -130,9 +132,9 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
                       <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 bg-stone-100 px-1.5 py-0.5 rounded">
                         {conflict.type === 'item' ? t('conflictItem') : t('conflictCollection')}
                       </span>
-                      {changes.length > 0 && (
+                      {changeLabels.length > 0 && (
                         <span className="text-[10px] text-amber-600 font-medium">
-                          Changed: {changes.join(', ')}
+                          {t('conflictChangedPrefix')} {changeLabels.join(', ')}
                         </span>
                       )}
                     </div>
@@ -151,7 +153,7 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
                   >
                     {isCloudNewer && (
                       <div className="absolute -top-2 left-3 px-2 py-0.5 bg-amber-500 text-white text-[10px] font-bold uppercase tracking-wider rounded-full shadow-sm">
-                        Newer
+                        {t('conflictNewerBadge')}
                       </div>
                     )}
                     <div className="flex items-center gap-2 mb-2 text-stone-500">
@@ -179,7 +181,7 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
                   >
                     {isLocalNewer && (
                       <div className="absolute -top-2 left-3 px-2 py-0.5 bg-amber-500 text-white text-[10px] font-bold uppercase tracking-wider rounded-full shadow-sm">
-                        Newer
+                        {t('conflictNewerBadge')}
                       </div>
                     )}
                     <div className="flex items-center gap-2 mb-2 text-stone-500">
