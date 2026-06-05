@@ -291,7 +291,11 @@ export const Layout: React.FC<LayoutProps> = ({
 
             {!isHome && (
               <Link to="/">
-                <button className={`p-2 rounded-full transition-colors ${navGhost}`}>
+                <button
+                  className={`p-2 rounded-full transition-colors ${navGhost}`}
+                  aria-label={t('navHome')}
+                  title={t('navHome')}
+                >
                   <Home size={20} />
                 </button>
               </Link>
