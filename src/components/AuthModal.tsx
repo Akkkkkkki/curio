@@ -367,7 +367,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       className={`w-full pl-11 pr-4 py-3.5 rounded-2xl focus:ring-4 focus:ring-amber-500/5 focus:border-amber-200 outline-none font-medium transition-all disabled:opacity-60 disabled:cursor-not-allowed ${inputSurface}`}
-                      placeholder="curator@museum.com"
+                      placeholder={t('emailPlaceholder')}
                     />
                   </div>
                 </div>

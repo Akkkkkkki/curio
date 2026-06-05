@@ -110,7 +110,7 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
             <button
               onClick={() => setShowInfo((s) => !s)}
               className="w-full text-left"
-              aria-label="Toggle details"
+              aria-label={t('toggleDetails')}
             >
               {item.rating > 0 && (
                 <div className="flex items-center gap-0.5 text-amber-500 mb-1">
