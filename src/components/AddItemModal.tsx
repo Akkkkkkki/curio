@@ -91,6 +91,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
   const [titleError, setTitleError] = useState<string | null>(null);
   const [batchTitleErrors, setBatchTitleErrors] = useState<Record<string, boolean>>({});
   const [isImageEditorOpen, setIsImageEditorOpen] = useState(false);
+  const [confirmingDiscard, setConfirmingDiscard] = useState(false);
   const [promptsOpen, setPromptsOpen] = useState(false);
   const [promptsLoading, setPromptsLoading] = useState(false);
   const [storyPrompts, setStoryPrompts] = useState<string[]>([]);
@@ -106,6 +107,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollContentRef = useRef<HTMLDivElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const confirmRef = useRef<HTMLDivElement>(null);
   const lastFocusedElementRef = useRef<HTMLElement | null>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const storyInputRef = useRef<HTMLTextAreaElement>(null);
@@ -122,13 +124,15 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
   // Matches the dialog surface so the bottom fade blends into the panel bg.
   const scrollFadeFrom =
     theme === 'vault' ? 'from-stone-900' : theme === 'atelier' ? 'from-[#F5EFE4]' : 'from-white';
-  const dialogDescribedBy = error
-    ? 'add-item-error'
-    : analysisNeedsReview
-      ? 'add-item-review'
-      : titleError
-        ? 'add-item-title-error'
-        : undefined;
+  const dialogDescribedBy = confirmingDiscard
+    ? 'add-item-discard-desc'
+    : error
+      ? 'add-item-error'
+      : analysisNeedsReview
+        ? 'add-item-review'
+        : titleError
+          ? 'add-item-title-error'
+          : undefined;
 
   const getFieldLabel = (fieldId: string, fallback: string) => {
     return getFieldTranslation(t, fieldId, fallback);
@@ -244,6 +248,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     setTitleError(null);
     setBatchTitleErrors({});
     setIsImageEditorOpen(false);
+    setConfirmingDiscard(false);
     setPromptsOpen(false);
     setPromptsLoading(false);
     setStoryPrompts([]);
@@ -270,7 +275,9 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     });
 
     const getFocusable = () => {
-      const el = dialogRef.current;
+      // While the discard prompt is up, restrict tab cycling to its buttons so
+      // focus can't escape back into the form behind it.
+      const el = confirmingDiscardRef.current ? confirmRef.current : dialogRef.current;
       if (!el) return [];
       return Array.from(
         el.querySelectorAll<HTMLElement>(
@@ -282,6 +289,14 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
+        if (confirmingDiscardRef.current) {
+          setConfirmingDiscard(false);
+          return;
+        }
+        if (hasInProgressWorkRef.current) {
+          setConfirmingDiscard(true);
+          return;
+        }
         onClose();
         return;
       }
@@ -343,6 +358,36 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     if (scrollContentRef.current) observer.observe(scrollContentRef.current);
     return () => observer.disconnect();
   }, [isOpen, step, updateScrollAffordance]);
+
+  // Verify and batch-verify are the only steps where the user has already
+  // invested effort worth confirming before discard: a photo upload, AI-
+  // analyzed metadata, typed Story, or batch items lined up for save.
+  const hasInProgressWork =
+    (step === 'verify' || step === 'batch-verify') &&
+    (!!imagePreview ||
+      formData.title.trim().length > 0 ||
+      (formData.notes || '').trim().length > 0 ||
+      batchItems.length > 0);
+
+  // Mirror the latest values into refs so the keydown handler (registered once
+  // per modal-open) reads current state without a re-registration churn that
+  // would refire on every keystroke.
+  const hasInProgressWorkRef = useRef(hasInProgressWork);
+  hasInProgressWorkRef.current = hasInProgressWork;
+  const confirmingDiscardRef = useRef(confirmingDiscard);
+  confirmingDiscardRef.current = confirmingDiscard;
+
+  const requestClose = () => {
+    if (confirmingDiscard) {
+      setConfirmingDiscard(false);
+      return;
+    }
+    if (hasInProgressWork) {
+      setConfirmingDiscard(true);
+      return;
+    }
+    onClose();
+  };
 
   if (!isOpen) return null;
 
@@ -1299,7 +1344,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
               {t('addItem')}
             </h2>
             <button
-              onClick={onClose}
+              onClick={requestClose}
               aria-label={t('close')}
               className={`p-2 rounded-full transition-colors ${theme === 'vault' ? 'hover:bg-white/5 text-stone-300 hover:text-white' : 'hover:bg-stone-100 text-stone-400 hover:text-stone-800'}`}
             >
@@ -1308,27 +1353,81 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
           </div>
 
           <div className="relative flex-1 min-h-0">
-            <div
-              ref={scrollRef}
-              data-testid="add-item-scroll"
-              onScroll={updateScrollAffordance}
-              className="h-full overflow-y-auto p-5 pb-6 sm:p-8 overscroll-contain"
-            >
-              <div ref={scrollContentRef} className="space-y-6">
-                {step === 'select-type' && renderCollectionSelect()}
-                {step === 'upload' && renderUpload()}
-                {step === 'batch-verify' && renderBatchVerify()}
-                {step === 'analyzing' && renderAnalyzing()}
-                {step === 'verify' && renderVerify()}
+            {confirmingDiscard ? (
+              <div
+                ref={confirmRef}
+                data-testid="add-item-discard-confirm"
+                className="h-full flex flex-col items-center justify-center text-center p-6 sm:p-8"
+              >
+                <div
+                  className={`p-2.5 rounded-full mb-4 ${
+                    theme === 'vault'
+                      ? 'bg-amber-500/15 text-amber-300'
+                      : 'bg-amber-100 text-amber-700'
+                  }`}
+                  aria-hidden
+                >
+                  <AlertCircle size={22} />
+                </div>
+                <h3
+                  id="add-item-discard-title"
+                  className={`font-serif font-bold text-xl sm:text-2xl mb-2 ${theme === 'vault' ? 'text-white' : 'text-stone-900'}`}
+                >
+                  {t('discardItemTitle')}
+                </h3>
+                <p
+                  id="add-item-discard-desc"
+                  className={`text-sm leading-relaxed max-w-xs ${mutedText} mb-6`}
+                >
+                  {t('discardItemDesc')}
+                </p>
+                <div className="w-full max-w-xs flex flex-col gap-2">
+                  <Button
+                    autoFocus
+                    onClick={() => setConfirmingDiscard(false)}
+                    size="lg"
+                    className="w-full"
+                  >
+                    {t('keepEditing')}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setConfirmingDiscard(false);
+                      onClose();
+                    }}
+                    className="w-full"
+                  >
+                    {t('discardItemAction')}
+                  </Button>
+                </div>
               </div>
-            </div>
-            <div
-              aria-hidden="true"
-              data-testid="add-item-scroll-fade"
-              className={`pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t ${scrollFadeFrom} to-transparent transition-opacity duration-200 ${canScrollDown ? 'opacity-100' : 'opacity-0'}`}
-            />
+            ) : (
+              <>
+                <div
+                  ref={scrollRef}
+                  data-testid="add-item-scroll"
+                  onScroll={updateScrollAffordance}
+                  className="h-full overflow-y-auto p-5 pb-6 sm:p-8 overscroll-contain"
+                >
+                  <div ref={scrollContentRef} className="space-y-6">
+                    {step === 'select-type' && renderCollectionSelect()}
+                    {step === 'upload' && renderUpload()}
+                    {step === 'batch-verify' && renderBatchVerify()}
+                    {step === 'analyzing' && renderAnalyzing()}
+                    {step === 'verify' && renderVerify()}
+                  </div>
+                </div>
+                <div
+                  aria-hidden="true"
+                  data-testid="add-item-scroll-fade"
+                  className={`pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t ${scrollFadeFrom} to-transparent transition-opacity duration-200 ${canScrollDown ? 'opacity-100' : 'opacity-0'}`}
+                />
+              </>
+            )}
           </div>
-          {step === 'verify' &&
+          {!confirmingDiscard &&
+            step === 'verify' &&
             (() => {
               const storyEmpty = !(formData.notes || '').trim();
               const label = isSaving
@@ -1363,7 +1462,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
                 </div>
               );
             })()}
-          {step === 'batch-verify' && (
+          {!confirmingDiscard && step === 'batch-verify' && (
             <div
               className={`border-t ${borderClass} p-4 sm:p-5 ${theme === 'vault' ? 'bg-stone-950' : 'bg-white'}`}
             >
