@@ -361,12 +361,23 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
 
   // Verify and batch-verify are the only steps where the user has already
   // invested effort worth confirming before discard: a photo upload, AI-
-  // analyzed metadata, typed Story, or batch items lined up for save.
+  // analyzed metadata, typed Story, typed title, set rating, filled custom
+  // field, or batch items lined up for save.
+  const hasFilledFormField = Object.entries(formData.data || {}).some(([key, value]) => {
+    // Skip internal AI metadata (e.g. `_aiDescription`); it's hidden and
+    // only present alongside `imagePreview`, which is already counted.
+    if (key.startsWith('_')) return false;
+    if (value === null || value === undefined) return false;
+    if (typeof value === 'string') return value.trim().length > 0;
+    return true;
+  });
   const hasInProgressWork =
     (step === 'verify' || step === 'batch-verify') &&
     (!!imagePreview ||
       formData.title.trim().length > 0 ||
       (formData.notes || '').trim().length > 0 ||
+      formData.rating > 0 ||
+      hasFilledFormField ||
       batchItems.length > 0);
 
   // Mirror the latest values into refs so the keydown handler (registered once

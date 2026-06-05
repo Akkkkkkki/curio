@@ -527,6 +527,56 @@ describe('AddItemModal', () => {
       expect(mockOnClose).toHaveBeenCalledTimes(1);
     });
 
+    it('confirms before discarding a rating-only manual entry', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(
+        <AddItemModal
+          isOpen
+          onClose={mockOnClose}
+          collections={[createMockCollection()]}
+          onSave={mockOnSave}
+        />,
+      );
+
+      await user.click(screen.getByRole('button', { name: 'Skip and add manually' }));
+      await user.click(screen.getByRole('button', { name: 'Rate 4 stars' }));
+
+      await user.click(screen.getByRole('button', { name: 'Close' }));
+
+      expect(mockOnClose).not.toHaveBeenCalled();
+      expect(await screen.findByTestId('add-item-discard-confirm')).toBeInTheDocument();
+
+      // Keep editing → rating is still set on the form behind.
+      await user.click(screen.getByRole('button', { name: 'Keep editing' }));
+      expect(
+        screen.getByRole('button', { name: 'Rate 4 stars', pressed: true }),
+      ).toBeInTheDocument();
+    });
+
+    it('confirms before discarding a custom-field-only manual entry', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(
+        <AddItemModal
+          isOpen
+          onClose={mockOnClose}
+          collections={[createMockCollection()]}
+          onSave={mockOnSave}
+        />,
+      );
+
+      await user.click(screen.getByRole('button', { name: 'Skip and add manually' }));
+
+      // Verify step textboxes are: [0] title, [1] story textarea, [2] first
+      // custom field (Artist in the mock vinyl template).
+      const fields = screen.getAllByRole('textbox');
+      await user.type(fields[2], 'Miles Davis');
+
+      await user.click(screen.getByRole('button', { name: 'Close' }));
+
+      expect(mockOnClose).not.toHaveBeenCalled();
+      expect(screen.getByTestId('add-item-discard-confirm')).toBeInTheDocument();
+    });
+
     it('confirms on Esc when a batch is queued for save', async () => {
       const user = userEvent.setup();
       mockRefreshAiEnabled.mockResolvedValue(true);
