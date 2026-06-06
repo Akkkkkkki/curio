@@ -6,14 +6,10 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   icon?: React.ReactNode;
 }
 
-export const Button: React.FC<ButtonProps> = ({
-  children,
-  variant = 'primary',
-  size = 'md',
-  className = '',
-  icon,
-  ...props
-}) => {
+export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function Button(
+  { children, variant = 'primary', size = 'md', className = '', icon, ...props },
+  ref,
+) {
   const baseStyles =
     'inline-flex items-center justify-center font-medium transition-all duration-200 ease-out focus:outline-none focus:ring-2 focus:ring-offset-1 rounded-full disabled:opacity-50 disabled:cursor-not-allowed motion-safe:hover:-translate-y-0.5 motion-safe:active:translate-y-0 motion-safe:active:scale-[0.98]';
 
@@ -31,7 +27,11 @@ export const Button: React.FC<ButtonProps> = ({
   };
 
   return (
-    <button className={`${baseStyles} ${variants[variant]} ${sizes[size]} ${className}`} {...props}>
+    <button
+      ref={ref}
+      className={`${baseStyles} ${variants[variant]} ${sizes[size]} ${className}`}
+      {...props}
+    >
       {icon && (
         <span className="w-4 h-4 md:w-5 md:h-5 flex items-center justify-center shrink-0 [&>svg]:w-full [&>svg]:h-full">
           {icon}
@@ -40,4 +40,4 @@ export const Button: React.FC<ButtonProps> = ({
       {children}
     </button>
   );
-};
+});

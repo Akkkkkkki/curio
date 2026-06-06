@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders, setMockTheme } from '../utils/test-utils';
 import { DeleteItemModal } from '@/components/DeleteItemModal';
@@ -59,5 +59,32 @@ describe('DeleteItemModal', () => {
 
     await user.click(screen.getByRole('button', { name: /delete item/i }));
     expect(defaultProps.onConfirm).toHaveBeenCalledTimes(1);
+  });
+
+  describe('accessibility (CUR-78)', () => {
+    it('renders as a labelled dialog', () => {
+      renderWithProviders(<DeleteItemModal {...defaultProps} />);
+      const dialog = screen.getByRole('dialog');
+      expect(dialog).toHaveAttribute('aria-modal', 'true');
+      expect(dialog).toHaveAttribute('aria-labelledby');
+    });
+
+    it('closes on Escape', async () => {
+      renderWithProviders(<DeleteItemModal {...defaultProps} />);
+
+      fireEvent.keyDown(document, { key: 'Escape' });
+
+      await waitFor(() => {
+        expect(defaultProps.onClose).toHaveBeenCalledTimes(1);
+      });
+    });
+
+    it('lands initial focus on Cancel (safe action), not Delete', async () => {
+      renderWithProviders(<DeleteItemModal {...defaultProps} />);
+
+      await waitFor(() => {
+        expect(document.activeElement).toBe(screen.getByRole('button', { name: /cancel/i }));
+      });
+    });
   });
 });
