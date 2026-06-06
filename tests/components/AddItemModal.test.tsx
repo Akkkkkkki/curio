@@ -467,4 +467,153 @@ describe('AddItemModal', () => {
     fireEvent.scroll(scroller);
     expect(fade.className).toContain('opacity-0');
   });
+
+  describe('discard confirmation (CUR-80)', () => {
+    it('closes immediately when the user has no work in progress on the verify step', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(
+        <AddItemModal
+          isOpen
+          onClose={mockOnClose}
+          collections={[createMockCollection()]}
+          onSave={mockOnSave}
+        />,
+      );
+
+      // Skip → verify step with empty form, no photo, no batch.
+      await user.click(screen.getByRole('button', { name: 'Skip and add manually' }));
+
+      await user.click(screen.getByRole('button', { name: 'Close' }));
+
+      expect(mockOnClose).toHaveBeenCalledTimes(1);
+      expect(screen.queryByTestId('add-item-discard-confirm')).not.toBeInTheDocument();
+    });
+
+    it('confirms before discarding a typed title + story on the verify step', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(
+        <AddItemModal
+          isOpen
+          onClose={mockOnClose}
+          collections={[createMockCollection()]}
+          onSave={mockOnSave}
+        />,
+      );
+
+      await user.click(screen.getByRole('button', { name: 'Skip and add manually' }));
+      await user.type(screen.getAllByRole('textbox')[0], 'Sentimental Artifact');
+      const storyField = screen.getByPlaceholderText("What's the story behind this piece?");
+      await user.type(storyField, 'Found in my grandmother attic.');
+
+      // Tapping X should show the confirmation, not close the modal.
+      await user.click(screen.getByRole('button', { name: 'Close' }));
+
+      expect(mockOnClose).not.toHaveBeenCalled();
+      expect(await screen.findByTestId('add-item-discard-confirm')).toBeInTheDocument();
+      expect(screen.getByText('Discard this item?')).toBeInTheDocument();
+
+      // Keep editing returns to the form with everything intact.
+      await user.click(screen.getByRole('button', { name: 'Keep editing' }));
+
+      expect(screen.queryByTestId('add-item-discard-confirm')).not.toBeInTheDocument();
+      expect(screen.getByDisplayValue('Sentimental Artifact')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('Found in my grandmother attic.')).toBeInTheDocument();
+      expect(mockOnClose).not.toHaveBeenCalled();
+
+      // Tapping X → Discard actually closes.
+      await user.click(screen.getByRole('button', { name: 'Close' }));
+      await user.click(screen.getByRole('button', { name: 'Discard' }));
+
+      expect(mockOnClose).toHaveBeenCalledTimes(1);
+    });
+
+    it('confirms before discarding a rating-only manual entry', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(
+        <AddItemModal
+          isOpen
+          onClose={mockOnClose}
+          collections={[createMockCollection()]}
+          onSave={mockOnSave}
+        />,
+      );
+
+      await user.click(screen.getByRole('button', { name: 'Skip and add manually' }));
+      await user.click(screen.getByRole('button', { name: 'Rate 4 stars' }));
+
+      await user.click(screen.getByRole('button', { name: 'Close' }));
+
+      expect(mockOnClose).not.toHaveBeenCalled();
+      expect(await screen.findByTestId('add-item-discard-confirm')).toBeInTheDocument();
+
+      // Keep editing → rating is still set on the form behind.
+      await user.click(screen.getByRole('button', { name: 'Keep editing' }));
+      expect(
+        screen.getByRole('button', { name: 'Rate 4 stars', pressed: true }),
+      ).toBeInTheDocument();
+    });
+
+    it('confirms before discarding a custom-field-only manual entry', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(
+        <AddItemModal
+          isOpen
+          onClose={mockOnClose}
+          collections={[createMockCollection()]}
+          onSave={mockOnSave}
+        />,
+      );
+
+      await user.click(screen.getByRole('button', { name: 'Skip and add manually' }));
+
+      // Verify step textboxes are: [0] title, [1] story textarea, [2] first
+      // custom field (Artist in the mock vinyl template).
+      const fields = screen.getAllByRole('textbox');
+      await user.type(fields[2], 'Miles Davis');
+
+      await user.click(screen.getByRole('button', { name: 'Close' }));
+
+      expect(mockOnClose).not.toHaveBeenCalled();
+      expect(screen.getByTestId('add-item-discard-confirm')).toBeInTheDocument();
+    });
+
+    it('confirms on Esc when a batch is queued for save', async () => {
+      const user = userEvent.setup();
+      mockRefreshAiEnabled.mockResolvedValue(true);
+      mockAnalyzeImage.mockResolvedValue({
+        status: 'success',
+        title: 'Batched Artifact',
+        notes: '',
+        data: {},
+      });
+
+      renderWithProviders(
+        <AddItemModal
+          isOpen
+          onClose={mockOnClose}
+          collections={[createMockCollection({ customFields: [] })]}
+          onSave={mockOnSave}
+        />,
+      );
+
+      const file = new File(['fake'], 'a.png', { type: 'image/png' });
+      const input = screen.getByTestId('add-item-batch-input') as HTMLInputElement;
+      await user.upload(input, file);
+
+      // Land on batch-verify once analysis finishes.
+      await screen.findByDisplayValue('Batched Artifact');
+
+      await user.keyboard('{Escape}');
+
+      expect(mockOnClose).not.toHaveBeenCalled();
+      expect(screen.getByTestId('add-item-discard-confirm')).toBeInTheDocument();
+
+      // Esc again dismisses the confirmation without losing the batch.
+      await user.keyboard('{Escape}');
+
+      expect(screen.queryByTestId('add-item-discard-confirm')).not.toBeInTheDocument();
+      expect(screen.getByDisplayValue('Batched Artifact')).toBeInTheDocument();
+      expect(mockOnClose).not.toHaveBeenCalled();
+    });
+  });
 });
