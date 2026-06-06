@@ -365,6 +365,21 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
     }
   }, [step, isIconPickerOpen]);
 
+  // The icon-picker effect above owns Escape while the picker is open, so this
+  // top-level handler stays unregistered in that state to preserve picker-only dismissal.
+  useEffect(() => {
+    if (!isOpen) return;
+    if (isIconPickerOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      handleClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, isIconPickerOpen]);
+
   if (!isOpen) return null;
 
   const renderEntry = () => (
