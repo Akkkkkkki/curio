@@ -26,6 +26,13 @@ export function useModalA11y(
 ): void {
   const { initialFocusRef } = options;
   const lastFocusedElementRef = useRef<HTMLElement | null>(null);
+  // Inline onClose handlers from parents change identity every render. Holding
+  // the latest in a ref lets the focus-trap effect depend only on `isOpen`,
+  // so parent rerenders don't tear down listeners or steal focus back.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -58,7 +65,7 @@ export function useModalA11y(
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
-        onClose();
+        onCloseRef.current();
         return;
       }
 
@@ -95,5 +102,5 @@ export function useModalA11y(
       lastFocusedElementRef.current?.focus?.();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 }

@@ -99,4 +99,45 @@ describe('useModalA11y', () => {
 
     expect(document.activeElement).toBe(screen.getByTestId('confirm'));
   });
+
+  it('does not restore focus when a fresh inline onClose causes a rerender', async () => {
+    // Regression for the Codex P2 review: parents typically pass
+    // `onClose={() => setOpen(false)}`, which changes identity every render.
+    // The cleanup must NOT fire on those rerenders, or focus jumps back to
+    // the trigger and the trap breaks.
+    function Outer() {
+      const [, force] = React.useState(0);
+      return (
+        <>
+          <button data-testid="outside" onClick={() => force((n) => n + 1)}>
+            rerender
+          </button>
+          <Harness isOpen={true} onClose={() => {}} />
+        </>
+      );
+    }
+
+    render(<Outer />);
+
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    const first = screen.getByTestId('first');
+    expect(document.activeElement).toBe(first);
+
+    // Force a parent rerender while the modal is still open. The cleanup
+    // must not run, so focus must stay inside the dialog.
+    fireEvent.click(screen.getByTestId('outside'));
+
+    expect(document.activeElement).toBe(first);
+
+    // Escape still calls the latest onClose because we read through a ref.
+    const latestOnClose = vi.fn();
+    function OuterWithLatest() {
+      return <Harness isOpen={true} onClose={latestOnClose} />;
+    }
+    cleanup();
+    render(<OuterWithLatest />);
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(latestOnClose).toHaveBeenCalledTimes(1);
+  });
 });
