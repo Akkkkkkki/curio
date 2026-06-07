@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Filter, RotateCcw, ChevronDown } from 'lucide-react';
 import { FieldDefinition } from '../types';
 import { Button } from './ui/Button';
 import { useTranslation, getFieldTranslation } from '../i18n';
 import { useTheme, panelSurfaceClasses, overlaySurfaceClasses, mutedTextClasses } from '../theme';
+import { useModalA11y } from '../hooks/useModalA11y';
 
 interface FilterModalProps {
   isOpen: boolean;
@@ -38,6 +39,9 @@ export const FilterModal: React.FC<FilterModalProps> = ({
     if (isOpen) setLocalFilters(activeFilters);
   }, [isOpen, activeFilters]);
 
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useModalA11y(dialogRef, isOpen, onClose);
+
   if (!isOpen) return null;
 
   const handleApply = () => {
@@ -58,6 +62,10 @@ export const FilterModal: React.FC<FilterModalProps> = ({
       className={`fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 ${overlayClass} backdrop-blur-sm`}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="filter-modal-title"
         className={`${surfaceClass} rounded-t-[1.75rem] rounded-b-none sm:rounded-[1.75rem] shadow-2xl w-full max-w-lg h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[85vh] overflow-hidden flex flex-col motion-panel border pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] sm:pt-0 sm:pb-0`}
       >
         <div className="sm:hidden h-3" />
@@ -69,6 +77,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
               <Filter size={18} />
             </div>
             <h2
+              id="filter-modal-title"
               className={`font-serif font-bold text-lg ${theme === 'vault' ? 'text-white' : 'text-stone-800'}`}
             >
               {t('filterCollection')}
