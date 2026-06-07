@@ -77,3 +77,52 @@ describe('ExportModal — CUR-74 long title rendering', () => {
     expect(heading.className).not.toMatch(/line-clamp-/);
   });
 });
+
+describe('ExportModal — CUR-83 footer CTA hierarchy', () => {
+  const baseProps = {
+    isOpen: true,
+    onClose: vi.fn(),
+    item: makeItem(),
+    fields: FIELDS,
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('demotes Print below Save image and Share so it stops competing on mobile', () => {
+    renderWithProviders(<ExportModal {...baseProps} />);
+
+    const save = screen.getByRole('button', { name: /save image/i });
+    const share = screen.getByRole('button', { name: /^share$/i });
+    const print = screen.getByRole('button', { name: /^print$/i });
+
+    // Visual hierarchy: Save (lg primary) > Share (md outline) > Print (sm ghost).
+    // Save keeps the dominant stone-800 surface, Share keeps an outline border,
+    // and Print drops the outline border + shrinks so it reads as a quiet
+    // tertiary action.
+    expect(save.className).toMatch(/bg-stone-800/);
+    expect(save.className).toMatch(/text-base/);
+
+    expect(share.className).toMatch(/border-stone-300/);
+    expect(share.className).toMatch(/text-sm/);
+
+    expect(print.className).not.toMatch(/border-stone-300/);
+    expect(print.className).toMatch(/text-xs/);
+  });
+
+  it('Print still triggers window.print()', async () => {
+    const userEvent = (await import('@testing-library/user-event')).default;
+    const user = userEvent.setup();
+    const printSpy = vi.fn();
+    const originalPrint = window.print;
+    window.print = printSpy;
+    try {
+      renderWithProviders(<ExportModal {...baseProps} />);
+      await user.click(screen.getByRole('button', { name: /^print$/i }));
+      expect(printSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      window.print = originalPrint;
+    }
+  });
+});

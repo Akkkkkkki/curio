@@ -131,19 +131,6 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
     };
   }, [isOpen, item.id, item.collectionId, item.photoEnhancedPath, remoteAssetPath, directPhotoUrl]);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    if (import.meta.env.DEV) {
-      setTimeout(() => {
-        const modal = document.querySelector('[data-export-modal]') as HTMLElement;
-        if (modal) {
-          const rect = modal.getBoundingClientRect();
-          console.log('Modal position check:', rect);
-        }
-      }, 600);
-    }
-  }, [isOpen]);
-
   const renderCardToBlob = useCallback(async (): Promise<Blob | null> => {
     const node = cardRef.current;
     if (!node) return null;
@@ -453,7 +440,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
       )}
       <div
         ref={sheetRef}
-        className={`absolute inset-x-0 bottom-0 md:absolute md:top-0 md:left-auto md:inset-x-auto md:right-0 md:w-96 md:!h-full min-h-0 overflow-hidden bg-white rounded-t-3xl md:rounded-none shadow-2xl flex flex-col z-10 print:hidden [--export-footer-height:8.5rem] md:[--export-footer-height:9.5rem] ${isDragging ? '' : 'transition-[height] duration-300 ease-out'}`}
+        className={`absolute inset-x-0 bottom-0 md:absolute md:top-0 md:left-auto md:inset-x-auto md:right-0 md:w-96 md:!h-full min-h-0 overflow-hidden bg-white rounded-t-3xl md:rounded-none shadow-2xl flex flex-col z-10 print:hidden [--export-footer-height:11.5rem] md:[--export-footer-height:12.5rem] ${isDragging ? '' : 'transition-[height] duration-300 ease-out'}`}
         style={{ height: mobileSheetHeight }}
       >
         <div
@@ -561,30 +548,30 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
           >
             {exportAction === 'save' ? t('saving') : t('saveImage')}
           </Button>
-          <div className="flex gap-2">
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={handleShare}
+            disabled={exportAction !== null || isLoadingImage}
+            icon={
+              exportAction === 'share' ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <Share2 size={16} />
+              )
+            }
+          >
+            {exportAction === 'share' ? t('sharing') : t('share')}
+          </Button>
+          <div className="flex justify-center">
             <Button
-              variant="outline"
-              className="flex-1"
+              variant="ghost"
+              size="sm"
               onClick={() => window.print()}
               disabled={exportAction !== null}
-              icon={<Printer size={16} />}
+              icon={<Printer size={14} />}
             >
               {t('print')}
-            </Button>
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={handleShare}
-              disabled={exportAction !== null || isLoadingImage}
-              icon={
-                exportAction === 'share' ? (
-                  <Loader2 size={16} className="animate-spin" />
-                ) : (
-                  <Share2 size={16} />
-                )
-              }
-            >
-              {exportAction === 'share' ? t('sharing') : t('share')}
             </Button>
           </div>
         </div>
