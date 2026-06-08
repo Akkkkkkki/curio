@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { X, GitMerge, Cloud, Laptop, ArrowRight } from 'lucide-react';
 import { useTranslation } from '../i18n';
 import { useTheme, panelSurfaceClasses, overlaySurfaceClasses } from '../theme';
+import { useModalA11y } from '../hooks/useModalA11y';
 
 export type ConflictEntry = {
   id: string;
@@ -68,6 +69,13 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
   const overlayClass = `${overlaySurfaceClasses[theme]} motion-overlay`;
   const borderClass = theme === 'vault' ? 'border-white/10' : 'border-stone-100';
 
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  // Conflict resolution is destructive — picking a side discards data. Land
+  // initial focus on the dismiss button so keyboard users do not commit a
+  // choice by hitting Enter on the first focusable control.
+  useModalA11y(dialogRef, isOpen, onClose, { initialFocusRef: closeButtonRef });
+
   if (!isOpen) return null;
 
   return (
@@ -75,6 +83,7 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
       className={`fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 ${overlayClass} backdrop-blur-sm`}
     >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="conflict-resolution-title"
@@ -94,6 +103,7 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
             </h2>
           </div>
           <button
+            ref={closeButtonRef}
             onClick={onClose}
             aria-label={t('close')}
             className={`p-2 rounded-full transition-colors ${theme === 'vault' ? 'hover:bg-white/5 text-stone-300 hover:text-white' : 'hover:bg-stone-100 text-stone-400 hover:text-stone-800'}`}
