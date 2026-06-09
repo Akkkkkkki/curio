@@ -1,10 +1,3 @@
-/**
- * ImageEditModal Component Tests (CUR-86)
- *
- * Mirrors the a11y contract that CUR-78 established on the other modals
- * (FilterModal, Delete*Modal, EnhanceImageModal).
- */
-
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
