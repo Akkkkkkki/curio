@@ -95,6 +95,7 @@ import {
   useTheme,
   typographyClasses,
   labelColorClasses,
+  mutedTextClasses,
   inputClasses,
   accentColorClasses,
   dividerClasses,
@@ -1952,7 +1953,7 @@ export const AppContent: React.FC = () => {
                     </button>
                   ))}
                   <span
-                    className={`shrink-0 whitespace-nowrap sm:ml-2 ${typographyClasses.label} text-stone-300`}
+                    className={`shrink-0 whitespace-nowrap sm:ml-2 ${typographyClasses.label} ${mutedTextClasses[theme]}`}
                   >
                     {t('registryQuality')}
                   </span>
@@ -2169,12 +2170,12 @@ export const AppContent: React.FC = () => {
                     return (
                       <div key={field.id} className="group">
                         <dt
-                          className={`${typographyClasses.label} text-stone-300 mb-1 sm:mb-2 group-hover:text-amber-500 transition-colors break-words leading-tight`}
+                          className={`${typographyClasses.label} ${mutedTextClasses[theme]} mb-1 sm:mb-2 group-hover:text-amber-500 transition-colors break-words leading-tight`}
                         >
                           {label}
                         </dt>
                         <input
-                          className={`${typographyClasses.title} w-full bg-transparent border-none p-0 outline-none focus:text-amber-900 focus:ring-0 transition-colors placeholder:text-stone-100 ${theme === 'vault' ? 'text-white' : 'text-stone-900'} ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                          className={`${typographyClasses.title} w-full bg-transparent border-none p-0 outline-none focus:text-amber-900 focus:ring-0 transition-colors ${theme === 'vault' ? 'text-white placeholder:text-stone-400' : theme === 'atelier' ? 'text-stone-900 placeholder:text-[#8C7B6B]' : 'text-stone-900 placeholder:text-stone-500'} ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
                           value={val || ''}
                           placeholder="—"
                           onChange={(e) => {

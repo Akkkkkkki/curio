@@ -84,8 +84,14 @@ vi.mock('@/theme', async () => {
     setTheme: () => {},
   });
 
-  const MockThemeProvider = ({ children }: { children: React.ReactNode }) => {
-    const [theme, setTheme] = React.useState('gallery');
+  const MockThemeProvider = ({
+    children,
+    initialTheme = 'gallery',
+  }: {
+    children: React.ReactNode;
+    initialTheme?: 'gallery' | 'vault' | 'atelier';
+  }) => {
+    const [theme, setTheme] = React.useState(initialTheme);
     // @ts-ignore
     return <ThemeContext.Provider value={{ theme, setTheme }}>{children}</ThemeContext.Provider>;
   };
@@ -254,9 +260,12 @@ describe('App Integration Tests', () => {
       expect(screen.getByTestId('access-gate')).toBeInTheDocument();
     });
 
-    // Gate explains what Curio is before asking for sign-in (CUR-63)
-    expect(screen.getByText('Welcome to Curio')).toBeInTheDocument();
-    expect(screen.getByText(/personal museum/i)).toBeInTheDocument();
+    // Gate explains what Curio is before asking for sign-in (CUR-63).
+    // findByText (not getByText) so we wait through the brief
+    // authReady=false → true transition where the gate first renders
+    // the "Authenticating…" loading copy.
+    expect(await screen.findByText('Welcome to Curio')).toBeInTheDocument();
+    expect(await screen.findByText(/personal museum/i)).toBeInTheDocument();
 
     // Both first-run CTAs remain available
     expect(screen.getByTestId('cta-primary-add-first')).toBeInTheDocument();
@@ -343,6 +352,86 @@ describe('App Integration Tests', () => {
       expect(screen.queryByTestId('access-gate')).not.toBeInTheDocument();
     });
     expect(vi.mocked(db.fetchCloudCollections).mock.calls.length).toBe(fetchCallsAfterLoad);
+  });
+
+  it('renders Item Detail field labels and placeholders with theme-aware contrast (CUR-85)', async () => {
+    const { ThemeProvider } = await import('@/theme');
+    const collectionWithField = {
+      ...mockCollection,
+      customFields: [
+        {
+          id: 'format',
+          label: 'Format',
+          type: 'text' as const,
+          displayMode: 'detail' as const,
+        },
+      ],
+    };
+    vi.mocked(db.getLocalCollections).mockResolvedValue([collectionWithField]);
+
+    render(
+      <MemoryRouter initialEntries={['/collection/col1/item/item1']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    const fieldLabel = await screen.findByText('Format');
+    // Label must use the theme-aware muted token (gallery: text-stone-500),
+    // not the hardcoded text-stone-300 that was invisible on white/cream cards.
+    expect(fieldLabel.className).toContain('text-stone-500');
+    expect(fieldLabel.className).not.toContain('text-stone-300');
+
+    const fieldInput = fieldLabel.parentElement?.querySelector('input[placeholder="—"]');
+    expect(fieldInput).toBeTruthy();
+    // The "—" placeholder must be visible enough to read as "empty, click to edit".
+    expect(fieldInput?.className).not.toContain('placeholder:text-stone-100');
+    expect(fieldInput?.className).toContain('placeholder:text-stone-500');
+
+    const registryCaption = screen.getByText(/registry quality/i);
+    expect(registryCaption.className).toContain('text-stone-500');
+    expect(registryCaption.className).not.toContain('text-stone-300');
+  });
+
+  it('keeps Item Detail field placeholder visible on the Vault dark theme (CUR-85)', async () => {
+    // Regression: an earlier pass set vault placeholder to text-stone-500
+    // (~4.2:1 on bg-stone-950), a meaningful drop from the original
+    // text-stone-100 (~18.5:1). The light-theme fix should not regress
+    // the dark theme — vault placeholder must stay clearly visible.
+    const { ThemeProvider } = await import('@/theme');
+    const collectionWithField = {
+      ...mockCollection,
+      customFields: [
+        {
+          id: 'format',
+          label: 'Format',
+          type: 'text' as const,
+          displayMode: 'detail' as const,
+        },
+      ],
+    };
+    vi.mocked(db.getLocalCollections).mockResolvedValue([collectionWithField]);
+
+    render(
+      <MemoryRouter initialEntries={['/collection/col1/item/item1']}>
+        {/* @ts-ignore - mocked ThemeProvider accepts initialTheme */}
+        <ThemeProvider initialTheme="vault">
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    const fieldLabel = await screen.findByText('Format');
+    const fieldInput = fieldLabel.parentElement?.querySelector('input[placeholder="—"]');
+    expect(fieldInput).toBeTruthy();
+    expect(fieldInput?.className).toContain('placeholder:text-stone-400');
+    expect(fieldInput?.className).not.toContain('placeholder:text-stone-500');
+    expect(fieldInput?.className).not.toContain('placeholder:text-stone-100');
   });
 
   it('has i18n keys for collection search empty state', async () => {
