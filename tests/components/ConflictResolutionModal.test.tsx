@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 import { ConflictResolutionModal, ConflictEntry } from '@/components/ConflictResolutionModal';
 import { renderWithProviders, setMockTheme } from '../utils/test-utils';
 
@@ -96,5 +96,43 @@ describe('ConflictResolutionModal', () => {
     expect(screen.getByText('较新')).toBeInTheDocument();
     expect(screen.queryByText('Newer')).not.toBeInTheDocument();
     expect(screen.queryByText(/^Changed:/)).not.toBeInTheDocument();
+  });
+
+  it('closes on Escape without committing a destructive choice', () => {
+    const onClose = vi.fn();
+    const onKeepCloud = vi.fn();
+    const onUseLocal = vi.fn();
+    renderWithProviders(
+      <ConflictResolutionModal
+        isOpen
+        conflicts={[itemConflict]}
+        onClose={onClose}
+        onKeepCloud={onKeepCloud}
+        onUseLocal={onUseLocal}
+      />,
+    );
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onKeepCloud).not.toHaveBeenCalled();
+    expect(onUseLocal).not.toHaveBeenCalled();
+  });
+
+  it('lands initial focus on the dismiss button so Enter does not commit a side', async () => {
+    renderWithProviders(
+      <ConflictResolutionModal
+        isOpen
+        conflicts={[itemConflict]}
+        onClose={vi.fn()}
+        onKeepCloud={vi.fn()}
+        onUseLocal={vi.fn()}
+      />,
+    );
+
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+
+    const closeButton = screen.getByRole('button', { name: 'Close' });
+    expect(document.activeElement).toBe(closeButton);
   });
 });
