@@ -45,9 +45,11 @@ vi.mock('@capacitor/camera', () => ({
 }));
 
 import { analyzeImage, refreshAiEnabled } from '@/services/geminiService';
+import { Camera } from '@capacitor/camera';
 
 const mockAnalyzeImage = analyzeImage as ReturnType<typeof vi.fn>;
 const mockRefreshAiEnabled = refreshAiEnabled as ReturnType<typeof vi.fn>;
+const mockGetPhoto = Camera.getPhoto as ReturnType<typeof vi.fn>;
 
 class MockFileReader {
   result: string | ArrayBuffer | null = null;
@@ -79,6 +81,7 @@ describe('AddItemModal', () => {
     mockOnSave.mockResolvedValue(undefined);
     mockRefreshAiEnabled.mockResolvedValue(false);
     mockAnalyzeImage.mockReset();
+    mockGetPhoto.mockReset();
   });
 
   it('renders nothing when closed', () => {
@@ -613,6 +616,53 @@ describe('AddItemModal', () => {
 
       expect(screen.queryByTestId('add-item-discard-confirm')).not.toBeInTheDocument();
       expect(screen.getByDisplayValue('Batched Artifact')).toBeInTheDocument();
+      expect(mockOnClose).not.toHaveBeenCalled();
+    });
+
+    it('yields Escape to the nested ImageEditModal — child closes alone, parent stays open (CUR-86)', async () => {
+      const user = userEvent.setup();
+      mockRefreshAiEnabled.mockResolvedValue(true);
+      mockAnalyzeImage.mockResolvedValue({
+        status: 'success',
+        title: 'Mock Artifact',
+        notes: '',
+        data: {},
+      });
+      mockGetPhoto.mockResolvedValue({
+        dataUrl: 'data:image/png;base64,ZmFrZQ==',
+        format: 'png',
+      });
+
+      renderWithProviders(
+        <AddItemModal
+          isOpen
+          onClose={mockOnClose}
+          collections={[createMockCollection({ customFields: [] })]}
+          onSave={mockOnSave}
+        />,
+      );
+
+      // Single-image upload routes to the verify step (not batch-verify).
+      await user.click(screen.getByRole('button', { name: /upload photo/i }));
+
+      // Wait for analysis to land on the verify step.
+      expect(await screen.findByDisplayValue('Mock Artifact')).toBeInTheDocument();
+
+      // Open the nested image editor.
+      await user.click(screen.getByRole('button', { name: /edit photo/i }));
+      const editorDialog = await screen.findByRole('dialog', { name: /edit photo/i });
+      expect(editorDialog).toHaveAttribute('aria-labelledby', 'image-edit-title');
+
+      // Escape on the child should close only the child — the parent's
+      // CUR-80 discard-confirm path must NOT fire even though there's work
+      // in progress (a title is in the form).
+      await user.keyboard('{Escape}');
+
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog', { name: /edit photo/i })).not.toBeInTheDocument();
+      });
+      expect(screen.queryByTestId('add-item-discard-confirm')).not.toBeInTheDocument();
+      expect(screen.getByDisplayValue('Mock Artifact')).toBeInTheDocument();
       expect(mockOnClose).not.toHaveBeenCalled();
     });
   });
