@@ -260,9 +260,12 @@ describe('App Integration Tests', () => {
       expect(screen.getByTestId('access-gate')).toBeInTheDocument();
     });
 
-    // Gate explains what Curio is before asking for sign-in (CUR-63)
-    expect(screen.getByText('Welcome to Curio')).toBeInTheDocument();
-    expect(screen.getByText(/personal museum/i)).toBeInTheDocument();
+    // Gate explains what Curio is before asking for sign-in (CUR-63).
+    // findByText (not getByText) so we wait through the brief
+    // authReady=false → true transition where the gate first renders
+    // the "Authenticating…" loading copy.
+    expect(await screen.findByText('Welcome to Curio')).toBeInTheDocument();
+    expect(await screen.findByText(/personal museum/i)).toBeInTheDocument();
 
     // Both first-run CTAs remain available
     expect(screen.getByTestId('cta-primary-add-first')).toBeInTheDocument();
