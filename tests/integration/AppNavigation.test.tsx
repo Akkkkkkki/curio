@@ -84,8 +84,14 @@ vi.mock('@/theme', async () => {
     setTheme: () => {},
   });
 
-  const MockThemeProvider = ({ children }: { children: React.ReactNode }) => {
-    const [theme, setTheme] = React.useState('gallery');
+  const MockThemeProvider = ({
+    children,
+    initialTheme = 'gallery',
+  }: {
+    children: React.ReactNode;
+    initialTheme?: 'gallery' | 'vault' | 'atelier';
+  }) => {
+    const [theme, setTheme] = React.useState(initialTheme);
     // @ts-ignore
     return <ThemeContext.Provider value={{ theme, setTheme }}>{children}</ThemeContext.Provider>;
   };
@@ -385,6 +391,44 @@ describe('App Integration Tests', () => {
     const registryCaption = screen.getByText(/registry quality/i);
     expect(registryCaption.className).toContain('text-stone-500');
     expect(registryCaption.className).not.toContain('text-stone-300');
+  });
+
+  it('keeps Item Detail field placeholder visible on the Vault dark theme (CUR-85)', async () => {
+    // Regression: an earlier pass set vault placeholder to text-stone-500
+    // (~4.2:1 on bg-stone-950), a meaningful drop from the original
+    // text-stone-100 (~18.5:1). The light-theme fix should not regress
+    // the dark theme — vault placeholder must stay clearly visible.
+    const { ThemeProvider } = await import('@/theme');
+    const collectionWithField = {
+      ...mockCollection,
+      customFields: [
+        {
+          id: 'format',
+          label: 'Format',
+          type: 'text' as const,
+          displayMode: 'detail' as const,
+        },
+      ],
+    };
+    vi.mocked(db.getLocalCollections).mockResolvedValue([collectionWithField]);
+
+    render(
+      <MemoryRouter initialEntries={['/collection/col1/item/item1']}>
+        {/* @ts-ignore - mocked ThemeProvider accepts initialTheme */}
+        <ThemeProvider initialTheme="vault">
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    const fieldLabel = await screen.findByText('Format');
+    const fieldInput = fieldLabel.parentElement?.querySelector('input[placeholder="—"]');
+    expect(fieldInput).toBeTruthy();
+    expect(fieldInput?.className).toContain('placeholder:text-stone-400');
+    expect(fieldInput?.className).not.toContain('placeholder:text-stone-500');
+    expect(fieldInput?.className).not.toContain('placeholder:text-stone-100');
   });
 
   it('has i18n keys for collection search empty state', async () => {
