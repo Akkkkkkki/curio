@@ -99,6 +99,7 @@ import {
   accentColorClasses,
   dividerClasses,
   cardHoverClasses,
+  mutedTextClasses,
 } from './theme';
 import { StatusToast, StatusTone } from './components/StatusToast';
 import { StatusBanner } from './components/StatusBanner';
@@ -1969,10 +1970,12 @@ export const AppContent: React.FC = () => {
                     disabled={history.length === 0}
                     aria-label={t('undo')}
                     title={t('undo')}
-                    className={`p-3 sm:p-4 rounded-full transition-colors ${
+                    className={`p-3 sm:p-4 rounded-full transition-colors ${mutedTextClasses[theme]} ${
                       history.length === 0
-                        ? 'text-stone-300 cursor-not-allowed'
-                        : 'text-stone-400 hover:text-stone-700 hover:bg-stone-100'
+                        ? 'opacity-50 cursor-not-allowed'
+                        : theme === 'vault'
+                          ? 'hover:text-white hover:bg-white/10'
+                          : 'hover:text-stone-900 hover:bg-stone-100'
                     }`}
                   >
                     <Undo2 size={18} className="sm:w-5 sm:h-5" />
@@ -1982,10 +1985,12 @@ export const AppContent: React.FC = () => {
                     disabled={future.length === 0}
                     aria-label={t('redo')}
                     title={t('redo')}
-                    className={`p-3 sm:p-4 rounded-full transition-colors ${
+                    className={`p-3 sm:p-4 rounded-full transition-colors ${mutedTextClasses[theme]} ${
                       future.length === 0
-                        ? 'text-stone-300 cursor-not-allowed'
-                        : 'text-stone-400 hover:text-stone-700 hover:bg-stone-100'
+                        ? 'opacity-50 cursor-not-allowed'
+                        : theme === 'vault'
+                          ? 'hover:text-white hover:bg-white/10'
+                          : 'hover:text-stone-900 hover:bg-stone-100'
                     }`}
                   >
                     <Redo2 size={18} className="sm:w-5 sm:h-5" />
@@ -1994,9 +1999,13 @@ export const AppContent: React.FC = () => {
                     onClick={handleDelete}
                     aria-label={t('deleteItem')}
                     title={t('deleteItem')}
-                    className="text-stone-200 hover:text-red-400 transition-colors p-3 sm:p-4 rounded-full hover:bg-red-50 shrink-0"
+                    className={`w-11 h-11 sm:w-12 sm:h-12 flex items-center justify-center rounded-xl border transition-colors shrink-0 ${
+                      theme === 'vault'
+                        ? 'bg-stone-900 border-white/10 text-stone-400 hover:text-red-400 hover:border-red-400/30'
+                        : 'bg-white border-stone-200 text-stone-400 hover:text-red-500 hover:border-red-200'
+                    }`}
                   >
-                    <Trash2 size={20} className="sm:w-6 sm:h-6" />
+                    <Trash2 size={18} className="sm:w-5 sm:h-5" />
                   </button>
                 </div>
               )}
@@ -2084,7 +2093,7 @@ export const AppContent: React.FC = () => {
                       ) : (
                         <textarea
                           ref={detailStoryRef}
-                          className={`w-full p-6 sm:p-8 rounded-2xl sm:rounded-[2.5rem] italic border font-serif text-xl sm:text-2xl leading-relaxed min-h-[200px] sm:min-h-[240px] focus:ring-8 focus:ring-amber-500/30 focus:border-amber-500 outline-none transition-all shadow-inner placeholder:text-stone-200 ${theme === 'vault' ? 'bg-white/5 border-white/5 text-white' : 'bg-stone-50/50 border-stone-100 text-stone-800'} ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                          className={`w-full p-6 sm:p-8 rounded-2xl sm:rounded-[2.5rem] italic border font-serif text-xl sm:text-2xl leading-relaxed min-h-[200px] sm:min-h-[240px] focus:ring-8 focus:ring-amber-500/30 focus:border-amber-500 outline-none transition-all shadow-inner placeholder:text-stone-400 ${theme === 'vault' ? 'bg-white/5 border-white/5 text-white' : 'bg-stone-50/50 border-stone-100 text-stone-800'} ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
                           value={item.notes}
                           onChange={(e) => applyItemUpdate({ notes: e.target.value })}
                           placeholder={t('storyPlaceholder')}
