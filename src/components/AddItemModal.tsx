@@ -288,6 +288,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
 
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        if (isImageEditorOpenRef.current) return;
         e.preventDefault();
         if (confirmingDiscardRef.current) {
           setConfirmingDiscard(false);
@@ -302,6 +303,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
       }
 
       if (e.key !== 'Tab') return;
+      if (isImageEditorOpenRef.current) return;
       const focusable = getFocusable();
       if (focusable.length === 0) return;
 
@@ -387,6 +389,10 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
   hasInProgressWorkRef.current = hasInProgressWork;
   const confirmingDiscardRef = useRef(confirmingDiscard);
   confirmingDiscardRef.current = confirmingDiscard;
+  // When the child ImageEditModal is open it owns Escape (CUR-86). Yield so the
+  // editor dismisses alone instead of also triggering this modal's discard flow.
+  const isImageEditorOpenRef = useRef(isImageEditorOpen);
+  isImageEditorOpenRef.current = isImageEditorOpen;
 
   const requestClose = () => {
     if (confirmingDiscard) {
