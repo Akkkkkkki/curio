@@ -345,6 +345,48 @@ describe('App Integration Tests', () => {
     expect(vi.mocked(db.fetchCloudCollections).mock.calls.length).toBe(fetchCallsAfterLoad);
   });
 
+  it('renders Item Detail field labels and placeholders with theme-aware contrast (CUR-85)', async () => {
+    const { ThemeProvider } = await import('@/theme');
+    const collectionWithField = {
+      ...mockCollection,
+      customFields: [
+        {
+          id: 'format',
+          label: 'Format',
+          type: 'text' as const,
+          displayMode: 'detail' as const,
+        },
+      ],
+    };
+    vi.mocked(db.getLocalCollections).mockResolvedValue([collectionWithField]);
+
+    render(
+      <MemoryRouter initialEntries={['/collection/col1/item/item1']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    const fieldLabel = await screen.findByText('Format');
+    // Label must use the theme-aware muted token (gallery: text-stone-500),
+    // not the hardcoded text-stone-300 that was invisible on white/cream cards.
+    expect(fieldLabel.className).toContain('text-stone-500');
+    expect(fieldLabel.className).not.toContain('text-stone-300');
+
+    const fieldInput = fieldLabel.parentElement?.querySelector('input[placeholder="—"]');
+    expect(fieldInput).toBeTruthy();
+    // The "—" placeholder must be visible enough to read as "empty, click to edit".
+    expect(fieldInput?.className).not.toContain('placeholder:text-stone-100');
+    expect(fieldInput?.className).toContain('placeholder:text-stone-500');
+
+    const registryCaption = screen.getByText(/registry quality/i);
+    expect(registryCaption.className).toContain('text-stone-500');
+    expect(registryCaption.className).not.toContain('text-stone-300');
+  });
+
   it('has i18n keys for collection search empty state', async () => {
     const { translations } = await import('@/i18n');
 
