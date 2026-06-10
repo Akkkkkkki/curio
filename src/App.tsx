@@ -100,7 +100,6 @@ import {
   accentColorClasses,
   dividerClasses,
   cardHoverClasses,
-  mutedTextClasses,
 } from './theme';
 import { StatusToast, StatusTone } from './components/StatusToast';
 import { StatusBanner } from './components/StatusBanner';
