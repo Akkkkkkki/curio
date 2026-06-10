@@ -212,6 +212,42 @@ describe('AuthModal', () => {
       await user.click(screen.getByText(/Already have an account/i));
       expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument();
     });
+
+    it('shows a consent line with Terms and Privacy Policy links in signup mode (CUR-57)', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(<AuthModal {...defaultProps} />);
+
+      // Consent line is hidden in sign-in mode.
+      expect(screen.queryByTestId('signup-legal-consent')).not.toBeInTheDocument();
+
+      // Switch to sign up.
+      await user.click(screen.getByText(/Don't have an account/i));
+
+      const consent = screen.getByTestId('signup-legal-consent');
+      expect(consent).toBeInTheDocument();
+      expect(consent.textContent).toMatch(/By creating an account/i);
+
+      const termsLink = screen.getByRole('link', { name: /terms of service/i });
+      const privacyLink = screen.getByRole('link', { name: /privacy policy/i });
+
+      expect(termsLink).toHaveAttribute('href', '#/legal/terms');
+      expect(termsLink).toHaveAttribute('target', '_blank');
+      expect(termsLink).toHaveAttribute('rel', expect.stringContaining('noopener'));
+      expect(privacyLink).toHaveAttribute('href', '#/legal/privacy');
+      expect(privacyLink).toHaveAttribute('target', '_blank');
+      expect(privacyLink).toHaveAttribute('rel', expect.stringContaining('noopener'));
+    });
+
+    it('hides the consent line outside signup mode', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(<AuthModal {...defaultProps} />);
+
+      expect(screen.queryByTestId('signup-legal-consent')).not.toBeInTheDocument();
+
+      // Forgot password flow should also not show the consent.
+      await user.click(screen.getByRole('button', { name: /forgot password/i }));
+      expect(screen.queryByTestId('signup-legal-consent')).not.toBeInTheDocument();
+    });
   });
 
   describe('Form Validation', () => {

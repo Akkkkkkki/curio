@@ -506,6 +506,45 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </Button>
           )}
 
+          {mode === 'signup' && (
+            <p
+              className={`text-[11px] leading-relaxed text-center ${mutedText}`}
+              data-testid="signup-legal-consent"
+            >
+              {t('signupLegalConsentLead')}
+              <a
+                href="#/legal/terms"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`font-semibold underline-offset-2 hover:underline transition-colors ${
+                  theme === 'vault'
+                    ? 'text-[#D4A574] hover:text-[#E0B585]'
+                    : theme === 'atelier'
+                      ? 'text-[#A86F3C] hover:text-[#8B5A2B]'
+                      : 'text-amber-700 hover:text-amber-800'
+                }`}
+              >
+                {t('termsOfService')}
+              </a>
+              {t('signupLegalConsentAnd')}
+              <a
+                href="#/legal/privacy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`font-semibold underline-offset-2 hover:underline transition-colors ${
+                  theme === 'vault'
+                    ? 'text-[#D4A574] hover:text-[#E0B585]'
+                    : theme === 'atelier'
+                      ? 'text-[#A86F3C] hover:text-[#8B5A2B]'
+                      : 'text-amber-700 hover:text-amber-800'
+                }`}
+              >
+                {t('privacyPolicy')}
+              </a>
+              {t('signupLegalConsentTail')}
+            </p>
+          )}
+
           <div className="text-center pt-2">
             {mode === 'signin' || mode === 'signup' ? (
               <button
