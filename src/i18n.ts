@@ -444,6 +444,42 @@ export const translations = {
     deleteCollectionFailed: 'Failed to delete collection',
     // Sample badge
     sampleBadge: 'Sample',
+    // Legal pages and signup consent
+    privacyPolicy: 'Privacy Policy',
+    termsOfService: 'Terms of Service',
+    signupLegalConsentLead: 'By creating an account, you agree to our ',
+    signupLegalConsentAnd: ' and ',
+    signupLegalConsentTail: '.',
+    legalBackToCurio: 'Back to Curio',
+    legalDraftBadge: 'Beta — plain-language summary',
+    legalPrivacyIntro:
+      'Curio is in early development. A formal policy will arrive before general availability. In the meantime, here is what we actually do with your data today.',
+    legalPrivacyDataTitle: 'What we store',
+    legalPrivacyDataBody:
+      'When you create an account, Supabase stores your email and an encrypted password. The items, collections, and photos you save are stored under your account in Supabase and Supabase Storage. We do not sell, rent, or share your data with advertisers.',
+    legalPrivacyAiTitle: 'AI metadata extraction',
+    legalPrivacyAiBody:
+      'When you add an item, the photo you upload may be sent to Google Gemini to suggest a title and fields. AI suggestions stay editable and are never required to save an item. Curio does not send your story text or notes to Gemini.',
+    legalPrivacyAnalyticsTitle: 'Analytics',
+    legalPrivacyAnalyticsBody:
+      'Curio uses Vercel Speed Insights and Vercel Analytics to understand performance and aggregate page views. These do not identify you personally.',
+    legalPrivacyDeleteTitle: 'Deleting your data',
+    legalPrivacyDeleteBody:
+      'You can sign out at any time. To delete your account and the data associated with it, email the maintainer at the contact address below and we will remove it.',
+    legalTermsIntro:
+      'Curio is provided as-is during early development. Use it to collect and share things you care about. Please respect the rules below so the museum stays a calm, beautiful place.',
+    legalTermsYourContentTitle: 'Your content',
+    legalTermsYourContentBody:
+      'You keep ownership of the photos and stories you upload. By uploading, you confirm you have the right to use that content. Do not upload anything you would not be comfortable being responsible for.',
+    legalTermsAcceptableTitle: 'Acceptable use',
+    legalTermsAcceptableBody:
+      'Do not use Curio to store or share content that is illegal, infringes on others, or is intended to harass. We may suspend accounts that abuse the service or compromise other users.',
+    legalTermsAvailabilityTitle: 'Availability and changes',
+    legalTermsAvailabilityBody:
+      'Curio is offered without warranty during beta. Features may change, and we may pause the service to investigate problems. We will give reasonable notice before changes that affect saved data.',
+    legalContactTitle: 'Questions',
+    legalContactBody:
+      'For questions about your data, deletion requests, or anything else legal-related, reach the maintainer through the project repository.',
   },
   zh: {
     appTitle: '珍藏',
@@ -877,6 +913,41 @@ export const translations = {
     deleteCollectionFailed: '删除收藏集失败',
     // Sample badge
     sampleBadge: '示例',
+    // Legal pages and signup consent
+    privacyPolicy: '隐私政策',
+    termsOfService: '服务条款',
+    signupLegalConsentLead: '创建账号即表示您同意我们的',
+    signupLegalConsentAnd: '与',
+    signupLegalConsentTail: '。',
+    legalBackToCurio: '返回 Curio',
+    legalDraftBadge: '测试版 · 简明说明',
+    legalPrivacyIntro:
+      'Curio 仍在早期开发阶段，正式政策将在公开发布前推出。这里先说明我们目前如何处理您的数据。',
+    legalPrivacyDataTitle: '我们保存什么',
+    legalPrivacyDataBody:
+      '注册账号时，Supabase 会保存您的邮箱地址和加密后的密码。您保存的藏品、收藏集与照片都存放在您账号下的 Supabase 与 Supabase Storage 中。我们不会出售、出租或与广告商共享您的数据。',
+    legalPrivacyAiTitle: 'AI 元数据提取',
+    legalPrivacyAiBody:
+      '添加藏品时，您上传的照片可能会发送给 Google Gemini，用于自动生成标题与字段建议。AI 建议始终可编辑，绝不阻塞保存流程。Curio 不会将您撰写的故事或备注发送给 Gemini。',
+    legalPrivacyAnalyticsTitle: '使用统计',
+    legalPrivacyAnalyticsBody:
+      'Curio 通过 Vercel Speed Insights 与 Vercel Analytics 了解性能与页面访问量，这些统计不会识别您个人。',
+    legalPrivacyDeleteTitle: '删除您的数据',
+    legalPrivacyDeleteBody:
+      '您可以随时登出。如需删除账号及相关数据，请通过下方联系方式与维护者沟通，我们会进行删除。',
+    legalTermsIntro:
+      'Curio 在早期开发阶段按"现状"提供，欢迎用它收藏与分享您珍视的物件。请遵守以下规则，让这个博物馆始终安静而美好。',
+    legalTermsYourContentTitle: '您的内容',
+    legalTermsYourContentBody:
+      '您始终保留所上传照片与故事的所有权。上传内容即表示您拥有相应使用权。请不要上传您本人无法承担责任的内容。',
+    legalTermsAcceptableTitle: '可接受的使用',
+    legalTermsAcceptableBody:
+      '请不要使用 Curio 存储或分享违法、侵权或意图骚扰的内容。对滥用服务或危及他人的账号，我们可能会暂停其使用。',
+    legalTermsAvailabilityTitle: '可用性与变更',
+    legalTermsAvailabilityBody:
+      '测试版本不提供任何形式的担保。功能可能调整，必要时我们也可能暂停服务以排查问题。涉及已保存数据的变更，我们会提前合理告知。',
+    legalContactTitle: '咨询',
+    legalContactBody: '关于数据、删除请求或其他法律问题，欢迎通过项目仓库联系维护者。',
   },
 };
 

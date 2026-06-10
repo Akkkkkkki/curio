@@ -14,6 +14,7 @@ import { SpeedInsights } from '@vercel/speed-insights/react';
 import { Analytics } from '@vercel/analytics/react';
 import { Layout } from './components/Layout';
 import { ExplorePlaceholder } from './components/ExplorePlaceholder';
+import { LegalPage } from './components/LegalPage';
 import { CollectionCard } from './components/CollectionCard';
 import { ItemCard } from './components/ItemCard';
 import { AddItemModal } from './components/AddItemModal';
@@ -2301,7 +2302,8 @@ export const AppContent: React.FC = () => {
   const sampleCollection = useMemo(() => collections.find((c) => c.isPublic), [collections]);
   const showAccessGate = isSupabaseReady && !isAuthenticated && !allowPublicBrowse;
   const isExploreRoute = location.pathname === '/explore';
-  const shouldShowAccessGate = showAccessGate && !isExploreRoute;
+  const isLegalRoute = location.pathname.startsWith('/legal/');
+  const shouldShowAccessGate = showAccessGate && !isExploreRoute && !isLegalRoute;
   const fallbackSampleCollectionId = fallbackSampleCollections[0]?.id ?? null;
   // Only expose a sample collection id that is actually present in `collections`.
   // The fallback sample is not part of merged cloud state for an authenticated
@@ -2620,6 +2622,7 @@ export const AppContent: React.FC = () => {
                   />
                 }
               />
+              <Route path="/legal/:doc" element={<LegalPage />} />
               <Route
                 path="/collection/:id"
                 element={
