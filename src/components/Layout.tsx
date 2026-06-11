@@ -83,6 +83,7 @@ export const Layout: React.FC<LayoutProps> = ({
     return () => document.removeEventListener('keydown', onKey);
   }, [isProfileOpen, closeProfile]);
   const isAuthenticated = Boolean(user);
+  const showSignInAffordance = isSupabaseConfigured && !isAuthenticated;
   const statusLabel = !isSupabaseConfigured
     ? t('cloudRequiredStatus')
     : isAuthenticated
@@ -265,12 +266,20 @@ export const Layout: React.FC<LayoutProps> = ({
               <button
                 onClick={() => setProfileSource((prev) => (prev === 'header' ? null : 'header'))}
                 aria-label={t('account')}
-                title={statusLabel}
+                title={showSignInAffordance ? t('login') : statusLabel}
                 aria-haspopup="menu"
                 aria-expanded={profileSource === 'header'}
-                className={`p-2 rounded-full transition-colors ${navGhost} ${statusColor} relative`}
+                className={`${showSignInAffordance ? 'pl-3 pr-4 py-2 rounded-full flex items-center gap-2' : 'p-2 rounded-full'} transition-colors ${navGhost} ${statusColor} relative`}
               >
                 <User size={20} />
+                {showSignInAffordance && (
+                  <span
+                    data-testid="header-sign-in-label"
+                    className="font-mono text-[11px] uppercase tracking-[0.2em] font-bold"
+                  >
+                    {t('login')}
+                  </span>
+                )}
                 <span
                   className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border flex items-center justify-center ${statusBadgeSurface}`}
                 >
@@ -360,10 +369,11 @@ export const Layout: React.FC<LayoutProps> = ({
               onClick={() => setProfileSource('bottomNav')}
               aria-haspopup="dialog"
               aria-expanded={profileSource === 'bottomNav'}
+              aria-label={showSignInAffordance ? t('login') : t('profile')}
               className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition-colors ${profileSource === 'bottomNav' ? 'text-amber-500' : bottomNavMuted}`}
             >
               <User size={22} />
-              {t('profile')}
+              {showSignInAffordance ? t('login') : t('profile')}
             </button>
           </div>
         </div>
