@@ -552,4 +552,127 @@ describe('AuthModal', () => {
       });
     });
   });
+
+  describe('CUR-68: password reveal + min-length hint', () => {
+    it('starts with the password input masked', () => {
+      renderWithProviders(<AuthModal {...defaultProps} />);
+      expect(screen.getByPlaceholderText(/••••••••/)).toHaveAttribute('type', 'password');
+      expect(screen.getByRole('button', { name: /show password/i })).toHaveAttribute(
+        'aria-pressed',
+        'false',
+      );
+    });
+
+    it('reveals and re-hides the password when the toggle is clicked', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(<AuthModal {...defaultProps} />);
+
+      const input = screen.getByPlaceholderText(/••••••••/);
+      await user.type(input, 'mysecret1');
+
+      const toggle = screen.getByRole('button', { name: /show password/i });
+      await user.click(toggle);
+
+      expect(input).toHaveAttribute('type', 'text');
+      const hideToggle = screen.getByRole('button', { name: /hide password/i });
+      expect(hideToggle).toHaveAttribute('aria-pressed', 'true');
+
+      await user.click(hideToggle);
+      expect(input).toHaveAttribute('type', 'password');
+      expect(screen.getByRole('button', { name: /show password/i })).toHaveAttribute(
+        'aria-pressed',
+        'false',
+      );
+    });
+
+    it('does not show the min-length hint in sign-in mode', () => {
+      renderWithProviders(<AuthModal {...defaultProps} />);
+      expect(screen.queryByText(/At least 8 characters/i)).not.toBeInTheDocument();
+    });
+
+    it('shows the min-length hint in sign-up mode', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(<AuthModal {...defaultProps} />);
+
+      await user.click(screen.getByText(/Don't have an account/i));
+
+      expect(screen.getByText(/At least 8 characters/i)).toBeInTheDocument();
+    });
+
+    it('blocks a short sign-up password client-side and surfaces friendly copy', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(<AuthModal {...defaultProps} />);
+
+      await user.click(screen.getByText(/Don't have an account/i));
+      const password = screen.getByPlaceholderText(/••••••••/);
+      // Sign-up password input must NOT carry the native `minLength` HTML
+      // attribute, otherwise the browser blocks submit before React's
+      // handler runs and the translated `passwordTooShort` copy never
+      // surfaces. The JS guard in handleSubmit is the source of truth.
+      expect(password).not.toHaveAttribute('minLength');
+
+      await user.type(screen.getByPlaceholderText(/curator@museum.com/i), 'new@example.com');
+      await user.type(password, 'short');
+      await user.click(screen.getByRole('button', { name: /create account/i }));
+
+      await waitFor(() => {
+        expect(screen.getByRole('alert')).toHaveTextContent(/at least 8 characters/i);
+      });
+      expect(mockSignUp).not.toHaveBeenCalled();
+    });
+
+    it('maps a backend "password too short" error to friendly copy on sign-up', async () => {
+      mockSignUp.mockRejectedValue(new Error('Password should be at least 6 characters.'));
+      const user = userEvent.setup();
+      renderWithProviders(<AuthModal {...defaultProps} />);
+
+      await user.click(screen.getByText(/Don't have an account/i));
+      await user.type(screen.getByPlaceholderText(/curator@museum.com/i), 'new@example.com');
+      await user.type(screen.getByPlaceholderText(/••••••••/), 'longenoughpass1');
+      await user.click(screen.getByRole('button', { name: /create account/i }));
+
+      await waitFor(() => {
+        expect(screen.getByRole('alert')).toHaveTextContent(/use at least 8 characters/i);
+      });
+    });
+
+    it('renders independent toggles for new and confirm password inputs', () => {
+      renderWithProviders(<AuthModal {...defaultProps} initialMode="set-password" />);
+
+      const newPasswordInput = screen.getByLabelText('New password');
+      const confirmPasswordInput = screen.getByLabelText('Confirm password');
+      expect(newPasswordInput).toHaveAttribute('type', 'password');
+      expect(confirmPasswordInput).toHaveAttribute('type', 'password');
+
+      const toggles = screen.getAllByRole('button', { name: /show password/i });
+      expect(toggles).toHaveLength(2);
+    });
+
+    it('toggles the new-password input without affecting the confirm-password input', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(<AuthModal {...defaultProps} initialMode="set-password" />);
+
+      const newPasswordInput = screen.getByLabelText('New password');
+      const confirmPasswordInput = screen.getByLabelText('Confirm password');
+
+      const toggles = screen.getAllByRole('button', { name: /show password/i });
+      await user.click(toggles[0]);
+
+      expect(newPasswordInput).toHaveAttribute('type', 'text');
+      expect(confirmPasswordInput).toHaveAttribute('type', 'password');
+    });
+
+    it('resets the reveal state when the modal closes and reopens', async () => {
+      const user = userEvent.setup();
+      const { rerender } = renderWithProviders(<AuthModal {...defaultProps} />);
+
+      await user.click(screen.getByRole('button', { name: /show password/i }));
+      expect(screen.getByPlaceholderText(/••••••••/)).toHaveAttribute('type', 'text');
+
+      rerender(<AuthModal {...defaultProps} isOpen={false} />);
+      rerender(<AuthModal {...defaultProps} isOpen={true} />);
+
+      expect(screen.getByPlaceholderText(/••••••••/)).toHaveAttribute('type', 'password');
+    });
+  });
 });

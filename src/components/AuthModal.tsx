@@ -1,5 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import { X, Mail, Lock, Loader2, Info, ShieldCheck, Zap, Cloud, KeyRound } from 'lucide-react';
+import {
+  X,
+  Mail,
+  Lock,
+  Loader2,
+  Info,
+  ShieldCheck,
+  Zap,
+  Cloud,
+  KeyRound,
+  Eye,
+  EyeOff,
+} from 'lucide-react';
 import { Button } from './ui/Button';
 import {
   signInWithEmail,
@@ -39,6 +51,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sentToEmail, setSentToEmail] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Reset state whenever the modal opens or a forced mode changes,
   // so a fresh open never leaks stale form values.
@@ -49,6 +64,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setPassword('');
     setNewPassword('');
     setConfirmPassword('');
+    setShowPassword(false);
+    setShowNewPassword(false);
+    setShowConfirmPassword(false);
     if (!initialMode) setEmail('');
   }, [isOpen, initialMode]);
   const dialogRef = React.useRef<HTMLDivElement>(null);
@@ -206,13 +224,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         onClose();
         return;
       }
+      if (mode === 'signup' && password.length < MIN_PASSWORD_LENGTH) {
+        setError(t('passwordTooShort'));
+        return;
+      }
       await (mode === 'signin'
         ? signInWithEmail(email, password)
         : signUpWithEmail(email, password));
       onAuthSuccess?.();
       onClose();
     } catch (err: any) {
-      setError(err.message || t('authFailed'));
+      const raw = err?.message || '';
+      // Supabase returns a generic English string for short passwords on sign-up;
+      // surface the friendly translated copy instead.
+      if (mode === 'signup' && /password.*(short|characters)/i.test(raw)) {
+        setError(t('passwordTooShort'));
+      } else {
+        setError(raw || t('authFailed'));
+      }
     } finally {
       setLoading(false);
     }
@@ -402,16 +431,29 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       size={16}
                     />
                     <input
-                      type="password"
+                      type={showPassword ? 'text' : 'password'}
                       required
                       disabled={loading}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
-                      className={`w-full pl-11 pr-4 py-3.5 rounded-2xl focus:ring-4 focus:ring-amber-500/5 focus:border-amber-200 outline-none font-medium transition-all disabled:opacity-60 disabled:cursor-not-allowed ${inputSurface}`}
+                      className={`w-full pl-11 pr-12 py-3.5 rounded-2xl focus:ring-4 focus:ring-amber-500/5 focus:border-amber-200 outline-none font-medium transition-all disabled:opacity-60 disabled:cursor-not-allowed ${inputSurface}`}
                       placeholder="••••••••"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((v) => !v)}
+                      disabled={loading}
+                      aria-label={showPassword ? t('hidePassword') : t('showPassword')}
+                      aria-pressed={showPassword}
+                      className={`absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-full transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${theme === 'vault' ? 'text-stone-400 hover:text-white hover:bg-white/5' : 'text-stone-400 hover:text-stone-700 hover:bg-stone-100'}`}
+                    >
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
                   </div>
+                  {mode === 'signup' && (
+                    <p className={`mt-1.5 text-[11px] ${mutedText}`}>{t('passwordMinHint')}</p>
+                  )}
                 </div>
               )}
 
@@ -431,17 +473,28 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       />
                       <input
                         id="auth-new-password"
-                        type="password"
+                        type={showNewPassword ? 'text' : 'password'}
                         required
                         disabled={loading}
                         minLength={MIN_PASSWORD_LENGTH}
                         autoComplete="new-password"
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
-                        className={`w-full pl-11 pr-4 py-3.5 rounded-2xl focus:ring-4 focus:ring-amber-500/5 focus:border-amber-200 outline-none font-medium transition-all disabled:opacity-60 disabled:cursor-not-allowed ${inputSurface}`}
+                        className={`w-full pl-11 pr-12 py-3.5 rounded-2xl focus:ring-4 focus:ring-amber-500/5 focus:border-amber-200 outline-none font-medium transition-all disabled:opacity-60 disabled:cursor-not-allowed ${inputSurface}`}
                         placeholder="••••••••"
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword((v) => !v)}
+                        disabled={loading}
+                        aria-label={showNewPassword ? t('hidePassword') : t('showPassword')}
+                        aria-pressed={showNewPassword}
+                        className={`absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-full transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${theme === 'vault' ? 'text-stone-400 hover:text-white hover:bg-white/5' : 'text-stone-400 hover:text-stone-700 hover:bg-stone-100'}`}
+                      >
+                        {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
                     </div>
+                    <p className={`mt-1.5 text-[11px] ${mutedText}`}>{t('passwordMinHint')}</p>
                   </div>
                   <div>
                     <label
@@ -457,16 +510,26 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       />
                       <input
                         id="auth-confirm-password"
-                        type="password"
+                        type={showConfirmPassword ? 'text' : 'password'}
                         required
                         disabled={loading}
                         minLength={MIN_PASSWORD_LENGTH}
                         autoComplete="new-password"
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
-                        className={`w-full pl-11 pr-4 py-3.5 rounded-2xl focus:ring-4 focus:ring-amber-500/5 focus:border-amber-200 outline-none font-medium transition-all disabled:opacity-60 disabled:cursor-not-allowed ${inputSurface}`}
+                        className={`w-full pl-11 pr-12 py-3.5 rounded-2xl focus:ring-4 focus:ring-amber-500/5 focus:border-amber-200 outline-none font-medium transition-all disabled:opacity-60 disabled:cursor-not-allowed ${inputSurface}`}
                         placeholder="••••••••"
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword((v) => !v)}
+                        disabled={loading}
+                        aria-label={showConfirmPassword ? t('hidePassword') : t('showPassword')}
+                        aria-pressed={showConfirmPassword}
+                        className={`absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-full transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${theme === 'vault' ? 'text-stone-400 hover:text-white hover:bg-white/5' : 'text-stone-400 hover:text-stone-700 hover:bg-stone-100'}`}
+                      >
+                        {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
                     </div>
                   </div>
                 </>
