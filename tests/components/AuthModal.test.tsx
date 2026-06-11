@@ -605,8 +605,11 @@ describe('AuthModal', () => {
 
       await user.click(screen.getByText(/Don't have an account/i));
       const password = screen.getByPlaceholderText(/••••••••/);
-      // Bypass the native minLength UI guard so we can verify the JS guard.
-      password.removeAttribute('minLength');
+      // Sign-up password input must NOT carry the native `minLength` HTML
+      // attribute, otherwise the browser blocks submit before React's
+      // handler runs and the translated `passwordTooShort` copy never
+      // surfaces. The JS guard in handleSubmit is the source of truth.
+      expect(password).not.toHaveAttribute('minLength');
 
       await user.type(screen.getByPlaceholderText(/curator@museum.com/i), 'new@example.com');
       await user.type(password, 'short');

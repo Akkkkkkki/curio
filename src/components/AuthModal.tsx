@@ -434,7 +434,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       type={showPassword ? 'text' : 'password'}
                       required
                       disabled={loading}
-                      minLength={mode === 'signup' ? MIN_PASSWORD_LENGTH : undefined}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
