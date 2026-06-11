@@ -15,7 +15,7 @@ vi.mock('@/components/Layout', async () => {
   return {
     Layout: ({ children, onAddItem }: { children: React.ReactNode; onAddItem?: () => void }) => (
       <div>
-        <button type="button" onClick={onAddItem}>
+        <button type="button" data-testid="mock-layout-add-item" onClick={onAddItem}>
           Add Item
         </button>
         {children}
@@ -217,9 +217,9 @@ describe('App read-only save handling', () => {
       </MemoryRouter>,
     );
 
-    await screen.findByText('Editable Collection');
+    await screen.findByRole('heading', { name: 'Editable Collection' });
 
-    await user.click(screen.getByRole('button', { name: 'Add Item' }));
+    await user.click(screen.getByTestId('mock-layout-add-item'));
     await user.click(await screen.findByRole('button', { name: 'Attempt read-only save' }));
 
     expect(await screen.findByTestId('mock-add-error')).toHaveTextContent(
