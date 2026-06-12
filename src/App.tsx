@@ -48,6 +48,7 @@ import {
   ListOrdered,
   Undo2,
   Redo2,
+  Star,
 } from 'lucide-react';
 import { Button } from './components/ui/Button';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
@@ -101,6 +102,8 @@ import {
   accentColorClasses,
   dividerClasses,
   cardHoverClasses,
+  ratingColorClasses,
+  ratingEmptyClasses,
 } from './theme';
 import { StatusToast, StatusTone } from './components/StatusToast';
 import { StatusBanner } from './components/StatusBanner';
@@ -1943,13 +1946,14 @@ export const AppContent: React.FC = () => {
                       className={`p-2 min-w-[48px] min-h-[48px] flex items-center justify-center transition-transform ${isReadOnly ? 'cursor-not-allowed opacity-70' : 'hover:scale-125'}`}
                       disabled={isReadOnly}
                     >
-                      <span className="text-2xl sm:text-4xl">
-                        {star <= item.rating ? (
-                          <span className="text-amber-500">★</span>
-                        ) : (
-                          <span className="text-amber-500/20">★</span>
-                        )}
-                      </span>
+                      <Star
+                        className={`w-6 h-6 sm:w-9 sm:h-9 ${
+                          star <= item.rating
+                            ? `${ratingColorClasses[theme]} fill-current`
+                            : ratingEmptyClasses[theme]
+                        }`}
+                        strokeWidth={1.5}
+                      />
                     </button>
                   ))}
                   <span
