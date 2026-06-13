@@ -1,11 +1,20 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { renderWithProviders } from '../../utils/test-utils';
+import { renderWithProviders, setMockTheme } from '../../utils/test-utils';
 import { Button } from '@/components/ui/Button';
 import { Camera, Plus } from 'lucide-react';
 
+vi.mock('@/theme', async () => {
+  const { createThemeMock } = await import('../../utils/test-utils');
+  return createThemeMock();
+});
+
 describe('Button', () => {
+  beforeEach(() => {
+    setMockTheme('gallery');
+  });
+
   describe('Basic Rendering', () => {
     it('renders button with text content', () => {
       renderWithProviders(<Button>Click me</Button>);
@@ -192,6 +201,93 @@ describe('Button', () => {
       expect(button).toHaveClass('inline-flex');
       expect(button).toHaveClass('items-center');
       expect(button).toHaveClass('justify-center');
+    });
+  });
+
+  describe('Theme-aware variants (CUR-107)', () => {
+    // Each variant must carry its theme's accent so outline/ghost stay legible
+    // on Vault/Atelier surfaces instead of inheriting Gallery-only tokens.
+
+    describe('Vault', () => {
+      beforeEach(() => {
+        setMockTheme('vault');
+      });
+
+      it('primary uses brass on dark', () => {
+        renderWithProviders(<Button>Primary</Button>);
+        const button = screen.getByRole('button');
+        expect(button).toHaveClass('bg-[#D4A574]');
+        expect(button).toHaveClass('text-stone-900');
+        expect(button).not.toHaveClass('bg-stone-800');
+      });
+
+      it('outline stays legible on dark surfaces', () => {
+        renderWithProviders(<Button variant="outline">Outline</Button>);
+        const button = screen.getByRole('button');
+        expect(button).toHaveClass('border-white/20');
+        expect(button).toHaveClass('text-white');
+        expect(button).not.toHaveClass('text-stone-700');
+      });
+
+      it('ghost uses light text instead of stone-600', () => {
+        renderWithProviders(<Button variant="ghost">Ghost</Button>);
+        const button = screen.getByRole('button');
+        expect(button).toHaveClass('text-stone-300');
+        expect(button).not.toHaveClass('text-stone-600');
+      });
+
+      it('focus ring picks up the brass accent', () => {
+        renderWithProviders(<Button>Focus</Button>);
+        expect(screen.getByRole('button')).toHaveClass('focus:ring-[#D4A574]/40');
+      });
+    });
+
+    describe('Atelier', () => {
+      beforeEach(() => {
+        setMockTheme('atelier');
+      });
+
+      it('primary uses leather brown on cream', () => {
+        renderWithProviders(<Button>Primary</Button>);
+        const button = screen.getByRole('button');
+        expect(button).toHaveClass('bg-[#A86F3C]');
+        expect(button).toHaveClass('text-white');
+        expect(button).not.toHaveClass('bg-stone-800');
+      });
+
+      it('outline uses the warm border', () => {
+        renderWithProviders(<Button variant="outline">Outline</Button>);
+        const button = screen.getByRole('button');
+        expect(button).toHaveClass('border-[#D4C9B8]');
+        expect(button).toHaveClass('text-[#3D3530]');
+      });
+
+      it('ghost uses sepia text instead of cool stone', () => {
+        renderWithProviders(<Button variant="ghost">Ghost</Button>);
+        expect(screen.getByRole('button')).toHaveClass('text-[#8C7B6B]');
+      });
+
+      it('focus ring picks up the leather accent', () => {
+        renderWithProviders(<Button>Focus</Button>);
+        expect(screen.getByRole('button')).toHaveClass('focus:ring-[#A86F3C]/40');
+      });
+    });
+
+    describe('theme prop override', () => {
+      it('pins styling to the supplied theme regardless of context', () => {
+        // Mimics ExportModal: a forced-light sheet that must keep Gallery
+        // tokens even when the surrounding app is in Vault.
+        setMockTheme('vault');
+        renderWithProviders(
+          <Button theme="gallery" variant="outline">
+            Save
+          </Button>,
+        );
+        const button = screen.getByRole('button');
+        expect(button).toHaveClass('border-stone-300');
+        expect(button).toHaveClass('text-stone-700');
+        expect(button).not.toHaveClass('text-white');
+      });
     });
   });
 
