@@ -23,6 +23,11 @@ type TemplateStyle = 'minimal' | 'full' | 'retro';
 type AspectRatio = '1:1' | '3:4' | '9:16';
 type ImageFit = 'cover' | 'contain';
 
+// CUR-99: rasterize the card at a fixed minimum short-edge resolution
+// (1080px) instead of inheriting the viewport-dependent preview size, so
+// a phone export reads as sharp as a desktop export when re-shared.
+const EXPORT_TARGET_SHORT_EDGE_PX = 1080;
+
 export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item, fields }) => {
   const { t } = useTranslation();
   const [style, setStyle] = useState<TemplateStyle>('minimal');
@@ -153,8 +158,14 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
           }),
       ),
     );
+    // Width is the short edge for every supported aspect ratio (1:1, 3:4, 9:16),
+    // so scaling pixelRatio off offsetWidth is enough. Floor at 2 so retina
+    // desktop exports keep their current quality.
+    const previewWidth = node.offsetWidth;
+    const pixelRatio =
+      previewWidth > 0 ? Math.max(2, EXPORT_TARGET_SHORT_EDGE_PX / previewWidth) : 2;
     return toBlob(node, {
-      pixelRatio: 2,
+      pixelRatio,
       backgroundColor: '#ffffff',
     });
   }, []);
