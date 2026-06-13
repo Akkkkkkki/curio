@@ -3,6 +3,7 @@ import { screen } from '@testing-library/react';
 import { renderWithProviders } from '../utils/test-utils';
 import { ExportModal } from '@/components/ExportModal';
 import type { CollectionItem, FieldDefinition } from '@/types';
+import { toBlob } from 'html-to-image';
 
 vi.mock('@/services/db', () => ({
   extractCurioAssetPath: vi.fn().mockReturnValue(null),
@@ -124,5 +125,63 @@ describe('ExportModal — CUR-83 footer CTA hierarchy', () => {
     } finally {
       window.print = originalPrint;
     }
+  });
+});
+
+describe('ExportModal — CUR-99 fixed export resolution', () => {
+  const baseProps = {
+    isOpen: true,
+    onClose: vi.fn(),
+    item: makeItem(),
+    fields: FIELDS,
+  };
+
+  const stubOffsetWidth = (width: number) => {
+    const card = document.getElementById('card-preview') as HTMLElement | null;
+    expect(card).not.toBeNull();
+    Object.defineProperty(card!, 'offsetWidth', { configurable: true, value: width });
+    return card!;
+  };
+
+  const triggerSave = async () => {
+    const userEvent = (await import('@testing-library/user-event')).default;
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: /save image/i }));
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('bumps pixelRatio so a narrow phone preview still rasterises at ≥1080px short edge', async () => {
+    renderWithProviders(<ExportModal {...baseProps} />);
+    stubOffsetWidth(331); // 390px viewport × 85vw ≈ 331px
+
+    await triggerSave();
+
+    expect(toBlob).toHaveBeenCalledTimes(1);
+    const [, options] = (toBlob as unknown as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(options.pixelRatio).toBeGreaterThanOrEqual(1080 / 331);
+    expect(331 * options.pixelRatio).toBeGreaterThanOrEqual(1080);
+  });
+
+  it('keeps pixelRatio at 2 on desktop where the preview is already wide enough', async () => {
+    renderWithProviders(<ExportModal {...baseProps} />);
+    stubOffsetWidth(560); // desktop cap from min(85vw, 560px)
+
+    await triggerSave();
+
+    const [, options] = (toBlob as unknown as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(options.pixelRatio).toBe(2);
+  });
+
+  it('falls back to pixelRatio 2 if the preview width is unmeasurable', async () => {
+    renderWithProviders(<ExportModal {...baseProps} />);
+    stubOffsetWidth(0);
+
+    await triggerSave();
+
+    const [, options] = (toBlob as unknown as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(options.pixelRatio).toBe(2);
   });
 });
