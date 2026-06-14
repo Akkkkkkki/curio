@@ -503,11 +503,66 @@ describe('Layout Component', () => {
         expect(screen.getByTestId('profile-bottom-sheet')).toBeInTheDocument();
       });
 
-      const backdrop = screen.getByRole('button', { name: /close/i });
+      const backdrop = screen.getByTestId('profile-bottom-sheet-backdrop');
       fireEvent.click(backdrop);
 
       await waitFor(() => {
         expect(screen.queryByTestId('profile-bottom-sheet')).not.toBeInTheDocument();
+      });
+    });
+
+    // CUR-95: bottom sheet exposes a visible close button (the backdrop alone
+    // is not a discoverable affordance on mobile) and restores focus to the
+    // trigger after dismissal.
+    describe('CUR-95 bottom sheet close affordance', () => {
+      it('renders a visible close button inside the bottom sheet', async () => {
+        renderWithProviders(<Layout {...defaultProps} user={authenticatedUser} />);
+
+        const bottomNav = screen.getByRole('navigation', { name: /primary/i });
+        const profileButton = within(bottomNav).getByText('Profile').closest('button');
+        fireEvent.click(profileButton!);
+
+        await waitFor(() => {
+          expect(screen.getByTestId('profile-bottom-sheet-close')).toBeInTheDocument();
+        });
+        const closeButton = screen.getByTestId('profile-bottom-sheet-close');
+        expect(closeButton).toHaveAttribute('aria-label', 'Close');
+      });
+
+      it('closes the bottom sheet when the close button is clicked', async () => {
+        renderWithProviders(<Layout {...defaultProps} user={authenticatedUser} />);
+
+        const bottomNav = screen.getByRole('navigation', { name: /primary/i });
+        const profileButton = within(bottomNav).getByText('Profile').closest('button');
+        fireEvent.click(profileButton!);
+
+        await waitFor(() => {
+          expect(screen.getByTestId('profile-bottom-sheet')).toBeInTheDocument();
+        });
+
+        fireEvent.click(screen.getByTestId('profile-bottom-sheet-close'));
+
+        await waitFor(() => {
+          expect(screen.queryByTestId('profile-bottom-sheet')).not.toBeInTheDocument();
+        });
+      });
+
+      it('restores focus to the bottom-nav profile button after the sheet closes', async () => {
+        renderWithProviders(<Layout {...defaultProps} user={authenticatedUser} />);
+
+        const bottomNav = screen.getByRole('navigation', { name: /primary/i });
+        const profileButton = within(bottomNav).getByText('Profile').closest('button');
+        fireEvent.click(profileButton!);
+
+        await waitFor(() => {
+          expect(screen.getByTestId('profile-bottom-sheet-close')).toBeInTheDocument();
+        });
+
+        fireEvent.click(screen.getByTestId('profile-bottom-sheet-close'));
+
+        await waitFor(() => {
+          expect(document.activeElement).toBe(profileButton);
+        });
       });
     });
   });

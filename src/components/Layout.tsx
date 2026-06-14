@@ -10,6 +10,7 @@ import {
   Download,
   Compass,
   Plus,
+  X,
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from '../i18n';
@@ -58,7 +59,19 @@ export const Layout: React.FC<LayoutProps> = ({
   const [profileSource, setProfileSource] = useState<ProfileSource | null>(null);
   const isProfileOpen = profileSource !== null;
   const profileRef = useRef<HTMLDivElement>(null);
+  const bottomNavProfileButtonRef = useRef<HTMLButtonElement>(null);
+  const previousProfileSourceRef = useRef<ProfileSource | null>(null);
   const closeProfile = useCallback(() => setProfileSource(null), []);
+
+  // Restore focus to the bottom-nav profile trigger after the sheet closes,
+  // so keyboard and screen-reader users land back where they invoked it.
+  useEffect(() => {
+    const prev = previousProfileSourceRef.current;
+    if (profileSource === null && prev === 'bottomNav') {
+      bottomNavProfileButtonRef.current?.focus();
+    }
+    previousProfileSourceRef.current = profileSource;
+  }, [profileSource]);
 
   // Click-outside applies only to the header-anchored dropdown.
   // The mobile bottom sheet has its own backdrop.
@@ -366,6 +379,7 @@ export const Layout: React.FC<LayoutProps> = ({
             </button>
 
             <button
+              ref={bottomNavProfileButtonRef}
               onClick={() => setProfileSource('bottomNav')}
               aria-haspopup="dialog"
               aria-expanded={profileSource === 'bottomNav'}
@@ -388,6 +402,7 @@ export const Layout: React.FC<LayoutProps> = ({
             type="button"
             onClick={closeProfile}
             aria-label={t('close')}
+            data-testid="profile-bottom-sheet-backdrop"
             className="absolute inset-0 bg-black/40 backdrop-blur-sm motion-overlay"
           />
           <div
@@ -396,10 +411,19 @@ export const Layout: React.FC<LayoutProps> = ({
             aria-label={t('account')}
             className={`relative w-full ${dropdownSurface} rounded-t-[2.5rem] shadow-2xl border max-h-[85vh] overflow-hidden flex flex-col animate-in slide-in-from-bottom duration-200 pb-[env(safe-area-inset-bottom,0px)]`}
           >
-            <div className="flex items-center justify-center pt-3 pb-1">
+            <div className="relative flex items-center justify-center pt-3 pb-1">
               <span
                 className={`${theme === 'vault' ? 'bg-white/20' : 'bg-stone-300'} h-1.5 w-12 rounded-full`}
               />
+              <button
+                type="button"
+                onClick={closeProfile}
+                aria-label={t('close')}
+                data-testid="profile-bottom-sheet-close"
+                className={`absolute right-2 top-1.5 p-2 rounded-full transition-colors ${theme === 'vault' ? 'hover:bg-white/5 text-stone-300 hover:text-white' : 'hover:bg-stone-100 text-stone-400 hover:text-stone-800'}`}
+              >
+                <X size={20} />
+              </button>
             </div>
             <div className="overflow-y-auto p-2">{profileMenuBody}</div>
           </div>
