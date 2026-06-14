@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import { renderWithProviders } from '../utils/test-utils';
 import { ExportModal } from '@/components/ExportModal';
 import type { CollectionItem, FieldDefinition } from '@/types';
 import { toBlob } from 'html-to-image';
+import { getAsset, getEnhancedAsset } from '@/services/db';
 
 vi.mock('@/services/db', () => ({
   extractCurioAssetPath: vi.fn().mockReturnValue(null),
@@ -125,6 +126,44 @@ describe('ExportModal — CUR-83 footer CTA hierarchy', () => {
     } finally {
       window.print = originalPrint;
     }
+  });
+});
+
+describe('ExportModal — CUR-100 Print disabled while photo loading', () => {
+  const baseProps = {
+    isOpen: true,
+    onClose: vi.fn(),
+    item: makeItem(),
+    fields: FIELDS,
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('disables Print, Save, and Share until the card photo finishes loading', async () => {
+    let resolveAsset: (value: Blob | null) => void = () => {};
+    const loadingPromise = new Promise<Blob | null>((resolve) => {
+      resolveAsset = resolve;
+    });
+    vi.mocked(getEnhancedAsset).mockReturnValueOnce(loadingPromise);
+    vi.mocked(getAsset).mockResolvedValue(null);
+
+    renderWithProviders(<ExportModal {...baseProps} />);
+
+    // While the photo fetch is in flight, Print must be disabled so it cannot
+    // snapshot the loading spinner / empty placeholder.
+    expect(screen.getByRole('button', { name: /^print$/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /save image/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /^share$/i })).toBeDisabled();
+
+    await act(async () => {
+      resolveAsset(null);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /^print$/i })).not.toBeDisabled();
+    });
   });
 });
 
