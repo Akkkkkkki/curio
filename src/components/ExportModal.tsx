@@ -545,6 +545,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
             </p>
           )}
           <Button
+            theme="gallery"
             className="w-full"
             size="lg"
             onClick={handleSaveImage}
@@ -560,6 +561,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
             {exportAction === 'save' ? t('saving') : t('saveImage')}
           </Button>
           <Button
+            theme="gallery"
             variant="outline"
             className="w-full"
             onClick={handleShare}
@@ -576,6 +578,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
           </Button>
           <div className="flex justify-center">
             <Button
+              theme="gallery"
               variant="ghost"
               size="sm"
               onClick={() => window.print()}
