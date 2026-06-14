@@ -84,12 +84,13 @@ describe('hooks/useCollections.ts (Phase 3.3)', () => {
     showStatus.mockClear();
   });
 
-  it('offline: when cloud fetch fails, falls back to local collections and exposes a sync-paused error', async () => {
+  it('offline: when cloud fetch fails but cache exists, shows cached collections without blocking on an error', async () => {
     /**
      * Verifies offline behavior:
      * - Cloud fetch failure does not blank the UI
-     * - Local IndexedDB cache is used
-     * - loadError is set and showStatus is called with an error tone
+     * - Local IndexedDB cache is used and rendered (not hidden behind a
+     *   full-screen error)
+     * - The sync problem is surfaced via a non-blocking status toast
      */
     const local = [minimalCollection({ id: 'local' })];
     dbMocks.getLocalCollections.mockResolvedValue(local);
@@ -109,6 +110,33 @@ describe('hooks/useCollections.ts (Phase 3.3)', () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.collections).toEqual(local);
+    expect(result.current.loadError).toBeNull();
+    expect(showStatus).toHaveBeenCalledWith('statusSyncPaused', 'error');
+  });
+
+  it('offline: when cloud fetch fails and there is no cache, surfaces a blocking sync-paused error', async () => {
+    /**
+     * Verifies the genuine dead-end case:
+     * - No local cache AND cloud unreachable for a signed-in user
+     * - A blocking error is shown so the user can retry
+     */
+    dbMocks.getLocalCollections.mockResolvedValue([]);
+    dbMocks.fetchCloudCollections.mockRejectedValue(new Error('Network down'));
+
+    const { useCollections } = await import('@/hooks/useCollections');
+    const { result } = renderHook(() =>
+      useCollections({
+        user: { id: 'u1' } as any,
+        isAdmin: false,
+        isSupabaseReady: true,
+        fallbackSampleCollections,
+        t,
+        showStatus,
+      }),
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.collections).toEqual([]);
     expect(result.current.loadError).toContain('Unable to sync with Supabase');
     expect(showStatus).toHaveBeenCalledWith('statusSyncPaused', 'error');
   });
