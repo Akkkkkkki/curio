@@ -582,7 +582,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
               variant="ghost"
               size="sm"
               onClick={() => window.print()}
-              disabled={exportAction !== null}
+              disabled={exportAction !== null || isLoadingImage}
               icon={<Printer size={14} />}
             >
               {t('print')}
