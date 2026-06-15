@@ -37,7 +37,6 @@ import {
   Sparkles,
   Play,
   Quote,
-  Globe,
   Calendar,
   Lock,
   Landmark,
@@ -102,6 +101,7 @@ import {
 } from './theme';
 import { StatusToast, StatusTone } from './components/StatusToast';
 import { StatusBanner } from './components/StatusBanner';
+import { LanguageToggle } from './components/LanguageToggle';
 import { ConflictResolutionModal } from './components/ConflictResolutionModal';
 import { CURRENT_SEED_VERSION, INITIAL_COLLECTIONS } from './services/seedCollections';
 import { trackEvent } from './services/analytics';
@@ -141,7 +141,7 @@ import { useDebouncedValue } from './hooks/useDebouncedValue';
 import { useAndroidBackButton } from './hooks/useAndroidBackButton';
 
 export const AppContent: React.FC = () => {
-  const { t, language, setLanguage } = useTranslation();
+  const { t, language } = useTranslation();
   const { theme, setTheme } = useTheme();
   useAndroidBackButton();
   const [collections, setCollections] = useState<UserCollection[]>([]);
@@ -2562,22 +2562,7 @@ export const AppContent: React.FC = () => {
                 {t('login')}
               </Button>
             )}
-            <button
-              onClick={() => setLanguage(language === 'en' ? 'zh' : 'en')}
-              className={`p-2 rounded-full transition-colors flex items-center gap-1 sm:gap-1.5 ${
-                theme === 'vault'
-                  ? 'text-white/70 hover:text-white hover:bg-white/10'
-                  : theme === 'atelier'
-                    ? 'text-[#6B5344] hover:text-[#3D3530] hover:bg-[#EDE4D3]'
-                    : 'text-stone-500 hover:text-stone-900 hover:bg-stone-100'
-              }`}
-              title={t('switchLanguage')}
-            >
-              <Globe size={18} />
-              <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.14em]">
-                {language === 'en' ? 'ZH' : 'EN'}
-              </span>
-            </button>
+            <LanguageToggle />
           </div>
         }
       >
