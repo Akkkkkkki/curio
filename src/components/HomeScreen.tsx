@@ -61,6 +61,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const historyPreview = historyItems.slice(0, 3);
   const historyOverflow = historyItems.length - historyPreview.length;
   const primaryHistoryItem = historyItems[0];
+  const [historyExpanded, setHistoryExpanded] = useState(false);
+  const visibleHistoryItems = historyExpanded ? historyItems : historyPreview;
   const hasPrivateCollections = collections.some((c) => !c.isPublic);
   const shouldShowOnboarding = showOnboarding && !hasPrivateCollections;
 
@@ -256,51 +258,54 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 </h4>
               </div>
               <div className="space-y-3">
-                <div className="space-y-2">
-                  {historyPreview.map((item) => {
+                <ul id="on-this-day-list" className="space-y-2">
+                  {visibleHistoryItems.map((item) => {
                     const itemYear = new Date(item.createdAt).getFullYear();
                     return (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => navigate(`/collection/${item.collectionId}/item/${item.id}`)}
-                        className={`w-full text-left rounded-xl border px-3 py-2 text-xs sm:text-sm shadow-sm transition ${theme === 'vault' ? 'border-white/10 bg-white/5 hover:border-[#D4A574]/30 hover:bg-white/10' : theme === 'atelier' ? 'border-[#D4C9B8]/60 bg-[#EDE4D3]/70 hover:border-[#A86F3C]/30 hover:bg-[#EDE4D3]' : 'border-stone-200/60 bg-white/70 hover:border-amber-200 hover:bg-amber-50/60'}`}
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <span
-                            className={`truncate font-medium ${theme === 'vault' ? 'text-white' : theme === 'atelier' ? 'text-[#3D3530]' : 'text-stone-700'}`}
-                          >
-                            {item.title}
-                          </span>
-                          <span
-                            className={`text-[11px] uppercase tracking-wide ${theme === 'vault' ? 'text-stone-500' : theme === 'atelier' ? 'text-[#8C7B6B]' : 'text-stone-400'}`}
-                          >
-                            {itemYear}
-                          </span>
-                        </div>
-                      </button>
+                      <li key={item.id}>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            navigate(`/collection/${item.collectionId}/item/${item.id}`)
+                          }
+                          className={`w-full text-left rounded-xl border px-3 py-2 text-xs sm:text-sm shadow-sm transition ${theme === 'vault' ? 'border-white/10 bg-white/5 hover:border-[#D4A574]/30 hover:bg-white/10' : theme === 'atelier' ? 'border-[#D4C9B8]/60 bg-[#EDE4D3]/70 hover:border-[#A86F3C]/30 hover:bg-[#EDE4D3]' : 'border-stone-200/60 bg-white/70 hover:border-amber-200 hover:bg-amber-50/60'}`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span
+                              className={`truncate font-medium ${theme === 'vault' ? 'text-white' : theme === 'atelier' ? 'text-[#3D3530]' : 'text-stone-700'}`}
+                            >
+                              {item.title}
+                            </span>
+                            <span
+                              className={`text-[11px] uppercase tracking-wide ${theme === 'vault' ? 'text-stone-500' : theme === 'atelier' ? 'text-[#8C7B6B]' : 'text-stone-400'}`}
+                            >
+                              {itemYear}
+                            </span>
+                          </div>
+                        </button>
+                      </li>
                     );
                   })}
-                </div>
-                {historyOverflow > 0 && (
-                  <p
-                    className={`text-xs ${theme === 'vault' ? 'text-stone-500' : theme === 'atelier' ? 'text-[#8C7B6B]' : 'text-stone-400'}`}
-                  >
-                    {t('onThisDayMore', { count: historyOverflow })}
-                  </p>
+                </ul>
+                {historyOverflow > 0 && !historyExpanded && (
+                  <>
+                    <p
+                      className={`text-xs ${theme === 'vault' ? 'text-stone-500' : theme === 'atelier' ? 'text-[#8C7B6B]' : 'text-stone-400'}`}
+                    >
+                      {t('onThisDayMore', { count: historyOverflow })}
+                    </p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => setHistoryExpanded(true)}
+                      aria-expanded={false}
+                      aria-controls="on-this-day-list"
+                    >
+                      {t('onThisDaySeeAll', { count: historyItems.length })}
+                    </Button>
+                  </>
                 )}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-full"
-                  onClick={() =>
-                    navigate(
-                      `/collection/${primaryHistoryItem.collectionId}/item/${primaryHistoryItem.id}`,
-                    )
-                  }
-                >
-                  {t('viewHistory')}
-                </Button>
               </div>
             </div>
           </div>
