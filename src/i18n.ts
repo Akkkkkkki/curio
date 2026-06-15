@@ -201,8 +201,7 @@ export const translations = {
     onThisDay: 'On This Day',
     historyTitle: 'Archive Archeology',
     onThisDayMore: 'And {count} more',
-    // Added viewHistory key to resolve App.tsx type error
-    viewHistory: 'Relive Memory',
+    onThisDaySeeAll: 'See all {count} memories',
     themeSelection: 'App Aesthetic',
     themeGallery: 'The Gallery (Airy)',
     themeVault: 'The Vault (Moody)',
@@ -680,8 +679,7 @@ export const translations = {
     onThisDay: '档案考古',
     historyTitle: '历史上的今天',
     onThisDayMore: '还有 {count} 项',
-    // Added viewHistory key to resolve App.tsx type error
-    viewHistory: '重温记忆',
+    onThisDaySeeAll: '查看全部 {count} 条记忆',
     themeSelection: '应用美学主题',
     themeGallery: '画廊（通透白）',
     themeVault: '保险库（深邃黑）',
