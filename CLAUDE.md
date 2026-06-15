@@ -58,7 +58,7 @@ When making UX/product changes, preserve these constraints:
 2. Run: `npm run format:check` (must pass)
 3. Run: `npm test` (must pass)
 4. Run: `npm run build` (must pass)
-5. Run: `npm run test:e2e` (must pass; first-time setup may require `npx playwright install chromium`)
+5. Run: `npm run test:e2e` (must pass). The `@playwright/test` version is pinned to the `1.56.x` line so it matches the Chromium build pre-baked into Claude Code web sessions (`/opt/pw-browsers`); the suite runs offline with no browser download. On other machines, first-time setup may still require `npx playwright install chromium`.
 6. Ensure: `git diff` and `git status --porcelain` are clean (no formatting leftovers / untracked artifacts)
 
 If you cannot run commands, you MUST:
