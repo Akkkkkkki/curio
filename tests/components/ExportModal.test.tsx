@@ -167,6 +167,31 @@ describe('ExportModal — CUR-100 Print disabled while photo loading', () => {
   });
 });
 
+describe('ExportModal — CUR-105 mobile sheet opens expanded', () => {
+  const baseProps = {
+    isOpen: true,
+    onClose: vi.fn(),
+    item: makeItem(),
+    fields: FIELDS,
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('renders the mobile bottom sheet expanded on mount so Save / Share / Print are not hidden behind the drag handle', () => {
+    renderWithProviders(<ExportModal {...baseProps} />);
+
+    // When the sheet is expanded on mobile, the modal renders a transparent
+    // tap-to-collapse overlay (aria-label="Close") above the card preview, in
+    // addition to the X close button inside the sheet header. Two close
+    // buttons is the visible signal that the sheet opened expanded; collapsed
+    // would render only one.
+    const closes = screen.getAllByRole('button', { name: /close/i });
+    expect(closes).toHaveLength(2);
+  });
+});
+
 describe('ExportModal — CUR-99 fixed export resolution', () => {
   const baseProps = {
     isOpen: true,

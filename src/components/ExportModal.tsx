@@ -33,7 +33,10 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
   const [style, setStyle] = useState<TemplateStyle>('minimal');
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('3:4');
   const [imageFit, setImageFit] = useState<ImageFit>('cover');
-  const [isExpanded, setIsExpanded] = useState(false);
+  // CUR-105: open the mobile bottom sheet expanded so Save / Share / Print are
+  // visible on first open. Users can drag the handle down to collapse and
+  // admire the card. Desktop is unaffected (sheet is forced full-height at md:).
+  const [isExpanded, setIsExpanded] = useState(true);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [isLoadingImage, setIsLoadingImage] = useState(true);
   const [exportAction, setExportAction] = useState<null | 'save' | 'share'>(null);
