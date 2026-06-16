@@ -182,13 +182,22 @@ describe('ExportModal — CUR-105 mobile sheet opens expanded', () => {
   it('renders the mobile bottom sheet expanded on mount so Save / Share / Print are not hidden behind the drag handle', () => {
     renderWithProviders(<ExportModal {...baseProps} />);
 
-    // When the sheet is expanded on mobile, the modal renders a transparent
-    // tap-to-collapse overlay (aria-label="Close") above the card preview, in
-    // addition to the X close button inside the sheet header. Two close
-    // buttons is the visible signal that the sheet opened expanded; collapsed
-    // would render only one.
-    const closes = screen.getAllByRole('button', { name: /close/i });
-    expect(closes).toHaveLength(2);
+    // The tap-to-collapse overlay only renders when the sheet is expanded.
+    // Its presence on mount confirms the sheet opened expanded.
+    expect(screen.getByTestId('export-sheet-tap-to-collapse')).toBeInTheDocument();
+  });
+
+  it('keeps the tap-to-collapse overlay out of the accessibility tree so AT users see exactly one Close action', () => {
+    renderWithProviders(<ExportModal {...baseProps} />);
+
+    // The overlay's onClick only collapses the sheet — it does not close the
+    // modal — so it must not present itself as a second "Close" button (which
+    // would strand keyboard / SR users behind the peek height on activation).
+    expect(screen.getAllByRole('button', { name: /close/i })).toHaveLength(1);
+
+    const overlay = screen.getByTestId('export-sheet-tap-to-collapse');
+    expect(overlay).toHaveAttribute('aria-hidden', 'true');
+    expect(overlay).toHaveAttribute('tabindex', '-1');
   });
 });
 

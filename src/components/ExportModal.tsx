@@ -444,10 +444,16 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
         </div>
       </div>
       {isExpanded && (
+        // Transparent tap-outside-to-collapse overlay. Touch-only convenience
+        // duplicating the drag handle; the action collapses the sheet, it does
+        // not close the modal — so it stays out of the a11y tree (the X button
+        // in the sheet header remains the single accessible Close action).
         <button
           type="button"
-          aria-label={t('close')}
+          aria-hidden="true"
+          tabIndex={-1}
           onClick={() => setIsExpanded(false)}
+          data-testid="export-sheet-tap-to-collapse"
           className="md:hidden absolute inset-0 z-[5] bg-transparent print:hidden"
           style={{ bottom: mobileSheetHeight }}
         />
