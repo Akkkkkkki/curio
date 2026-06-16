@@ -33,7 +33,10 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
   const [style, setStyle] = useState<TemplateStyle>('minimal');
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('3:4');
   const [imageFit, setImageFit] = useState<ImageFit>('cover');
-  const [isExpanded, setIsExpanded] = useState(false);
+  // CUR-105: open the mobile bottom sheet expanded so Save / Share / Print are
+  // visible on first open. Users can drag the handle down to collapse and
+  // admire the card. Desktop is unaffected (sheet is forced full-height at md:).
+  const [isExpanded, setIsExpanded] = useState(true);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [isLoadingImage, setIsLoadingImage] = useState(true);
   const [exportAction, setExportAction] = useState<null | 'save' | 'share'>(null);
@@ -441,10 +444,16 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
         </div>
       </div>
       {isExpanded && (
+        // Transparent tap-outside-to-collapse overlay. Touch-only convenience
+        // duplicating the drag handle; the action collapses the sheet, it does
+        // not close the modal — so it stays out of the a11y tree (the X button
+        // in the sheet header remains the single accessible Close action).
         <button
           type="button"
-          aria-label={t('close')}
+          aria-hidden="true"
+          tabIndex={-1}
           onClick={() => setIsExpanded(false)}
+          data-testid="export-sheet-tap-to-collapse"
           className="md:hidden absolute inset-0 z-[5] bg-transparent print:hidden"
           style={{ bottom: mobileSheetHeight }}
         />

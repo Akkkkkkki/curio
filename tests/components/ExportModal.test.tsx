@@ -167,6 +167,40 @@ describe('ExportModal — CUR-100 Print disabled while photo loading', () => {
   });
 });
 
+describe('ExportModal — CUR-105 mobile sheet opens expanded', () => {
+  const baseProps = {
+    isOpen: true,
+    onClose: vi.fn(),
+    item: makeItem(),
+    fields: FIELDS,
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('renders the mobile bottom sheet expanded on mount so Save / Share / Print are not hidden behind the drag handle', () => {
+    renderWithProviders(<ExportModal {...baseProps} />);
+
+    // The tap-to-collapse overlay only renders when the sheet is expanded.
+    // Its presence on mount confirms the sheet opened expanded.
+    expect(screen.getByTestId('export-sheet-tap-to-collapse')).toBeInTheDocument();
+  });
+
+  it('keeps the tap-to-collapse overlay out of the accessibility tree so AT users see exactly one Close action', () => {
+    renderWithProviders(<ExportModal {...baseProps} />);
+
+    // The overlay's onClick only collapses the sheet — it does not close the
+    // modal — so it must not present itself as a second "Close" button (which
+    // would strand keyboard / SR users behind the peek height on activation).
+    expect(screen.getAllByRole('button', { name: /close/i })).toHaveLength(1);
+
+    const overlay = screen.getByTestId('export-sheet-tap-to-collapse');
+    expect(overlay).toHaveAttribute('aria-hidden', 'true');
+    expect(overlay).toHaveAttribute('tabindex', '-1');
+  });
+});
+
 describe('ExportModal — CUR-99 fixed export resolution', () => {
   const baseProps = {
     isOpen: true,
