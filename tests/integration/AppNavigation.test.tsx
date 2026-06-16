@@ -354,6 +354,36 @@ describe('App Integration Tests', () => {
     expect(vi.mocked(db.fetchCloudCollections).mock.calls.length).toBe(fetchCallsAfterLoad);
   });
 
+  it('shows cached collections instead of a blocking error when the cloud fetch fails (signed in)', async () => {
+    const { ThemeProvider } = await import('@/theme');
+    // Signed-in user with a cached collection. A transient cloud-fetch failure
+    // must not strand the user on the "Sync paused" screen — the cached
+    // collection should still render (regression guard for the launch-stuck fix).
+    vi.mocked(supabaseService.supabase!.auth.getSession).mockResolvedValue({
+      data: { session: { user: { id: 'user1' } } },
+    } as never);
+    vi.mocked(db.getLocalCollections).mockResolvedValue([mockCollection]);
+    vi.mocked(db.fetchCloudCollections).mockRejectedValue(new Error('Network down'));
+
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    // Cached collection renders rather than the full-screen sync-paused error.
+    // (A non-blocking "Sync paused" status toast may still appear, so we assert
+    // on the blocking error screen's Retry button rather than its text.)
+    await waitFor(() => {
+      expect(screen.getAllByText('Test Collection')[0]).toBeInTheDocument();
+    });
+    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
+  });
+
   it('renders Item Detail field labels and placeholders with theme-aware contrast (CUR-85)', async () => {
     const { ThemeProvider } = await import('@/theme');
     const collectionWithField = {

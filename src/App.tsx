@@ -559,24 +559,49 @@ export const AppContent: React.FC = () => {
     }
     setIsLoading(true);
     setLoadError(null);
+
+    // Persistent storage is best-effort; never let it block or fail the load.
     try {
       await withTimeout(requestPersistence(), 4000, 'Persistence request timed out');
+    } catch (e) {
+      console.warn('Persistent storage request failed (continuing):', e);
+    }
 
-      const localCollections = await loadLocalCollectionsWithTimeout();
-      let cloudCollections: UserCollection[] = [];
-      try {
-        cloudCollections = await loadCloudCollectionsWithTimeout(user?.id ?? null);
-      } catch (e) {
-        console.warn('Supabase cloud fetch failed:', e);
-        setHasLocalImport(false);
+    // Local cache is a fallback; a slow/corrupt read must not abort the load.
+    let localCollections: UserCollection[] = [];
+    try {
+      localCollections = await loadLocalCollectionsWithTimeout();
+    } catch (e) {
+      console.warn('Local cache load failed (continuing):', e);
+    }
+
+    let cloudCollections: UserCollection[] = [];
+    try {
+      cloudCollections = await loadCloudCollectionsWithTimeout(user?.id ?? null);
+    } catch (e) {
+      console.warn('Supabase cloud fetch failed:', e);
+      setHasLocalImport(false);
+      setConflicts([]);
+      setIsConflictModalOpen(false);
+      // Prefer showing whatever we already have (cached or sample) over a
+      // blocking error screen. Only hard-block when there is genuinely nothing
+      // to display so the user can retry.
+      if (localCollections.length > 0) {
         setCollections(localCollections);
+        setLoadError(null);
+      } else if (!user) {
+        setCollections(fallbackSampleCollections);
+        setLoadError(null);
+      } else {
+        setCollections([]);
         setLoadError(tRef.current('loadErrorCloudFetch'));
-        setConflicts([]);
-        setIsConflictModalOpen(false);
-        showStatusRef.current(tRef.current('statusSyncPaused'), 'error');
-        return;
       }
+      showStatusRef.current(tRef.current('statusSyncPaused'), 'error');
+      setIsLoading(false);
+      return;
+    }
 
+    try {
       cloudCollections = await maybeSeedCollections({
         user,
         isAdmin,
@@ -615,34 +640,50 @@ export const AppContent: React.FC = () => {
 
       setHasLocalImport(resolvedHasLocalImport);
 
-      if (shouldPersist) {
-        await saveAllCollections(mergedCollections);
-      }
-
+      // Render the result and clear loading immediately. Cache persistence and
+      // pending-sync flushing run in the background so a slow IndexedDB write or
+      // a stalled upload can never keep the user stuck on the loading screen.
       setCollections(resolvedCollections);
+      setLoadError(null);
+      setIsLoading(false);
       if (showSyncedStatus) {
         showStatusRef.current(tRef.current('statusSynced'), 'success');
       }
-      if (user && navigator.onLine) {
-        const synced = await syncPendingChanges();
-        if (synced > 0) {
-          showStatusRef.current(
-            tRef.current('statusPendingSynced').replace('{count}', String(synced)),
-            'success',
-          );
+
+      void (async () => {
+        try {
+          if (shouldPersist) {
+            await saveAllCollections(mergedCollections);
+          }
+          if (user && navigator.onLine) {
+            const synced = await syncPendingChanges();
+            if (synced > 0) {
+              showStatusRef.current(
+                tRef.current('statusPendingSynced').replace('{count}', String(synced)),
+                'success',
+              );
+            }
+            await syncPendingAssetUploads();
+            await syncPendingDeletes();
+            void refreshPendingAssetUploads();
+          }
+        } catch (e) {
+          console.warn('Background cache persistence/sync failed:', e);
         }
-        await syncPendingAssetUploads();
-        await syncPendingDeletes();
-        void refreshPendingAssetUploads();
-      }
+      })();
     } catch (e) {
       console.error('Initialization failed:', e);
-      setLoadError(tRef.current('loadErrorGeneric'));
-      showStatusRef.current(tRef.current('statusSyncPaused'), 'error');
       setConflicts([]);
       setIsConflictModalOpen(false);
-      setCollections([]);
-    } finally {
+      // Fall back to cached data rather than blanking the UI when possible.
+      if (localCollections.length > 0) {
+        setCollections(localCollections);
+        setLoadError(null);
+      } else {
+        setCollections([]);
+        setLoadError(tRef.current('loadErrorGeneric'));
+      }
+      showStatusRef.current(tRef.current('statusSyncPaused'), 'error');
       setIsLoading(false);
     }
   }, [
