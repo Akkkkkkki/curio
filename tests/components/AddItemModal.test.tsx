@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 import { screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { renderWithProviders } from '../utils/test-utils';
+import { renderWithProviders, setMockTheme } from '../utils/test-utils';
 import { AddItemModal } from '@/components/AddItemModal';
 import { createMockCollection } from '../utils/fixtures/collections';
 
@@ -82,6 +82,7 @@ describe('AddItemModal', () => {
     mockRefreshAiEnabled.mockResolvedValue(false);
     mockAnalyzeImage.mockReset();
     mockGetPhoto.mockReset();
+    setMockTheme('gallery');
   });
 
   it('renders nothing when closed', () => {
@@ -436,6 +437,33 @@ describe('AddItemModal', () => {
       collection.id,
       expect.objectContaining({ title: 'Artifact A' }),
     );
+  });
+
+  it('renders the analyzing step with theme-aware copy on Vault (#110)', async () => {
+    const user = userEvent.setup();
+    setMockTheme('vault');
+    mockRefreshAiEnabled.mockResolvedValue(true);
+    // Pending promise — keep the modal on the analyzing step so we can inspect it.
+    mockAnalyzeImage.mockReturnValue(new Promise<never>(() => {}));
+
+    const collection = createMockCollection({ name: 'Artifacts', customFields: [] });
+    renderWithProviders(
+      <AddItemModal isOpen onClose={mockOnClose} collections={[collection]} onSave={mockOnSave} />,
+    );
+
+    const file = new File(['a'], 'a.png', { type: 'image/png' });
+    const input = screen.getByTestId('add-item-batch-input') as HTMLInputElement;
+    await user.upload(input, file);
+
+    // Heading must use the theme's foreground; text-stone-900 would disappear on the dark Vault panel.
+    const heading = await screen.findByRole('heading', { name: 'Analyzing photo...' });
+    expect(heading.className).toContain('text-white');
+    expect(heading.className).not.toContain('text-stone-900');
+
+    // Helper copy ("Gemini is extracting…") must stay above WCAG AA on stone-900,
+    // i.e. it must not regress to stone-500 (~3.77:1).
+    const helper = screen.getByText('Gemini is extracting details for your collection.');
+    expect(helper.className).not.toContain('text-stone-500');
   });
 
   it('fades the verify-step scroll edge while fields remain below the fold (CUR-45)', async () => {

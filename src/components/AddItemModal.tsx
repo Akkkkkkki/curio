@@ -1106,14 +1106,22 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
         </div>
       </div>
       <div>
-        <h3 className="text-xl sm:text-2xl font-serif font-bold text-stone-900 mb-1 sm:mb-2">
+        <h3
+          className={`text-xl sm:text-2xl font-serif font-bold mb-1 sm:mb-2 ${
+            theme === 'vault'
+              ? 'text-white'
+              : theme === 'atelier'
+                ? 'text-[#3D3530]'
+                : 'text-stone-900'
+          }`}
+        >
           {t('analyzingPhoto')}
         </h3>
-        <p className="text-sm sm:text-base text-stone-500 italic font-serif">
+        <p className={`text-sm sm:text-base italic font-serif ${mutedText}`}>
           {t('geminiExtracting')}
         </p>
         {batchProgress && batchProgress.total > 1 && (
-          <p className="text-xs text-stone-400 mt-2">
+          <p className={`text-xs mt-2 ${mutedText}`}>
             {t('batchProgress', {
               current: batchProgress.current,
               total: batchProgress.total,
