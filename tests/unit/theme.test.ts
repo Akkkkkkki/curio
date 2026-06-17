@@ -89,6 +89,12 @@ describe('Theme Utilities', () => {
       expect(labelColorClasses.vault).toContain('text-stone');
       expect(labelColorClasses.atelier).toContain('text-[#8C7B6B]');
     });
+
+    // stone-500 (#78716c) fails WCAG AA on the Vault stone-900 surface
+    // (~3.77:1); DESIGN.md sets Vault textMuted to stone-400 (#A8A29E).
+    it('keeps Vault labels at or above stone-400 contrast', () => {
+      expect(labelColorClasses.vault).toBe('text-stone-400');
+    });
   });
 
   describe('cardSurfaceClasses', () => {
@@ -225,6 +231,11 @@ describe('Theme Utilities', () => {
       expect(inputClasses.gallery).toContain('placeholder:');
       expect(inputClasses.vault).toContain('placeholder:');
       expect(inputClasses.atelier).toContain('placeholder:');
+    });
+
+    // Mirrors labelColorClasses contrast guarantee — see comment above.
+    it('uses stone-400 placeholders on Vault for WCAG AA contrast', () => {
+      expect(inputClasses.vault).toContain('placeholder:text-stone-400');
     });
   });
 });
