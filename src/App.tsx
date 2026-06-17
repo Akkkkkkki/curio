@@ -2255,6 +2255,19 @@ export const AppContent: React.FC = () => {
                   )}
               </div>
             </div>
+            {(() => {
+              const created = new Date(item.createdAt);
+              if (Number.isNaN(created.getTime())) return null;
+              const locale = language === 'zh' ? 'zh-CN' : 'en-US';
+              const formatted = new Intl.DateTimeFormat(locale, {
+                dateStyle: 'long',
+              }).format(created);
+              return (
+                <p className={typographyClasses.accession} data-testid="item-added-on">
+                  {t('addedOn', { date: formatted })}
+                </p>
+              );
+            })()}
           </div>
         </div>
         <ExportModal

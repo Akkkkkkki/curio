@@ -475,4 +475,72 @@ describe('App Integration Tests', () => {
     expect(translations.zh.collectionFilterNoResults).toBeTruthy();
     expect(translations.zh.clearSearch).toBeTruthy();
   });
+
+  // Foundation for timeline browsing: a small "Added on" accession plate at
+  // the bottom of Item Detail surfaces the existing createdAt so the archive
+  // feels like it grows over time. Tests cover EN + ZH locales and the
+  // accession typography per DESIGN.md.
+  it('shows item created date as an accession plate on Item Detail in English', async () => {
+    const { ThemeProvider } = await import('@/theme');
+    const collectionWithDatedItem = {
+      ...mockCollection,
+      items: [
+        {
+          ...mockCollection.items[0],
+          createdAt: '2026-03-15T12:00:00.000Z',
+        },
+      ],
+    };
+    vi.mocked(db.getLocalCollections).mockResolvedValue([collectionWithDatedItem]);
+
+    render(
+      <MemoryRouter initialEntries={['/collection/col1/item/item1']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    const plate = await screen.findByTestId('item-added-on');
+    expect(plate.textContent).toBe('Added on March 15, 2026');
+    // Accession styling per DESIGN.md: 10px mono, wide tracking, low opacity.
+    expect(plate.className).toContain('font-mono');
+    expect(plate.className).toContain('text-[10px]');
+    expect(plate.className).toContain('opacity-30');
+    expect(plate.className).toContain('uppercase');
+  });
+
+  it('formats the Added on plate per locale when language switches to ZH', async () => {
+    const { ThemeProvider } = await import('@/theme');
+    const collectionWithDatedItem = {
+      ...mockCollection,
+      items: [
+        {
+          ...mockCollection.items[0],
+          createdAt: '2026-03-15T12:00:00.000Z',
+        },
+      ],
+    };
+    vi.mocked(db.getLocalCollections).mockResolvedValue([collectionWithDatedItem]);
+
+    window.localStorage.setItem('curio_language', 'zh');
+    try {
+      render(
+        <MemoryRouter initialEntries={['/collection/col1/item/item1']}>
+          <ThemeProvider>
+            <LanguageProvider>
+              <AppContent />
+            </LanguageProvider>
+          </ThemeProvider>
+        </MemoryRouter>,
+      );
+
+      const plate = await screen.findByTestId('item-added-on');
+      expect(plate.textContent).toBe('添加于 2026年3月15日');
+    } finally {
+      window.localStorage.removeItem('curio_language');
+    }
+  });
 });
