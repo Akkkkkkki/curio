@@ -609,17 +609,23 @@ export const AppContent: React.FC = () => {
         cloudCollections,
       });
 
+      // Re-read local state AFTER the slow, network-bound cloud fetch (and any
+      // seeding) so that collections/items the user created or edited while the
+      // round-trip was in flight are included in the merge. Merging against the
+      // pre-fetch snapshot would let saveAllCollections() overwrite — and
+      // effectively delete — that just-written local data. (CUR-37)
+      const freshLocalCollections = await loadLocalCollectionsWithTimeout();
       const [pendingSyncIds, pendingDeletes] = await Promise.all([
         getPendingSyncIds(),
         getPendingDeletes(),
       ]);
-      const mergedCollections = mergeCollections(localCollections, cloudCollections, {
+      const mergedCollections = mergeCollections(freshLocalCollections, cloudCollections, {
         includeLocalOnly: (collection) =>
           !collection.ownerId || pendingSyncIds.includes(collection.id),
         pendingDeletes,
       });
 
-      const detectedConflicts = detectConflicts(localCollections, cloudCollections);
+      const detectedConflicts = detectConflicts(freshLocalCollections, cloudCollections);
       const unresolvedConflicts = detectedConflicts.filter(
         (conflict) => !resolvedConflictIdsRef.current.has(conflict.id),
       );
@@ -632,7 +638,7 @@ export const AppContent: React.FC = () => {
         showSyncedStatus,
       } = resolveCollectionsForUser({
         user,
-        localCollections,
+        localCollections: freshLocalCollections,
         cloudCollections,
         fallbackSampleCollections,
         mergedCollections,

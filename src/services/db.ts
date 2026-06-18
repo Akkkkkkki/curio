@@ -1842,19 +1842,30 @@ export const loadCollections = async (): Promise<UserCollection[]> => {
 
   if (isSupabaseConfigured() && supabase) {
     try {
-      const [pendingSyncIds, pendingDeletes] = await Promise.all([
-        getPendingSyncIds(),
-        getPendingDeletes(),
-      ]);
       const {
         data: { user },
       } = await supabase.auth.getUser();
       const cloudCollections = await fetchCloudCollections();
+
+      // Re-read local state AFTER the (slow, network-bound) cloud fetch.
+      // The cloud round-trip can take seconds, and the user may create or
+      // edit collections/items while it is in flight — those writes land in
+      // IndexedDB directly. If we merged against the stale snapshot taken
+      // before the fetch, `saveAllCollections(merged)` would overwrite (and
+      // effectively delete) that just-written local data. Snapshotting local
+      // state, pending-sync ids, and pending deletes here — immediately
+      // before the merge — closes that race window. (CUR-37)
+      const [freshLocalCollections, pendingSyncIds, pendingDeletes] = await Promise.all([
+        loadLocalCollections(),
+        getPendingSyncIds(),
+        getPendingDeletes(),
+      ]);
+
       if (!user && cloudCollections.length === 0) {
-        return localCollections;
+        return freshLocalCollections;
       }
 
-      const merged = mergeCollections(localCollections, cloudCollections, {
+      const merged = mergeCollections(freshLocalCollections, cloudCollections, {
         includeLocalOnly: (collection) =>
           !collection.ownerId || pendingSyncIds.includes(collection.id),
         pendingDeletes,
