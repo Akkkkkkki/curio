@@ -104,7 +104,7 @@ import {
   ratingColorClasses,
   ratingEmptyClasses,
 } from './theme';
-import { StatusToast, StatusTone } from './components/StatusToast';
+import { StatusToast, StatusTone, getStatusToastDurationMs } from './components/StatusToast';
 import { StatusBanner } from './components/StatusBanner';
 import { LanguageToggle } from './components/LanguageToggle';
 import { ConflictResolutionModal } from './components/ConflictResolutionModal';
@@ -219,7 +219,7 @@ export const AppContent: React.FC = () => {
         actionLabel: options?.actionLabel,
         onAction: options?.onAction,
       });
-      const durationMs = options?.durationMs ?? (options?.actionLabel ? 6000 : 2400);
+      const durationMs = getStatusToastDurationMs(tone, options);
       statusTimeoutRef.current = window.setTimeout(() => setStatus(null), durationMs);
     },
     [],
