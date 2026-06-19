@@ -100,6 +100,44 @@ describe('HomeScreen', () => {
     });
   });
 
+  it('exposes an inline clear button on the search input only when it has a value', async () => {
+    renderWithProviders(<HomeScreen {...defaultProps} />);
+
+    expect(screen.queryByRole('button', { name: /clear search/i })).not.toBeInTheDocument();
+
+    const searchInput = screen.getByPlaceholderText(/search/i) as HTMLInputElement;
+    fireEvent.change(searchInput, { target: { value: 'Vinyl' } });
+
+    const clearButton = await screen.findByRole('button', { name: /clear search/i });
+    fireEvent.click(clearButton);
+
+    await waitFor(() => {
+      expect(searchInput.value).toBe('');
+      expect(screen.queryByRole('button', { name: /clear search/i })).not.toBeInTheDocument();
+      expect(screen.getAllByText('Stamps')[0]).toBeInTheDocument();
+    });
+  });
+
+  it('offers a Clear search action in the empty-results card', async () => {
+    renderWithProviders(<HomeScreen {...defaultProps} />);
+
+    const searchInput = screen.getByPlaceholderText(/search/i) as HTMLInputElement;
+    fireEvent.change(searchInput, { target: { value: 'zzzzz' } });
+
+    await waitFor(() => {
+      expect(screen.getByText(/no matches found/i)).toBeInTheDocument();
+    });
+
+    const clearButtons = screen.getAllByRole('button', { name: /clear search/i });
+    fireEvent.click(clearButtons[clearButtons.length - 1]);
+
+    await waitFor(() => {
+      expect(searchInput.value).toBe('');
+      expect(screen.queryByText(/no matches found/i)).not.toBeInTheDocument();
+      expect(screen.getAllByText('Vinyl Records')[0]).toBeInTheDocument();
+    });
+  });
+
   it('shows loading state', () => {
     renderWithProviders(<HomeScreen {...defaultProps} isLoading={true} />);
     expect(screen.getByText('Restoring the archives...')).toBeInTheDocument();

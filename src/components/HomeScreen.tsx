@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { AlertCircle, Sparkles, Calendar, Search, Plus, Loader2 } from 'lucide-react';
+import { AlertCircle, Sparkles, Calendar, Search, Plus, Loader2, X } from 'lucide-react';
 import { useTranslation } from '../i18n';
 import {
   useTheme,
@@ -323,8 +323,19 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             placeholder={t('searchPlaceholder')}
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            className={`w-full pl-12 sm:pl-14 pr-6 sm:pr-8 py-3.5 sm:py-4 rounded-[1.5rem] sm:rounded-[1.75rem] border focus:ring-4 focus:ring-amber-500/5 outline-none transition-all shadow-lg text-sm sm:text-base font-serif italic placeholder:text-stone-300 ${theme === 'vault' ? 'bg-stone-900 border-white/10 text-white' : 'bg-white border-stone-200 text-stone-900'}`}
+            className={`w-full pl-12 sm:pl-14 pr-12 sm:pr-14 py-3.5 sm:py-4 rounded-[1.5rem] sm:rounded-[1.75rem] border focus:ring-4 focus:ring-amber-500/5 outline-none transition-all shadow-lg text-sm sm:text-base font-serif italic placeholder:text-stone-300 ${theme === 'vault' ? 'bg-stone-900 border-white/10 text-white' : 'bg-white border-stone-200 text-stone-900'}`}
           />
+          {searchInput.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setSearchInput('')}
+              aria-label={t('clearSearch')}
+              title={t('clearSearch')}
+              className={`absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full flex items-center justify-center transition-colors ${theme === 'vault' ? 'text-stone-300 hover:bg-white/10' : 'text-stone-400 hover:bg-stone-100 hover:text-stone-600'}`}
+            >
+              <X size={18} />
+            </button>
+          )}
         </div>
       </div>
 
@@ -357,6 +368,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             <p className={typographyClasses.labelMuted}>
               {t('searchNoResultsBody', { query: searchInput.trim() })}
             </p>
+            <div className="mt-6 flex justify-center">
+              <Button variant="outline" size="sm" onClick={() => setSearchInput('')}>
+                {t('clearSearch')}
+              </Button>
+            </div>
           </div>
         )}
 
