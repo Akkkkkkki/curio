@@ -543,4 +543,75 @@ describe('App Integration Tests', () => {
       window.localStorage.removeItem('curio_language');
     }
   });
+
+  it('deep-links the access-gate "Explore sample" CTA into the sample collection (#287)', async () => {
+    const { ThemeProvider } = await import('@/theme');
+    // Signed-out visitor, Supabase configured, with a public sample loaded.
+    // Clicking "Explore sample" on the access gate must land the user *on*
+    // the sample collection, not on an intermediate home grid — the
+    // single-path first-run contract calls for one tap from the gate into
+    // the gallery preview.
+    const publicSample = {
+      id: 'sample-vinyl',
+      name: 'The Vinyl Vault',
+      templateId: 'vinyl',
+      icon: '🎵',
+      customFields: [],
+      items: [
+        {
+          id: 'sample-item-1',
+          collectionId: 'sample-vinyl',
+          title: 'Kind of Blue',
+          rating: 5,
+          data: {},
+          photoUrl: '',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          notes: '',
+        },
+      ],
+      isPublic: true,
+      updatedAt: new Date().toISOString(),
+    };
+    vi.mocked(supabaseService.isSupabaseConfigured).mockReturnValue(true);
+    vi.mocked(supabaseService.supabase!.auth.getSession).mockResolvedValue({
+      data: { session: null },
+    } as never);
+    vi.mocked(db.getLocalCollections).mockResolvedValue([]);
+    vi.mocked(db.fetchCloudCollections).mockResolvedValue([publicSample]);
+    vi.mocked(db.mergeCollections).mockImplementation((local, cloud) =>
+      cloud.length ? cloud : local,
+    );
+
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('access-gate')).toBeInTheDocument();
+    });
+    // Wait for the initial cloud load so sampleCollectionId is resolvable
+    // by the time the CTA fires (matches the real-world timing — by the
+    // time a visitor reads the gate and clicks, the load has finished).
+    await waitFor(() => {
+      expect(vi.mocked(db.fetchCloudCollections)).toHaveBeenCalled();
+    });
+
+    fireEvent.click(screen.getByTestId('cta-secondary-explore-sample'));
+
+    // Access gate clears AND we land on the sample collection itself —
+    // items-grid is unique to CollectionScreen, so its presence (plus the
+    // absence of collections-grid) is positive proof of the deep-link.
+    await waitFor(() => {
+      expect(screen.queryByTestId('access-gate')).not.toBeInTheDocument();
+    });
+    expect(await screen.findByTestId('items-grid')).toBeInTheDocument();
+    expect(screen.queryByTestId('collections-grid')).not.toBeInTheDocument();
+  });
 });

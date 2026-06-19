@@ -181,6 +181,7 @@ export const AppContent: React.FC = () => {
   const [conflicts, setConflicts] = useState<ReturnType<typeof detectConflicts>>([]);
   const [isConflictModalOpen, setIsConflictModalOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   const [pendingAuthAction, setPendingAuthAction] = useState<
     'add-item' | 'create-collection' | null
   >(null);
@@ -2445,6 +2446,18 @@ export const AppContent: React.FC = () => {
 
   const handleExploreSamples = () => {
     setAllowPublicBrowse(true);
+    // Deep-link straight into the sample exhibition when one is resolvable, so
+    // the access-gate "Explore sample" CTA honors the single-path first-run
+    // contract instead of dropping the visitor on an intermediate home grid.
+    // When the sample isn't resolvable yet (network race) we keep the existing
+    // refresh-and-stay-on-home fallback. Skipping refreshCollections() in the
+    // navigate path mirrors handleExploreFromNav: a transient cloud failure
+    // during that click-time refresh could replace `collections` with
+    // local-only data and bounce the user off the just-opened collection.
+    if (sampleCollectionId) {
+      navigate(`/collection/${sampleCollectionId}`);
+      return;
+    }
     if (isSupabaseReady) {
       refreshCollections();
     }
