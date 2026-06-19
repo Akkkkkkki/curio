@@ -1005,7 +1005,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
                   <button
                     onClick={() => removeBatchItem(item.id)}
                     aria-label={t('remove')}
-                    className="absolute top-1 right-1 bg-white/90 p-1.5 rounded-full text-red-500 shadow-sm opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-opacity"
+                    className="absolute top-1 right-1 bg-white/90 p-1.5 rounded-full text-red-500 shadow-sm transition-colors hover:bg-white"
                   >
                     <Trash2 size={12} />
                   </button>
