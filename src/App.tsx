@@ -189,6 +189,7 @@ export const AppContent: React.FC = () => {
     null,
   );
   const saveTimeoutRef = useRef<Record<string, any>>({});
+  const pendingEditedFieldsRef = useRef<Record<string, Set<string>>>({});
   const statusTimeoutRef = useRef<number | null>(null);
   const pendingSyncToastRef = useRef(false);
   const hasQuotaWarningRef = useRef(false);
@@ -769,11 +770,18 @@ export const AppContent: React.FC = () => {
       if (saveTimeoutRef.current[collection.id]) {
         clearTimeout(saveTimeoutRef.current[collection.id]);
       }
+      // Accumulate field names across the debounce window so edits to several
+      // fields within 1.5s are all reflected in the single `item_edited` event.
+      const accumulated = pendingEditedFieldsRef.current[collection.id] ?? new Set<string>();
+      changedFields.forEach((field) => accumulated.add(field));
+      pendingEditedFieldsRef.current[collection.id] = accumulated;
       saveTimeoutRef.current[collection.id] = setTimeout(() => {
+        const editedFields = pendingEditedFieldsRef.current[collection.id];
+        delete pendingEditedFieldsRef.current[collection.id];
         saveCollection(collection)
           .then(() => {
             trackEvent('item_edited', {
-              fields: changedFields.sort().join(','),
+              fields: [...(editedFields ?? [])].sort().join(','),
               surface: 'item_detail',
             });
           })
