@@ -33,9 +33,11 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
   const [style, setStyle] = useState<TemplateStyle>('minimal');
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('3:4');
   const [imageFit, setImageFit] = useState<ImageFit>('cover');
-  // CUR-105: open the mobile bottom sheet expanded so Save / Share / Print are
-  // visible on first open. Users can drag the handle down to collapse and
-  // admire the card. Desktop is unaffected (sheet is forced full-height at md:).
+  // CUR-105: open the mobile bottom sheet so Save / Share / Print are visible on
+  // first open. The open height is a moderate fraction of the screen (see
+  // OPEN_SHEET_HEIGHT) so the card stays prominent above it; users can drag the
+  // handle / tap it to collapse to a peek and admire the card, then drag or tap
+  // again to re-open. Desktop is unaffected (sheet is forced full-height at md:).
   const [isExpanded, setIsExpanded] = useState(true);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [isLoadingImage, setIsLoadingImage] = useState(true);
@@ -167,10 +169,23 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
     const previewWidth = node.offsetWidth;
     const pixelRatio =
       previewWidth > 0 ? Math.max(2, EXPORT_TARGET_SHORT_EDGE_PX / previewWidth) : 2;
-    return toBlob(node, {
-      pixelRatio,
-      backgroundColor: '#ffffff',
-    });
+    try {
+      return await toBlob(node, {
+        pixelRatio,
+        backgroundColor: '#ffffff',
+      });
+    } catch (err) {
+      // html-to-image inlines the brand web fonts by fetching them. If that
+      // fetch fails (offline, CSP, flaky network) the whole export rejects.
+      // Retry without font embedding so the user still gets a card — it falls
+      // back to system serif/mono, which is far better than a hard failure.
+      console.warn('Card export failed with embedded fonts, retrying without them:', err);
+      return await toBlob(node, {
+        pixelRatio,
+        backgroundColor: '#ffffff',
+        skipFonts: true,
+      });
+    }
   }, []);
 
   const handleSaveImage = useCallback(async () => {
@@ -233,6 +248,13 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
   }, [exportAction, item.title, renderCardToBlob, t]);
 
   const PEEK_HEIGHT_PX = 56;
+  // Moderate open height: tall enough to reveal the action footer (Save / Share /
+  // Print) while leaving the card prominent above the sheet. Clamped so the
+  // footer still fits on short screens and the sheet never dominates tall ones.
+  const OPEN_SHEET_HEIGHT = 'clamp(20rem, 52dvh, 32rem)';
+  // Past this drag delta we commit to the new state; smaller drags snap back to
+  // the current state so a tap-sized wobble never flips the sheet.
+  const SNAP_DELTA_PX = 48;
 
   const handleSheetPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (window.matchMedia('(min-width: 768px)').matches) return;
@@ -272,8 +294,16 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
     }
     const finalHeight = dragHeight ?? drag.startHeight;
     if (drag.moved) {
-      const threshold = window.innerHeight * 0.35;
-      setIsExpanded(finalHeight > threshold);
+      // Snap by drag *direction* relative to where the drag started, not an
+      // absolute screen fraction. The old absolute threshold meant a short swipe
+      // up from the peek could never clear it, so a collapsed sheet got stuck.
+      const delta = finalHeight - drag.startHeight; // > 0 means dragged up (grew)
+      if (delta > SNAP_DELTA_PX) {
+        setIsExpanded(true);
+      } else if (delta < -SNAP_DELTA_PX) {
+        setIsExpanded(false);
+      }
+      // Otherwise keep the current state — the sheet snaps back to its prior snap.
     } else {
       setIsExpanded((prev) => !prev);
     }
@@ -422,7 +452,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
   const mobileSheetHeight = isDragging
     ? `${dragHeight}px`
     : isExpanded
-      ? '85dvh'
+      ? OPEN_SHEET_HEIGHT
       : 'var(--peek-height)';
 
   return (

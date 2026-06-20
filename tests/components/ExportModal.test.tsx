@@ -258,3 +258,39 @@ describe('ExportModal — CUR-99 fixed export resolution', () => {
     expect(options.pixelRatio).toBe(2);
   });
 });
+
+describe('ExportModal — export resilience when font embedding fails', () => {
+  const baseProps = {
+    isOpen: true,
+    onClose: vi.fn(),
+    item: makeItem(),
+    fields: FIELDS,
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('retries the render with skipFonts when the first toBlob attempt rejects', async () => {
+    const mockedToBlob = toBlob as unknown as ReturnType<typeof vi.fn>;
+    mockedToBlob
+      .mockRejectedValueOnce(new Error('font fetch blocked by CSP'))
+      .mockResolvedValueOnce(new Blob(['fake'], { type: 'image/png' }));
+
+    const userEvent = (await import('@testing-library/user-event')).default;
+    const user = userEvent.setup();
+    renderWithProviders(<ExportModal {...baseProps} />);
+
+    await user.click(screen.getByRole('button', { name: /save image/i }));
+
+    await waitFor(() => {
+      expect(mockedToBlob).toHaveBeenCalledTimes(2);
+    });
+    // First attempt embeds fonts; the retry skips them so the user still gets an image.
+    expect(mockedToBlob.mock.calls[0][1]).not.toHaveProperty('skipFonts', true);
+    expect(mockedToBlob.mock.calls[1][1]).toHaveProperty('skipFonts', true);
+
+    // No error surfaced to the user because the retry succeeded.
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+});
