@@ -246,7 +246,7 @@ Tapping `+` next to a prompt inserts the question into the textarea as plain tex
 - Primary: `Save item` — always enabled.
 - Secondary: When story is empty, the primary button changes label to `Save without story` (still primary visual weight, no warning) and a subtle hint appears: _"You can add a story later."_
 
-**Drop-off telemetry:** instrument both `add_item_saved_with_story` and `add_item_saved_without_story` events with story length buckets. These feed the Phase 0 metric "% of items saved with story" (target tracked in `ROADMAP.md`).
+**Drop-off telemetry:** instrument `item_saved` with `has_story` and story length buckets. These feed the Phase 0 metric "% of items saved with story" (target tracked in `ROADMAP.md`).
 
 ### 5.2 Item Detail — read mode
 
@@ -359,7 +359,7 @@ Mirrors CUR-13's acceptance + adds the migration cases.
 - [ ] Legacy items (created before this change) whose `notes` is non-empty show the migration banner exactly once.
 - [ ] `aiDescription` is stored in `data._aiDescription` and is only visible under technical metadata.
 - [ ] `aiDescription` never appears in any public/share surface (verified in Phase 1 share components when built).
-- [ ] Analytics events `add_item_saved_with_story` and `add_item_saved_without_story` fire with `story_length_bucket`.
+- [ ] The `item_saved` analytics event fires with `has_story` and `story_length_bucket`.
 - [ ] `npm run format:check`, `npm test`, `npm run build`, `npm run test:e2e` all pass.
 
 ---

@@ -19,7 +19,7 @@ In scope (mirrors spec §8 acceptance):
 - New `POST /api/gemini/story-prompts` endpoint returns 3 short, object-specific questions.
 - "Archive Narrative" is renamed to "Story" in UI/i18n; legacy items render a one-time migration banner.
 - `aiDescription` lives in `item.data._aiDescription` (no schema migration).
-- Analytics fire for `add_item_saved_with_story` / `add_item_saved_without_story`.
+- Analytics fire through `item_saved` with `has_story` and `story_length_bucket`.
 
 Out of scope (spec §9): homepage "needs story" nudge, storyteller badge, voice dictation, AI rewrite of drafts, renaming the `notes` column.
 
@@ -124,7 +124,7 @@ Hold this commit until commits A–D have been deployed and the AI flow has been
 
 Per spec §5.1 telemetry:
 
-- Fire `add_item_saved_with_story` (length > 0) or `add_item_saved_without_story` (length === 0) at the save callsite in `AddItemModal.tsx:574,611`.
+- Fire `item_saved` with `has_story` and `story_length_bucket` at the save callsite in `AddItemModal.tsx`.
 - Payload includes `story_length_bucket`: one of `0`, `1-50`, `51-200`, `201-500`, `500+` (characters).
 - Use whatever analytics shim CUR-8 lands. If CUR-8 hasn't shipped by the time we ship CUR-13, write the events behind a single `trackEvent()` helper in `src/services/analytics.ts` that is a no-op for now — CUR-8 will fill it in. **Do not block CUR-13 on CUR-8.**
 

@@ -113,6 +113,11 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
   const storyInputRef = useRef<HTMLTextAreaElement>(null);
   const analysisRunId = useRef(0);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    trackEvent('item_creation_started', { surface: 'add_item_modal' });
+  }, [isOpen]);
+
   const surfaceClass = panelSurfaceClasses[theme];
   const overlayClass = `${overlaySurfaceClasses[theme]} motion-overlay`;
   const mutedText = mutedTextClasses[theme];
@@ -164,7 +169,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     // the previous fetch actually returned something — otherwise let the
     // user retry by re-opening the panel.
     if (promptsFetchedFor === storyPromptsCacheKey && storyPrompts.length > 0) return;
-    trackEvent('story_prompt_panel_opened', {});
+    trackEvent('story_prompt_panel_opened', { surface: 'add_item_modal' });
     setPromptsLoading(true);
     try {
       const knownFields: Record<string, string | number> = {};
@@ -203,7 +208,10 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     const insertAt = el?.selectionStart ?? current.length;
     const next = current.slice(0, insertAt) + snippet + current.slice(insertAt);
     setFormData({ ...formData, notes: next });
-    trackEvent('story_prompt_inserted', { prompt_length: prompt.length });
+    trackEvent('story_prompt_inserted', {
+      surface: 'add_item_modal',
+      prompt_length: prompt.length,
+    });
     // Focus the textarea after the state update; caret moves to end of insert.
     requestAnimationFrame(() => {
       const t = storyInputRef.current;
@@ -796,10 +804,12 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
         notes: story,
         data: formData.data || {},
       });
-      trackEvent(
-        story.trim().length > 0 ? 'add_item_saved_with_story' : 'add_item_saved_without_story',
-        { story_length_bucket: storyLengthBucket(story.trim().length) },
-      );
+      trackEvent('item_saved', {
+        mode: 'single',
+        has_story: story.trim().length > 0,
+        has_photo: Boolean(imagePreview),
+        story_length_bucket: storyLengthBucket(story.trim().length),
+      });
       onClose();
     } catch (e) {
       console.error('Save failed:', e);
@@ -843,10 +853,12 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
           data: item.data || {},
         });
         setBatchItems((prev) => prev.filter((b) => b.id !== item.id));
-        trackEvent(
-          story.trim().length > 0 ? 'add_item_saved_with_story' : 'add_item_saved_without_story',
-          { story_length_bucket: storyLengthBucket(story.trim().length) },
-        );
+        trackEvent('item_saved', {
+          mode: 'batch',
+          has_story: story.trim().length > 0,
+          has_photo: Boolean(item.image),
+          story_length_bucket: storyLengthBucket(story.trim().length),
+        });
       }
       onClose();
     } catch (e) {

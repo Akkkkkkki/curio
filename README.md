@@ -32,6 +32,7 @@ Issue prioritization and TODO tracking live in **GitHub Issues**, not in docs. P
 ### Other docs (organized)
 
 - **Operations**: `docs/ops/AI_GATEWAY_MONITORING.md`, `docs/ops/INDEXEDDB_RELIABILITY.md`, `docs/ops/PWA_CACHE_STRATEGY.md`
+- **Product analytics**: `docs/ops/PRODUCT_ANALYTICS.md`
 - **Release**: `docs/GOOGLE_PLAY_SUBMISSION_GUIDE.md`, `docs/ANDROID_PRODUCTION_REVIEW.md`
 - **Plans**: `docs/plan/` (forward-looking design specs; deleted after shipping)
 - **Archive**: `docs/archive/` (point-in-time reports)

@@ -5,6 +5,7 @@ import { ExportModal } from '@/components/ExportModal';
 import type { CollectionItem, FieldDefinition } from '@/types';
 import { toBlob } from 'html-to-image';
 import { getAsset, getEnhancedAsset } from '@/services/db';
+import { trackEvent } from '@/services/analytics';
 
 vi.mock('@/services/db', () => ({
   extractCurioAssetPath: vi.fn().mockReturnValue(null),
@@ -14,6 +15,10 @@ vi.mock('@/services/db', () => ({
 
 vi.mock('html-to-image', () => ({
   toBlob: vi.fn().mockResolvedValue(new Blob(['fake'], { type: 'image/png' })),
+}));
+
+vi.mock('@/services/analytics', () => ({
+  trackEvent: vi.fn(),
 }));
 
 vi.mock('@/theme', async () => {
@@ -292,5 +297,51 @@ describe('ExportModal — export resilience when font embedding fails', () => {
 
     // No error surfaced to the user because the retry succeeded.
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+});
+
+describe('ExportModal — product analytics', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    Object.defineProperty(HTMLImageElement.prototype, 'complete', {
+      configurable: true,
+      get: () => true,
+    });
+    Object.defineProperty(navigator, 'canShare', {
+      configurable: true,
+      value: vi.fn().mockReturnValue(true),
+    });
+    Object.defineProperty(navigator, 'share', {
+      configurable: true,
+      value: vi.fn().mockResolvedValue(undefined),
+    });
+  });
+
+  it('tracks item-card share attempts and successful native shares', async () => {
+    const userEvent = (await import('@testing-library/user-event')).default;
+    const user = userEvent.setup();
+    renderWithProviders(
+      <ExportModal
+        isOpen
+        onClose={vi.fn()}
+        fields={[]}
+        item={makeItem({
+          photoUrl: 'data:image/png;base64,ZmFrZQ==',
+          title: 'A favorite object',
+        })}
+      />,
+    );
+
+    await user.click(await screen.findByRole('button', { name: /^share$/i }));
+
+    await waitFor(() => {
+      expect(trackEvent).toHaveBeenCalledWith('share_initiated', {
+        surface: 'item_card',
+      });
+      expect(trackEvent).toHaveBeenCalledWith('share_completed', {
+        method: 'native',
+        surface: 'item_card',
+      });
+    });
   });
 });

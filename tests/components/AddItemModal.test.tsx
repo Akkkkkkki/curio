@@ -31,6 +31,15 @@ vi.mock('@/services/imageProcessor', async () => {
   };
 });
 
+vi.mock('@/services/analytics', async () => {
+  const actual =
+    await vi.importActual<typeof import('@/services/analytics')>('@/services/analytics');
+  return {
+    ...actual,
+    trackEvent: vi.fn(),
+  };
+});
+
 vi.mock('@capacitor/camera', () => ({
   Camera: {
     getPhoto: vi.fn(),
@@ -45,10 +54,12 @@ vi.mock('@capacitor/camera', () => ({
 }));
 
 import { analyzeImage, refreshAiEnabled } from '@/services/geminiService';
+import { trackEvent } from '@/services/analytics';
 import { Camera } from '@capacitor/camera';
 
 const mockAnalyzeImage = analyzeImage as ReturnType<typeof vi.fn>;
 const mockRefreshAiEnabled = refreshAiEnabled as ReturnType<typeof vi.fn>;
+const mockTrackEvent = trackEvent as ReturnType<typeof vi.fn>;
 const mockGetPhoto = Camera.getPhoto as ReturnType<typeof vi.fn>;
 
 class MockFileReader {
@@ -81,8 +92,24 @@ describe('AddItemModal', () => {
     mockOnSave.mockResolvedValue(undefined);
     mockRefreshAiEnabled.mockResolvedValue(false);
     mockAnalyzeImage.mockReset();
+    mockTrackEvent.mockClear();
     mockGetPhoto.mockReset();
     setMockTheme('gallery');
+  });
+
+  it('tracks an item creation start each time the modal opens', () => {
+    renderWithProviders(
+      <AddItemModal
+        isOpen
+        onClose={mockOnClose}
+        collections={[createMockCollection()]}
+        onSave={mockOnSave}
+      />,
+    );
+
+    expect(mockTrackEvent).toHaveBeenCalledWith('item_creation_started', {
+      surface: 'add_item_modal',
+    });
   });
 
   it('renders nothing when closed', () => {
@@ -378,6 +405,18 @@ describe('AddItemModal', () => {
     });
 
     expect(await screen.findByDisplayValue('Mock Artifact')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Archive 1 Artifacts' }));
+
+    await waitFor(() => {
+      expect(mockOnSave).toHaveBeenCalledTimes(1);
+      expect(mockTrackEvent).toHaveBeenCalledWith('item_saved', {
+        mode: 'batch',
+        has_story: false,
+        has_photo: true,
+        story_length_bucket: '0',
+      });
+    });
   });
 
   it('does not re-save already-saved items when a batch save fails partway and is retried', async () => {
