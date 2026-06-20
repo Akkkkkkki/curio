@@ -496,6 +496,107 @@ describe('AuthModal', () => {
     });
   });
 
+  describe('CUR-285: Resend / use-different-email on reset-sent', () => {
+    const sendInitialReset = async (
+      user: ReturnType<typeof userEvent.setup>,
+      email = 'lost@example.com',
+    ) => {
+      await user.click(screen.getByRole('button', { name: /forgot password/i }));
+      const emailInput = screen.getByPlaceholderText(/curator@museum.com/i);
+      // Clear in case a prior round of this helper left the input populated;
+      // an unset clear would concatenate addresses and fail HTML5 validation.
+      await user.clear(emailInput);
+      await user.type(emailInput, email);
+      await user.click(screen.getByRole('button', { name: /send reset link/i }));
+      await screen.findByText(/check your email/i);
+    };
+
+    it('shows a Resend link button and a Use different email link on the sent screen', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(<AuthModal {...defaultProps} />);
+      await sendInitialReset(user);
+
+      expect(screen.getByRole('button', { name: /resend link/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /use a different email/i })).toBeInTheDocument();
+      // Submit "Send reset link" must stay hidden so it doesn't compete with Resend.
+      expect(screen.queryByRole('button', { name: /send reset link/i })).not.toBeInTheDocument();
+    });
+
+    it('re-fires resetPasswordForEmail for the sent address and shows a sent confirmation', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(<AuthModal {...defaultProps} />);
+      await sendInitialReset(user);
+
+      mockResetPassword.mockClear();
+      await user.click(screen.getByRole('button', { name: /resend link/i }));
+
+      await waitFor(() => {
+        expect(mockResetPassword).toHaveBeenCalledWith('lost@example.com');
+      });
+      expect(await screen.findByText(/sent again/i)).toBeInTheDocument();
+    });
+
+    it('starts a ~30s cooldown after a successful resend', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(<AuthModal {...defaultProps} />);
+      await sendInitialReset(user);
+
+      await user.click(screen.getByRole('button', { name: /resend link/i }));
+      await screen.findByText(/sent again/i);
+
+      const cooldownButton = await screen.findByRole('button', { name: /resend in 30s/i });
+      expect(cooldownButton).toBeDisabled();
+    });
+
+    it('surfaces an error inline when the resend call fails', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(<AuthModal {...defaultProps} />);
+      await sendInitialReset(user);
+
+      mockResetPassword.mockRejectedValueOnce(new Error('boom'));
+      await user.click(screen.getByRole('button', { name: /resend link/i }));
+
+      await waitFor(() => {
+        expect(screen.getByRole('alert')).toHaveTextContent(/couldn't resend/i);
+      });
+      // No cooldown should start on failure — the button remains pressable.
+      expect(screen.getByRole('button', { name: /resend link/i })).not.toBeDisabled();
+    });
+
+    it('returns to reset-request with the previous email prefilled on Use different email', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(<AuthModal {...defaultProps} />);
+      await sendInitialReset(user);
+
+      await user.click(screen.getByRole('button', { name: /use a different email/i }));
+
+      const email = await screen.findByPlaceholderText(/curator@museum.com/i);
+      expect(email).toHaveValue('lost@example.com');
+      expect(screen.getByRole('button', { name: /send reset link/i })).toBeInTheDocument();
+    });
+
+    it('clears stale resend status / cooldown when a new reset request is sent', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(<AuthModal {...defaultProps} />);
+
+      // First round: send → resend → cooldown is now active.
+      await sendInitialReset(user, 'first@example.com');
+      await user.click(screen.getByRole('button', { name: /resend link/i }));
+      await screen.findByText(/sent again/i);
+      expect(await screen.findByRole('button', { name: /resend in 30s/i })).toBeDisabled();
+
+      // Navigate back to sign-in and start a brand-new reset for a different email.
+      await user.click(screen.getByRole('button', { name: /back to sign in/i }));
+      await sendInitialReset(user, 'second@example.com');
+
+      // The fresh reset-sent screen must not carry over the prior "Sent again"
+      // microcopy or the locked-out Resend button.
+      expect(screen.queryByText(/sent again/i)).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /resend in \d+s/i })).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /resend link/i })).not.toBeDisabled();
+    });
+  });
+
   describe('Set Password Mode (recovery redirect)', () => {
     it('opens in set-password mode when initialMode is set', () => {
       renderWithProviders(<AuthModal {...defaultProps} initialMode="set-password" />);

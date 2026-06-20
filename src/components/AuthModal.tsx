@@ -34,6 +34,9 @@ interface AuthModalProps {
 }
 
 const MIN_PASSWORD_LENGTH = 8;
+const RESEND_COOLDOWN_SECONDS = 30;
+
+type ResendStatus = 'idle' | 'sending' | 'sent' | 'error';
 
 export const AuthModal: React.FC<AuthModalProps> = ({
   isOpen,
@@ -54,6 +57,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [resendStatus, setResendStatus] = useState<ResendStatus>('idle');
+  const [resendCooldown, setResendCooldown] = useState(0);
 
   // Reset state whenever the modal opens or a forced mode changes,
   // so a fresh open never leaks stale form values.
@@ -67,8 +72,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setShowPassword(false);
     setShowNewPassword(false);
     setShowConfirmPassword(false);
+    setResendStatus('idle');
+    setResendCooldown(0);
     if (!initialMode) setEmail('');
   }, [isOpen, initialMode]);
+
+  // Tick the resend cooldown down to zero. Effect cleans itself up when
+  // the cooldown hits 0, the modal closes, or the user leaves reset-sent.
+  useEffect(() => {
+    if (!isOpen || mode !== 'reset-sent' || resendCooldown <= 0) return;
+    const id = window.setInterval(() => {
+      setResendCooldown((s) => (s > 1 ? s - 1 : 0));
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [isOpen, mode, resendCooldown]);
   const dialogRef = React.useRef<HTMLDivElement>(null);
   const lastFocusedElementRef = React.useRef<HTMLElement | null>(null);
 
@@ -207,6 +224,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       if (mode === 'reset-request') {
         await resetPasswordForEmail(email);
         setSentToEmail(email);
+        // A new reset-sent screen must start fresh: clear any stale
+        // resend status / cooldown left over from a previous round so
+        // the user sees an enabled Resend button and no leftover copy.
+        setResendStatus('idle');
+        setResendCooldown(0);
         setMode('reset-sent');
         return;
       }
@@ -245,6 +267,27 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleResendResetLink = async () => {
+    if (!sentToEmail || resendCooldown > 0 || resendStatus === 'sending') return;
+    setResendStatus('sending');
+    setError(null);
+    try {
+      await resetPasswordForEmail(sentToEmail);
+      setResendStatus('sent');
+      setResendCooldown(RESEND_COOLDOWN_SECONDS);
+    } catch {
+      setResendStatus('error');
+    }
+  };
+
+  const handleUseDifferentEmail = () => {
+    setMode('reset-request');
+    setError(null);
+    setResendStatus('idle');
+    setResendCooldown(0);
+    // Keep `email` populated so the user can edit it instead of retyping.
   };
 
   const titleForMode = () => {
@@ -360,19 +403,62 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           )}
 
           {mode === 'reset-sent' ? (
-            <div
-              className={`p-4 rounded-2xl border flex gap-3 ${theme === 'vault' ? 'bg-white/5 border-white/10' : 'bg-emerald-50 border-emerald-100'}`}
-            >
-              <Mail className="text-emerald-600 shrink-0 mt-0.5" size={18} />
-              <div className="space-y-1">
-                <p
-                  className={`text-[12px] font-bold ${theme === 'vault' ? 'text-white' : 'text-emerald-900'}`}
+            <div className="space-y-4">
+              <div
+                className={`p-4 rounded-2xl border flex gap-3 ${theme === 'vault' ? 'bg-white/5 border-white/10' : 'bg-emerald-50 border-emerald-100'}`}
+              >
+                <Mail className="text-emerald-600 shrink-0 mt-0.5" size={18} />
+                <div className="space-y-1">
+                  <p
+                    className={`text-[12px] font-bold ${theme === 'vault' ? 'text-white' : 'text-emerald-900'}`}
+                  >
+                    {t('resetEmailSentTitle')}
+                  </p>
+                  <p className={`text-[12px] ${mutedText} leading-relaxed`}>
+                    {t('resetEmailSentDesc').replace('{email}', sentToEmail)}
+                  </p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full h-12"
+                  onClick={handleResendResetLink}
+                  disabled={resendCooldown > 0 || resendStatus === 'sending'}
+                  aria-busy={resendStatus === 'sending'}
                 >
-                  {t('resetEmailSentTitle')}
-                </p>
-                <p className={`text-[12px] ${mutedText} leading-relaxed`}>
-                  {t('resetEmailSentDesc').replace('{email}', sentToEmail)}
-                </p>
+                  {resendStatus === 'sending' ? (
+                    <span className="inline-flex items-center justify-center gap-2">
+                      <Loader2 className="animate-spin" size={18} aria-hidden="true" />
+                      <span>{t('resendingResetLink')}</span>
+                    </span>
+                  ) : resendCooldown > 0 ? (
+                    t('resendResetLinkWait').replace('{seconds}', String(resendCooldown))
+                  ) : (
+                    t('resendResetLink')
+                  )}
+                </Button>
+                {resendStatus === 'sent' && (
+                  <p
+                    role="status"
+                    className={`text-[12px] ${theme === 'vault' ? 'text-emerald-300' : 'text-emerald-700'}`}
+                  >
+                    {t('resendResetLinkSuccess')}
+                  </p>
+                )}
+                {resendStatus === 'error' && (
+                  <p role="alert" className="text-[12px] text-red-600">
+                    {t('resendResetLinkError')}
+                  </p>
+                )}
+                <button
+                  type="button"
+                  onClick={handleUseDifferentEmail}
+                  className={`block w-full text-center text-[12px] font-semibold transition-colors py-1 ${theme === 'vault' ? 'text-white/70 hover:text-amber-300' : 'text-stone-500 hover:text-amber-600'}`}
+                >
+                  {t('useDifferentEmail')}
+                </button>
               </div>
             </div>
           ) : (
