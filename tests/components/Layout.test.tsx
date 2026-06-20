@@ -688,6 +688,85 @@ describe('Layout Component', () => {
     });
   });
 
+  // CUR-112: Privacy / Terms have no in-app discovery path after signup.
+  // Profile menu (shared by header dropdown + mobile bottom sheet) now surfaces
+  // both legal docs in every auth state.
+  describe('CUR-112 Legal links in profile menu', () => {
+    const authenticatedUser = { id: 'user-1', email: 'test@example.com' };
+
+    it('surfaces Terms and Privacy links in the header dropdown when signed in', async () => {
+      renderWithProviders(<Layout {...defaultProps} user={authenticatedUser} />);
+
+      fireEvent.click(screen.getByRole('button', { name: /account/i }));
+
+      await waitFor(() => {
+        const legal = within(screen.getByTestId('profile-dropdown')).getByTestId(
+          'profile-legal-links',
+        );
+        expect(within(legal).getByRole('link', { name: 'Terms of Service' })).toHaveAttribute(
+          'href',
+          '#/legal/terms',
+        );
+        expect(within(legal).getByRole('link', { name: 'Privacy Policy' })).toHaveAttribute(
+          'href',
+          '#/legal/privacy',
+        );
+      });
+    });
+
+    it('surfaces the same Terms and Privacy links when signed out', async () => {
+      renderWithProviders(<Layout {...defaultProps} user={null} />);
+
+      fireEvent.click(screen.getByRole('button', { name: /account/i }));
+
+      await waitFor(() => {
+        const legal = within(screen.getByTestId('profile-dropdown')).getByTestId(
+          'profile-legal-links',
+        );
+        expect(within(legal).getByRole('link', { name: 'Terms of Service' })).toBeInTheDocument();
+        expect(within(legal).getByRole('link', { name: 'Privacy Policy' })).toBeInTheDocument();
+      });
+    });
+
+    it('opens both legal links in a new tab with secure rel (mirrors signup pattern)', async () => {
+      renderWithProviders(<Layout {...defaultProps} user={authenticatedUser} />);
+
+      fireEvent.click(screen.getByRole('button', { name: /account/i }));
+
+      await waitFor(() => {
+        const legal = within(screen.getByTestId('profile-dropdown')).getByTestId(
+          'profile-legal-links',
+        );
+        for (const name of ['Terms of Service', 'Privacy Policy']) {
+          const link = within(legal).getByRole('link', { name });
+          expect(link).toHaveAttribute('target', '_blank');
+          expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+        }
+      });
+    });
+
+    it('surfaces both links from the mobile bottom sheet', async () => {
+      renderWithProviders(<Layout {...defaultProps} user={authenticatedUser} />);
+
+      const bottomNav = screen.getByRole('navigation', { name: /primary/i });
+      fireEvent.click(within(bottomNav).getByText('Profile').closest('button')!);
+
+      await waitFor(() => {
+        const legal = within(screen.getByTestId('profile-bottom-sheet')).getByTestId(
+          'profile-legal-links',
+        );
+        expect(within(legal).getByRole('link', { name: 'Terms of Service' })).toHaveAttribute(
+          'href',
+          '#/legal/terms',
+        );
+        expect(within(legal).getByRole('link', { name: 'Privacy Policy' })).toHaveAttribute(
+          'href',
+          '#/legal/privacy',
+        );
+      });
+    });
+  });
+
   describe('Accessibility', () => {
     it('has accessible account button with aria-label', () => {
       renderWithProviders(<Layout {...defaultProps} />);

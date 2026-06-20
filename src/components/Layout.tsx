@@ -196,6 +196,39 @@ export const Layout: React.FC<LayoutProps> = ({
         </div>
       </div>
 
+      <div
+        data-testid="profile-legal-links"
+        className={`px-4 pb-3 pt-1 flex items-center gap-3 text-[12px] ${
+          theme === 'vault' ? 'text-white/60' : 'text-stone-500'
+        }`}
+      >
+        <a
+          href="#/legal/terms"
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={closeProfile}
+          className={`underline-offset-4 hover:underline transition-colors ${
+            theme === 'vault' ? 'hover:text-white' : 'hover:text-stone-900'
+          }`}
+        >
+          {t('termsOfService')}
+        </a>
+        <span aria-hidden="true" className="opacity-40">
+          ·
+        </span>
+        <a
+          href="#/legal/privacy"
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={closeProfile}
+          className={`underline-offset-4 hover:underline transition-colors ${
+            theme === 'vault' ? 'hover:text-white' : 'hover:text-stone-900'
+          }`}
+        >
+          {t('privacyPolicy')}
+        </a>
+      </div>
+
       {isAuthenticated ? (
         <button
           onClick={() => {
