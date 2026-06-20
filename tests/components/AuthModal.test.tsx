@@ -502,7 +502,11 @@ describe('AuthModal', () => {
       email = 'lost@example.com',
     ) => {
       await user.click(screen.getByRole('button', { name: /forgot password/i }));
-      await user.type(screen.getByPlaceholderText(/curator@museum.com/i), email);
+      const emailInput = screen.getByPlaceholderText(/curator@museum.com/i);
+      // Clear in case a prior round of this helper left the input populated;
+      // an unset clear would concatenate addresses and fail HTML5 validation.
+      await user.clear(emailInput);
+      await user.type(emailInput, email);
       await user.click(screen.getByRole('button', { name: /send reset link/i }));
       await screen.findByText(/check your email/i);
     };
@@ -569,6 +573,27 @@ describe('AuthModal', () => {
       const email = await screen.findByPlaceholderText(/curator@museum.com/i);
       expect(email).toHaveValue('lost@example.com');
       expect(screen.getByRole('button', { name: /send reset link/i })).toBeInTheDocument();
+    });
+
+    it('clears stale resend status / cooldown when a new reset request is sent', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(<AuthModal {...defaultProps} />);
+
+      // First round: send → resend → cooldown is now active.
+      await sendInitialReset(user, 'first@example.com');
+      await user.click(screen.getByRole('button', { name: /resend link/i }));
+      await screen.findByText(/sent again/i);
+      expect(await screen.findByRole('button', { name: /resend in 30s/i })).toBeDisabled();
+
+      // Navigate back to sign-in and start a brand-new reset for a different email.
+      await user.click(screen.getByRole('button', { name: /back to sign in/i }));
+      await sendInitialReset(user, 'second@example.com');
+
+      // The fresh reset-sent screen must not carry over the prior "Sent again"
+      // microcopy or the locked-out Resend button.
+      expect(screen.queryByText(/sent again/i)).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /resend in \d+s/i })).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /resend link/i })).not.toBeDisabled();
     });
   });
 

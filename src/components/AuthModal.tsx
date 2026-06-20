@@ -224,6 +224,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       if (mode === 'reset-request') {
         await resetPasswordForEmail(email);
         setSentToEmail(email);
+        // A new reset-sent screen must start fresh: clear any stale
+        // resend status / cooldown left over from a previous round so
+        // the user sees an enabled Resend button and no leftover copy.
+        setResendStatus('idle');
+        setResendCooldown(0);
         setMode('reset-sent');
         return;
       }
