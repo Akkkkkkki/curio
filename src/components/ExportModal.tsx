@@ -5,6 +5,7 @@ import { CollectionItem, FieldDefinition } from '../types';
 import { Button } from './ui/Button';
 import { extractCurioAssetPath, getAsset, getEnhancedAsset } from '../services/db';
 import { useTranslation } from '../i18n';
+import { trackEvent } from '../services/analytics';
 
 const sanitizeFilename = (value: string) =>
   value
@@ -197,6 +198,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
 
   const handleShare = useCallback(async () => {
     if (exportAction) return;
+    trackEvent('share_initiated', { surface: 'item_card' });
     setExportAction('share');
     setExportError(null);
     try {
@@ -209,6 +211,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
       };
       if (typeof nav.share === 'function' && nav.canShare?.({ files: [file] })) {
         await nav.share({ files: [file], title: item.title || t('exportCard') });
+        trackEvent('share_completed', { method: 'native', surface: 'item_card' });
         return;
       }
       // No share target — fall back to download so the user still gets the image.
@@ -220,11 +223,16 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
       anchor.click();
       anchor.remove();
       setTimeout(() => URL.revokeObjectURL(url), 2000);
+      trackEvent('share_completed', { method: 'download_fallback', surface: 'item_card' });
       setExportError(t('shareFailed'));
     } catch (err) {
       const error = err as DOMException;
       if (error?.name === 'AbortError') return;
       console.error('Share failed:', err);
+      trackEvent('share_failed', {
+        reason: error?.name || 'unknown',
+        surface: 'item_card',
+      });
       setExportError(t('saveImageFailed'));
     } finally {
       setExportAction(null);

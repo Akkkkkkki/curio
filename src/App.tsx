@@ -266,6 +266,10 @@ export const AppContent: React.FC = () => {
       }
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : t('statusSyncPaused');
+      trackEvent('sync_failed', {
+        operation: 'manual_retry',
+        online: navigator.onLine,
+      });
       showStatus(t('statusSyncError').replace('{error}', errorMessage), 'error', {
         actionLabel: t('actionRetry'),
         onAction: () => handleRetrySync(),
@@ -283,7 +287,17 @@ export const AppContent: React.FC = () => {
 
   useEffect(() => {
     void refreshPendingAssetUploads();
-    const handleAssetSyncStatus = () => {
+    const handleAssetSyncStatus = (
+      status: 'queued' | 'synced' | 'error',
+      details?: { count?: number; error?: string },
+    ) => {
+      if (status === 'error') {
+        trackEvent('upload_failed', {
+          operation: 'pending_asset_sync',
+          retryable: true,
+          has_error_message: Boolean(details?.error),
+        });
+      }
       void refreshPendingAssetUploads();
     };
     setAssetSyncStatusCallback(handleAssetSyncStatus);
@@ -305,6 +319,13 @@ export const AppContent: React.FC = () => {
     const handleSyncStatus = (status: SyncStatus, error?: string) => {
       setSyncStatus(status);
       setSyncError(error ?? null);
+      if (status === 'error') {
+        trackEvent('sync_failed', {
+          operation: 'collection_sync',
+          online: navigator.onLine,
+          has_error_message: Boolean(error),
+        });
+      }
     };
     setSyncStatusCallback(handleSyncStatus);
     return () => setSyncStatusCallback(null);
@@ -663,18 +684,25 @@ export const AppContent: React.FC = () => {
   };
 
   const debouncedSaveCollection = useCallback(
-    (collection: UserCollection) => {
+    (collection: UserCollection, changedFields: string[]) => {
       if (saveTimeoutRef.current[collection.id]) {
         clearTimeout(saveTimeoutRef.current[collection.id]);
       }
       saveTimeoutRef.current[collection.id] = setTimeout(() => {
-        saveCollection(collection).catch((err) => {
-          console.warn('Sync failed', err);
-          showStatus(
-            t('statusSyncError').replace('{error}', err.message || 'Unknown error'),
-            'error',
-          );
-        });
+        saveCollection(collection)
+          .then(() => {
+            trackEvent('item_edited', {
+              fields: changedFields.sort().join(','),
+              surface: 'item_detail',
+            });
+          })
+          .catch((err) => {
+            console.warn('Sync failed', err);
+            showStatus(
+              t('statusSyncError').replace('{error}', err.message || 'Unknown error'),
+              'error',
+            );
+          });
       }, 1500);
     },
     [showStatus, t],
@@ -716,6 +744,10 @@ export const AppContent: React.FC = () => {
         hasPhoto = true;
       } catch (e) {
         console.error('Image processing failed', e);
+        trackEvent('upload_failed', {
+          operation: 'local_image_processing',
+          retryable: true,
+        });
       }
     }
 
@@ -760,7 +792,7 @@ export const AppContent: React.FC = () => {
               item.id === itemId ? { ...item, ...updates, updatedAt: now } : item,
             ),
           };
-          debouncedSaveCollection(newC);
+          debouncedSaveCollection(newC, Object.keys(updates));
           return newC;
         }
         return c;

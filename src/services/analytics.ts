@@ -1,16 +1,14 @@
-/**
- * Analytics shim — no-op stub for CUR-13.
- *
- * CUR-8 will replace the body of `trackEvent` with a real sink (PostHog,
- * Plausible, etc.). Until then, calls are buffered to the console in dev
- * and silently dropped in production. The event vocabulary is owned by
- * the callers; this module deliberately does no validation so it can ship
- * before the analytics provider decision lands.
- */
+import { track } from '@vercel/analytics';
 
 export type AnalyticsEvent =
-  | 'add_item_saved_with_story'
-  | 'add_item_saved_without_story'
+  | 'item_creation_started'
+  | 'item_saved'
+  | 'item_edited'
+  | 'sync_failed'
+  | 'upload_failed'
+  | 'share_initiated'
+  | 'share_completed'
+  | 'share_failed'
   | 'story_prompt_panel_opened'
   | 'story_prompt_inserted'
   | 'story_legacy_banner_action';
@@ -19,12 +17,33 @@ export interface AnalyticsPayload {
   [key: string]: string | number | boolean | null | undefined;
 }
 
+export type AnalyticsPlatform = 'web' | 'android' | 'ios';
+
+type CapacitorWindow = Window & {
+  Capacitor?: {
+    getPlatform?: () => string;
+  };
+};
+
+export const getAnalyticsPlatform = (): AnalyticsPlatform => {
+  if (typeof window === 'undefined') return 'web';
+  const platform = (window as CapacitorWindow).Capacitor?.getPlatform?.();
+  if (platform === 'android' || platform === 'ios') return platform;
+  return 'web';
+};
+
 export const trackEvent = (event: AnalyticsEvent, payload: AnalyticsPayload = {}): void => {
+  const properties = {
+    ...payload,
+    platform: getAnalyticsPlatform(),
+  };
+
   if (import.meta.env.DEV) {
     // eslint-disable-next-line no-console
-    console.debug('[analytics]', event, payload);
+    console.debug('[analytics]', event, properties);
   }
-  // CUR-8: forward to the real analytics provider here.
+
+  track(event, properties);
 };
 
 /**

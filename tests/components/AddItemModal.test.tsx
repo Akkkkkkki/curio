@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeAll } from 'vitest';
+import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '../utils/test-utils';
@@ -31,6 +31,15 @@ vi.mock('@/services/imageProcessor', async () => {
   };
 });
 
+vi.mock('@/services/analytics', async () => {
+  const actual =
+    await vi.importActual<typeof import('@/services/analytics')>('@/services/analytics');
+  return {
+    ...actual,
+    trackEvent: vi.fn(),
+  };
+});
+
 vi.mock('@capacitor/camera', () => ({
   Camera: {
     getPhoto: vi.fn(),
@@ -45,9 +54,11 @@ vi.mock('@capacitor/camera', () => ({
 }));
 
 import { analyzeImage, refreshAiEnabled } from '@/services/geminiService';
+import { trackEvent } from '@/services/analytics';
 
 const mockAnalyzeImage = analyzeImage as ReturnType<typeof vi.fn>;
 const mockRefreshAiEnabled = refreshAiEnabled as ReturnType<typeof vi.fn>;
+const mockTrackEvent = trackEvent as ReturnType<typeof vi.fn>;
 
 class MockFileReader {
   result: string | ArrayBuffer | null = null;
@@ -71,6 +82,25 @@ describe('AddItemModal', () => {
       global.requestAnimationFrame = (cb: FrameRequestCallback) => window.setTimeout(cb, 0);
     }
     global.FileReader = MockFileReader as unknown as typeof FileReader;
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('tracks an item creation start each time the modal opens', () => {
+    renderWithProviders(
+      <AddItemModal
+        isOpen
+        onClose={mockOnClose}
+        collections={[createMockCollection()]}
+        onSave={mockOnSave}
+      />,
+    );
+
+    expect(mockTrackEvent).toHaveBeenCalledWith('item_creation_started', {
+      surface: 'add_item_modal',
+    });
   });
 
   it('renders nothing when closed', () => {
@@ -150,5 +180,17 @@ describe('AddItemModal', () => {
     });
 
     expect(await screen.findByDisplayValue('Mock Artifact')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Archive 1 Artifacts' }));
+
+    await waitFor(() => {
+      expect(mockOnSave).toHaveBeenCalledTimes(1);
+      expect(mockTrackEvent).toHaveBeenCalledWith('item_saved', {
+        mode: 'batch',
+        has_story: false,
+        has_photo: true,
+        story_length_bucket: '0',
+      });
+    });
   });
 });
