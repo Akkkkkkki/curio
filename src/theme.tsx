@@ -140,11 +140,12 @@ export const typographyClasses = {
   titleHero: 'font-serif text-3xl sm:text-5xl font-bold tracking-tight',
   titleDisplay: 'font-serif text-4xl sm:text-6xl font-bold tracking-tight',
 
-  // Labels/Metadata: Mono, 11-12px, uppercase, wide tracking
-  label: 'font-mono text-[11px] sm:text-[12px] uppercase tracking-[0.2em] font-bold',
+  // Labels/Metadata: Mono, 11-12px, uppercase, wide tracking (tighter on mobile so they fit narrow grid cells)
+  label:
+    'font-mono text-[11px] sm:text-[12px] uppercase tracking-[0.1em] sm:tracking-[0.2em] font-bold',
   labelMuted:
-    'font-mono text-[11px] sm:text-[12px] uppercase tracking-[0.2em] font-medium opacity-50',
-  labelSmall: 'font-mono text-[10px] uppercase tracking-[0.15em] font-medium',
+    'font-mono text-[11px] sm:text-[12px] uppercase tracking-[0.1em] sm:tracking-[0.2em] font-medium opacity-50',
+  labelSmall: 'font-mono text-[10px] uppercase tracking-[0.08em] sm:tracking-[0.15em] font-medium',
 
   // Body text: Sans, 14-16px, relaxed leading
   body: 'font-sans text-sm leading-relaxed',
@@ -158,10 +159,11 @@ export const typographyClasses = {
   quote: 'font-serif italic text-lg leading-relaxed',
 } as const;
 
-// Theme-aware label colors
+// Theme-aware label colors. Vault uses stone-400 (#A8A29E) to match DESIGN.md's
+// "Text Muted" token — stone-500 fails WCAG AA on stone-900 surfaces.
 export const labelColorClasses: Record<AppTheme, string> = {
   gallery: 'text-stone-400',
-  vault: 'text-stone-500',
+  vault: 'text-stone-400',
   atelier: 'text-[#8C7B6B]', // Sepia-toned labels
 };
 
@@ -281,7 +283,7 @@ export const inputClasses: Record<AppTheme, string> = {
   gallery:
     'bg-white border-stone-200 text-stone-900 placeholder:text-stone-300 focus:ring-amber-500/10 focus:border-amber-200',
   vault:
-    'bg-stone-900 border-white/10 text-white placeholder:text-stone-500 focus:ring-[#D4A574]/10 focus:border-[#D4A574]/30',
+    'bg-stone-900 border-white/10 text-white placeholder:text-stone-400 focus:ring-[#D4A574]/10 focus:border-[#D4A574]/30',
   atelier:
     'bg-[#F5EFE4] border-[#D4C9B8] text-[#3D3530] placeholder:text-[#8C7B6B] focus:ring-[#A86F3C]/10 focus:border-[#A86F3C]/30',
 };

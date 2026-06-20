@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { X, AlertTriangle } from 'lucide-react';
 import { Button } from './ui/Button';
 import { useTranslation } from '../i18n';
 import { useTheme, panelSurfaceClasses, overlaySurfaceClasses } from '../theme';
+import { useModalA11y } from '../hooks/useModalA11y';
 
 interface DeleteItemsModalProps {
   isOpen: boolean;
@@ -23,6 +24,10 @@ export const DeleteItemsModal: React.FC<DeleteItemsModalProps> = ({
   const overlayClass = `${overlaySurfaceClasses[theme]} motion-overlay`;
   const borderClass = theme === 'vault' ? 'border-white/10' : 'border-stone-100';
 
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  useModalA11y(dialogRef, isOpen, onClose, { initialFocusRef: cancelRef });
+
   if (!isOpen) return null;
 
   return (
@@ -30,6 +35,10 @@ export const DeleteItemsModal: React.FC<DeleteItemsModalProps> = ({
       className={`fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 ${overlayClass} backdrop-blur-sm`}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="delete-items-modal-title"
         className={`${surfaceClass} rounded-t-[1.75rem] rounded-b-none sm:rounded-[1.75rem] shadow-2xl w-full max-w-md overflow-hidden flex flex-col motion-panel border pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] sm:pt-0 sm:pb-0`}
       >
         <div className="sm:hidden h-3" />
@@ -39,6 +48,7 @@ export const DeleteItemsModal: React.FC<DeleteItemsModalProps> = ({
               <AlertTriangle size={18} />
             </div>
             <h2
+              id="delete-items-modal-title"
               className={`font-serif font-bold text-lg ${theme === 'vault' ? 'text-white' : 'text-stone-800'}`}
             >
               {t('deleteItemsTitle')}
@@ -64,7 +74,7 @@ export const DeleteItemsModal: React.FC<DeleteItemsModalProps> = ({
         <div
           className={`px-6 py-4 border-t flex items-center justify-end gap-2 ${theme === 'vault' ? 'border-white/10 bg-white/5' : 'border-stone-100 bg-white'}`}
         >
-          <Button variant="ghost" onClick={onClose}>
+          <Button ref={cancelRef} variant="ghost" onClick={onClose}>
             {t('cancel')}
           </Button>
           <button

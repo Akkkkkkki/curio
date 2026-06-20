@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, Loader2, Sparkles, AlertCircle, Check, RotateCcw } from 'lucide-react';
 import { useTheme } from '../theme';
 import { useTranslation } from '../i18n';
+import { useModalA11y } from '../hooks/useModalA11y';
 import { EnhancementStrength } from '../types';
 import {
   enhanceImage,
@@ -69,6 +70,9 @@ export const EnhanceImageModal: React.FC<EnhanceImageModalProps> = ({
   const originalUrlRef = useRef<string | null>(null);
   const enhancedUrlRef = useRef<string | null>(null);
   const enhanceTimeoutRef = useRef<number | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useModalA11y(dialogRef, isOpen, onClose);
 
   // Check if AI image editing is enabled
   useEffect(() => {
@@ -287,6 +291,10 @@ export const EnhanceImageModal: React.FC<EnhanceImageModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="enhance-image-modal-title"
         className={`relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl shadow-2xl ${modalBg[theme]} ${textColor[theme]}`}
       >
         {/* Header */}
@@ -298,7 +306,9 @@ export const EnhanceImageModal: React.FC<EnhanceImageModalProps> = ({
               <Sparkles size={20} />
             </div>
             <div>
-              <h2 className="font-serif text-xl font-bold">{t('enhanceImage')}</h2>
+              <h2 id="enhance-image-modal-title" className="font-serif text-xl font-bold">
+                {t('enhanceImage')}
+              </h2>
               <p className={`text-sm ${mutedText[theme]}`}>{t('enhanceImageDesc')}</p>
             </div>
           </div>

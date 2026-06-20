@@ -16,7 +16,7 @@ Object.defineProperty(window, 'matchMedia', {
   })),
 });
 
-// Mock navigator.mediaDevices (for audio guide/museum guide)
+// Mock navigator.mediaDevices (used by components that probe media capabilities)
 Object.defineProperty(navigator, 'mediaDevices', {
   writable: true,
   value: {
@@ -57,5 +57,4 @@ process.env.VITE_SUPABASE_URL = 'https://test.supabase.co';
 process.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY = 'test-key';
 process.env.VITE_AI_ENABLED = 'true';
 process.env.VITE_API_BASE_URL = 'http://localhost:8787';
-process.env.VITE_VOICE_GUIDE_ENABLED = 'false';
 process.env.VITE_SUPABASE_SYNC_TIMESTAMPS = 'true';

@@ -14,6 +14,7 @@ import { SpeedInsights } from '@vercel/speed-insights/react';
 import { Analytics } from '@vercel/analytics/react';
 import { Layout } from './components/Layout';
 import { ExplorePlaceholder } from './components/ExplorePlaceholder';
+import { LegalPage } from './components/LegalPage';
 import { CollectionCard } from './components/CollectionCard';
 import { ItemCard } from './components/ItemCard';
 import { AddItemModal } from './components/AddItemModal';
@@ -35,18 +36,18 @@ import {
   Search,
   Loader2,
   Sparkles,
-  Mic,
   Play,
   Quote,
-  Globe,
   Calendar,
   Lock,
+  Landmark,
   AlertCircle,
   X,
   CheckSquare,
   ListOrdered,
   Undo2,
   Redo2,
+  Star,
 } from 'lucide-react';
 import { Button } from './components/ui/Button';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
@@ -54,6 +55,7 @@ import {
   fetchCloudCollections,
   getLocalCollections,
   getPendingAssetUploadCount,
+  getPendingDeletes,
   getPendingSyncIds,
   hasLocalOnlyData,
   importLocalCollectionsToCloud,
@@ -73,12 +75,12 @@ import {
   setSyncStatusCallback,
   syncPendingChanges,
   syncPendingAssetUploads,
+  syncPendingDeletes,
   extractCurioAssetPath,
   type SyncStatus,
 } from './services/db';
 import { processImage } from './services/imageProcessor';
 import { ItemImage } from './components/ItemImage';
-import { MuseumGuide } from './components/MuseumGuide';
 import { ExhibitionView } from './components/ExhibitionView';
 import { ExportModal } from './components/ExportModal';
 import { FilterModal } from './components/FilterModal';
@@ -94,13 +96,17 @@ import {
   useTheme,
   typographyClasses,
   labelColorClasses,
+  mutedTextClasses,
   inputClasses,
   accentColorClasses,
   dividerClasses,
   cardHoverClasses,
+  ratingColorClasses,
+  ratingEmptyClasses,
 } from './theme';
 import { StatusToast, StatusTone } from './components/StatusToast';
 import { StatusBanner } from './components/StatusBanner';
+import { LanguageToggle } from './components/LanguageToggle';
 import { ConflictResolutionModal } from './components/ConflictResolutionModal';
 import { CURRENT_SEED_VERSION, INITIAL_COLLECTIONS } from './services/seedCollections';
 import { trackEvent } from './services/analytics';
@@ -140,10 +146,9 @@ import { useDebouncedValue } from './hooks/useDebouncedValue';
 import { useAndroidBackButton } from './hooks/useAndroidBackButton';
 
 export const AppContent: React.FC = () => {
-  const { t, language, setLanguage } = useTranslation();
+  const { t, language } = useTranslation();
   const { theme, setTheme } = useTheme();
   useAndroidBackButton();
-  const isVoiceGuideEnabled = import.meta.env.VITE_VOICE_GUIDE_ENABLED === 'true';
   const [collections, setCollections] = useState<UserCollection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -151,16 +156,16 @@ export const AppContent: React.FC = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [authReady, setAuthReady] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
   const [allowPublicBrowse, setAllowPublicBrowse] = useState(false);
   const [hasLocalImport, setHasLocalImport] = useState(false);
   const [importState, setImportState] = useState<'idle' | 'running' | 'done' | 'error'>('idle');
   const [importMessage, setImportMessage] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [addModalDefaultCollectionId, setAddModalDefaultCollectionId] = useState<
+    string | undefined
+  >();
   const [isCreateCollectionOpen, setIsCreateCollectionOpen] = useState(false);
-  const [isGuideOpen, setIsGuideOpen] = useState(false);
-  const [activeCollectionForGuide, setActiveCollectionForGuide] = useState<UserCollection | null>(
-    null,
-  );
   const [status, setStatus] = useState<{
     message: string;
     tone: StatusTone;
@@ -176,6 +181,7 @@ export const AppContent: React.FC = () => {
   const [conflicts, setConflicts] = useState<ReturnType<typeof detectConflicts>>([]);
   const [isConflictModalOpen, setIsConflictModalOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   const [pendingAuthAction, setPendingAuthAction] = useState<
     'add-item' | 'create-collection' | null
   >(null);
@@ -257,11 +263,13 @@ export const AppContent: React.FC = () => {
     try {
       const synced = await syncPendingChanges({ force: true });
       const assetsSynced = await syncPendingAssetUploads();
+      const deletesSynced = await syncPendingDeletes();
       void refreshPendingAssetUploads();
-      if (synced > 0) {
-        showStatus(t('statusPendingSynced').replace('{count}', String(synced)), 'success');
+      const dataSynced = synced + deletesSynced;
+      if (dataSynced > 0) {
+        showStatus(t('statusPendingSynced').replace('{count}', String(dataSynced)), 'success');
       }
-      if (synced === 0 && assetsSynced === 0) {
+      if (dataSynced === 0 && assetsSynced === 0) {
         showStatus(t('statusWillSync'), 'warning');
       }
     } catch (e) {
@@ -338,7 +346,10 @@ export const AppContent: React.FC = () => {
   }, [conflicts.length]);
 
   useEffect(() => {
-    const handleOnline = () => setIsOffline(false);
+    const handleOnline = () => {
+      setIsOffline(false);
+      void syncPendingDeletes();
+    };
     const handleOffline = () => setIsOffline(true);
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
@@ -384,6 +395,19 @@ export const AppContent: React.FC = () => {
 
     let unsubscribe: (() => void) | undefined;
     const initAuth = async () => {
+      // Subscribe before reading the session so PASSWORD_RECOVERY emitted
+      // during Supabase's URL-detection phase isn't missed.
+      const {
+        data: { subscription },
+      } = supabase.auth.onAuthStateChange((event, session) => {
+        setUser(session?.user || null);
+        if (event === 'PASSWORD_RECOVERY') {
+          setIsPasswordRecovery(true);
+          setIsAuthModalOpen(true);
+        }
+      });
+      unsubscribe = () => subscription.unsubscribe();
+
       try {
         const {
           data: { session },
@@ -395,13 +419,6 @@ export const AppContent: React.FC = () => {
       } finally {
         setAuthReady(true);
       }
-
-      const {
-        data: { subscription },
-      } = supabase.auth.onAuthStateChange((_event, session) => {
-        setUser(session?.user || null);
-      });
-      unsubscribe = () => subscription.unsubscribe();
     };
 
     initAuth();
@@ -564,24 +581,49 @@ export const AppContent: React.FC = () => {
     }
     setIsLoading(true);
     setLoadError(null);
+
+    // Persistent storage is best-effort; never let it block or fail the load.
     try {
       await withTimeout(requestPersistence(), 4000, 'Persistence request timed out');
+    } catch (e) {
+      console.warn('Persistent storage request failed (continuing):', e);
+    }
 
-      const localCollections = await loadLocalCollectionsWithTimeout();
-      let cloudCollections: UserCollection[] = [];
-      try {
-        cloudCollections = await loadCloudCollectionsWithTimeout(user?.id ?? null);
-      } catch (e) {
-        console.warn('Supabase cloud fetch failed:', e);
-        setHasLocalImport(false);
+    // Local cache is a fallback; a slow/corrupt read must not abort the load.
+    let localCollections: UserCollection[] = [];
+    try {
+      localCollections = await loadLocalCollectionsWithTimeout();
+    } catch (e) {
+      console.warn('Local cache load failed (continuing):', e);
+    }
+
+    let cloudCollections: UserCollection[] = [];
+    try {
+      cloudCollections = await loadCloudCollectionsWithTimeout(user?.id ?? null);
+    } catch (e) {
+      console.warn('Supabase cloud fetch failed:', e);
+      setHasLocalImport(false);
+      setConflicts([]);
+      setIsConflictModalOpen(false);
+      // Prefer showing whatever we already have (cached or sample) over a
+      // blocking error screen. Only hard-block when there is genuinely nothing
+      // to display so the user can retry.
+      if (localCollections.length > 0) {
         setCollections(localCollections);
+        setLoadError(null);
+      } else if (!user) {
+        setCollections(fallbackSampleCollections);
+        setLoadError(null);
+      } else {
+        setCollections([]);
         setLoadError(tRef.current('loadErrorCloudFetch'));
-        setConflicts([]);
-        setIsConflictModalOpen(false);
-        showStatusRef.current(tRef.current('statusSyncPaused'), 'error');
-        return;
       }
+      showStatusRef.current(tRef.current('statusSyncPaused'), 'error');
+      setIsLoading(false);
+      return;
+    }
 
+    try {
       cloudCollections = await maybeSeedCollections({
         user,
         isAdmin,
@@ -589,13 +631,23 @@ export const AppContent: React.FC = () => {
         cloudCollections,
       });
 
-      const pendingSyncIds = await getPendingSyncIds();
-      const mergedCollections = mergeCollections(localCollections, cloudCollections, {
+      // Re-read local state AFTER the slow, network-bound cloud fetch (and any
+      // seeding) so that collections/items the user created or edited while the
+      // round-trip was in flight are included in the merge. Merging against the
+      // pre-fetch snapshot would let saveAllCollections() overwrite — and
+      // effectively delete — that just-written local data. (CUR-37)
+      const freshLocalCollections = await loadLocalCollectionsWithTimeout();
+      const [pendingSyncIds, pendingDeletes] = await Promise.all([
+        getPendingSyncIds(),
+        getPendingDeletes(),
+      ]);
+      const mergedCollections = mergeCollections(freshLocalCollections, cloudCollections, {
         includeLocalOnly: (collection) =>
           !collection.ownerId || pendingSyncIds.includes(collection.id),
+        pendingDeletes,
       });
 
-      const detectedConflicts = detectConflicts(localCollections, cloudCollections);
+      const detectedConflicts = detectConflicts(freshLocalCollections, cloudCollections);
       const unresolvedConflicts = detectedConflicts.filter(
         (conflict) => !resolvedConflictIdsRef.current.has(conflict.id),
       );
@@ -608,7 +660,7 @@ export const AppContent: React.FC = () => {
         showSyncedStatus,
       } = resolveCollectionsForUser({
         user,
-        localCollections,
+        localCollections: freshLocalCollections,
         cloudCollections,
         fallbackSampleCollections,
         mergedCollections,
@@ -616,22 +668,50 @@ export const AppContent: React.FC = () => {
 
       setHasLocalImport(resolvedHasLocalImport);
 
-      if (shouldPersist) {
-        await saveAllCollections(mergedCollections);
-      }
-
+      // Render the result and clear loading immediately. Cache persistence and
+      // pending-sync flushing run in the background so a slow IndexedDB write or
+      // a stalled upload can never keep the user stuck on the loading screen.
       setCollections(resolvedCollections);
+      setLoadError(null);
+      setIsLoading(false);
       if (showSyncedStatus) {
         showStatusRef.current(tRef.current('statusSynced'), 'success');
       }
+
+      void (async () => {
+        try {
+          if (shouldPersist) {
+            await saveAllCollections(mergedCollections);
+          }
+          if (user && navigator.onLine) {
+            const synced = await syncPendingChanges();
+            if (synced > 0) {
+              showStatusRef.current(
+                tRef.current('statusPendingSynced').replace('{count}', String(synced)),
+                'success',
+              );
+            }
+            await syncPendingAssetUploads();
+            await syncPendingDeletes();
+            void refreshPendingAssetUploads();
+          }
+        } catch (e) {
+          console.warn('Background cache persistence/sync failed:', e);
+        }
+      })();
     } catch (e) {
       console.error('Initialization failed:', e);
-      setLoadError(tRef.current('loadErrorGeneric'));
-      showStatusRef.current(tRef.current('statusSyncPaused'), 'error');
       setConflicts([]);
       setIsConflictModalOpen(false);
-      setCollections([]);
-    } finally {
+      // Fall back to cached data rather than blanking the UI when possible.
+      if (localCollections.length > 0) {
+        setCollections(localCollections);
+        setLoadError(null);
+      } else {
+        setCollections([]);
+        setLoadError(tRef.current('loadErrorGeneric'));
+      }
+      showStatusRef.current(tRef.current('statusSyncPaused'), 'error');
       setIsLoading(false);
     }
   }, [
@@ -639,6 +719,7 @@ export const AppContent: React.FC = () => {
     isAdmin,
     isSupabaseReady,
     withTimeout,
+    refreshPendingAssetUploads,
     fallbackSampleCollections,
     loadLocalCollectionsWithTimeout,
     loadCloudCollectionsWithTimeout,
@@ -724,10 +805,15 @@ export const AppContent: React.FC = () => {
     const exists = collections.some((c) => c.id === collectionId);
     if (!exists) {
       console.warn('handleAddItem: target collection not found', collectionId);
-      showStatus(t('statusSaveFailedMissingCollection'), 'error');
-      return;
+      const message = t('statusSaveFailedMissingCollection');
+      showStatus(message, 'error');
+      throw new Error(message);
     }
-    if (!canEditCollection(collectionId)) return;
+    if (!canEditCollection(collectionId)) {
+      const message = t('readOnlyControls');
+      showStatus(message, 'error');
+      throw new Error(message);
+    }
     pendingSyncToastRef.current = true;
     if (!isSupabaseReady) pendingSyncToastRef.current = false;
     const itemId = Math.random().toString(36).substr(2, 9);
@@ -748,6 +834,8 @@ export const AppContent: React.FC = () => {
           operation: 'local_image_processing',
           retryable: true,
         });
+        showStatus(t('saveImageFailed'), 'error');
+        throw new Error(t('saveImageFailed'));
       }
     }
 
@@ -775,7 +863,9 @@ export const AppContent: React.FC = () => {
       showStatus(t('statusSaved'), 'success');
     } else {
       console.warn('handleAddItem: target collection not found', collectionId);
-      showStatus(t('statusSaveFailedMissingCollection'), 'error');
+      const message = t('statusSaveFailedMissingCollection');
+      showStatus(message, 'error');
+      throw new Error(message);
     }
   };
 
@@ -1198,7 +1288,10 @@ export const AppContent: React.FC = () => {
               {canAddItems && (
                 <Button
                   variant="primary"
-                  onClick={() => setIsAddModalOpen(true)}
+                  onClick={() => {
+                    setAddModalDefaultCollectionId(collection?.id);
+                    setIsAddModalOpen(true);
+                  }}
                   icon={<Plus size={16} />}
                   className="shadow-md w-full sm:w-auto"
                 >
@@ -1214,22 +1307,6 @@ export const AppContent: React.FC = () => {
               >
                 {t('enterExhibition')}
               </Button>
-              {isVoiceGuideEnabled && (
-                <div className="w-full sm:w-auto">
-                  <Button
-                    variant="outline"
-                    className={`${theme === 'vault' ? 'bg-stone-900 text-white border-white/10' : 'bg-white'} w-full sm:w-auto`}
-                    onClick={() => {
-                      setActiveCollectionForGuide(collection);
-                      setIsGuideOpen(true);
-                    }}
-                    disabled={collection.items.length === 0}
-                    icon={<Mic size={16} />}
-                  >
-                    {t('vocalGuide')}
-                  </Button>
-                </div>
-              )}
             </div>
             <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full">
               {!isReadOnly && (
@@ -1257,13 +1334,13 @@ export const AppContent: React.FC = () => {
                 </Button>
               )}
               <div
-                className={`flex rounded-xl p-1 ${theme === 'vault' ? 'bg-white/5' : 'bg-stone-200/50'}`}
+                className={`flex rounded-xl p-1 ${theme === 'vault' ? 'bg-white/5' : theme === 'atelier' ? 'bg-[#D4C9B8]/30' : 'bg-stone-200/50'}`}
               >
                 <button
                   onClick={() => setViewMode('grid')}
                   aria-label={t('viewGrid')}
                   title={t('viewGrid')}
-                  className={`w-11 h-11 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}
+                  className={`w-11 h-11 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg transition-all ${viewMode === 'grid' ? (theme === 'vault' ? 'bg-white/10 text-white shadow-sm' : theme === 'atelier' ? 'bg-[#F5EFE4] text-[#3D3530] shadow-sm' : 'bg-white text-stone-900 shadow-sm') : theme === 'vault' ? 'text-stone-500 hover:text-stone-300' : theme === 'atelier' ? 'text-[#8C7B6B] hover:text-[#3D3530]' : 'text-stone-400 hover:text-stone-600'}`}
                 >
                   <LayoutGrid size={18} />
                 </button>
@@ -1271,7 +1348,7 @@ export const AppContent: React.FC = () => {
                   onClick={() => setViewMode('waterfall')}
                   aria-label={t('viewWaterfall')}
                   title={t('viewWaterfall')}
-                  className={`w-11 h-11 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg transition-all ${viewMode === 'waterfall' ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}
+                  className={`w-11 h-11 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg transition-all ${viewMode === 'waterfall' ? (theme === 'vault' ? 'bg-white/10 text-white shadow-sm' : theme === 'atelier' ? 'bg-[#F5EFE4] text-[#3D3530] shadow-sm' : 'bg-white text-stone-900 shadow-sm') : theme === 'vault' ? 'text-stone-500 hover:text-stone-300' : theme === 'atelier' ? 'text-[#8C7B6B] hover:text-[#3D3530]' : 'text-stone-400 hover:text-stone-600'}`}
                 >
                   <LayoutTemplate size={18} className="rotate-180" />
                 </button>
@@ -1293,7 +1370,7 @@ export const AppContent: React.FC = () => {
               <div className="relative flex gap-2 flex-1 min-w-[12rem]">
                 <input
                   type="text"
-                  placeholder="..."
+                  placeholder={t('collectionSearchPlaceholder')}
                   value={filterInput}
                   onChange={(e) => setFilterInput(e.target.value)}
                   className={`pl-4 pr-4 py-2 rounded-xl border focus:ring-4 focus:ring-amber-500/5 outline-none text-sm w-full transition-all shadow-sm font-serif italic ${theme === 'vault' ? 'bg-stone-900 border-white/10 text-white' : 'bg-white border-stone-200 text-stone-900'}`}
@@ -1376,30 +1453,60 @@ export const AppContent: React.FC = () => {
         )}
 
         {filteredItems.length === 0 ? (
-          <div
-            className={`text-center py-32 rounded-[3rem] border shadow-sm ${theme === 'vault' ? 'bg-white/5 border-white/5' : 'bg-white/50 border-stone-100'}`}
-          >
-            <div className="text-8xl mb-8 grayscale opacity-10">🏛️</div>
-            <h3
-              className={`text-3xl font-serif font-bold mb-2 italic tracking-tight ${theme === 'vault' ? 'text-white' : 'text-stone-800'}`}
+          hasFilterInput || activeFilterCount > 0 ? (
+            <div
+              className={`rounded-[2rem] border p-6 sm:p-8 text-center shadow-sm ${theme === 'vault' ? 'bg-white/5 border-white/10 text-stone-200' : 'bg-white/80 border-stone-100 text-stone-700'}`}
             >
-              {t('galleryAwaits')}
-            </h3>
-            <p
-              className={`${theme === 'vault' ? 'text-white/60' : 'text-stone-400'} mb-10 max-w-sm mx-auto leading-relaxed font-serif text-lg`}
+              <p className={`${typographyClasses.titleLarge} italic mb-2`}>
+                {t('searchNoResultsTitle')}
+              </p>
+              <p className={typographyClasses.labelMuted}>
+                {hasFilterInput
+                  ? t('collectionSearchNoResults', { query: filterInput.trim() })
+                  : t('collectionFilterNoResults')}
+              </p>
+              <div className="mt-6 flex justify-center gap-3">
+                {hasFilterInput && (
+                  <Button variant="outline" size="sm" onClick={() => setFilterInput('')}>
+                    {t('clearSearch')}
+                  </Button>
+                )}
+                {activeFilterCount > 0 && (
+                  <Button variant="outline" size="sm" onClick={handleClearFilters}>
+                    {t('clearAll')}
+                  </Button>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div
+              className={`text-center py-32 rounded-[3rem] border shadow-sm ${theme === 'vault' ? 'bg-white/5 border-white/5' : 'bg-white/50 border-stone-100'}`}
             >
-              {t('museumDefinition')}
-            </p>
-            {!isReadOnly && !hasFilterInput && activeFilterCount === 0 && (
-              <Button
-                size="lg"
-                className="px-12 py-4 text-lg rounded-2xl shadow-xl"
-                onClick={() => setIsAddModalOpen(true)}
+              <div className="text-8xl mb-8 grayscale opacity-10">🏛️</div>
+              <h3
+                className={`text-3xl font-serif font-bold mb-2 italic tracking-tight ${theme === 'vault' ? 'text-white' : 'text-stone-800'}`}
               >
-                {t('catalogFirst')}
-              </Button>
-            )}
-          </div>
+                {t('galleryAwaits')}
+              </h3>
+              <p
+                className={`${theme === 'vault' ? 'text-white/60' : 'text-stone-400'} mb-10 max-w-sm mx-auto leading-relaxed font-serif text-lg`}
+              >
+                {t('museumDefinition')}
+              </p>
+              {!isReadOnly && (
+                <Button
+                  size="lg"
+                  className="px-12 py-4 text-lg rounded-2xl shadow-xl"
+                  onClick={() => {
+                    setAddModalDefaultCollectionId(collection?.id);
+                    setIsAddModalOpen(true);
+                  }}
+                >
+                  {t('catalogFirst')}
+                </Button>
+              )}
+            </div>
+          )
         ) : (
           <>
             <div
@@ -1513,6 +1620,7 @@ export const AppContent: React.FC = () => {
     > | null>(null);
     const isApplyingHistoryRef = useRef(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const titleTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
     const collection = collections.find((c) => c.id === id);
     const item = collection?.items.find((i) => i.id === itemId);
@@ -1521,6 +1629,13 @@ export const AppContent: React.FC = () => {
     useEffect(() => {
       refreshAiImageEditEnabled().then(setAiImageEditEnabled);
     }, []);
+
+    useEffect(() => {
+      const ta = titleTextareaRef.current;
+      if (!ta) return;
+      ta.style.height = 'auto';
+      ta.style.height = `${ta.scrollHeight}px`;
+    }, [item?.title]);
 
     if (!collection || !item) return <Navigate to={`/collection/${id}`} replace />;
     const isReadOnly = Boolean(collection.isPublic) && !isAdmin;
@@ -1759,7 +1874,7 @@ export const AppContent: React.FC = () => {
     return (
       <>
         <div
-          className={`max-w-4xl mx-auto rounded-[2rem] sm:rounded-[4rem] border overflow-hidden animate-in zoom-in-95 duration-500 mb-20 ${detailBaseClasses[theme]}`}
+          className={`max-w-4xl mx-auto rounded-[2rem] sm:rounded-[4rem] border overflow-hidden animate-in zoom-in-95 duration-500 mb-[calc(var(--bottom-nav-height,5.5rem)+env(safe-area-inset-bottom,0px))] sm:mb-20 ${detailBaseClasses[theme]}`}
           onAnimationEnd={(e) => {
             // Remove animation classes after animation ends to fix fixed positioning in children
             e.currentTarget.classList.remove('animate-in', 'zoom-in-95', 'duration-500');
@@ -1767,7 +1882,7 @@ export const AppContent: React.FC = () => {
           }}
         >
           <div
-            className={`relative ${hasPhoto ? 'aspect-[4/5] sm:aspect-[16/9] md:aspect-[21/9]' : 'h-32 sm:h-48'} bg-stone-950 group transition-all duration-700 ease-in-out`}
+            className={`relative ${hasPhoto ? 'aspect-[4/5] max-h-[55vh] sm:aspect-[16/9] sm:max-h-none md:aspect-[21/9]' : 'h-32 sm:h-48'} bg-stone-950 group transition-all duration-700 ease-in-out`}
           >
             <ItemImage
               key={imageKey}
@@ -1785,7 +1900,7 @@ export const AppContent: React.FC = () => {
             {!isReadOnly && (
               <>
                 <div
-                  className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${hasPhoto ? 'opacity-100 sm:opacity-0 sm:group-hover:opacity-100' : 'opacity-100'}`}
+                  className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${hasPhoto ? 'hidden sm:flex sm:opacity-0 sm:group-hover:opacity-100' : 'opacity-100'}`}
                 >
                   <button
                     disabled={isProcessing}
@@ -1813,17 +1928,33 @@ export const AppContent: React.FC = () => {
             <button
               onClick={() => navigate(-1)}
               aria-label={t('back')}
-              className={`absolute top-4 left-4 sm:top-8 sm:left-8 w-10 h-10 sm:w-14 sm:h-14 backdrop-blur-md rounded-xl sm:rounded-2xl flex items-center justify-center shadow-xl transition-all hover:scale-105 z-10 ${theme === 'vault' ? 'bg-white/10 text-white' : 'bg-white/80 text-stone-800'}`}
+              className={`absolute top-4 left-4 sm:top-8 sm:left-8 w-11 h-11 sm:w-14 sm:h-14 backdrop-blur-md rounded-xl sm:rounded-2xl flex items-center justify-center shadow-xl transition-all hover:scale-105 z-10 ${theme === 'vault' ? 'bg-white/10 text-white' : 'bg-white/80 text-stone-800'}`}
             >
               <ArrowLeft size={20} className="sm:w-6 sm:h-6" />
             </button>
 
             <div className="absolute top-4 right-4 sm:top-8 sm:right-8 flex gap-2 sm:gap-4 z-10">
+              {/* Mobile-only quick action to update the photo (desktop reveals the centered pill on hover) */}
+              {!isReadOnly && hasPhoto && (
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isProcessing}
+                  className={`sm:hidden w-11 h-11 backdrop-blur-md rounded-xl flex items-center justify-center shadow-xl transition-all hover:scale-105 disabled:opacity-50 ${theme === 'vault' ? 'bg-white/10 text-white' : 'bg-white/80 text-stone-800'}`}
+                  title={t('updatePhoto')}
+                  aria-label={t('updatePhoto')}
+                >
+                  {isProcessing ? (
+                    <Loader2 size={18} className="animate-spin" />
+                  ) : (
+                    <Camera size={18} />
+                  )}
+                </button>
+              )}
               {/* Enhance Image Button - only show when AI is enabled, not read-only, and has photo */}
               {aiImageEditEnabled && !isReadOnly && isAssetPhoto && (
                 <button
                   onClick={() => setIsEnhanceOpen(true)}
-                  className={`w-10 h-10 sm:w-14 sm:h-14 backdrop-blur-md rounded-xl sm:rounded-2xl flex items-center justify-center shadow-xl transition-all hover:scale-105 ${theme === 'vault' ? 'bg-white/10 text-white' : 'bg-white/80 text-stone-800'}`}
+                  className={`w-11 h-11 sm:w-14 sm:h-14 backdrop-blur-md rounded-xl sm:rounded-2xl flex items-center justify-center shadow-xl transition-all hover:scale-105 ${theme === 'vault' ? 'bg-white/10 text-white' : 'bg-white/80 text-stone-800'}`}
                   title={t('enhanceImage')}
                   aria-label={t('enhanceImage')}
                 >
@@ -1832,7 +1963,7 @@ export const AppContent: React.FC = () => {
               )}
               <button
                 onClick={() => setIsExportOpen(true)}
-                className={`w-10 h-10 sm:w-14 sm:h-14 backdrop-blur-md rounded-xl sm:rounded-2xl flex items-center justify-center shadow-xl transition-all hover:scale-105 ${theme === 'vault' ? 'bg-white/10 text-white' : 'bg-white/80 text-stone-800'}`}
+                className={`w-11 h-11 sm:w-14 sm:h-14 backdrop-blur-md rounded-xl sm:rounded-2xl flex items-center justify-center shadow-xl transition-all hover:scale-105 ${theme === 'vault' ? 'bg-white/10 text-white' : 'bg-white/80 text-stone-800'}`}
                 title={t('exportCard')}
                 aria-label={t('exportCard')}
                 data-testid="item-export"
@@ -1862,22 +1993,29 @@ export const AppContent: React.FC = () => {
             )}
             <div className="flex flex-col md:flex-row justify-between items-start gap-8 sm:gap-12">
               <div className="flex-1 w-full">
-                <input
-                  type="text"
-                  className={`${typographyClasses.titleDisplay} mb-2 sm:mb-3 w-full bg-transparent border-b-2 ${
+                <textarea
+                  ref={titleTextareaRef}
+                  rows={1}
+                  className={`${typographyClasses.titleDisplay} mb-2 sm:mb-3 w-full bg-transparent border-b-2 resize-none overflow-hidden break-words leading-tight ${
                     titleIsEmpty && !isReadOnly
                       ? 'border-red-400 focus:border-red-500'
                       : 'border-transparent'
-                  } focus:border-amber-100 outline-none transition-all placeholder:italic ${theme === 'vault' ? 'text-white' : 'text-stone-900'} ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                  } focus:border-amber-500 outline-none transition-all placeholder:italic ${theme === 'vault' ? 'text-white' : 'text-stone-900'} ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
                   value={item.title}
                   onChange={(e) => applyItemUpdate({ title: e.target.value })}
-                  placeholder="..."
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      e.currentTarget.blur();
+                    }
+                  }}
+                  placeholder={t('itemTitlePlaceholder')}
                   disabled={isReadOnly}
                 />
                 {titleIsEmpty && !isReadOnly && (
                   <p className="text-xs font-semibold text-red-500 mb-3">{t('titleRequired')}</p>
                 )}
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   {[1, 2, 3, 4, 5].map((star) => (
                     <button
                       key={star}
@@ -1888,20 +2026,23 @@ export const AppContent: React.FC = () => {
                       className={`p-2 min-w-[48px] min-h-[48px] flex items-center justify-center transition-transform ${isReadOnly ? 'cursor-not-allowed opacity-70' : 'hover:scale-125'}`}
                       disabled={isReadOnly}
                     >
-                      <span className="text-2xl sm:text-4xl">
-                        {star <= item.rating ? (
-                          <span className="text-amber-500">★</span>
-                        ) : (
-                          <span className="text-amber-500/20">★</span>
-                        )}
-                      </span>
+                      <Star
+                        className={`w-6 h-6 sm:w-9 sm:h-9 ${
+                          star <= item.rating
+                            ? `${ratingColorClasses[theme]} fill-current`
+                            : ratingEmptyClasses[theme]
+                        }`}
+                        strokeWidth={1.5}
+                      />
                     </button>
                   ))}
-                  <span className={`ml-3 sm:ml-4 ${typographyClasses.label} text-stone-300`}>
+                  <span
+                    className={`shrink-0 whitespace-nowrap sm:ml-2 ${typographyClasses.label} ${mutedTextClasses[theme]}`}
+                  >
                     {t('registryQuality')}
                   </span>
                   {isReadOnly && (
-                    <span className="ml-2 text-[12px] text-amber-500 font-semibold">
+                    <span className="shrink-0 whitespace-nowrap text-[12px] text-amber-500 font-semibold">
                       {t('readOnlyControls')}
                     </span>
                   )}
@@ -1914,10 +2055,12 @@ export const AppContent: React.FC = () => {
                     disabled={history.length === 0}
                     aria-label={t('undo')}
                     title={t('undo')}
-                    className={`p-3 sm:p-4 rounded-full transition-colors ${
+                    className={`p-3 sm:p-4 rounded-full transition-colors ${mutedTextClasses[theme]} ${
                       history.length === 0
-                        ? 'text-stone-300 cursor-not-allowed'
-                        : 'text-stone-400 hover:text-stone-700 hover:bg-stone-100'
+                        ? 'opacity-50 cursor-not-allowed'
+                        : theme === 'vault'
+                          ? 'hover:text-white hover:bg-white/10'
+                          : 'hover:text-stone-900 hover:bg-stone-100'
                     }`}
                   >
                     <Undo2 size={18} className="sm:w-5 sm:h-5" />
@@ -1927,10 +2070,12 @@ export const AppContent: React.FC = () => {
                     disabled={future.length === 0}
                     aria-label={t('redo')}
                     title={t('redo')}
-                    className={`p-3 sm:p-4 rounded-full transition-colors ${
+                    className={`p-3 sm:p-4 rounded-full transition-colors ${mutedTextClasses[theme]} ${
                       future.length === 0
-                        ? 'text-stone-300 cursor-not-allowed'
-                        : 'text-stone-400 hover:text-stone-700 hover:bg-stone-100'
+                        ? 'opacity-50 cursor-not-allowed'
+                        : theme === 'vault'
+                          ? 'hover:text-white hover:bg-white/10'
+                          : 'hover:text-stone-900 hover:bg-stone-100'
                     }`}
                   >
                     <Redo2 size={18} className="sm:w-5 sm:h-5" />
@@ -1939,9 +2084,13 @@ export const AppContent: React.FC = () => {
                     onClick={handleDelete}
                     aria-label={t('deleteItem')}
                     title={t('deleteItem')}
-                    className="text-stone-200 hover:text-red-400 transition-colors p-3 sm:p-4 rounded-full hover:bg-red-50 shrink-0"
+                    className={`w-11 h-11 sm:w-12 sm:h-12 flex items-center justify-center rounded-xl border transition-colors shrink-0 ${
+                      theme === 'vault'
+                        ? 'bg-stone-900 border-white/10 text-stone-400 hover:text-red-400 hover:border-red-400/30'
+                        : 'bg-white border-stone-200 text-stone-400 hover:text-red-500 hover:border-red-200'
+                    }`}
                   >
-                    <Trash2 size={20} className="sm:w-6 sm:h-6" />
+                    <Trash2 size={18} className="sm:w-5 sm:h-5" />
                   </button>
                 </div>
               )}
@@ -2029,7 +2178,7 @@ export const AppContent: React.FC = () => {
                       ) : (
                         <textarea
                           ref={detailStoryRef}
-                          className={`w-full p-6 sm:p-8 rounded-2xl sm:rounded-[2.5rem] italic border font-serif text-xl sm:text-2xl leading-relaxed min-h-[200px] sm:min-h-[240px] focus:ring-8 focus:ring-amber-500/5 focus:border-amber-100 outline-none transition-all shadow-inner placeholder:text-stone-200 ${theme === 'vault' ? 'bg-white/5 border-white/5 text-white' : 'bg-stone-50/50 border-stone-100 text-stone-800'} ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                          className={`w-full p-6 sm:p-8 rounded-2xl sm:rounded-[2.5rem] italic border font-serif text-xl sm:text-2xl leading-relaxed min-h-[200px] sm:min-h-[240px] focus:ring-8 focus:ring-amber-500/30 focus:border-amber-500 outline-none transition-all shadow-inner placeholder:text-stone-400 ${theme === 'vault' ? 'bg-white/5 border-white/5 text-white' : 'bg-stone-50/50 border-stone-100 text-stone-800'} ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
                           value={item.notes}
                           onChange={(e) => applyItemUpdate({ notes: e.target.value })}
                           placeholder={t('storyPlaceholder')}
@@ -2098,19 +2247,19 @@ export const AppContent: React.FC = () => {
                 >
                   {t('technicalSpec')}
                 </dt>
-                <div className="grid grid-cols-2 lg:grid-cols-1 gap-6 sm:gap-8">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-6 sm:gap-8">
                   {collection.customFields.map((field) => {
                     const val = item.data[field.id];
                     const label = getLabel(field.id);
                     return (
                       <div key={field.id} className="group">
                         <dt
-                          className={`${typographyClasses.label} text-stone-300 mb-1 sm:mb-2 group-hover:text-amber-500 transition-colors break-words leading-tight`}
+                          className={`${typographyClasses.label} ${mutedTextClasses[theme]} mb-1 sm:mb-2 group-hover:text-amber-500 transition-colors break-words leading-tight`}
                         >
                           {label}
                         </dt>
                         <input
-                          className={`${typographyClasses.title} w-full bg-transparent border-none p-0 outline-none focus:text-amber-900 focus:ring-0 transition-colors placeholder:text-stone-100 ${theme === 'vault' ? 'text-white' : 'text-stone-900'} ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                          className={`${typographyClasses.title} w-full bg-transparent border-none p-0 outline-none focus:text-amber-900 focus:ring-0 transition-colors ${theme === 'vault' ? 'text-white placeholder:text-stone-400' : theme === 'atelier' ? 'text-stone-900 placeholder:text-[#8C7B6B]' : 'text-stone-900 placeholder:text-stone-500'} ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
                           value={val || ''}
                           placeholder="—"
                           onChange={(e) => {
@@ -2145,6 +2294,19 @@ export const AppContent: React.FC = () => {
                   )}
               </div>
             </div>
+            {(() => {
+              const created = new Date(item.createdAt);
+              if (Number.isNaN(created.getTime())) return null;
+              const locale = language === 'zh' ? 'zh-CN' : 'en-US';
+              const formatted = new Intl.DateTimeFormat(locale, {
+                dateStyle: 'long',
+              }).format(created);
+              return (
+                <p className={typographyClasses.accession} data-testid="item-added-on">
+                  {t('addedOn', { date: formatted })}
+                </p>
+              );
+            })()}
           </div>
         </div>
         <ExportModal
@@ -2236,9 +2398,20 @@ export const AppContent: React.FC = () => {
   const sampleCollection = useMemo(() => collections.find((c) => c.isPublic), [collections]);
   const showAccessGate = isSupabaseReady && !isAuthenticated && !allowPublicBrowse;
   const isExploreRoute = location.pathname === '/explore';
-  const shouldShowAccessGate = showAccessGate && !isExploreRoute;
+  const isLegalRoute = location.pathname.startsWith('/legal/');
+  const shouldShowAccessGate = showAccessGate && !isExploreRoute && !isLegalRoute;
   const fallbackSampleCollectionId = fallbackSampleCollections[0]?.id ?? null;
-  const sampleCollectionId = sampleCollection?.id ?? fallbackSampleCollectionId;
+  // Only expose a sample collection id that is actually present in `collections`.
+  // The fallback sample is not part of merged cloud state for an authenticated
+  // user with only private collections, so linking to it would bounce off
+  // CollectionScreen back to Home (a dead Explore tab). Fall back to null in that
+  // case so the bottom-nav Explore tab hides instead of dead-linking.
+  const sampleCollectionId = useMemo(() => {
+    if (sampleCollection) return sampleCollection.id;
+    return collections.some((c) => c.id === fallbackSampleCollectionId)
+      ? fallbackSampleCollectionId
+      : null;
+  }, [sampleCollection, collections, fallbackSampleCollectionId]);
 
   const statusBanner = useMemo(() => {
     if (!isSupabaseReady) {
@@ -2305,10 +2478,33 @@ export const AppContent: React.FC = () => {
 
   const handleExploreSamples = () => {
     setAllowPublicBrowse(true);
+    // Deep-link straight into the sample exhibition when one is resolvable, so
+    // the access-gate "Explore sample" CTA honors the single-path first-run
+    // contract instead of dropping the visitor on an intermediate home grid.
+    // When the sample isn't resolvable yet (network race) we keep the existing
+    // refresh-and-stay-on-home fallback. Skipping refreshCollections() in the
+    // navigate path mirrors handleExploreFromNav: a transient cloud failure
+    // during that click-time refresh could replace `collections` with
+    // local-only data and bounce the user off the just-opened collection.
+    if (sampleCollectionId) {
+      navigate(`/collection/${sampleCollectionId}`);
+      return;
+    }
     if (isSupabaseReady) {
       refreshCollections();
     }
   };
+
+  // The bottom-nav Explore tab is only rendered when the sample collection is
+  // already present in `collections` (see `sampleCollectionId`), so it just
+  // needs to clear the access gate and let the <Link> navigate. We deliberately
+  // skip refreshCollections() here: a transient cloud failure during that
+  // click-time refresh would replace `collections` with local-only data and
+  // drop the already-loaded target, turning this one-tap link back into the
+  // dead link we set out to remove.
+  const handleExploreFromNav = useCallback(() => {
+    setAllowPublicBrowse(true);
+  }, []);
 
   const handleAddAction = useCallback(() => {
     if (!isAuthenticated) {
@@ -2320,6 +2516,7 @@ export const AppContent: React.FC = () => {
       setIsCreateCollectionOpen(true);
       return;
     }
+    setAddModalDefaultCollectionId(undefined);
     setIsAddModalOpen(true);
   }, [editableCollections.length, isAuthenticated]);
 
@@ -2338,9 +2535,14 @@ export const AppContent: React.FC = () => {
 
   const handleAuthClose = () => {
     setIsAuthModalOpen(false);
+    setIsPasswordRecovery(false);
   };
 
   const handleAuthSuccess = () => {
+    if (isPasswordRecovery) {
+      setIsPasswordRecovery(false);
+      showStatus(t('passwordUpdated'), 'success');
+    }
     if (pendingAuthAction) {
       setAuthActionQueue(pendingAuthAction);
       setPendingAuthAction(null);
@@ -2362,22 +2564,39 @@ export const AppContent: React.FC = () => {
       className="flex flex-col items-center justify-center px-4 py-16 sm:py-24"
       data-testid="access-gate"
     >
-      <div className="max-w-md w-full text-center bg-white/70 border border-stone-200 rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-10 shadow-xl">
-        <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-stone-100 text-stone-500 flex items-center justify-center mx-auto mb-5 sm:mb-6">
+      <div
+        className={`max-w-md w-full text-center border rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-10 shadow-xl ${theme === 'vault' ? 'bg-white/5 border-white/10' : theme === 'atelier' ? 'bg-[#EDE4D3]/70 border-[#D4C9B8]' : 'bg-white/70 border-stone-200'}`}
+      >
+        <div
+          className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center mx-auto mb-5 sm:mb-6 ${theme === 'vault' ? 'bg-white/10 text-stone-400' : theme === 'atelier' ? 'bg-[#D4C9B8]/50 text-[#8C7B6B]' : 'bg-stone-100 text-stone-500'}`}
+        >
           {!authReady && isSupabaseReady ? (
             <Loader2 size={24} className="animate-spin" />
+          ) : isSupabaseReady ? (
+            <Landmark size={24} />
           ) : (
             <Lock size={24} />
           )}
         </div>
-        <h1 className="font-serif text-2xl font-bold text-stone-900 mb-2">
+        <h1
+          className={`font-serif text-2xl font-bold mb-2 ${theme === 'vault' ? 'text-white' : theme === 'atelier' ? 'text-[#3D3530]' : 'text-stone-900'}`}
+        >
           {!authReady && isSupabaseReady
             ? t('authLoading')
             : isSupabaseReady
               ? t('authRequiredTitle')
               : t('cloudRequiredTitle')}
         </h1>
-        <p className="text-sm text-stone-500 mb-6">
+        {authReady && isSupabaseReady && (
+          <p
+            className={`font-serif italic text-base mb-4 ${theme === 'vault' ? 'text-stone-300' : theme === 'atelier' ? 'text-[#6B5344]' : 'text-stone-600'}`}
+          >
+            {t('accessGateTagline')}
+          </p>
+        )}
+        <p
+          className={`text-sm mb-6 ${theme === 'vault' ? 'text-stone-400' : theme === 'atelier' ? 'text-[#8C7B6B]' : 'text-stone-500'}`}
+        >
           {!authReady && isSupabaseReady
             ? t('authLoadingDesc')
             : isSupabaseReady
@@ -2405,12 +2624,18 @@ export const AppContent: React.FC = () => {
             </Button>
           )}
           {!isSupabaseReady ? (
-            <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-stone-400">
+            <div
+              className={`text-[11px] font-semibold uppercase tracking-[0.16em] ${theme === 'vault' ? 'text-stone-500' : theme === 'atelier' ? 'text-[#8C7B6B]' : 'text-stone-400'}`}
+            >
               {t('cloudRequiredAction')}
             </div>
           ) : null}
         </div>
-        <p className="text-[12px] text-stone-400 mt-5 leading-relaxed">{t('ctaPromise')}</p>
+        <p
+          className={`text-[12px] mt-5 leading-relaxed ${theme === 'vault' ? 'text-stone-500' : theme === 'atelier' ? 'text-[#8C7B6B]' : 'text-stone-400'}`}
+        >
+          {t('ctaPromise')}
+        </p>
       </div>
     </div>
   );
@@ -2432,6 +2657,7 @@ export const AppContent: React.FC = () => {
         onImportLocal={handleImportLocal}
         statusBanner={statusBanner}
         onAddItem={handleAddAction}
+        onExploreSamples={handleExploreFromNav}
         headerExtras={
           <div className="flex items-center gap-2 sm:gap-3">
             {sampleCollection && (
@@ -2456,16 +2682,7 @@ export const AppContent: React.FC = () => {
                 {t('login')}
               </Button>
             )}
-            <button
-              onClick={() => setLanguage(language === 'en' ? 'zh' : 'en')}
-              className="p-2 hover:bg-stone-100 dark:hover:bg-white/10 rounded-full text-stone-500 hover:text-stone-900 transition-colors flex items-center gap-1 sm:gap-1.5"
-              title={t('switchLanguage')}
-            >
-              <Globe size={18} />
-              <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.14em]">
-                {language === 'en' ? 'ZH' : 'EN'}
-              </span>
-            </button>
+            <LanguageToggle />
           </div>
         }
       >
@@ -2498,6 +2715,7 @@ export const AppContent: React.FC = () => {
                   />
                 }
               />
+              <Route path="/legal/:doc" element={<LegalPage />} />
               <Route
                 path="/collection/:id"
                 element={
@@ -2520,21 +2738,18 @@ export const AppContent: React.FC = () => {
               isOpen={isAddModalOpen}
               onClose={() => setIsAddModalOpen(false)}
               collections={editableCollections}
+              defaultCollectionId={addModalDefaultCollectionId}
               onSave={handleAddItem}
             />
             <CreateCollectionModal
               isOpen={isCreateCollectionOpen}
               onClose={() => setIsCreateCollectionOpen(false)}
               onCreate={handleCreateCollection}
-              onAddFirstItem={() => setIsAddModalOpen(true)}
+              onAddFirstItem={() => {
+                setAddModalDefaultCollectionId(undefined);
+                setIsAddModalOpen(true);
+              }}
             />
-            {isVoiceGuideEnabled && activeCollectionForGuide && (
-              <MuseumGuide
-                collection={activeCollectionForGuide}
-                isOpen={isGuideOpen}
-                onClose={() => setIsGuideOpen(false)}
-              />
-            )}
           </>
         )}
       </Layout>
@@ -2557,6 +2772,7 @@ export const AppContent: React.FC = () => {
         isOpen={isAuthModalOpen}
         onClose={handleAuthClose}
         onAuthSuccess={handleAuthSuccess}
+        initialMode={isPasswordRecovery ? 'set-password' : undefined}
       />
       <ConflictResolutionModal
         isOpen={isConflictModalOpen}

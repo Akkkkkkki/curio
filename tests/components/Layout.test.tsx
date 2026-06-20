@@ -11,6 +11,7 @@ import {
   screen,
   fireEvent,
   waitFor,
+  within,
   setMockTheme,
   createThemeMock,
 } from '../utils/test-utils';
@@ -155,7 +156,8 @@ describe('Layout Component', () => {
       fireEvent.click(accountButton);
 
       await waitFor(() => {
-        expect(screen.getByText('Sign In')).toBeInTheDocument();
+        const dropdown = screen.getByTestId('profile-dropdown');
+        expect(within(dropdown).getByText('Sign In')).toBeInTheDocument();
       });
     });
 
@@ -167,7 +169,8 @@ describe('Layout Component', () => {
       fireEvent.click(accountButton);
 
       await waitFor(() => {
-        const loginButton = screen.getByText('Sign In');
+        const dropdown = screen.getByTestId('profile-dropdown');
+        const loginButton = within(dropdown).getByText('Sign In');
         fireEvent.click(loginButton);
       });
 
@@ -182,7 +185,8 @@ describe('Layout Component', () => {
       fireEvent.click(accountButton);
 
       await waitFor(() => {
-        const loginButton = screen.getByText('Sign In');
+        const dropdown = screen.getByTestId('profile-dropdown');
+        const loginButton = within(dropdown).getByText('Sign In');
         fireEvent.click(loginButton);
       });
 
@@ -390,36 +394,175 @@ describe('Layout Component', () => {
   });
 
   describe('Bottom Navigation (Mobile)', () => {
+    const authenticatedUser = { id: 'user-1', email: 'test@example.com' };
+
     it('renders all navigation items', () => {
-      renderWithProviders(<Layout {...defaultProps} sampleCollectionId="sample-vinyl-1" />);
+      renderWithProviders(
+        <Layout {...defaultProps} user={authenticatedUser} sampleCollectionId="sample-vinyl-1" />,
+      );
 
       const bottomNav = screen.getByRole('navigation', { name: /primary/i });
       expect(bottomNav).toBeInTheDocument();
 
-      expect(screen.getAllByText('Home').length).toBeGreaterThanOrEqual(1);
-      expect(screen.getByText('Explore')).toBeInTheDocument();
-      expect(screen.getByText('Add')).toBeInTheDocument();
-      expect(screen.getByText('Profile')).toBeInTheDocument();
+      expect(within(bottomNav).getByText('Home')).toBeInTheDocument();
+      expect(within(bottomNav).getByText('Explore')).toBeInTheDocument();
+      expect(within(bottomNav).getByText('Add')).toBeInTheDocument();
+      expect(within(bottomNav).getByText('Profile')).toBeInTheDocument();
     });
 
     it('calls onAddItem when add button is clicked', () => {
       const onAddItem = vi.fn();
       renderWithProviders(<Layout {...defaultProps} onAddItem={onAddItem} />);
 
-      const addButton = screen.getByText('Add').closest('button');
+      const bottomNav = screen.getByRole('navigation', { name: /primary/i });
+      const addButton = within(bottomNav).getByText('Add').closest('button');
       fireEvent.click(addButton!);
 
       expect(onAddItem).toHaveBeenCalledTimes(1);
     });
 
     it('opens profile when profile button is clicked', async () => {
-      renderWithProviders(<Layout {...defaultProps} />);
+      renderWithProviders(<Layout {...defaultProps} user={authenticatedUser} />);
 
-      const profileButton = screen.getByText('Profile').closest('button');
+      const bottomNav = screen.getByRole('navigation', { name: /primary/i });
+      const profileButton = within(bottomNav).getByText('Profile').closest('button');
       fireEvent.click(profileButton!);
 
       await waitFor(() => {
         expect(screen.getByText('Account Status')).toBeInTheDocument();
+      });
+    });
+
+    describe('Add button pill is theme-aware', () => {
+      it.each([
+        { theme: 'gallery' as const, expected: ['bg-amber-100', 'text-amber-700'] },
+        { theme: 'vault' as const, expected: ['bg-[#D4A574]/20', 'text-[#D4A574]'] },
+        { theme: 'atelier' as const, expected: ['bg-[#A86F3C]/15', 'text-[#A86F3C]'] },
+      ])('uses theme accent in $theme', ({ theme, expected }) => {
+        setMockTheme(theme);
+        renderWithProviders(<Layout {...defaultProps} />);
+
+        const pill = screen.getByTestId('bottom-nav-add-pill');
+        for (const className of expected) {
+          expect(pill.className).toContain(className);
+        }
+      });
+    });
+
+    it('renders profile menu as a bottom sheet (not the header dropdown) when triggered from bottom nav', async () => {
+      renderWithProviders(<Layout {...defaultProps} user={authenticatedUser} />);
+
+      const bottomNav = screen.getByRole('navigation', { name: /primary/i });
+      const profileButton = within(bottomNav).getByText('Profile').closest('button');
+      fireEvent.click(profileButton!);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('profile-bottom-sheet')).toBeInTheDocument();
+      });
+      expect(screen.queryByTestId('profile-dropdown')).not.toBeInTheDocument();
+    });
+
+    it('renders the header dropdown (not the bottom sheet) when triggered from the header account button', async () => {
+      renderWithProviders(<Layout {...defaultProps} />);
+
+      const accountButton = screen.getByRole('button', { name: /account/i });
+      fireEvent.click(accountButton);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('profile-dropdown')).toBeInTheDocument();
+      });
+      expect(screen.queryByTestId('profile-bottom-sheet')).not.toBeInTheDocument();
+    });
+
+    it('closes the bottom sheet when Escape is pressed', async () => {
+      renderWithProviders(<Layout {...defaultProps} user={authenticatedUser} />);
+
+      const bottomNav = screen.getByRole('navigation', { name: /primary/i });
+      const profileButton = within(bottomNav).getByText('Profile').closest('button');
+      fireEvent.click(profileButton!);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('profile-bottom-sheet')).toBeInTheDocument();
+      });
+
+      fireEvent.keyDown(document, { key: 'Escape' });
+
+      await waitFor(() => {
+        expect(screen.queryByTestId('profile-bottom-sheet')).not.toBeInTheDocument();
+      });
+    });
+
+    it('closes the bottom sheet when the backdrop is clicked', async () => {
+      renderWithProviders(<Layout {...defaultProps} user={authenticatedUser} />);
+
+      const bottomNav = screen.getByRole('navigation', { name: /primary/i });
+      const profileButton = within(bottomNav).getByText('Profile').closest('button');
+      fireEvent.click(profileButton!);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('profile-bottom-sheet')).toBeInTheDocument();
+      });
+
+      const backdrop = screen.getByTestId('profile-bottom-sheet-backdrop');
+      fireEvent.click(backdrop);
+
+      await waitFor(() => {
+        expect(screen.queryByTestId('profile-bottom-sheet')).not.toBeInTheDocument();
+      });
+    });
+
+    // CUR-95: bottom sheet exposes a visible close button (the backdrop alone
+    // is not a discoverable affordance on mobile) and restores focus to the
+    // trigger after dismissal.
+    describe('CUR-95 bottom sheet close affordance', () => {
+      it('renders a visible close button inside the bottom sheet', async () => {
+        renderWithProviders(<Layout {...defaultProps} user={authenticatedUser} />);
+
+        const bottomNav = screen.getByRole('navigation', { name: /primary/i });
+        const profileButton = within(bottomNav).getByText('Profile').closest('button');
+        fireEvent.click(profileButton!);
+
+        await waitFor(() => {
+          expect(screen.getByTestId('profile-bottom-sheet-close')).toBeInTheDocument();
+        });
+        const closeButton = screen.getByTestId('profile-bottom-sheet-close');
+        expect(closeButton).toHaveAttribute('aria-label', 'Close');
+      });
+
+      it('closes the bottom sheet when the close button is clicked', async () => {
+        renderWithProviders(<Layout {...defaultProps} user={authenticatedUser} />);
+
+        const bottomNav = screen.getByRole('navigation', { name: /primary/i });
+        const profileButton = within(bottomNav).getByText('Profile').closest('button');
+        fireEvent.click(profileButton!);
+
+        await waitFor(() => {
+          expect(screen.getByTestId('profile-bottom-sheet')).toBeInTheDocument();
+        });
+
+        fireEvent.click(screen.getByTestId('profile-bottom-sheet-close'));
+
+        await waitFor(() => {
+          expect(screen.queryByTestId('profile-bottom-sheet')).not.toBeInTheDocument();
+        });
+      });
+
+      it('restores focus to the bottom-nav profile button after the sheet closes', async () => {
+        renderWithProviders(<Layout {...defaultProps} user={authenticatedUser} />);
+
+        const bottomNav = screen.getByRole('navigation', { name: /primary/i });
+        const profileButton = within(bottomNav).getByText('Profile').closest('button');
+        fireEvent.click(profileButton!);
+
+        await waitFor(() => {
+          expect(screen.getByTestId('profile-bottom-sheet-close')).toBeInTheDocument();
+        });
+
+        fireEvent.click(screen.getByTestId('profile-bottom-sheet-close'));
+
+        await waitFor(() => {
+          expect(document.activeElement).toBe(profileButton);
+        });
       });
     });
   });
@@ -469,6 +612,79 @@ describe('Layout Component', () => {
           expect(screen.getByText('Account Status')).toBeInTheDocument();
         });
       });
+    });
+  });
+
+  // CUR-49: First-run discoverability — signed-out users get a visible "Sign In"
+  // label next to the header icon and in the mobile bottom nav, with a matching
+  // tooltip on hover.
+  describe('CUR-49 Sign-in entry point label', () => {
+    const authenticatedUser = { id: 'user-1', email: 'test@example.com' };
+
+    it('shows a visible Sign In label in the header when signed out', () => {
+      renderWithProviders(<Layout {...defaultProps} user={null} />);
+
+      const label = screen.getByTestId('header-sign-in-label');
+      expect(label).toBeInTheDocument();
+      expect(label).toHaveTextContent('Sign In');
+    });
+
+    it('uses JetBrains Mono uppercase wide tracking on the header label (per DESIGN.md)', () => {
+      renderWithProviders(<Layout {...defaultProps} user={null} />);
+
+      const label = screen.getByTestId('header-sign-in-label');
+      expect(label.className).toContain('font-mono');
+      expect(label.className).toContain('uppercase');
+      expect(label.className).toMatch(/tracking-/);
+    });
+
+    it('hides the header Sign In label when signed in', () => {
+      renderWithProviders(<Layout {...defaultProps} user={authenticatedUser} />);
+
+      expect(screen.queryByTestId('header-sign-in-label')).not.toBeInTheDocument();
+    });
+
+    it('hides the header Sign In label when Supabase is not configured', () => {
+      renderWithProviders(<Layout {...defaultProps} user={null} isSupabaseConfigured={false} />);
+
+      expect(screen.queryByTestId('header-sign-in-label')).not.toBeInTheDocument();
+    });
+
+    it('uses Sign In as the header button tooltip when signed out', () => {
+      renderWithProviders(<Layout {...defaultProps} user={null} />);
+
+      const accountButton = screen.getByRole('button', { name: /account/i });
+      expect(accountButton).toHaveAttribute('title', 'Sign In');
+    });
+
+    it('keeps the signed-in status as the tooltip when signed in', () => {
+      renderWithProviders(<Layout {...defaultProps} user={authenticatedUser} />);
+
+      const accountButton = screen.getByRole('button', { name: /account/i });
+      expect(accountButton).toHaveAttribute('title', 'Signed In');
+    });
+
+    it('shows Sign In on the mobile bottom nav when signed out', () => {
+      renderWithProviders(<Layout {...defaultProps} user={null} />);
+
+      const bottomNav = screen.getByRole('navigation', { name: /primary/i });
+      expect(within(bottomNav).getByText('Sign In')).toBeInTheDocument();
+      expect(within(bottomNav).queryByText('Profile')).not.toBeInTheDocument();
+    });
+
+    it('shows Profile on the mobile bottom nav when signed in', () => {
+      renderWithProviders(<Layout {...defaultProps} user={authenticatedUser} />);
+
+      const bottomNav = screen.getByRole('navigation', { name: /primary/i });
+      expect(within(bottomNav).getByText('Profile')).toBeInTheDocument();
+      expect(within(bottomNav).queryByText('Sign In')).not.toBeInTheDocument();
+    });
+
+    it('keeps Profile on the mobile bottom nav when Supabase is not configured', () => {
+      renderWithProviders(<Layout {...defaultProps} user={null} isSupabaseConfigured={false} />);
+
+      const bottomNav = screen.getByRole('navigation', { name: /primary/i });
+      expect(within(bottomNav).getByText('Profile')).toBeInTheDocument();
     });
   });
 

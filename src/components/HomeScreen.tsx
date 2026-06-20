@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { AlertCircle, Sparkles, Calendar, Search, Plus, Loader2 } from 'lucide-react';
+import { AlertCircle, Sparkles, Calendar, Search, Plus, Loader2, X } from 'lucide-react';
 import { useTranslation } from '../i18n';
 import {
   useTheme,
@@ -61,6 +61,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const historyPreview = historyItems.slice(0, 3);
   const historyOverflow = historyItems.length - historyPreview.length;
   const primaryHistoryItem = historyItems[0];
+  const [historyExpanded, setHistoryExpanded] = useState(false);
+  const visibleHistoryItems = historyExpanded ? historyItems : historyPreview;
   const hasPrivateCollections = collections.some((c) => !c.isPublic);
   const shouldShowOnboarding = showOnboarding && !hasPrivateCollections;
 
@@ -86,14 +88,24 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   if (loadError)
     return (
       <div className="flex flex-col items-center justify-center px-4 py-16 sm:py-24">
-        <div className="max-w-md w-full text-center bg-white/70 border border-stone-200 rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-10 shadow-xl">
-          <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto mb-5 sm:mb-6">
+        <div
+          className={`max-w-md w-full text-center border rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-10 shadow-xl ${theme === 'vault' ? 'bg-white/5 border-white/10' : theme === 'atelier' ? 'bg-[#EDE4D3]/70 border-[#D4C9B8]' : 'bg-white/70 border-stone-200'}`}
+        >
+          <div
+            className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center mx-auto mb-5 sm:mb-6 ${theme === 'vault' ? 'bg-amber-500/10 text-amber-400' : theme === 'atelier' ? 'bg-[#A86F3C]/10 text-[#A86F3C]' : 'bg-amber-50 text-amber-600'}`}
+          >
             <AlertCircle size={24} />
           </div>
-          <h2 className="font-serif text-2xl font-bold text-stone-900 mb-2">
+          <h2
+            className={`font-serif text-2xl font-bold mb-2 ${theme === 'vault' ? 'text-white' : theme === 'atelier' ? 'text-[#3D3530]' : 'text-stone-900'}`}
+          >
             {t('syncPausedTitle')}
           </h2>
-          <p className="text-sm text-stone-500 mb-6">{loadError}</p>
+          <p
+            className={`text-sm mb-6 ${theme === 'vault' ? 'text-stone-400' : theme === 'atelier' ? 'text-[#8C7B6B]' : 'text-stone-500'}`}
+          >
+            {loadError}
+          </p>
           <Button onClick={() => refreshCollections()} size="lg" className="w-full">
             {t('actionRetry')}
           </Button>
@@ -218,7 +230,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             className={`relative overflow-hidden rounded-[2rem] p-6 sm:p-7 border flex flex-col justify-between transition-all duration-500 ${themeBaseClasses[theme]} shadow-md`}
           >
             <div className="flex items-center justify-between mb-3 sm:mb-4">
-              <div className="p-2 bg-amber-50 rounded-xl text-amber-600">
+              <div
+                className={`p-2 rounded-xl ${theme === 'vault' ? 'bg-amber-500/10 text-amber-400' : theme === 'atelier' ? 'bg-[#A86F3C]/10 text-[#A86F3C]' : 'bg-amber-50 text-amber-600'}`}
+              >
                 <Calendar size={18} />
               </div>
               <span className={`${typographyClasses.labelSmall} ${labelColorClasses[theme]}`}>
@@ -244,43 +258,54 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 </h4>
               </div>
               <div className="space-y-3">
-                <div className="space-y-2">
-                  {historyPreview.map((item) => {
+                <ul id="on-this-day-list" className="space-y-2">
+                  {visibleHistoryItems.map((item) => {
                     const itemYear = new Date(item.createdAt).getFullYear();
                     return (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => navigate(`/collection/${item.collectionId}/item/${item.id}`)}
-                        className="w-full text-left rounded-xl border border-stone-200/60 bg-white/70 px-3 py-2 text-xs sm:text-sm shadow-sm transition hover:border-amber-200 hover:bg-amber-50/60"
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="truncate font-medium text-stone-700">{item.title}</span>
-                          <span className="text-[11px] uppercase tracking-wide text-stone-400">
-                            {itemYear}
-                          </span>
-                        </div>
-                      </button>
+                      <li key={item.id}>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            navigate(`/collection/${item.collectionId}/item/${item.id}`)
+                          }
+                          className={`w-full text-left rounded-xl border px-3 py-2 text-xs sm:text-sm shadow-sm transition ${theme === 'vault' ? 'border-white/10 bg-white/5 hover:border-[#D4A574]/30 hover:bg-white/10' : theme === 'atelier' ? 'border-[#D4C9B8]/60 bg-[#EDE4D3]/70 hover:border-[#A86F3C]/30 hover:bg-[#EDE4D3]' : 'border-stone-200/60 bg-white/70 hover:border-amber-200 hover:bg-amber-50/60'}`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span
+                              className={`truncate font-medium ${theme === 'vault' ? 'text-white' : theme === 'atelier' ? 'text-[#3D3530]' : 'text-stone-700'}`}
+                            >
+                              {item.title}
+                            </span>
+                            <span
+                              className={`text-[11px] uppercase tracking-wide ${theme === 'vault' ? 'text-stone-500' : theme === 'atelier' ? 'text-[#8C7B6B]' : 'text-stone-400'}`}
+                            >
+                              {itemYear}
+                            </span>
+                          </div>
+                        </button>
+                      </li>
                     );
                   })}
-                </div>
-                {historyOverflow > 0 && (
-                  <p className="text-xs text-stone-400">
-                    {t('onThisDayMore', { count: historyOverflow })}
-                  </p>
+                </ul>
+                {historyOverflow > 0 && !historyExpanded && (
+                  <>
+                    <p
+                      className={`text-xs ${theme === 'vault' ? 'text-stone-500' : theme === 'atelier' ? 'text-[#8C7B6B]' : 'text-stone-400'}`}
+                    >
+                      {t('onThisDayMore', { count: historyOverflow })}
+                    </p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => setHistoryExpanded(true)}
+                      aria-expanded={false}
+                      aria-controls="on-this-day-list"
+                    >
+                      {t('onThisDaySeeAll', { count: historyItems.length })}
+                    </Button>
+                  </>
                 )}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-full"
-                  onClick={() =>
-                    navigate(
-                      `/collection/${primaryHistoryItem.collectionId}/item/${primaryHistoryItem.id}`,
-                    )
-                  }
-                >
-                  {t('viewHistory')}
-                </Button>
               </div>
             </div>
           </div>
@@ -298,8 +323,19 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             placeholder={t('searchPlaceholder')}
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            className={`w-full pl-12 sm:pl-14 pr-6 sm:pr-8 py-3.5 sm:py-4 rounded-[1.5rem] sm:rounded-[1.75rem] border focus:ring-4 focus:ring-amber-500/5 outline-none transition-all shadow-lg text-sm sm:text-base font-serif italic placeholder:text-stone-300 ${theme === 'vault' ? 'bg-stone-900 border-white/10 text-white' : 'bg-white border-stone-200 text-stone-900'}`}
+            className={`w-full pl-12 sm:pl-14 pr-12 sm:pr-14 py-3.5 sm:py-4 rounded-[1.5rem] sm:rounded-[1.75rem] border focus:ring-4 focus:ring-amber-500/5 outline-none transition-all shadow-lg text-sm sm:text-base font-serif italic placeholder:text-stone-300 ${theme === 'vault' ? 'bg-stone-900 border-white/10 text-white' : 'bg-white border-stone-200 text-stone-900'}`}
           />
+          {searchInput.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setSearchInput('')}
+              aria-label={t('clearSearch')}
+              title={t('clearSearch')}
+              className={`absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full flex items-center justify-center transition-colors ${theme === 'vault' ? 'text-stone-300 hover:bg-white/10' : 'text-stone-400 hover:bg-stone-100 hover:text-stone-600'}`}
+            >
+              <X size={18} />
+            </button>
+          )}
         </div>
       </div>
 
@@ -332,6 +368,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             <p className={typographyClasses.labelMuted}>
               {t('searchNoResultsBody', { query: searchInput.trim() })}
             </p>
+            <div className="mt-6 flex justify-center">
+              <Button variant="outline" size="sm" onClick={() => setSearchInput('')}>
+                {t('clearSearch')}
+              </Button>
+            </div>
           </div>
         )}
 

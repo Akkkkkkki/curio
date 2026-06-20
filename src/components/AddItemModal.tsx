@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 // Added Plus icon to the lucide-react imports
 import {
   Camera as CameraIcon,
@@ -29,6 +29,7 @@ interface AddItemModalProps {
   isOpen: boolean;
   onClose: () => void;
   collections: UserCollection[];
+  defaultCollectionId?: string;
   onSave: (
     collectionId: string,
     item: Omit<CollectionItem, 'id' | 'createdAt' | 'updatedAt'>,
@@ -68,6 +69,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
   isOpen,
   onClose,
   collections,
+  defaultCollectionId,
   onSave,
 }) => {
   const { t, language } = useTranslation();
@@ -89,6 +91,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
   const [titleError, setTitleError] = useState<string | null>(null);
   const [batchTitleErrors, setBatchTitleErrors] = useState<Record<string, boolean>>({});
   const [isImageEditorOpen, setIsImageEditorOpen] = useState(false);
+  const [confirmingDiscard, setConfirmingDiscard] = useState(false);
   const [promptsOpen, setPromptsOpen] = useState(false);
   const [promptsLoading, setPromptsLoading] = useState(false);
   const [storyPrompts, setStoryPrompts] = useState<string[]>([]);
@@ -96,18 +99,24 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
   // changes (title or AI observation) and never cache empty results, so a
   // 400/empty response doesn't permanently silence the affordance.
   const [promptsFetchedFor, setPromptsFetchedFor] = useState<string | null>(null);
+  // True while the scroll area has more content below the fold, so we can fade
+  // the bottom edge as an affordance that more fields exist (CUR-45).
+  const [canScrollDown, setCanScrollDown] = useState(false);
 
   const batchInputRef = useRef<HTMLInputElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollContentRef = useRef<HTMLDivElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const confirmRef = useRef<HTMLDivElement>(null);
   const lastFocusedElementRef = useRef<HTMLElement | null>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
+  const storyInputRef = useRef<HTMLTextAreaElement>(null);
+  const analysisRunId = useRef(0);
 
   useEffect(() => {
     if (!isOpen) return;
     trackEvent('item_creation_started', { surface: 'add_item_modal' });
   }, [isOpen]);
-  const storyInputRef = useRef<HTMLTextAreaElement>(null);
-  const analysisRunId = useRef(0);
 
   const surfaceClass = panelSurfaceClasses[theme];
   const overlayClass = `${overlaySurfaceClasses[theme]} motion-overlay`;
@@ -117,17 +126,32 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     theme === 'vault'
       ? 'bg-white/5 border-white/10 text-white placeholder:text-stone-400'
       : 'bg-stone-50 border-stone-200 text-stone-900';
-  const dialogDescribedBy = error
-    ? 'add-item-error'
-    : analysisNeedsReview
-      ? 'add-item-review'
-      : titleError
-        ? 'add-item-title-error'
-        : undefined;
+  // Matches the dialog surface so the bottom fade blends into the panel bg.
+  const scrollFadeFrom =
+    theme === 'vault' ? 'from-stone-900' : theme === 'atelier' ? 'from-[#F5EFE4]' : 'from-white';
+  const dialogDescribedBy = confirmingDiscard
+    ? 'add-item-discard-desc'
+    : error
+      ? 'add-item-error'
+      : analysisNeedsReview
+        ? 'add-item-review'
+        : titleError
+          ? 'add-item-title-error'
+          : undefined;
 
   const getFieldLabel = (fieldId: string, fallback: string) => {
     return getFieldTranslation(t, fieldId, fallback);
   };
+
+  const updateScrollAffordance = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) {
+      setCanScrollDown(false);
+      return;
+    }
+    // 8px tolerance so the fade clears once the user reaches the last field.
+    setCanScrollDown(el.scrollHeight - el.clientHeight - el.scrollTop > 8);
+  }, []);
 
   // Compute a cache key from the inputs that influence prompt quality so a
   // re-analyzed photo, an edited title, or a different AI observation
@@ -135,7 +159,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
   const storyPromptsCacheKey = (() => {
     const title = formData.title || '';
     const aiDesc = (formData.data?._aiDescription as string | undefined) || '';
-    return `${title}\u0000${aiDesc}`;
+    return `${title} ${aiDesc}`;
   })();
 
   const openStoryPromptsPanel = async () => {
@@ -206,8 +230,19 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     if (!isOpen) return;
     lastFocusedElementRef.current =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    setStep(collections.length === 1 ? 'upload' : 'select-type');
-    if (collections.length === 1) setSelectedCollectionId(collections[0].id);
+    const resolvedDefault =
+      defaultCollectionId && collections.some((c) => c.id === defaultCollectionId)
+        ? defaultCollectionId
+        : undefined;
+    if (resolvedDefault) {
+      setSelectedCollectionId(resolvedDefault);
+      setStep('upload');
+    } else if (collections.length === 1) {
+      setSelectedCollectionId(collections[0].id);
+      setStep('upload');
+    } else {
+      setStep('select-type');
+    }
     setImagePreview(null);
     setBatchItems([]);
     setBatchVisibleCount(8);
@@ -221,6 +256,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     setTitleError(null);
     setBatchTitleErrors({});
     setIsImageEditorOpen(false);
+    setConfirmingDiscard(false);
     setPromptsOpen(false);
     setPromptsLoading(false);
     setStoryPrompts([]);
@@ -247,7 +283,9 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     });
 
     const getFocusable = () => {
-      const el = dialogRef.current;
+      // While the discard prompt is up, restrict tab cycling to its buttons so
+      // focus can't escape back into the form behind it.
+      const el = confirmingDiscardRef.current ? confirmRef.current : dialogRef.current;
       if (!el) return [];
       return Array.from(
         el.querySelectorAll<HTMLElement>(
@@ -258,12 +296,22 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
 
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        if (isImageEditorOpenRef.current) return;
         e.preventDefault();
+        if (confirmingDiscardRef.current) {
+          setConfirmingDiscard(false);
+          return;
+        }
+        if (hasInProgressWorkRef.current) {
+          setConfirmingDiscard(true);
+          return;
+        }
         onClose();
         return;
       }
 
       if (e.key !== 'Tab') return;
+      if (isImageEditorOpenRef.current) return;
       const focusable = getFocusable();
       if (focusable.length === 0) return;
 
@@ -309,6 +357,62 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
       return Math.min(next, batchItems.length);
     });
   }, [batchItems.length, step]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    updateScrollAffordance();
+    const el = scrollRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => updateScrollAffordance());
+    observer.observe(el);
+    if (scrollContentRef.current) observer.observe(scrollContentRef.current);
+    return () => observer.disconnect();
+  }, [isOpen, step, updateScrollAffordance]);
+
+  // Verify and batch-verify are the only steps where the user has already
+  // invested effort worth confirming before discard: a photo upload, AI-
+  // analyzed metadata, typed Story, typed title, set rating, filled custom
+  // field, or batch items lined up for save.
+  const hasFilledFormField = Object.entries(formData.data || {}).some(([key, value]) => {
+    // Skip internal AI metadata (e.g. `_aiDescription`); it's hidden and
+    // only present alongside `imagePreview`, which is already counted.
+    if (key.startsWith('_')) return false;
+    if (value === null || value === undefined) return false;
+    if (typeof value === 'string') return value.trim().length > 0;
+    return true;
+  });
+  const hasInProgressWork =
+    (step === 'verify' || step === 'batch-verify') &&
+    (!!imagePreview ||
+      formData.title.trim().length > 0 ||
+      (formData.notes || '').trim().length > 0 ||
+      formData.rating > 0 ||
+      hasFilledFormField ||
+      batchItems.length > 0);
+
+  // Mirror the latest values into refs so the keydown handler (registered once
+  // per modal-open) reads current state without a re-registration churn that
+  // would refire on every keystroke.
+  const hasInProgressWorkRef = useRef(hasInProgressWork);
+  hasInProgressWorkRef.current = hasInProgressWork;
+  const confirmingDiscardRef = useRef(confirmingDiscard);
+  confirmingDiscardRef.current = confirmingDiscard;
+  // When the child ImageEditModal is open it owns Escape (CUR-86). Yield so the
+  // editor dismisses alone instead of also triggering this modal's discard flow.
+  const isImageEditorOpenRef = useRef(isImageEditorOpen);
+  isImageEditorOpenRef.current = isImageEditorOpen;
+
+  const requestClose = () => {
+    if (confirmingDiscard) {
+      setConfirmingDiscard(false);
+      return;
+    }
+    if (hasInProgressWork) {
+      setConfirmingDiscard(true);
+      return;
+    }
+    onClose();
+  };
 
   if (!isOpen) return null;
 
@@ -660,11 +764,27 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     setAnalysisNeedsReview(true);
   };
 
+  const recoverMissingCollection = () => {
+    const fallbackCollectionId =
+      defaultCollectionId && collections.some((c) => c.id === defaultCollectionId)
+        ? defaultCollectionId
+        : collections.length === 1
+          ? collections[0].id
+          : null;
+    if (fallbackCollectionId) {
+      setSelectedCollectionId(fallbackCollectionId);
+    }
+    setStep(fallbackCollectionId ? 'upload' : 'select-type');
+  };
+
+  const getSaveErrorMessage = (error: unknown) =>
+    error instanceof Error && error.message ? error.message : t('statusSyncPaused');
+
   const handleSave = async () => {
     if (isSaving) return;
     if (!currentCollection) {
       setError(t('selectCollectionFirst'));
-      setStep(collections.length === 1 ? 'upload' : 'select-type');
+      recoverMissingCollection();
       return;
     }
     const trimmedTitle = formData.title.trim();
@@ -693,7 +813,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
       onClose();
     } catch (e) {
       console.error('Save failed:', e);
-      setError(t('statusSyncPaused'));
+      setError(getSaveErrorMessage(e));
     } finally {
       setIsSaving(false);
     }
@@ -703,7 +823,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     if (isSaving) return;
     if (!currentCollection) {
       setError(t('selectCollectionFirst'));
-      setStep(collections.length === 1 ? 'upload' : 'select-type');
+      recoverMissingCollection();
       return;
     }
     const missingTitles = batchItems.filter((item) => !item.title.trim());
@@ -718,7 +838,11 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     }
     setIsSaving(true);
     try {
-      for (const item of batchItems) {
+      // Iterate over a snapshot and drop each entry as it succeeds, so a
+      // mid-batch failure leaves only the unsaved items behind. Retrying then
+      // reprocesses just those, instead of re-saving already-persisted items
+      // (which would create duplicates with fresh IDs).
+      for (const item of [...batchItems]) {
         const story = item.notes || '';
         await onSave(currentCollection.id, {
           collectionId: currentCollection.id,
@@ -728,6 +852,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
           notes: story,
           data: item.data || {},
         });
+        setBatchItems((prev) => prev.filter((b) => b.id !== item.id));
         trackEvent('item_saved', {
           mode: 'batch',
           has_story: story.trim().length > 0,
@@ -738,7 +863,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
       onClose();
     } catch (e) {
       console.error('Batch save failed:', e);
-      setError(t('statusSyncPaused'));
+      setError(getSaveErrorMessage(e));
     } finally {
       setIsSaving(false);
     }
@@ -892,7 +1017,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
                   <button
                     onClick={() => removeBatchItem(item.id)}
                     aria-label={t('remove')}
-                    className="absolute top-1 right-1 bg-white/80 p-1 rounded-full text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="absolute top-1 right-1 bg-white/90 p-1.5 rounded-full text-red-500 shadow-sm transition-colors hover:bg-white"
                   >
                     <Trash2 size={12} />
                   </button>
@@ -993,14 +1118,22 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
         </div>
       </div>
       <div>
-        <h3 className="text-xl sm:text-2xl font-serif font-bold text-stone-900 mb-1 sm:mb-2">
+        <h3
+          className={`text-xl sm:text-2xl font-serif font-bold mb-1 sm:mb-2 ${
+            theme === 'vault'
+              ? 'text-white'
+              : theme === 'atelier'
+                ? 'text-[#3D3530]'
+                : 'text-stone-900'
+          }`}
+        >
           {t('analyzingPhoto')}
         </h3>
-        <p className="text-sm sm:text-base text-stone-500 italic font-serif">
+        <p className={`text-sm sm:text-base italic font-serif ${mutedText}`}>
           {t('geminiExtracting')}
         </p>
         {batchProgress && batchProgress.total > 1 && (
-          <p className="text-xs text-stone-400 mt-2">
+          <p className={`text-xs mt-2 ${mutedText}`}>
             {t('batchProgress', {
               current: batchProgress.current,
               total: batchProgress.total,
@@ -1248,7 +1381,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
               {t('addItem')}
             </h2>
             <button
-              onClick={onClose}
+              onClick={requestClose}
               aria-label={t('close')}
               className={`p-2 rounded-full transition-colors ${theme === 'vault' ? 'hover:bg-white/5 text-stone-300 hover:text-white' : 'hover:bg-stone-100 text-stone-400 hover:text-stone-800'}`}
             >
@@ -1256,14 +1389,82 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
             </button>
           </div>
 
-          <div className="flex-1 min-h-0 overflow-y-auto p-5 pb-6 sm:p-8 space-y-6 overscroll-contain">
-            {step === 'select-type' && renderCollectionSelect()}
-            {step === 'upload' && renderUpload()}
-            {step === 'batch-verify' && renderBatchVerify()}
-            {step === 'analyzing' && renderAnalyzing()}
-            {step === 'verify' && renderVerify()}
+          <div className="relative flex-1 min-h-0">
+            {confirmingDiscard ? (
+              <div
+                ref={confirmRef}
+                data-testid="add-item-discard-confirm"
+                className="h-full flex flex-col items-center justify-center text-center p-6 sm:p-8"
+              >
+                <div
+                  className={`p-2.5 rounded-full mb-4 ${
+                    theme === 'vault'
+                      ? 'bg-amber-500/15 text-amber-300'
+                      : 'bg-amber-100 text-amber-700'
+                  }`}
+                  aria-hidden
+                >
+                  <AlertCircle size={22} />
+                </div>
+                <h3
+                  id="add-item-discard-title"
+                  className={`font-serif font-bold text-xl sm:text-2xl mb-2 ${theme === 'vault' ? 'text-white' : 'text-stone-900'}`}
+                >
+                  {t('discardItemTitle')}
+                </h3>
+                <p
+                  id="add-item-discard-desc"
+                  className={`text-sm leading-relaxed max-w-xs ${mutedText} mb-6`}
+                >
+                  {t('discardItemDesc')}
+                </p>
+                <div className="w-full max-w-xs flex flex-col gap-2">
+                  <Button
+                    autoFocus
+                    onClick={() => setConfirmingDiscard(false)}
+                    size="lg"
+                    className="w-full"
+                  >
+                    {t('keepEditing')}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setConfirmingDiscard(false);
+                      onClose();
+                    }}
+                    className="w-full"
+                  >
+                    {t('discardItemAction')}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div
+                  ref={scrollRef}
+                  data-testid="add-item-scroll"
+                  onScroll={updateScrollAffordance}
+                  className="h-full overflow-y-auto p-5 pb-6 sm:p-8 overscroll-contain"
+                >
+                  <div ref={scrollContentRef} className="space-y-6">
+                    {step === 'select-type' && renderCollectionSelect()}
+                    {step === 'upload' && renderUpload()}
+                    {step === 'batch-verify' && renderBatchVerify()}
+                    {step === 'analyzing' && renderAnalyzing()}
+                    {step === 'verify' && renderVerify()}
+                  </div>
+                </div>
+                <div
+                  aria-hidden="true"
+                  data-testid="add-item-scroll-fade"
+                  className={`pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t ${scrollFadeFrom} to-transparent transition-opacity duration-200 ${canScrollDown ? 'opacity-100' : 'opacity-0'}`}
+                />
+              </>
+            )}
           </div>
-          {step === 'verify' &&
+          {!confirmingDiscard &&
+            step === 'verify' &&
             (() => {
               const storyEmpty = !(formData.notes || '').trim();
               const label = isSaving
@@ -1298,7 +1499,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
                 </div>
               );
             })()}
-          {step === 'batch-verify' && (
+          {!confirmingDiscard && step === 'batch-verify' && (
             <div
               className={`border-t ${borderClass} p-4 sm:p-5 ${theme === 'vault' ? 'bg-stone-950' : 'bg-white'}`}
             >
