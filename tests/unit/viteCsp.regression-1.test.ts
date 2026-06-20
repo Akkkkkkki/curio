@@ -15,4 +15,15 @@ describe('buildCspPolicy', () => {
       "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.curio.test",
     );
   });
+
+  it('allows Google Fonts origins in connect-src so html-to-image can inline fonts on export', () => {
+    // Regression: export card "Save image" failed because html-to-image fetches
+    // the Google Fonts stylesheet + font files and connect-src blocked them.
+    const policy = buildCspPolicy();
+    expect(policy).toContain('https://fonts.googleapis.com');
+    expect(policy).toContain('https://fonts.gstatic.com');
+    const connectDirective = policy.split('; ').find((d) => d.startsWith('connect-src '));
+    expect(connectDirective).toContain('https://fonts.googleapis.com');
+    expect(connectDirective).toContain('https://fonts.gstatic.com');
+  });
 });
