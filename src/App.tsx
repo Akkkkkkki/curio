@@ -2004,6 +2004,12 @@ export const AppContent: React.FC = () => {
                 <textarea
                   ref={titleTextareaRef}
                   rows={1}
+                  aria-label={t('title')}
+                  aria-required="true"
+                  aria-invalid={titleIsEmpty && !isReadOnly ? true : undefined}
+                  aria-describedby={
+                    titleIsEmpty && !isReadOnly ? 'item-detail-title-error' : undefined
+                  }
                   className={`${typographyClasses.titleDisplay} mb-2 sm:mb-3 w-full bg-transparent border-b-2 resize-none overflow-hidden break-words leading-tight ${
                     titleIsEmpty && !isReadOnly
                       ? 'border-red-400 focus:border-red-500'
@@ -2021,7 +2027,13 @@ export const AppContent: React.FC = () => {
                   disabled={isReadOnly}
                 />
                 {titleIsEmpty && !isReadOnly && (
-                  <p className="text-xs font-semibold text-red-500 mb-3">{t('titleRequired')}</p>
+                  <p
+                    id="item-detail-title-error"
+                    role="alert"
+                    className="text-xs font-semibold text-red-500 mb-3"
+                  >
+                    {t('titleRequired')}
+                  </p>
                 )}
                 <div className="flex flex-wrap items-center gap-2">
                   {[1, 2, 3, 4, 5].map((star) => (
