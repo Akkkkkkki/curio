@@ -544,6 +544,58 @@ describe('App Integration Tests', () => {
     }
   });
 
+  // CUR-115: Item Detail title textarea must announce its accessible name,
+  // required state, and validation error to assistive tech. The visual red
+  // border alone leaves SR users with no signal that the field is invalid.
+  it('exposes the Item Detail title textarea with aria-label and aria-required (CUR-115)', async () => {
+    const { ThemeProvider } = await import('@/theme');
+
+    render(
+      <MemoryRouter initialEntries={['/collection/col1/item/item1']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    const titleInput = await screen.findByRole('textbox', { name: 'Title' });
+    expect(titleInput).toBeInstanceOf(HTMLTextAreaElement);
+    expect(titleInput).toHaveAttribute('aria-required', 'true');
+    // A filled title is not invalid and must not be linked to an error.
+    expect(titleInput).not.toHaveAttribute('aria-invalid', 'true');
+    expect(titleInput).not.toHaveAttribute('aria-describedby');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('flags the Item Detail title as invalid and links the error when empty (CUR-115)', async () => {
+    const { ThemeProvider } = await import('@/theme');
+    const collectionWithUntitled = {
+      ...mockCollection,
+      items: [{ ...mockCollection.items[0], title: '' }],
+    };
+    vi.mocked(db.getLocalCollections).mockResolvedValue([collectionWithUntitled]);
+
+    render(
+      <MemoryRouter initialEntries={['/collection/col1/item/item1']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    const titleInput = await screen.findByRole('textbox', { name: 'Title' });
+    expect(titleInput).toHaveAttribute('aria-invalid', 'true');
+    expect(titleInput).toHaveAttribute('aria-describedby', 'item-detail-title-error');
+
+    const errorMessage = screen.getByRole('alert');
+    expect(errorMessage).toHaveAttribute('id', 'item-detail-title-error');
+    expect(errorMessage.textContent).toBe('Title is required');
+  });
+
   it('deep-links the access-gate "Explore sample" CTA into the sample collection (#287)', async () => {
     const { ThemeProvider } = await import('@/theme');
     // Signed-out visitor, Supabase configured, with a public sample loaded.
