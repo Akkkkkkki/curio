@@ -1,4 +1,12 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  ReactNode,
+} from 'react';
 
 export type Language = 'en' | 'zh';
 
@@ -1018,23 +1026,26 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
     }
   }, [language]);
 
-  const t = (key: string, params?: Record<string, string | number>) => {
-    const dict = translations[language] as Record<string, string>;
-    const fallback = translations['en'] as Record<string, string>;
-    let text: string = dict[key] || fallback[key] || key;
-    if (params) {
-      Object.entries(params).forEach(([k, v]) => {
-        text = text.replace(`{${k}}`, String(v));
-      });
-    }
-    return text;
-  };
-
-  return React.createElement(
-    LanguageContext.Provider,
-    { value: { language, setLanguage, t } },
-    children,
+  const t = useCallback(
+    (key: string, params?: Record<string, string | number>) => {
+      const dict = translations[language] as Record<string, string>;
+      const fallback = translations['en'] as Record<string, string>;
+      let text: string = dict[key] || fallback[key] || key;
+      if (params) {
+        Object.entries(params).forEach(([k, v]) => {
+          text = text.replace(`{${k}}`, String(v));
+        });
+      }
+      return text;
+    },
+    [language],
   );
+
+  // Memoize the context value so consumers of `useTranslation()` only re-render
+  // when `language` actually changes, not on every render of LanguageProvider.
+  const value = useMemo(() => ({ language, setLanguage, t }), [language, t]);
+
+  return React.createElement(LanguageContext.Provider, { value }, children);
 };
 
 export const useTranslation = () => {
