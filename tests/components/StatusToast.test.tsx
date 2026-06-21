@@ -11,7 +11,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderWithProviders, screen, setMockTheme, createThemeMock } from '../utils/test-utils';
 import userEvent from '@testing-library/user-event';
-import { StatusToast, StatusTone } from '@/components/StatusToast';
+import { fireEvent } from '@testing-library/react';
+import {
+  StatusToast,
+  StatusTone,
+  getStatusToastDurationMs,
+  STATUS_TOAST_DURATIONS,
+} from '@/components/StatusToast';
 import { AppTheme } from '@/types';
 
 vi.mock('@/theme', async () => {
@@ -89,6 +95,56 @@ describe('StatusToast', () => {
       expect(toast.className).toMatch(/bg-red-500\/10/);
     });
 
+    it('dismisses on a downward swipe past the commit threshold (CUR-109)', () => {
+      const onDismiss = vi.fn();
+      renderWithProviders(<StatusToast message="Saved" tone="success" onDismiss={onDismiss} />);
+      const toast = getToast();
+
+      // Travel of 60px (> 48px threshold) → commit dismiss.
+      fireEvent.touchStart(toast, { touches: [{ clientX: 100, clientY: 100 }] });
+      fireEvent.touchMove(toast, { touches: [{ clientX: 100, clientY: 160 }] });
+      fireEvent.touchEnd(toast);
+
+      expect(onDismiss).toHaveBeenCalledTimes(1);
+    });
+
+    it('springs back on a downward drag under the commit threshold', () => {
+      const onDismiss = vi.fn();
+      renderWithProviders(<StatusToast message="Saved" tone="success" onDismiss={onDismiss} />);
+      const toast = getToast();
+
+      // Travel of 20px (< 48px threshold) → no dismiss, transform clears.
+      fireEvent.touchStart(toast, { touches: [{ clientX: 100, clientY: 100 }] });
+      fireEvent.touchMove(toast, { touches: [{ clientX: 100, clientY: 120 }] });
+      fireEvent.touchEnd(toast);
+
+      expect(onDismiss).not.toHaveBeenCalled();
+      expect(toast.style.transform).toBe('');
+    });
+
+    it('ignores upward swipes so the toast can be re-read but not yanked', () => {
+      const onDismiss = vi.fn();
+      renderWithProviders(<StatusToast message="Saved" tone="success" onDismiss={onDismiss} />);
+      const toast = getToast();
+
+      fireEvent.touchStart(toast, { touches: [{ clientX: 100, clientY: 200 }] });
+      fireEvent.touchMove(toast, { touches: [{ clientX: 100, clientY: 80 }] });
+      fireEvent.touchEnd(toast);
+
+      expect(onDismiss).not.toHaveBeenCalled();
+    });
+
+    it('does not track swipes when no onDismiss is provided', () => {
+      // Without a handler the gesture is meaningless — make sure we don't
+      // leave a translate on the surface, which would look broken to the user.
+      renderWithProviders(<StatusToast message="Read-only" tone="info" />);
+      const toast = getToast();
+      fireEvent.touchStart(toast, { touches: [{ clientX: 100, clientY: 100 }] });
+      fireEvent.touchMove(toast, { touches: [{ clientX: 100, clientY: 200 }] });
+      fireEvent.touchEnd(toast);
+      expect(toast.style.transform).toBe('');
+    });
+
     it('keeps action and dismiss buttons readable across themes', () => {
       const onAction = vi.fn();
       const onDismiss = vi.fn();
@@ -106,6 +162,38 @@ describe('StatusToast', () => {
       // dismiss were too dim against the dark page — confirm they upgraded.
       expect(screen.getByRole('button', { name: /retry/i })).toHaveClass('text-amber-200');
       expect(screen.getByRole('button', { name: /close/i }).className).toMatch(/text-stone-/);
+    });
+  });
+
+  describe('getStatusToastDurationMs (CUR-109)', () => {
+    it('keeps trust-bearing tones on screen at least 3 seconds', () => {
+      // Critical Saved / Synced / Will sync / Sync error feedback used to share
+      // the 2400ms info default and disappeared before users could read it.
+      expect(getStatusToastDurationMs('success')).toBeGreaterThanOrEqual(3000);
+      expect(getStatusToastDurationMs('error')).toBeGreaterThanOrEqual(3000);
+      expect(getStatusToastDurationMs('warning')).toBeGreaterThanOrEqual(3000);
+      expect(getStatusToastDurationMs('success')).toBe(STATUS_TOAST_DURATIONS.trust);
+    });
+
+    it('lets info tones auto-dismiss faster', () => {
+      expect(getStatusToastDurationMs('info')).toBe(STATUS_TOAST_DURATIONS.info);
+      expect(STATUS_TOAST_DURATIONS.info).toBeLessThan(STATUS_TOAST_DURATIONS.trust);
+    });
+
+    it('extends to the action-toast duration when a button is offered', () => {
+      // A user can't tap a button they didn't see — actionable toasts get the
+      // longest lifetime regardless of tone.
+      expect(getStatusToastDurationMs('success', { actionLabel: 'Retry' })).toBe(
+        STATUS_TOAST_DURATIONS.withAction,
+      );
+      expect(getStatusToastDurationMs('info', { actionLabel: 'Retry' })).toBe(
+        STATUS_TOAST_DURATIONS.withAction,
+      );
+    });
+
+    it('respects an explicit durationMs override', () => {
+      expect(getStatusToastDurationMs('success', { durationMs: 9999 })).toBe(9999);
+      expect(getStatusToastDurationMs('info', { durationMs: 100 })).toBe(100);
     });
   });
 });

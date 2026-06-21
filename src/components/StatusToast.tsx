@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import { CheckCircle, AlertTriangle, Info, AlertCircle } from 'lucide-react';
 import { useTranslation } from '../i18n';
 import { useTheme } from '../theme';
@@ -13,6 +13,29 @@ interface StatusToastProps {
   actionLabel?: string;
   onAction?: () => void;
 }
+
+// Minimum vertical travel before a swipe is treated as dismiss intent — keeps
+// a passive read or accidental brush from clearing the toast.
+const SWIPE_DISMISS_DISTANCE = 48;
+
+// Toast on-screen time. Trust-bearing tones (Saved / Synced / Will sync / Sync
+// error) need at least ~3s on mobile so users can read them; info recovery
+// notes can clear faster (CUR-109). Action toasts stay longest so the user
+// can actually reach the button.
+export const STATUS_TOAST_DURATIONS = {
+  withAction: 6000,
+  trust: 3500,
+  info: 2400,
+} as const;
+
+export const getStatusToastDurationMs = (
+  tone: StatusTone,
+  options?: { actionLabel?: string; durationMs?: number },
+): number => {
+  if (options?.durationMs != null) return options.durationMs;
+  if (options?.actionLabel != null) return STATUS_TOAST_DURATIONS.withAction;
+  return tone === 'info' ? STATUS_TOAST_DURATIONS.info : STATUS_TOAST_DURATIONS.trust;
+};
 
 // Toast tones keep their semantic hue across the three themes, with luminance
 // tuned so each surface sits clearly above the page beneath it (white in
@@ -72,13 +95,52 @@ export const StatusToast: React.FC<StatusToastProps> = ({
   const { theme } = useTheme();
   const surface = toneSurfaceClasses[tone][theme];
   const Icon = toneIcons[tone];
+  const touchStartYRef = useRef<number | null>(null);
+  const [dragOffset, setDragOffset] = useState(0);
+
+  // Mobile swipe-to-dismiss: toast sits at the bottom of the screen, so a
+  // downward drag is the natural "push away" gesture. We track vertical travel
+  // and only commit a dismiss past SWIPE_DISMISS_DISTANCE — anything less
+  // springs back so a near-tap doesn't clear feedback the user is still
+  // reading. No-ops if there's no onDismiss handler.
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (!onDismiss) return;
+    touchStartYRef.current = e.touches[0].clientY;
+  };
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (touchStartYRef.current == null) return;
+    const delta = e.touches[0].clientY - touchStartYRef.current;
+    setDragOffset(delta > 0 ? delta : 0);
+  };
+  const handleTouchEnd = () => {
+    if (touchStartYRef.current == null) return;
+    const committed = dragOffset >= SWIPE_DISMISS_DISTANCE;
+    touchStartYRef.current = null;
+    setDragOffset(0);
+    if (committed) onDismiss?.();
+  };
+  const handleTouchCancel = () => {
+    touchStartYRef.current = null;
+    setDragOffset(0);
+  };
+
+  const isDragging = dragOffset > 0;
+  const dragStyle = isDragging
+    ? { transform: `translateY(${dragOffset}px)`, transition: 'none' as const }
+    : undefined;
+
   return (
     <div
       data-testid="status-toast"
       role="status"
       aria-live="polite"
       aria-atomic="true"
-      className={`pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-2xl border shadow-lg ${surface} motion-pop`}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchCancel}
+      style={dragStyle}
+      className={`pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-2xl border shadow-lg touch-pan-x select-none ${surface} ${isDragging ? '' : 'motion-pop'}`}
     >
       <Icon size={18} />
       <span className="text-sm font-semibold leading-tight" data-testid="status-toast-message">
