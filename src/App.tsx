@@ -1652,13 +1652,18 @@ export const AppContent: React.FC = () => {
       ta.style.height = `${ta.scrollHeight}px`;
     }, [item?.title]);
 
-    if (!collection) {
+    if (!collection || !item) {
       // CUR-118: deep-link reload of /collection/:id/item/:itemId must wait
       // for the cloud fetch instead of bouncing to Home / parent collection.
+      // The `!item` half matters too: `refreshCollections()` flips `isLoading`
+      // without clearing existing collection state, so a follow-up refresh
+      // can leave the parent collection cached while the item is still in
+      // the pending cloud response — without this guard, the shared link
+      // would lose the item to the parent route before the fetch resolves.
       if (isLoading) return <ItemDetailSkeleton label={t('restoringArchives')} />;
-      return <Navigate to="/" replace />;
+      if (!collection) return <Navigate to="/" replace />;
+      return <Navigate to={`/collection/${id}`} replace />;
     }
-    if (!item) return <Navigate to={`/collection/${id}`} replace />;
     const isReadOnly = Boolean(collection.isPublic) && !isAdmin;
 
     const snapshotItem = (target: CollectionItem) => ({

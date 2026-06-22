@@ -756,4 +756,43 @@ describe('App Integration Tests', () => {
     });
     expect(screen.queryByTestId('collection-screen-skeleton')).not.toBeInTheDocument();
   });
+
+  // CUR-118 follow-up (Codex review on #299): when the parent collection
+  // is already cached but the item is only in the pending cloud response,
+  // the missing-item branch must also wait for `isLoading` to settle —
+  // otherwise a refresh-mid-deep-link drops the user on the parent route.
+  it('holds /collection/:id/item/:itemId on the skeleton when the item is still pending while the collection is cached (CUR-118)', async () => {
+    const { ThemeProvider } = await import('@/theme');
+    // Local cache has the collection but no item; cloud will eventually
+    // deliver the same collection with the item attached.
+    const cachedCollectionWithoutItem = { ...mockCollection, items: [] };
+    let resolveCloud: (value: (typeof mockCollection)[]) => void = () => {};
+    vi.mocked(db.getLocalCollections).mockResolvedValue([cachedCollectionWithoutItem]);
+    vi.mocked(db.fetchCloudCollections).mockReturnValue(
+      new Promise((resolve) => {
+        resolveCloud = resolve;
+      }) as never,
+    );
+
+    render(
+      <MemoryRouter initialEntries={['/collection/col1/item/item1']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    // While `isLoading` is true and only the cached collection (no item) is
+    // visible, the route must stay on the skeleton instead of redirecting
+    // to the parent collection.
+    expect(await screen.findByTestId('item-detail-skeleton')).toBeInTheDocument();
+    expect(screen.queryByTestId('items-grid')).not.toBeInTheDocument();
+
+    // Cloud lands with the item attached — detail renders.
+    resolveCloud([mockCollection]);
+    expect(await screen.findByRole('textbox', { name: 'Title' })).toBeInTheDocument();
+    expect(screen.queryByTestId('item-detail-skeleton')).not.toBeInTheDocument();
+  });
 });
