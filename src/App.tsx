@@ -1375,14 +1375,29 @@ export const AppContent: React.FC = () => {
                   <option value="rating">{t('sortRating')}</option>
                 </select>
               </div>
-              <div className="relative flex gap-2 flex-1 min-w-[12rem]">
-                <input
-                  type="text"
-                  placeholder={t('collectionSearchPlaceholder')}
-                  value={filterInput}
-                  onChange={(e) => setFilterInput(e.target.value)}
-                  className={`pl-4 pr-4 py-2 rounded-xl border focus:ring-4 focus:ring-amber-500/5 outline-none text-sm w-full transition-all shadow-sm font-serif italic ${theme === 'vault' ? 'bg-stone-900 border-white/10 text-white' : 'bg-white border-stone-200 text-stone-900'}`}
-                />
+              <div className="flex gap-2 flex-1 min-w-[12rem]">
+                <div className="relative flex-1">
+                  <input
+                    type="text"
+                    placeholder={t('collectionSearchPlaceholder')}
+                    aria-label={t('collectionSearchPlaceholder')}
+                    value={filterInput}
+                    onChange={(e) => setFilterInput(e.target.value)}
+                    className={`pl-4 pr-11 py-2 rounded-xl border focus:ring-4 focus:ring-amber-500/5 outline-none text-sm w-full transition-all shadow-sm font-serif italic ${theme === 'vault' ? 'bg-stone-900 border-white/10 text-white' : 'bg-white border-stone-200 text-stone-900'}`}
+                  />
+                  {filterInput.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setFilterInput('')}
+                      aria-label={t('clearSearch')}
+                      title={t('clearSearch')}
+                      data-testid="collection-search-clear"
+                      className={`absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full flex items-center justify-center transition-colors ${theme === 'vault' ? 'text-stone-300 hover:bg-white/10' : 'text-stone-400 hover:bg-stone-100 hover:text-stone-600'}`}
+                    >
+                      <X size={16} />
+                    </button>
+                  )}
+                </div>
                 <Button
                   variant={activeFilterCount > 0 ? 'primary' : 'outline'}
                   className={`w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center p-0 rounded-xl ${theme === 'vault' ? 'bg-stone-900 border-white/10' : activeFilterCount > 0 ? '' : 'bg-white'}`}
