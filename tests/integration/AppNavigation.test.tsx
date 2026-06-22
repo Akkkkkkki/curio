@@ -795,4 +795,131 @@ describe('App Integration Tests', () => {
     expect(await screen.findByRole('textbox', { name: 'Title' })).toBeInTheDocument();
     expect(screen.queryByTestId('item-detail-skeleton')).not.toBeInTheDocument();
   });
+
+  // CUR-117: the bottom-nav Add is the most-touched primary action on mobile.
+  // When the user is already inside a collection (or one of its items), it
+  // must inherit that collection and open the modal on the upload step, the
+  // same as the in-screen "Add Item" button — otherwise the user is forced to
+  // re-pick a collection they just had open.
+  it('bottom-nav Add inherits the current collection from /collection/:id (CUR-117)', async () => {
+    const { ThemeProvider } = await import('@/theme');
+    // Two editable collections are required to prove the fix — with a single
+    // collection, the modal auto-picks it regardless, so the regression
+    // (forcing the picker) would only surface with multiple targets.
+    const secondCollection = {
+      ...mockCollection,
+      id: 'col2',
+      name: 'Second Collection',
+      items: [],
+    };
+    vi.mocked(db.getLocalCollections).mockResolvedValue([mockCollection, secondCollection]);
+
+    render(
+      <MemoryRouter initialEntries={['/collection/col1']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Test Collection')).toBeInTheDocument();
+    });
+
+    const bottomNav = screen.getByRole('navigation', { name: 'Primary' });
+    fireEvent.click(within(bottomNav).getByTestId('bottom-nav-add-pill'));
+
+    // Upload step renders the "Take Photo" CTA; the collection picker would
+    // show the "New Archive" heading instead. Asserting the upload affordance
+    // proves the modal skipped the redundant pick step.
+    expect(await screen.findByRole('button', { name: /take photo/i })).toBeInTheDocument();
+    expect(screen.queryByText('New Archive')).not.toBeInTheDocument();
+  });
+
+  it('bottom-nav Add inherits the current collection from /collection/:id/item/:itemId (CUR-117)', async () => {
+    const { ThemeProvider } = await import('@/theme');
+    // Two editable collections so the modal would otherwise force a picker
+    // pass. The bottom-nav Add must still inherit col1 from the URL.
+    const secondCollection = {
+      ...mockCollection,
+      id: 'col2',
+      name: 'Second Collection',
+      items: [],
+    };
+    vi.mocked(db.getLocalCollections).mockResolvedValue([mockCollection, secondCollection]);
+
+    render(
+      <MemoryRouter initialEntries={['/collection/col1/item/item1']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('textbox', { name: 'Title' })).toBeInTheDocument();
+
+    const bottomNav = screen.getByRole('navigation', { name: 'Primary' });
+    fireEvent.click(within(bottomNav).getByTestId('bottom-nav-add-pill'));
+
+    expect(await screen.findByRole('button', { name: /take photo/i })).toBeInTheDocument();
+    expect(screen.queryByText('New Archive')).not.toBeInTheDocument();
+  });
+
+  it('bottom-nav Add still shows the picker from inside a read-only sample collection (CUR-117)', async () => {
+    const { ThemeProvider } = await import('@/theme');
+    // Public sample (read-only for non-admin) plus two editable private
+    // collections. The user is browsing the sample, so the modal must NOT
+    // preset the sample (they can't save into it). With more than one
+    // editable target available, the picker must render so the user can
+    // route the new item to their own collection.
+    const publicSample = {
+      id: 'sample-vinyl',
+      name: 'The Vinyl Vault',
+      templateId: 'vinyl',
+      icon: '🎵',
+      customFields: [],
+      items: [],
+      isPublic: true,
+      updatedAt: new Date().toISOString(),
+    };
+    const secondCollection = {
+      ...mockCollection,
+      id: 'col2',
+      name: 'Second Collection',
+      items: [],
+    };
+    vi.mocked(db.getLocalCollections).mockResolvedValue([
+      publicSample,
+      mockCollection,
+      secondCollection,
+    ]);
+
+    render(
+      <MemoryRouter initialEntries={['/collection/sample-vinyl']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('The Vinyl Vault')).toBeInTheDocument();
+    });
+
+    const bottomNav = screen.getByRole('navigation', { name: 'Primary' });
+    fireEvent.click(within(bottomNav).getByTestId('bottom-nav-add-pill'));
+
+    // Picker step shows the "New Archive" heading and the user's own
+    // collection cards — proving the modal refused to default to the sample
+    // and instead let the user choose where the item belongs.
+    expect(await screen.findByText('New Archive')).toBeInTheDocument();
+    expect(screen.getByText('Test Collection')).toBeInTheDocument();
+    expect(screen.getByText('Second Collection')).toBeInTheDocument();
+  });
 });
