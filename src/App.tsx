@@ -2569,9 +2569,20 @@ export const AppContent: React.FC = () => {
       setIsCreateCollectionOpen(true);
       return;
     }
-    setAddModalDefaultCollectionId(undefined);
+    // When the bottom-nav Add is tapped from inside a collection (or one of
+    // its items), inherit that collection so the modal opens on the upload
+    // step instead of forcing a redundant picker pass — same behavior as the
+    // in-screen "Add Item" button. Read-only samples are filtered by
+    // editableCollections.some(...), so a visitor inside a public sample
+    // still gets the picker.
+    const collectionInPath = location.pathname.match(/^\/collection\/([^/]+)/)?.[1];
+    const presetCollectionId =
+      collectionInPath && editableCollections.some((c) => c.id === collectionInPath)
+        ? collectionInPath
+        : undefined;
+    setAddModalDefaultCollectionId(presetCollectionId);
     setIsAddModalOpen(true);
-  }, [editableCollections.length, isAuthenticated]);
+  }, [editableCollections, isAuthenticated, location.pathname]);
 
   const handleCreateCollectionAction = useCallback(() => {
     if (!isAuthenticated) {
