@@ -445,5 +445,4 @@ describe('Phase 2.1 — services/db.ts loadCollections merge behavior', () => {
 
     expect(merged.map((c) => c.id)).toContain('col-saved-mid-fetch');
   });
-
 });

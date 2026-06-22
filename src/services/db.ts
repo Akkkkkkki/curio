@@ -242,16 +242,14 @@ export const shouldPreserveLocalOnlyCollection = (
     cloudFetchStartedAt?: string;
   } = {},
 ) => {
-  const {
-    pendingSyncIds = [],
-    pendingSyncIdsAtFetchStart = [],
-    cloudFetchStartedAt,
-  } = options;
+  const { pendingSyncIds = [], pendingSyncIdsAtFetchStart = [], cloudFetchStartedAt } = options;
   return (
     !collection.ownerId ||
     pendingSyncIds.includes(collection.id) ||
     pendingSyncIdsAtFetchStart.includes(collection.id) ||
-    (cloudFetchStartedAt ? compareTimestamps(collection.updatedAt, cloudFetchStartedAt) >= 0 : false)
+    (cloudFetchStartedAt
+      ? compareTimestamps(collection.updatedAt, cloudFetchStartedAt) >= 0
+      : false)
   );
 };
 
