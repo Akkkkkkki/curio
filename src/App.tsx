@@ -61,6 +61,7 @@ import {
   importLocalCollectionsToCloud,
   mergeCollections,
   saveCollection,
+  shouldPreserveLocalOnlyCollection,
   saveAllCollections,
   saveAsset,
   clearEnhancedReference,
@@ -599,6 +600,13 @@ export const AppContent: React.FC = () => {
     }
 
     let cloudCollections: UserCollection[] = [];
+    let pendingSyncIdsAtFetchStart: string[] = [];
+    try {
+      pendingSyncIdsAtFetchStart = await getPendingSyncIds();
+    } catch (e) {
+      console.warn('Pending sync snapshot failed (continuing):', e);
+    }
+    const cloudFetchStartedAt = new Date().toISOString();
     try {
       cloudCollections = await loadCloudCollectionsWithTimeout(user?.id ?? null);
     } catch (e) {
@@ -644,7 +652,11 @@ export const AppContent: React.FC = () => {
       ]);
       const mergedCollections = mergeCollections(freshLocalCollections, cloudCollections, {
         includeLocalOnly: (collection) =>
-          !collection.ownerId || pendingSyncIds.includes(collection.id),
+          shouldPreserveLocalOnlyCollection(collection, {
+            pendingSyncIds,
+            pendingSyncIdsAtFetchStart,
+            cloudFetchStartedAt,
+          }),
         pendingDeletes,
       });
 

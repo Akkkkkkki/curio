@@ -31,12 +31,17 @@ afterAll(() => {
   });
 });
 
-const makeQuery = (data: any[], onAwait?: () => Promise<void>) => {
+const makeQuery = (
+  data: any[],
+  onAwait?: () => Promise<void>,
+  upsert?: (payload: any) => Promise<{ error: Error | null }>,
+) => {
   const query: any = {};
   query.select = vi.fn().mockReturnValue(query);
   query.or = vi.fn().mockReturnValue(query);
   query.eq = vi.fn().mockReturnValue(query);
   query.in = vi.fn().mockReturnValue(query);
+  query.upsert = vi.fn(upsert ?? (async () => ({ error: null })));
   query.then = async (resolve: (value: any) => any) => {
     // Allow tests to simulate work that happens while the (awaited) cloud
     // query is in flight — e.g. a user creating a collection mid-fetch.
@@ -51,13 +56,15 @@ function createSupabaseMock({
   items,
   userId = 'user-123',
   itemsOnAwait,
+  collectionsUpsert,
 }: {
   collections: any[];
   items: any[];
   userId?: string | null;
   itemsOnAwait?: () => Promise<void>;
+  collectionsUpsert?: (payload: any) => Promise<{ error: Error | null }>;
 }) {
-  const collectionsQuery = makeQuery(collections);
+  const collectionsQuery = makeQuery(collections, undefined, collectionsUpsert);
   const itemsQuery = makeQuery(items, itemsOnAwait);
   const from = vi.fn((table: string) => (table === 'collections' ? collectionsQuery : itemsQuery));
   return {
@@ -338,4 +345,105 @@ describe('Phase 2.1 — services/db.ts loadCollections merge behavior', () => {
     const persisted = await dbMod.loadCollections();
     expect(persisted.map((c) => c.id)).toContain('col-created-mid-fetch');
   });
+
+  it('preserves an owner-backed collection whose cloud sync is in flight when refresh starts', async () => {
+    const cloudCollections = [
+      {
+        id: 'col-1',
+        user_id: 'user-123',
+        template_id: 'vinyl',
+        name: 'Cloud Collection',
+        icon: '☁️',
+        is_public: false,
+        updated_at: new Date('2024-01-03T00:00:00Z').toISOString(),
+      },
+    ];
+    const cloudItems: any[] = [];
+
+    let releaseUpsert!: () => void;
+    const upsertReleased = new Promise<{ error: Error | null }>((resolve) => {
+      releaseUpsert = () => resolve({ error: null });
+    });
+    let markUpsertStarted!: () => void;
+    const upsertStarted = new Promise<void>((resolve) => {
+      markUpsertStarted = resolve;
+    });
+
+    const { supabase } = createSupabaseMock({
+      collections: cloudCollections,
+      items: cloudItems,
+      collectionsUpsert: async () => {
+        markUpsertStarted();
+        return upsertReleased;
+      },
+    });
+    const dbMod = await importDbModuleFresh(supabase);
+
+    const db = await dbMod.initDB();
+    openDb = db;
+    await clearStores(db, ['collections', 'assets', 'display', 'settings']);
+
+    const savePromise = dbMod.saveCollection(
+      baseCollection({
+        id: 'col-saving-in-flight',
+        name: 'Saving In Flight',
+        ownerId: 'user-123',
+        updatedAt: new Date('2024-06-01T00:00:00Z').toISOString(),
+      }),
+    );
+    await upsertStarted;
+
+    const merged = await dbMod.loadCollections();
+
+    expect(merged.map((c) => c.id)).toContain('col-saving-in-flight');
+
+    releaseUpsert();
+    await savePromise;
+  });
+
+  it('preserves an owner-backed collection saved while a stale cloud fetch is in flight', async () => {
+    const cloudCollections = [
+      {
+        id: 'col-1',
+        user_id: 'user-123',
+        template_id: 'vinyl',
+        name: 'Cloud Collection',
+        icon: '☁️',
+        is_public: false,
+        updated_at: new Date('2024-01-03T00:00:00Z').toISOString(),
+      },
+    ];
+    const cloudItems: any[] = [];
+
+    let dbMod: typeof import('@/services/db');
+
+    const { supabase } = createSupabaseMock({
+      collections: cloudCollections,
+      items: cloudItems,
+      itemsOnAwait: async () => {
+        await dbMod.saveCollection(
+          baseCollection({
+            id: 'col-saved-mid-fetch',
+            name: 'Saved During Sync',
+            ownerId: 'user-123',
+            updatedAt: new Date().toISOString(),
+          }),
+        );
+      },
+    });
+
+    dbMod = await importDbModuleFresh(supabase);
+
+    const db = await dbMod.initDB();
+    openDb = db;
+    await clearStores(db, ['collections', 'assets', 'display', 'settings']);
+    await dbMod.saveAllCollections([
+      baseCollection({ id: 'col-1', name: 'Local Collection', ownerId: 'user-123' }),
+    ]);
+
+    const merged = await dbMod.loadCollections();
+
+    expect(merged.map((c) => c.id)).toContain('col-saved-mid-fetch');
+  });
+
 });
