@@ -666,4 +666,94 @@ describe('App Integration Tests', () => {
     expect(await screen.findByTestId('items-grid')).toBeInTheDocument();
     expect(screen.queryByTestId('collections-grid')).not.toBeInTheDocument();
   });
+
+  // CUR-118: a hard reload on a deep link must not bounce back to Home while
+  // the initial cloud fetch is still in flight. The route should hold its URL
+  // and render a loading affordance until data resolves, then render the
+  // target collection / item.
+  it('shows a loading skeleton on /collection/:id while cloud fetch is in flight (CUR-118)', async () => {
+    const { ThemeProvider } = await import('@/theme');
+    let resolveCloud: (value: (typeof mockCollection)[]) => void = () => {};
+    vi.mocked(db.getLocalCollections).mockResolvedValue([]);
+    vi.mocked(db.fetchCloudCollections).mockReturnValue(
+      new Promise((resolve) => {
+        resolveCloud = resolve;
+      }) as never,
+    );
+
+    render(
+      <MemoryRouter initialEntries={['/collection/col1']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    // While loading, the deep-link route renders its own skeleton — not
+    // HomeScreen's collections-grid. Bouncing back to Home would surface
+    // the grid (or the home loader) instead, so this asserts both halves.
+    expect(await screen.findByTestId('collection-screen-skeleton')).toBeInTheDocument();
+    expect(screen.queryByTestId('collections-grid')).not.toBeInTheDocument();
+
+    // Once the cloud fetch resolves, the actual collection takes over.
+    resolveCloud([mockCollection]);
+    await waitFor(() => {
+      expect(screen.getAllByText('Test Collection')[0]).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('collection-screen-skeleton')).not.toBeInTheDocument();
+  });
+
+  it('shows a loading skeleton on /collection/:id/item/:itemId while cloud fetch is in flight (CUR-118)', async () => {
+    const { ThemeProvider } = await import('@/theme');
+    let resolveCloud: (value: (typeof mockCollection)[]) => void = () => {};
+    vi.mocked(db.getLocalCollections).mockResolvedValue([]);
+    vi.mocked(db.fetchCloudCollections).mockReturnValue(
+      new Promise((resolve) => {
+        resolveCloud = resolve;
+      }) as never,
+    );
+
+    render(
+      <MemoryRouter initialEntries={['/collection/col1/item/item1']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByTestId('item-detail-skeleton')).toBeInTheDocument();
+    expect(screen.queryByTestId('collections-grid')).not.toBeInTheDocument();
+
+    resolveCloud([mockCollection]);
+    // Once data lands, the item detail textarea (Title) replaces the skeleton.
+    expect(await screen.findByRole('textbox', { name: 'Title' })).toBeInTheDocument();
+    expect(screen.queryByTestId('item-detail-skeleton')).not.toBeInTheDocument();
+  });
+
+  it('falls back to Home when /collection/:id is genuinely missing after load (CUR-118)', async () => {
+    const { ThemeProvider } = await import('@/theme');
+    vi.mocked(db.getLocalCollections).mockResolvedValue([mockCollection]);
+    vi.mocked(db.fetchCloudCollections).mockResolvedValue([mockCollection]);
+
+    render(
+      <MemoryRouter initialEntries={['/collection/does-not-exist']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    // Once loading completes and the id is still unknown, Navigate fires
+    // and HomeScreen's grid takes over — the loading skeleton disappears.
+    await waitFor(() => {
+      expect(screen.getByTestId('collections-grid')).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('collection-screen-skeleton')).not.toBeInTheDocument();
+  });
 });
