@@ -1392,7 +1392,7 @@ export const AppContent: React.FC = () => {
                       aria-label={t('clearSearch')}
                       title={t('clearSearch')}
                       data-testid="collection-search-clear"
-                      className={`absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full flex items-center justify-center transition-colors ${theme === 'vault' ? 'text-stone-300 hover:bg-white/10' : 'text-stone-400 hover:bg-stone-100 hover:text-stone-600'}`}
+                      className={`absolute right-1 sm:right-2 top-1/2 -translate-y-1/2 w-11 h-11 sm:w-9 sm:h-9 rounded-full flex items-center justify-center transition-colors ${theme === 'vault' ? 'text-stone-300 hover:bg-white/10' : 'text-stone-400 hover:bg-stone-100 hover:text-stone-600'}`}
                     >
                       <X size={16} />
                     </button>
