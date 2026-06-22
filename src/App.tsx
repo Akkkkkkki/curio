@@ -51,6 +51,7 @@ import {
 } from 'lucide-react';
 import { Button } from './components/ui/Button';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
+import { CollectionScreenSkeleton, ItemDetailSkeleton } from './components/ui/Skeleton';
 import {
   fetchCloudCollections,
   getLocalCollections,
@@ -1239,7 +1240,13 @@ export const AppContent: React.FC = () => {
       }
     };
 
-    if (!collection) return <Navigate to="/" replace />;
+    if (!collection) {
+      // CUR-118: don't bounce a deep-link reload back to Home while the
+      // initial cloud fetch is still in flight. Only redirect once loading
+      // has settled and the id is genuinely absent.
+      if (isLoading) return <CollectionScreenSkeleton label={t('restoringArchives')} />;
+      return <Navigate to="/" replace />;
+    }
 
     return (
       <div className="space-y-10 animate-in slide-in-from-bottom-4 duration-500">
@@ -1660,7 +1667,18 @@ export const AppContent: React.FC = () => {
       ta.style.height = `${ta.scrollHeight}px`;
     }, [item?.title]);
 
-    if (!collection || !item) return <Navigate to={`/collection/${id}`} replace />;
+    if (!collection || !item) {
+      // CUR-118: deep-link reload of /collection/:id/item/:itemId must wait
+      // for the cloud fetch instead of bouncing to Home / parent collection.
+      // The `!item` half matters too: `refreshCollections()` flips `isLoading`
+      // without clearing existing collection state, so a follow-up refresh
+      // can leave the parent collection cached while the item is still in
+      // the pending cloud response — without this guard, the shared link
+      // would lose the item to the parent route before the fetch resolves.
+      if (isLoading) return <ItemDetailSkeleton label={t('restoringArchives')} />;
+      if (!collection) return <Navigate to="/" replace />;
+      return <Navigate to={`/collection/${id}`} replace />;
+    }
     const isReadOnly = Boolean(collection.isPublic) && !isAdmin;
 
     const snapshotItem = (target: CollectionItem) => ({
