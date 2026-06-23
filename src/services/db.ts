@@ -840,12 +840,13 @@ const normalizePendingDeletes = (pending: unknown): PendingDelete[] => {
 };
 
 const readPendingDeleteJournal = (): PendingDelete[] | null => {
-  if (typeof window === 'undefined' || typeof window.localStorage === 'undefined') {
+  const localStorage = getLocalStorage();
+  if (!localStorage) {
     return null;
   }
 
   try {
-    const stored = window.localStorage.getItem(PENDING_DELETE_JOURNAL_KEY);
+    const stored = localStorage.getItem(PENDING_DELETE_JOURNAL_KEY);
     if (stored === null) return null;
     return normalizePendingDeletes(JSON.parse(stored));
   } catch {
@@ -854,14 +855,27 @@ const readPendingDeleteJournal = (): PendingDelete[] | null => {
 };
 
 const writePendingDeleteJournal = (pending: PendingDelete[]): void => {
-  if (typeof window === 'undefined' || typeof window.localStorage === 'undefined') {
+  const localStorage = getLocalStorage();
+  if (!localStorage) {
     return;
   }
 
   try {
-    window.localStorage.setItem(PENDING_DELETE_JOURNAL_KEY, JSON.stringify(pending));
+    localStorage.setItem(PENDING_DELETE_JOURNAL_KEY, JSON.stringify(pending));
   } catch {
     // IndexedDB remains the fallback when localStorage is unavailable.
+  }
+};
+
+const getLocalStorage = (): Storage | null => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
   }
 };
 

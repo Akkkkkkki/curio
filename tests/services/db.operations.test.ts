@@ -504,6 +504,42 @@ describe('deleteCollection', () => {
     expect(merged[0]?.items).toEqual([]);
   });
 
+  it('falls back to IndexedDB when browser storage access is blocked', async () => {
+    const { supabase } = createDeleteSupabaseMock();
+    const dbMod = await importDbModuleFreshWithSupabaseMock(supabase);
+
+    const db = await dbMod.initDB();
+    openDb = db;
+    await clearStores(db, ['collections', 'assets', 'display', 'settings']);
+
+    const blockedLocalStorage = vi.spyOn(window, 'localStorage', 'get').mockImplementation(() => {
+      throw new DOMException('Blocked', 'SecurityError');
+    });
+
+    try {
+      await dbMod.addToPendingDeletes({
+        type: 'item',
+        collectionId: 'col-blocked-storage',
+        itemId: 'item-blocked-storage',
+        createdAt: '2026-06-23T00:00:00.000Z',
+      });
+
+      await expect(dbMod.getPendingDeletes()).resolves.toEqual([
+        {
+          type: 'item',
+          collectionId: 'col-blocked-storage',
+          itemId: 'item-blocked-storage',
+          createdAt: '2026-06-23T00:00:00.000Z',
+        },
+      ]);
+
+      await dbMod.removeFromPendingDeletes('col-blocked-storage', 'item-blocked-storage');
+      await expect(dbMod.getPendingDeletes()).resolves.toEqual([]);
+    } finally {
+      blockedLocalStorage.mockRestore();
+    }
+  });
+
   it('keeps the durable delete journal until a retry confirms the cloud delete', async () => {
     const deleteResults = [{ error: new Error('offline') }, { error: null }];
     const deleteQuery: any = {};
