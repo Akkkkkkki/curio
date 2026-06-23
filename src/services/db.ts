@@ -18,6 +18,7 @@ type ItemImageStatus = 'none' | 'processing' | 'ready' | 'failed';
 const PENDING_SYNC_KEY = 'pending_sync_ids';
 const PENDING_ASSET_UPLOADS_KEY = 'pending_asset_uploads';
 const PENDING_DELETE_KEY = 'pending_deletes';
+const PENDING_DELETE_JOURNAL_KEY = 'curio_pending_delete_journal';
 
 const SYNC_RETRY_BACKOFF_BASE_MS = 30_000;
 const SYNC_RETRY_BACKOFF_MAX_MS = 10 * 60_000;
@@ -255,17 +256,22 @@ export const mergeCollections = (
     .filter((cloudCol) => !pendingCollectionDeletes.has(cloudCol.id))
     .map((cloudCol) => {
       const localCol = localMap.get(cloudCol.id);
+      const collectionPendingDeletes = pendingDeletes.filter(
+        (d) => d.type === 'item' && d.collectionId === cloudCol.id,
+      );
       if (!localCol) {
-        return normalizeCollection(cloudCol);
+        return {
+          ...normalizeCollection(cloudCol),
+          items: mergeItems([], cloudCol.items, {
+            preserveLocalOnly: false,
+            pendingDeletes: collectionPendingDeletes,
+          }),
+        };
       }
       const localStamp = localCol.updatedAt;
       const cloudStamp = cloudCol.updatedAt;
       const useLocal = compareTimestamps(localStamp, cloudStamp) > 0;
       const base = useLocal ? localCol : cloudCol;
-      // Filter pending deletes to only those for this collection
-      const collectionPendingDeletes = pendingDeletes.filter(
-        (d) => d.type === 'item' && d.collectionId === cloudCol.id,
-      );
       const mergedItems = mergeItems(localCol.items, cloudCol.items, {
         preserveLocalOnly: includeLocalOnly(localCol),
         pendingDeletes: collectionPendingDeletes,
@@ -790,27 +796,120 @@ export const syncPendingAssetUploads = async (): Promise<number> => {
 // P0 Fix: Pending Delete Queue (prevents deleted items from resurrecting)
 // ============================================================================
 
-const normalizePendingDeletes = (pending: (PendingDelete | LegacyPendingDelete)[]) =>
-  pending.map((entry) => {
-    if ('type' in entry) {
-      return entry;
-    }
-    return {
-      type: 'item',
-      collectionId: entry.collectionId,
-      itemId: entry.itemId,
-      createdAt: entry.createdAt,
-    } as PendingDelete;
+const normalizePendingDeletes = (pending: unknown): PendingDelete[] => {
+  if (!Array.isArray(pending)) return [];
+
+  const seen = new Set<string>();
+  return pending
+    .map((candidate): PendingDelete | null => {
+      if (!candidate || typeof candidate !== 'object') return null;
+      const entry = candidate as Partial<PendingDelete & LegacyPendingDelete>;
+      if (typeof entry.collectionId !== 'string' || typeof entry.createdAt !== 'string') {
+        return null;
+      }
+
+      if (entry.type === 'collection') {
+        return {
+          type: 'collection',
+          collectionId: entry.collectionId,
+          createdAt: entry.createdAt,
+        };
+      }
+
+      if ((entry.type === 'item' || !('type' in entry)) && typeof entry.itemId === 'string') {
+        return {
+          type: 'item',
+          collectionId: entry.collectionId,
+          itemId: entry.itemId,
+          createdAt: entry.createdAt,
+        };
+      }
+
+      return null;
+    })
+    .filter((entry): entry is PendingDelete => {
+      if (!entry) return false;
+      const key =
+        entry.type === 'collection'
+          ? `collection:${entry.collectionId}`
+          : `item:${entry.collectionId}:${entry.itemId}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+};
+
+const readPendingDeleteJournal = (): PendingDelete[] | null => {
+  const localStorage = getLocalStorage();
+  if (!localStorage) {
+    return null;
+  }
+
+  try {
+    const stored = localStorage.getItem(PENDING_DELETE_JOURNAL_KEY);
+    if (stored === null) return null;
+    return normalizePendingDeletes(JSON.parse(stored));
+  } catch {
+    return null;
+  }
+};
+
+const writePendingDeleteJournal = (pending: PendingDelete[]): void => {
+  const localStorage = getLocalStorage();
+  if (!localStorage) {
+    return;
+  }
+
+  try {
+    localStorage.setItem(PENDING_DELETE_JOURNAL_KEY, JSON.stringify(pending));
+  } catch {
+    // IndexedDB remains the fallback when localStorage is unavailable.
+  }
+};
+
+const getLocalStorage = (): Storage | null => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+};
+
+const readPendingDeletesFromIndexedDb = async (db: IDBDatabase): Promise<PendingDelete[]> =>
+  new Promise((resolve) => {
+    const tx = db.transaction(SETTINGS_STORE, 'readonly');
+    const req = tx.objectStore(SETTINGS_STORE).get(PENDING_DELETE_KEY);
+    req.onsuccess = () => resolve(normalizePendingDeletes(req.result));
+    req.onerror = () => resolve([]);
+  });
+
+const writePendingDeletesToIndexedDb = async (
+  db: IDBDatabase,
+  pending: PendingDelete[],
+): Promise<void> =>
+  new Promise((resolve, reject) => {
+    const tx = db.transaction(SETTINGS_STORE, 'readwrite');
+    tx.objectStore(SETTINGS_STORE).put(pending, PENDING_DELETE_KEY);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
   });
 
 export const getPendingDeletes = async (): Promise<PendingDelete[]> => {
   const db = await initDB();
-  return new Promise((resolve) => {
-    const tx = db.transaction(SETTINGS_STORE, 'readonly');
-    const req = tx.objectStore(SETTINGS_STORE).get(PENDING_DELETE_KEY);
-    req.onsuccess = () => resolve(normalizePendingDeletes((req.result as PendingDelete[]) || []));
-    req.onerror = () => resolve([]);
-  });
+  const journal = readPendingDeleteJournal();
+  if (journal !== null) {
+    await writePendingDeletesToIndexedDb(db, journal);
+    return journal;
+  }
+
+  const pending = await readPendingDeletesFromIndexedDb(db);
+  writePendingDeleteJournal(pending);
+  return pending;
 };
 
 export const addToPendingDeletes = async (entry: PendingDelete): Promise<void> => {
@@ -832,9 +931,12 @@ export const addToPendingDeletes = async (entry: PendingDelete): Promise<void> =
       return;
     }
   }
-  pending.push({ ...entry, createdAt: entry.createdAt ?? new Date().toISOString() });
-  const tx = db.transaction(SETTINGS_STORE, 'readwrite');
-  tx.objectStore(SETTINGS_STORE).put(pending, PENDING_DELETE_KEY);
+  const updated = [
+    ...pending,
+    { ...entry, createdAt: entry.createdAt ?? new Date().toISOString() },
+  ];
+  writePendingDeleteJournal(updated);
+  await writePendingDeletesToIndexedDb(db, updated);
 };
 
 export const removeFromPendingDeletes = async (
@@ -852,8 +954,8 @@ export const removeFromPendingDeletes = async (
     }
     return !(d.collectionId === collectionId && d.itemId === itemId);
   });
-  const tx = db.transaction(SETTINGS_STORE, 'readwrite');
-  tx.objectStore(SETTINGS_STORE).put(filtered, PENDING_DELETE_KEY);
+  await writePendingDeletesToIndexedDb(db, filtered);
+  writePendingDeleteJournal(filtered);
 };
 
 export const syncPendingDeletes = async (): Promise<number> => {
