@@ -55,7 +55,7 @@ vi.mock('@capacitor/camera', () => ({
 
 import { analyzeImage, refreshAiEnabled } from '@/services/geminiService';
 import { trackEvent } from '@/services/analytics';
-import { Camera } from '@capacitor/camera';
+import { Camera, CameraSource } from '@capacitor/camera';
 
 const mockAnalyzeImage = analyzeImage as ReturnType<typeof vi.fn>;
 const mockRefreshAiEnabled = refreshAiEnabled as ReturnType<typeof vi.fn>;
@@ -478,6 +478,42 @@ describe('AddItemModal', () => {
     );
   });
 
+  it('exposes the upload-step circle as a keyboard-activatable button (CUR-119)', async () => {
+    const user = userEvent.setup();
+    mockGetPhoto.mockResolvedValue({ dataUrl: undefined });
+
+    renderWithProviders(
+      <AddItemModal
+        isOpen
+        onClose={mockOnClose}
+        collections={[createMockCollection()]}
+        onSave={mockOnSave}
+      />,
+    );
+
+    await screen.findByRole('heading', { name: 'Upload Photo' });
+
+    // The visual circle and the explicit CTA below both name themselves
+    // "Upload Photo". The circle is the first interactive control on the
+    // step and used to be a div with no role/tabindex/keyboard handler.
+    const uploadButtons = screen.getAllByRole('button', { name: 'Upload Photo' });
+    expect(uploadButtons.length).toBeGreaterThanOrEqual(2);
+
+    const circle = uploadButtons[0];
+    expect(circle.tagName).toBe('BUTTON');
+
+    circle.focus();
+    expect(circle).toHaveFocus();
+
+    await user.keyboard('{Enter}');
+
+    await waitFor(() => {
+      expect(mockGetPhoto).toHaveBeenCalledWith(
+        expect.objectContaining({ source: CameraSource.Photos }),
+      );
+    });
+  });
+
   it('renders the analyzing step with theme-aware copy on Vault (#110)', async () => {
     const user = userEvent.setup();
     setMockTheme('vault');
@@ -710,7 +746,9 @@ describe('AddItemModal', () => {
       );
 
       // Single-image upload routes to the verify step (not batch-verify).
-      await user.click(screen.getByRole('button', { name: /upload photo/i }));
+      // Two controls expose "Upload Photo" — the visual circle (CUR-119) and
+      // the explicit CTA below it. Clicking either calls pickFromGallery.
+      await user.click(screen.getAllByRole('button', { name: /upload photo/i })[0]);
 
       // Wait for analysis to land on the verify step.
       expect(await screen.findByDisplayValue('Mock Artifact')).toBeInTheDocument();
