@@ -539,6 +539,13 @@ describe('AddItemModal', () => {
     // i.e. it must not regress to stone-500 (~3.77:1).
     const helper = screen.getByText('Gemini is extracting details for your collection.');
     expect(helper.className).not.toContain('text-stone-500');
+
+    // CUR-92: the Sparkles pill behind the icon must drop the Gallery-only
+    // white surface so it doesn't punch through the Vault panel.
+    const sparklesIcon = heading.parentElement?.parentElement?.querySelector('svg.lucide-sparkles');
+    const pill = sparklesIcon?.parentElement;
+    expect(pill?.className).not.toContain('bg-white');
+    expect(pill?.className).not.toContain('border-stone-100');
   });
 
   it('fades the verify-step scroll edge while fields remain below the fold (CUR-45)', async () => {
