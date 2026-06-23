@@ -35,6 +35,7 @@ Issue prioritization and TODO tracking live in **GitHub Issues**, not in docs. P
 - **Product analytics**: `docs/ops/PRODUCT_ANALYTICS.md`
 - **Release**: `docs/GOOGLE_PLAY_SUBMISSION_GUIDE.md`, `docs/ANDROID_PRODUCTION_REVIEW.md`
 - **Plans**: `docs/plan/` (forward-looking design specs; deleted after shipping)
+- **Reviews**: `docs/reviews/` (point-in-time UX/design reviews, kept for reference between product iterations — e.g. `2026-06-23-ux-review.md` + its original `.html` artefact)
 - **Archive**: `docs/archive/` (point-in-time reports)
 
 ### Onboarding essentials
