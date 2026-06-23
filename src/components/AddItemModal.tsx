@@ -903,21 +903,23 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     <div className="text-center space-y-6 sm:space-y-8 py-2 sm:py-4">
       <div className="flex justify-center">
         <div className="relative">
-          <div
-            className="w-32 h-32 sm:w-40 sm:h-40 rounded-full bg-stone-50 border-2 border-dashed border-stone-200 flex flex-col items-center justify-center text-stone-400 group hover:border-amber-400 hover:bg-amber-50 transition-all cursor-pointer overflow-hidden"
+          <button
+            type="button"
             onClick={pickFromGallery}
+            aria-label={imagePreview ? t('changePhoto') : undefined}
+            className="w-32 h-32 sm:w-40 sm:h-40 rounded-full bg-stone-50 border-2 border-dashed border-stone-200 flex flex-col items-center justify-center text-stone-400 group hover:border-amber-400 hover:bg-amber-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40 focus-visible:ring-offset-2 transition-all cursor-pointer overflow-hidden"
           >
             {imagePreview ? (
-              <img src={imagePreview} className="w-full h-full object-cover" alt="Preview" />
+              <img src={imagePreview} className="w-full h-full object-cover" alt="" />
             ) : (
               <>
-                <Upload size={28} className="sm:w-8 sm:h-8 mb-2" />
+                <Upload size={28} className="sm:w-8 sm:h-8 mb-2" aria-hidden="true" />
                 <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">
                   {t('uploadPhoto')}
                 </span>
               </>
             )}
-          </div>
+          </button>
         </div>
       </div>
       <div>
