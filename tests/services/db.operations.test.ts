@@ -22,6 +22,7 @@ let openDb: IDBDatabase | null = null;
  */
 const BASE_DB_NAME = 'CurioDatabase';
 const TEST_DB_NAME = `${BASE_DB_NAME}__vitest_${Math.random().toString(16).slice(2)}`;
+const PENDING_DELETE_JOURNAL_KEY = 'curio_pending_delete_journal';
 const originalOpen = indexedDB.open.bind(indexedDB);
 const originalDeleteDatabase = indexedDB.deleteDatabase.bind(indexedDB);
 
@@ -131,6 +132,7 @@ describe('Phase 2.2 — services/db.ts dual-write operations', () => {
       openDb.close();
       openDb = null;
     }
+    window.localStorage.removeItem(PENDING_DELETE_JOURNAL_KEY);
   });
 
   afterEach(() => {
@@ -138,6 +140,7 @@ describe('Phase 2.2 — services/db.ts dual-write operations', () => {
       openDb.close();
       openDb = null;
     }
+    window.localStorage.removeItem(PENDING_DELETE_JOURNAL_KEY);
     vi.unstubAllEnvs();
     vi.clearAllMocks();
   });
@@ -388,6 +391,7 @@ describe('deleteCollection', () => {
       openDb.close();
       openDb = null;
     }
+    window.localStorage.removeItem(PENDING_DELETE_JOURNAL_KEY);
   });
 
   afterEach(() => {
@@ -395,6 +399,7 @@ describe('deleteCollection', () => {
       openDb.close();
       openDb = null;
     }
+    window.localStorage.removeItem(PENDING_DELETE_JOURNAL_KEY);
     vi.unstubAllEnvs();
     vi.clearAllMocks();
   });
@@ -447,6 +452,95 @@ describe('deleteCollection', () => {
       eqMock,
     };
   }
+
+  it('pending item delete survives IndexedDB maintenance and still filters the cloud item', async () => {
+    const { supabase } = createDeleteSupabaseMock();
+    const dbMod = await importDbModuleFreshWithSupabaseMock(supabase);
+
+    const db = await dbMod.initDB();
+    openDb = db;
+    await clearStores(db, ['collections', 'assets', 'display', 'settings']);
+
+    await dbMod.addToPendingDeletes({
+      type: 'item',
+      collectionId: 'col-offline',
+      itemId: 'item-offline',
+      createdAt: '2026-06-22T00:00:00.000Z',
+    });
+
+    await clearStores(db, ['settings']);
+
+    const pendingDeletes = await dbMod.getPendingDeletes();
+    expect(pendingDeletes).toEqual([
+      {
+        type: 'item',
+        collectionId: 'col-offline',
+        itemId: 'item-offline',
+        createdAt: '2026-06-22T00:00:00.000Z',
+      },
+    ]);
+
+    const cloudCollection: UserCollection = {
+      id: 'col-offline',
+      templateId: 'vinyl',
+      name: 'Cloud collection',
+      icon: '☁️',
+      customFields: [],
+      items: [
+        {
+          id: 'item-offline',
+          collectionId: 'col-offline',
+          photoUrl: 'cloud.jpg',
+          title: 'Deleted offline',
+          rating: 3,
+          data: {},
+          createdAt: '2026-06-21T00:00:00.000Z',
+          notes: '',
+        },
+      ],
+    };
+
+    const merged = dbMod.mergeCollections([], [cloudCollection], { pendingDeletes });
+    expect(merged[0]?.items).toEqual([]);
+  });
+
+  it('keeps the durable delete journal until a retry confirms the cloud delete', async () => {
+    const deleteResults = [{ error: new Error('offline') }, { error: null }];
+    const deleteQuery: any = {};
+    deleteQuery.eq = vi.fn().mockReturnValue(deleteQuery);
+    deleteQuery.then = (resolve: (value: { error: Error | null }) => unknown) =>
+      resolve(deleteResults.shift() ?? { error: null });
+
+    const supabase = {
+      auth: {
+        getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'test-user-id' } }, error: null }),
+      },
+      from: vi.fn(() => ({
+        delete: vi.fn(() => deleteQuery),
+      })),
+      storage: {
+        from: vi.fn(() => ({
+          upload: vi.fn().mockResolvedValue({ data: {}, error: null }),
+        })),
+      },
+    };
+    const dbMod = await importDbModuleFreshWithSupabaseMock(supabase);
+
+    const db = await dbMod.initDB();
+    openDb = db;
+    await clearStores(db, ['collections', 'assets', 'display', 'settings']);
+
+    await dbMod.deleteCloudItem('col-retry', 'item-retry');
+
+    expect(await dbMod.getPendingDeletes()).toHaveLength(1);
+    expect(
+      JSON.parse(window.localStorage.getItem(PENDING_DELETE_JOURNAL_KEY) || '[]'),
+    ).toHaveLength(1);
+
+    await expect(dbMod.syncPendingDeletes()).resolves.toBe(1);
+    expect(await dbMod.getPendingDeletes()).toEqual([]);
+    expect(JSON.parse(window.localStorage.getItem(PENDING_DELETE_JOURNAL_KEY) || '[]')).toEqual([]);
+  });
 
   it('deleteCollection: removes collection from IndexedDB', async () => {
     const { supabase } = createDeleteSupabaseMock();
