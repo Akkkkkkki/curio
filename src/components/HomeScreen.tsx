@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { AlertCircle, Sparkles, Calendar, Search, Plus, Loader2, X } from 'lucide-react';
 import { useTranslation } from '../i18n';
@@ -46,7 +46,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const { theme } = useTheme();
   const navigate = useNavigate();
   const [searchInput, setSearchInput] = useState('');
-  const [showOnboarding, setShowOnboarding] = useState(false);
   const debouncedSearch = useDebouncedValue(searchInput, 250);
   const normalizedSearch = debouncedSearch.trim().toLowerCase();
   const hasSearch = normalizedSearch.length > 0;
@@ -63,13 +62,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const primaryHistoryItem = historyItems[0];
   const [historyExpanded, setHistoryExpanded] = useState(false);
   const visibleHistoryItems = historyExpanded ? historyItems : historyPreview;
-  const hasPrivateCollections = collections.some((c) => !c.isPublic);
-  const shouldShowOnboarding = showOnboarding && !hasPrivateCollections;
-
-  useEffect(() => {
-    const dismissed = localStorage.getItem('curio_onboarding_dismissed') === 'true';
-    setShowOnboarding(!dismissed);
-  }, []);
 
   if (isLoading)
     return (
@@ -147,30 +139,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 </Button>
               </Link>
             )}
-          </div>
-        </div>
-      )}
-      {shouldShowOnboarding && (
-        <div
-          className={`rounded-[2rem] border p-5 sm:p-6 shadow-sm ${theme === 'vault' ? 'bg-white/5 border-white/10 text-white/80' : 'bg-white/80 border-stone-100 text-stone-700'}`}
-        >
-          <p className="text-sm font-semibold mb-2">{t('onboardingTitle')}</p>
-          <ul className="text-xs space-y-1">
-            <li>{t('onboardingStepOne')}</li>
-            <li>{t('onboardingStepTwo')}</li>
-            <li>{t('onboardingStepThree')}</li>
-          </ul>
-          <div className="mt-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                localStorage.setItem('curio_onboarding_dismissed', 'true');
-                setShowOnboarding(false);
-              }}
-            >
-              {t('gotIt')}
-            </Button>
           </div>
         </div>
       )}
@@ -312,7 +280,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         )}
       </section>
 
-      <div className="relative max-w-xl mx-auto -mt-6 sm:-mt-10 z-20 px-4">
+      <div className="relative max-w-xl mx-auto px-4">
         <div className="relative">
           <Search
             className="absolute left-5 sm:left-6 top-1/2 -translate-y-1/2 text-stone-400"

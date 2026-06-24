@@ -138,6 +138,26 @@ describe('HomeScreen', () => {
     });
   });
 
+  describe('first-run layout', () => {
+    it('shows only the Add-first CTA when no editable collections exist (no stacked onboarding checklist)', () => {
+      renderWithProviders(<HomeScreen {...defaultProps} collections={[]} />);
+
+      expect(screen.getByText(/add your first/i)).toBeInTheDocument();
+      expect(screen.queryByText(/quick start/i)).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /got it/i })).not.toBeInTheDocument();
+    });
+
+    it('lays the search bar out in normal flow without a negative top margin', () => {
+      const { container } = renderWithProviders(<HomeScreen {...defaultProps} />);
+
+      const searchInput = screen.getByPlaceholderText(/search/i);
+      const searchContainer = searchInput.closest('div.relative.max-w-xl') as HTMLElement | null;
+
+      expect(searchContainer).not.toBeNull();
+      expect(searchContainer!.className).not.toMatch(/-mt-/);
+    });
+  });
+
   it('shows loading state', () => {
     renderWithProviders(<HomeScreen {...defaultProps} isLoading={true} />);
     expect(screen.getByText('Restoring the archives...')).toBeInTheDocument();
