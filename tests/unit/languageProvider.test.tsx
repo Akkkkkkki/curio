@@ -76,10 +76,10 @@ describe('LanguageProvider memoization (CUR-54)', () => {
       </LanguageProvider>,
     );
 
-    expect(screen.getByTestId('translated').textContent).toBe('Artifacts');
+    expect(screen.getByTestId('translated').textContent).toBe('Pieces');
 
     fireEvent.click(screen.getByRole('button', { name: 'switch' }));
 
-    expect(screen.getByTestId('translated').textContent).toBe('珍品');
+    expect(screen.getByTestId('translated').textContent).toBe('藏品');
   });
 });

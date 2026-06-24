@@ -57,7 +57,7 @@ export const ItemCardSkeleton: React.FC = () => (
 );
 
 // Deep-link routes (/collection/:id, /collection/:id/item/:itemId) reuse
-// HomeScreen's "Restoring the archives…" affordance while `isLoading` is
+// HomeScreen's "Opening your museum…" affordance while `isLoading` is
 // true, so a hard reload on a shared link no longer bounces back to Home
 // before the cloud fetch resolves (CUR-118). The label is passed in so the
 // component stays i18n-free.

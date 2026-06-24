@@ -832,10 +832,10 @@ describe('App Integration Tests', () => {
     fireEvent.click(within(bottomNav).getByTestId('bottom-nav-add-pill'));
 
     // Upload step renders the "Take Photo" CTA; the collection picker would
-    // show the "New Archive" heading instead. Asserting the upload affordance
-    // proves the modal skipped the redundant pick step.
+    // show the "Start a collection" heading instead. Asserting the upload
+    // affordance proves the modal skipped the redundant pick step.
     expect(await screen.findByRole('button', { name: /take photo/i })).toBeInTheDocument();
-    expect(screen.queryByText('New Archive')).not.toBeInTheDocument();
+    expect(screen.queryByText('Start a collection')).not.toBeInTheDocument();
   });
 
   it('bottom-nav Add inherits the current collection from /collection/:id/item/:itemId (CUR-117)', async () => {
@@ -866,7 +866,7 @@ describe('App Integration Tests', () => {
     fireEvent.click(within(bottomNav).getByTestId('bottom-nav-add-pill'));
 
     expect(await screen.findByRole('button', { name: /take photo/i })).toBeInTheDocument();
-    expect(screen.queryByText('New Archive')).not.toBeInTheDocument();
+    expect(screen.queryByText('Start a collection')).not.toBeInTheDocument();
   });
 
   it('bottom-nav Add still shows the picker from inside a read-only sample collection (CUR-117)', async () => {
@@ -915,10 +915,10 @@ describe('App Integration Tests', () => {
     const bottomNav = screen.getByRole('navigation', { name: 'Primary' });
     fireEvent.click(within(bottomNav).getByTestId('bottom-nav-add-pill'));
 
-    // Picker step shows the "New Archive" heading and the user's own
+    // Picker step shows the "Start a collection" heading and the user's own
     // collection cards — proving the modal refused to default to the sample
     // and instead let the user choose where the item belongs.
-    expect(await screen.findByText('New Archive')).toBeInTheDocument();
+    expect(await screen.findByText('Start a collection')).toBeInTheDocument();
     expect(screen.getByText('Test Collection')).toBeInTheDocument();
     expect(screen.getByText('Second Collection')).toBeInTheDocument();
   });

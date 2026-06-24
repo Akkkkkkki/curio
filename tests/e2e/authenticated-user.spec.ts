@@ -46,14 +46,14 @@ test.describe('Authenticated User Experience', () => {
   test('should show explicit “Saved” feedback after adding an item', async ({ page }) => {
     // Create a new collection
     await expect(page.getByTestId('collections-grid')).toBeVisible({ timeout: 15000 });
-    await page.getByText(/new archive/i).click();
+    await page.getByText(/start a collection/i).click();
 
     await expect(page.getByTestId('create-collection-modal')).toBeVisible();
-    await page.getByTestId('create-collection-name').fill('E2E Archive');
+    await page.getByTestId('create-collection-name').fill('E2E Collection');
     await page.getByRole('button', { name: /create/i }).click();
 
-    await expect(page.getByText('E2E Archive')).toBeVisible({ timeout: 15000 });
-    await page.getByText('E2E Archive').click();
+    await expect(page.getByText('E2E Collection')).toBeVisible({ timeout: 15000 });
+    await page.getByText('E2E Collection').click();
 
     // Add item (manual path — recoverable AI)
     await page.getByRole('button', { name: /add item/i }).click();

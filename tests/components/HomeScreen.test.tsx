@@ -140,7 +140,7 @@ describe('HomeScreen', () => {
 
   it('shows loading state', () => {
     renderWithProviders(<HomeScreen {...defaultProps} isLoading={true} />);
-    expect(screen.getByText('Restoring the archives...')).toBeInTheDocument();
+    expect(screen.getByText('Opening your museum...')).toBeInTheDocument();
   });
 
   it('shows error state', () => {
