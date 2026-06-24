@@ -135,7 +135,7 @@ describe('AddItemModal', () => {
     );
 
     // Starts on the select-type step with both collections offered.
-    expect(screen.getByText('New Archive')).toBeInTheDocument();
+    expect(screen.getByText('Start a collection')).toBeInTheDocument();
     expect(screen.getByText('Vinyl Vault')).toBeInTheDocument();
 
     // Pick Vinyl Vault → advances to the upload step.
@@ -156,7 +156,7 @@ describe('AddItemModal', () => {
     // Should remain on the upload step. Previously this would snap back to
     // select-type and silently drop `selectedCollectionId`.
     expect(screen.getByRole('heading', { name: 'Upload Photo' })).toBeInTheDocument();
-    expect(screen.queryByText('New Archive')).not.toBeInTheDocument();
+    expect(screen.queryByText('Start a collection')).not.toBeInTheDocument();
   });
 
   it('skips collection picker when defaultCollectionId matches a known collection', async () => {
@@ -175,7 +175,7 @@ describe('AddItemModal', () => {
 
     // Should skip select-type and land on upload step directly.
     expect(screen.getByRole('heading', { name: 'Upload Photo' })).toBeInTheDocument();
-    expect(screen.queryByText('New Archive')).not.toBeInTheDocument();
+    expect(screen.queryByText('Start a collection')).not.toBeInTheDocument();
   });
 
   it('falls back to collection picker when defaultCollectionId does not match any collection', async () => {
@@ -193,7 +193,7 @@ describe('AddItemModal', () => {
     );
 
     // Should show the collection picker since the default ID is stale.
-    expect(screen.getByText('New Archive')).toBeInTheDocument();
+    expect(screen.getByText('Start a collection')).toBeInTheDocument();
     expect(screen.getByText('Vinyl Vault')).toBeInTheDocument();
   });
 
@@ -206,7 +206,7 @@ describe('AddItemModal', () => {
     );
 
     // Without a default, multi-collection modal starts on picker.
-    expect(screen.getByText('New Archive')).toBeInTheDocument();
+    expect(screen.getByText('Start a collection')).toBeInTheDocument();
   });
 
   it('routes to collection picker (not upload dead-end) when defaultCollectionId becomes stale mid-session', async () => {
@@ -370,7 +370,7 @@ describe('AddItemModal', () => {
     );
 
     // Stale default + multiple collections → must show picker, not upload dead-end.
-    expect(screen.getByText('New Archive')).toBeInTheDocument();
+    expect(screen.getByText('Start a collection')).toBeInTheDocument();
     expect(screen.getByText('Vinyl Vault')).toBeInTheDocument();
     expect(screen.getByText('Sneaker Gallery')).toBeInTheDocument();
   });
@@ -406,7 +406,7 @@ describe('AddItemModal', () => {
 
     expect(await screen.findByDisplayValue('Mock Artifact')).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'Archive 1 Artifacts' }));
+    await user.click(screen.getByRole('button', { name: 'Save 1 pieces' }));
 
     await waitFor(() => {
       expect(mockOnSave).toHaveBeenCalledTimes(1);
@@ -448,7 +448,7 @@ describe('AddItemModal', () => {
       .mockResolvedValueOnce(undefined)
       .mockRejectedValueOnce(new Error('Could not save image. Please try again.'));
 
-    await user.click(screen.getByRole('button', { name: /Archive \d+ Artifacts/ }));
+    await user.click(screen.getByRole('button', { name: /Save \d+ pieces/ }));
 
     expect(await screen.findByText('Could not save image. Please try again.')).toBeInTheDocument();
     expect(mockOnClose).not.toHaveBeenCalled();
@@ -463,7 +463,7 @@ describe('AddItemModal', () => {
     mockOnSave.mockReset();
     mockOnSave.mockResolvedValue(undefined);
 
-    await user.click(screen.getByRole('button', { name: /Archive \d+ Artifacts/ }));
+    await user.click(screen.getByRole('button', { name: /Save \d+ pieces/ }));
 
     await waitFor(() => {
       expect(mockOnSave).toHaveBeenCalledTimes(1);

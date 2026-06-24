@@ -273,7 +273,7 @@ export const useCollections = ({
       // Render the merged result immediately and stop the loading state. Cache
       // persistence and pending-sync flushing run in the background so a slow
       // IndexedDB write or a stalled upload can never keep the user stuck on the
-      // "Restoring the archives..." screen.
+      // "Opening your museum..." loading screen.
       setCollections(mergedCollections);
       setLoadError(null);
       setIsLoading(false);
