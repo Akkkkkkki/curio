@@ -35,14 +35,25 @@ describe('CUR-122 — warm product vocabulary', () => {
     expect(translations.en.newArchive).toBe('Start a collection');
     expect(translations.en.restoringArchives).toBe('Opening your museum...');
     expect(translations.en.archivalRecord).toBe('From my museum');
-    expect(translations.en.statusSaved).toBe('Saved & backed up');
   });
 
   it('headline replacements from the UX review are in place (ZH)', () => {
     expect(translations.zh.artifacts).toBe('藏品');
     expect(translations.zh.archives).toBe('收藏集');
     expect(translations.zh.newArchive).toBe('开始收藏');
-    expect(translations.zh.statusSaved).toBe('已保存并备份');
     expect(translations.zh.archivalRecord).toBe('来自我的博物馆');
+  });
+
+  // The save-confirmation copy must not claim backup until the cloud write
+  // confirms. `statusSaved` fires optimistically at local-save time (App.tsx
+  // ~872, ~1015) — that toast stays a plain "Saved". The warmer "Saved &
+  // backed up" claim is reserved for `statusSynced`, which only fires on a
+  // confirmed cloud sync. Reverses fake certainty for offline / failing-sync
+  // sessions (Trust before growth; raised in PR #307 review).
+  it('reserves "Saved & backed up" for the confirmed-sync toast', () => {
+    expect(translations.en.statusSaved).toBe('Saved');
+    expect(translations.en.statusSynced).toBe('Saved & backed up');
+    expect(translations.zh.statusSaved).toBe('已保存');
+    expect(translations.zh.statusSynced).toBe('已保存并备份');
   });
 });
