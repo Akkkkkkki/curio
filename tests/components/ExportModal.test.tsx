@@ -300,6 +300,104 @@ describe('ExportModal — export resilience when font embedding fails', () => {
   });
 });
 
+describe('ExportModal — CUR-106 export feedback tone', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    Object.defineProperty(HTMLImageElement.prototype, 'complete', {
+      configurable: true,
+      get: () => true,
+    });
+  });
+
+  it('reports successful Save image through the shared toast pattern and shows no inline alert', async () => {
+    const userEvent = (await import('@testing-library/user-event')).default;
+    const user = userEvent.setup();
+    const onStatus = vi.fn();
+    renderWithProviders(
+      <ExportModal
+        isOpen
+        onClose={vi.fn()}
+        fields={[]}
+        item={makeItem({ photoUrl: 'data:image/png;base64,ZmFrZQ==', title: 'A treasured object' })}
+        onStatus={onStatus}
+      />,
+    );
+
+    await user.click(await screen.findByRole('button', { name: /save image/i }));
+
+    await waitFor(() => {
+      // Success surfaces as a positive trust toast ("Image saved"), not silent.
+      expect(onStatus).toHaveBeenCalledWith(expect.stringMatching(/saved/i), 'success');
+    });
+    // The footer alert slot is reserved for real failures only.
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('treats the share download fallback as neutral info, not a red error', async () => {
+    // Force the no-native-share path: navigator.share absent.
+    const previousShare = Object.getOwnPropertyDescriptor(navigator, 'share');
+    Object.defineProperty(navigator, 'share', { configurable: true, value: undefined });
+    try {
+      const userEvent = (await import('@testing-library/user-event')).default;
+      const user = userEvent.setup();
+      const onStatus = vi.fn();
+      renderWithProviders(
+        <ExportModal
+          isOpen
+          onClose={vi.fn()}
+          fields={[]}
+          item={makeItem({
+            photoUrl: 'data:image/png;base64,ZmFrZQ==',
+            title: 'Desktop fallback case',
+          })}
+          onStatus={onStatus}
+        />,
+      );
+
+      await user.click(await screen.findByRole('button', { name: /^share$/i }));
+
+      await waitFor(() => {
+        // "Sharing isn't available — image saved instead" surfaces as info,
+        // never as an error. Desktop users hit this path every time.
+        expect(onStatus).toHaveBeenCalledWith(expect.stringMatching(/saved/i), 'info');
+      });
+      // No red role="alert" in the footer for what is really a successful save.
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    } finally {
+      if (previousShare) Object.defineProperty(navigator, 'share', previousShare);
+    }
+  });
+
+  it('still surfaces real save failures inline as an alert', async () => {
+    const mockedToBlob = toBlob as unknown as ReturnType<typeof vi.fn>;
+    mockedToBlob
+      .mockRejectedValueOnce(new Error('font fetch blocked by CSP'))
+      .mockRejectedValueOnce(new Error('still broken without fonts'));
+
+    const userEvent = (await import('@testing-library/user-event')).default;
+    const user = userEvent.setup();
+    const onStatus = vi.fn();
+    renderWithProviders(
+      <ExportModal
+        isOpen
+        onClose={vi.fn()}
+        fields={[]}
+        item={makeItem({ photoUrl: 'data:image/png;base64,ZmFrZQ==' })}
+        onStatus={onStatus}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: /save image/i }));
+
+    // Real failures keep the louder inline alert — this is the path the user
+    // can act on (retry), distinct from informational toasts that auto-dismiss.
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toMatch(/could not save image/i);
+    // Failure must not also masquerade as a positive trust signal.
+    expect(onStatus).not.toHaveBeenCalledWith(expect.anything(), 'success');
+  });
+});
+
 describe('ExportModal — product analytics', () => {
   beforeEach(() => {
     vi.clearAllMocks();

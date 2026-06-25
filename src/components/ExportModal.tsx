@@ -6,6 +6,7 @@ import { Button } from './ui/Button';
 import { extractCurioAssetPath, getAsset, getEnhancedAsset } from '../services/db';
 import { useTranslation } from '../i18n';
 import { trackEvent } from '../services/analytics';
+import type { StatusTone } from './StatusToast';
 
 const sanitizeFilename = (value: string) =>
   value
@@ -18,6 +19,10 @@ interface ExportModalProps {
   onClose: () => void;
   item: CollectionItem;
   fields: FieldDefinition[];
+  // CUR-106: lets the modal surface positive / informational outcomes through
+  // the shared toast pattern (Saved / Synced / Will sync style). Real errors
+  // still render inline next to the action buttons.
+  onStatus?: (message: string, tone: StatusTone) => void;
 }
 
 type TemplateStyle = 'minimal' | 'full' | 'retro';
@@ -29,7 +34,13 @@ type ImageFit = 'cover' | 'contain';
 // a phone export reads as sharp as a desktop export when re-shared.
 const EXPORT_TARGET_SHORT_EDGE_PX = 1080;
 
-export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item, fields }) => {
+export const ExportModal: React.FC<ExportModalProps> = ({
+  isOpen,
+  onClose,
+  item,
+  fields,
+  onStatus,
+}) => {
   const { t } = useTranslation();
   const [style, setStyle] = useState<TemplateStyle>('minimal');
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('3:4');
@@ -204,13 +215,17 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
       anchor.click();
       anchor.remove();
       setTimeout(() => URL.revokeObjectURL(url), 2000);
+      // CUR-106: browser download chrome is easy to miss inside the dark
+      // export overlay (and on mobile is sometimes invisible). Mirror the
+      // trust pattern used for Saved / Synced so the outcome is explicit.
+      onStatus?.(t('imageSaved'), 'success');
     } catch (err) {
       console.error('Save image failed:', err);
       setExportError(t('saveImageFailed'));
     } finally {
       setExportAction(null);
     }
-  }, [exportAction, item.title, renderCardToBlob, t]);
+  }, [exportAction, item.title, onStatus, renderCardToBlob, t]);
 
   const handleShare = useCallback(async () => {
     if (exportAction) return;
@@ -240,7 +255,12 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
       anchor.remove();
       setTimeout(() => URL.revokeObjectURL(url), 2000);
       trackEvent('share_completed', { method: 'download_fallback', surface: 'item_card' });
-      setExportError(t('shareFailed'));
+      // CUR-106: fallback download is the standard path on most desktop
+      // browsers — it is not a failure. Surface it as a neutral info toast
+      // ("Sharing isn't available — image saved instead") so the user
+      // understands what happened, instead of a red `role="alert"` in the
+      // footer that read as broken every time.
+      onStatus?.(t('shareUnavailableSavedInstead'), 'info');
     } catch (err) {
       const error = err as DOMException;
       if (error?.name === 'AbortError') return;
@@ -253,7 +273,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
     } finally {
       setExportAction(null);
     }
-  }, [exportAction, item.title, renderCardToBlob, t]);
+  }, [exportAction, item.title, onStatus, renderCardToBlob, t]);
 
   const PEEK_HEIGHT_PX = 56;
   // Moderate open height: tall enough to reveal the action footer (Save / Share /
