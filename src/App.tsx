@@ -2367,6 +2367,7 @@ export const AppContent: React.FC = () => {
           onClose={() => setIsExportOpen(false)}
           item={item}
           fields={collection.customFields}
+          onStatus={showStatus}
         />
         <EnhanceImageModal
           isOpen={isEnhanceOpen}
