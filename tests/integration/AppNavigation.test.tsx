@@ -179,6 +179,91 @@ describe('App Integration Tests', () => {
     );
   });
 
+  it('filters collection items and resets the query from the inline clear button', async () => {
+    const { ThemeProvider } = await import('@/theme');
+    const collectionWithSearchableItems = {
+      ...mockCollection,
+      items: [
+        mockCollection.items[0],
+        {
+          ...mockCollection.items[0],
+          id: 'item2',
+          title: 'Moon Bowl',
+          notes: 'Ceramic with a blue glaze',
+          data: { maker: 'North Kiln' },
+        },
+      ],
+    };
+    vi.mocked(db.getLocalCollections).mockResolvedValue([collectionWithSearchableItems]);
+
+    render(
+      <MemoryRouter initialEntries={['/collection/col1']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    const searchInput = (await screen.findByRole('textbox', {
+      name: /search this collection/i,
+    })) as HTMLInputElement;
+
+    fireEvent.change(searchInput, { target: { value: 'Moon' } });
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Moon Bowl')[0]).toBeInTheDocument();
+      expect(screen.queryByText('Test Item')).not.toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId('collection-search-clear'));
+
+    await waitFor(() => {
+      expect(searchInput.value).toBe('');
+      expect(screen.getAllByText('Test Item')[0]).toBeInTheDocument();
+      expect(screen.getAllByText('Moon Bowl')[0]).toBeInTheDocument();
+      expect(screen.queryByTestId('collection-search-clear')).not.toBeInTheDocument();
+    });
+  });
+
+  it('shows collection search empty copy and clears it from the empty state action', async () => {
+    const { ThemeProvider } = await import('@/theme');
+
+    render(
+      <MemoryRouter initialEntries={['/collection/col1']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    const searchInput = (await screen.findByRole('textbox', {
+      name: /search this collection/i,
+    })) as HTMLInputElement;
+
+    fireEvent.change(searchInput, { target: { value: 'zzzzz' } });
+
+    await waitFor(() => {
+      expect(screen.getByText('No matches found')).toBeInTheDocument();
+      expect(
+        screen.getByText('No items match “zzzzz”. Try a different search.'),
+      ).toBeInTheDocument();
+      expect(screen.queryByText('Test Item')).not.toBeInTheDocument();
+    });
+
+    const clearButtons = screen.getAllByRole('button', { name: /clear search/i });
+    fireEvent.click(clearButtons[clearButtons.length - 1]);
+
+    await waitFor(() => {
+      expect(searchInput.value).toBe('');
+      expect(screen.getAllByText('Test Item')[0]).toBeInTheDocument();
+      expect(screen.queryByText('No matches found')).not.toBeInTheDocument();
+    });
+  });
+
   it('keeps pending deletes in the production merge and retry path', async () => {
     const { ThemeProvider } = await import('@/theme');
     const pendingDeletes = [
