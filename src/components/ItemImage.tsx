@@ -26,9 +26,7 @@ export const ItemImage: React.FC<ItemImageProps> = ({
   const [dbUrl, setDbUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
-  const [fallbackSrc, setFallbackSrc] = useState<string | null>(null);
   const currentUrlRef = useRef<string | null>(null);
-  const defaultFallback = `${import.meta.env.BASE_URL}assets/sample-vinyl.jpg`;
   const remoteAssetPath = useMemo(() => {
     if (!photoUrl) return null;
     if (photoUrl === 'asset') return null;
@@ -70,8 +68,6 @@ export const ItemImage: React.FC<ItemImageProps> = ({
     resolvedPhotoUrl && resolvedPhotoUrl !== 'asset' && resolvedPhotoUrl !== '';
 
   useEffect(() => {
-    // Reset fallback/error when the source changes
-    setFallbackSrc(null);
     setError(false);
   }, [photoUrl]);
 
@@ -157,7 +153,7 @@ export const ItemImage: React.FC<ItemImageProps> = ({
     };
   }, []);
 
-  const finalSrc = fallbackSrc || (isDirectSource ? resolvedPhotoUrl : dbUrl);
+  const finalSrc = isDirectSource ? resolvedPhotoUrl : dbUrl;
 
   if (loading && !finalSrc) {
     return (
@@ -208,15 +204,7 @@ export const ItemImage: React.FC<ItemImageProps> = ({
       alt={alt}
       className={`object-cover ${className}`}
       loading="lazy"
-      onError={() => {
-        // Handle native browser load errors (e.g., 404 for relative paths)
-        if (!fallbackSrc && isDirectSource) {
-          setFallbackSrc(defaultFallback);
-          setError(false);
-          return;
-        }
-        setError(true);
-      }}
+      onError={() => setError(true)}
     />
   );
 };
