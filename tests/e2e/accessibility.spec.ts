@@ -161,16 +161,19 @@ test.describe('Accessibility', () => {
     test('should have alt text for images', async ({ page }) => {
       await page.goto('/');
 
-      const images = page.locator('img');
-      const count = await images.count();
+      // Snapshot the current DOM rather than auto-waiting per <img>; image elements
+      // can be replaced by a placeholder tile if their source fails to load.
+      const altTexts = await page.locator('img').evaluateAll((nodes) =>
+        nodes.slice(0, 5).map((img) => ({
+          visible: (img as HTMLElement).offsetParent !== null,
+          alt: img.getAttribute('alt'),
+        })),
+      );
 
-      for (let i = 0; i < Math.min(count, 5); i++) {
-        const img = images.nth(i);
-        if (await img.isVisible()) {
-          const alt = await img.getAttribute('alt');
-          // Images should have alt attribute (can be empty for decorative)
-          expect(alt !== null).toBeTruthy();
-        }
+      for (const { visible, alt } of altTexts) {
+        if (!visible) continue;
+        // Images should have alt attribute (can be empty for decorative)
+        expect(alt !== null).toBeTruthy();
       }
     });
   });
