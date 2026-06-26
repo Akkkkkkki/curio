@@ -174,6 +174,8 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
             <button
               key={i}
               onClick={() => setIndex(i)}
+              aria-label={t('exhibitionJumpTo', { n: i + 1 })}
+              aria-current={i === index ? 'true' : undefined}
               className={`h-1 rounded-full transition-all ${
                 i === index ? 'w-6 bg-amber-500' : 'w-1.5 bg-white/20 hover:bg-white/30'
               }`}
@@ -289,6 +291,8 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
               <button
                 key={i}
                 onClick={() => setIndex(i)}
+                aria-label={t('exhibitionJumpTo', { n: i + 1 })}
+                aria-current={i === index ? 'true' : undefined}
                 className={`h-1.5 rounded-full transition-all ${
                   i === index ? 'w-10 bg-amber-500' : 'w-3 bg-white/20 hover:bg-white/30'
                 }`}
