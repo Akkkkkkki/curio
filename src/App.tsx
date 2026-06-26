@@ -2767,7 +2767,6 @@ export const AppContent: React.FC = () => {
                     sampleCollection={sampleCollection}
                     refreshCollections={refreshCollections}
                     handleAddAction={handleAddAction}
-                    handleCreateCollectionAction={handleCreateCollectionAction}
                   />
                 }
               />

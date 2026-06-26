@@ -49,6 +49,32 @@ describe('HomeScreen', () => {
     },
   ];
 
+  const sampleCollection: UserCollection = {
+    id: 'sample',
+    name: 'Sample Gallery',
+    items: [
+      {
+        id: 'sample-item',
+        title: 'Sample Vase',
+        data: {},
+        rating: 4,
+        notes: '',
+        photoUrl: '',
+        createdAt: '',
+        updatedAt: '',
+        collectionId: 'sample',
+        userId: 'sample-user',
+      },
+    ],
+    templateId: 'general',
+    icon: '🏛️',
+    customFields: [],
+    isPublic: true,
+    ownerId: 'sample-user',
+    updatedAt: '',
+    createdAt: '',
+  };
+
   const defaultProps = {
     collections: mockCollections,
     stats: {
@@ -62,7 +88,6 @@ describe('HomeScreen', () => {
     sampleCollection: undefined,
     refreshCollections: vi.fn(),
     handleAddAction: vi.fn(),
-    handleCreateCollectionAction: vi.fn(),
   };
 
   beforeEach(() => {
@@ -139,12 +164,28 @@ describe('HomeScreen', () => {
   });
 
   describe('first-run layout', () => {
-    it('shows only the Add-first CTA when no editable collections exist (no stacked onboarding checklist)', () => {
-      renderWithProviders(<HomeScreen {...defaultProps} collections={[]} />);
+    it('shows one primary action and one sample action when no editable collections exist', () => {
+      renderWithProviders(
+        <HomeScreen
+          {...defaultProps}
+          collections={[sampleCollection]}
+          sampleCollection={sampleCollection}
+        />,
+      );
 
-      expect(screen.getByText(/add your first/i)).toBeInTheDocument();
+      expect(
+        screen.getByRole('heading', { name: /start your museum with one thing you love/i }),
+      ).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /add your first piece/i })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: /wander a sample museum/i })).toHaveAttribute(
+        'href',
+        '#/collection/sample',
+      );
+      expect(screen.getByText(/no account needed to look around/i)).toBeInTheDocument();
       expect(screen.queryByText(/quick start/i)).not.toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /got it/i })).not.toBeInTheDocument();
+      expect(screen.queryByTestId('collections-grid')).not.toBeInTheDocument();
+      expect(screen.queryByText('Sample Gallery')).not.toBeInTheDocument();
     });
 
     it('lays the search bar out in normal flow without a negative top margin', () => {
@@ -155,6 +196,43 @@ describe('HomeScreen', () => {
 
       expect(searchContainer).not.toBeNull();
       expect(searchContainer!.className).not.toMatch(/-mt-/);
+    });
+
+    it('orders populated Home as header, search, On This Day, then grid', () => {
+      const historyItems = [
+        {
+          id: 'history-item',
+          title: 'Remembered ticket',
+          data: {},
+          rating: 0,
+          notes: '',
+          photoUrl: '',
+          createdAt: new Date(2020, 0, 1).toISOString(),
+          updatedAt: '',
+          collectionId: 'col1',
+          userId: 'user1',
+        },
+      ];
+      renderWithProviders(
+        <HomeScreen {...defaultProps} stats={{ ...defaultProps.stats, historyItems }} />,
+      );
+
+      const heading = screen.getByRole('heading', { name: /your museum/i });
+      const searchInput = screen.getByPlaceholderText(/search/i);
+      const onThisDay = screen.getByText(/on this day/i);
+      const grid = screen.getByTestId('collections-grid');
+
+      expect(screen.queryByText(/in the spotlight/i)).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /start a collection/i })).not.toBeInTheDocument();
+      expect(heading.compareDocumentPosition(searchInput) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+        Node.DOCUMENT_POSITION_FOLLOWING,
+      );
+      expect(
+        searchInput.compareDocumentPosition(onThisDay) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+      expect(onThisDay.compareDocumentPosition(grid) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+        Node.DOCUMENT_POSITION_FOLLOWING,
+      );
     });
   });
 

@@ -216,7 +216,7 @@ describe('App Integration Tests', () => {
     });
   });
 
-  it('shows the public sample gallery instead of a dead-end gate when cloud is not configured', async () => {
+  it('shows the first-run Home with a sample path instead of a dead-end gate when cloud is not configured', async () => {
     const { ThemeProvider } = await import('@/theme');
     vi.mocked(supabaseService.isSupabaseConfigured).mockReturnValue(false);
 
@@ -231,11 +231,16 @@ describe('App Integration Tests', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId('collections-grid')).toBeInTheDocument();
+      expect(
+        screen.getByRole('heading', { name: /start your museum with one thing you love/i }),
+      ).toBeInTheDocument();
     });
 
-    expect(screen.getAllByText('The Vinyl Vault')[0]).toBeInTheDocument();
-    expect(screen.getByText('5')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /wander a sample museum/i })).toHaveAttribute(
+      'href',
+      '/collection/sample-vinyl',
+    );
+    expect(screen.queryByTestId('collections-grid')).not.toBeInTheDocument();
     expect(screen.queryByTestId('access-gate')).not.toBeInTheDocument();
   });
 
