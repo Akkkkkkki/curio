@@ -49,6 +49,7 @@ export const translations = {
     profile: 'Profile',
     add: 'Add',
     exhibitNo: 'Exhibit No. {n} of {total}',
+    exhibitionJumpTo: 'Jump to exhibit {n}',
     updatePhoto: 'Update photo',
     exportCard: 'Export Card',
     archiveNarrative: 'Story', // alias kept for one release; storyLabel is canonical
@@ -536,6 +537,7 @@ export const translations = {
     profile: '个人中心',
     add: '添加',
     exhibitNo: '展品 第 {n} 件 / 共 {total} 件',
+    exhibitionJumpTo: '跳转到第 {n} 件展品',
     updatePhoto: '更新照片',
     exportCard: '导出馆藏卡片',
     archiveNarrative: '故事', // alias kept for one release; story is canonical
