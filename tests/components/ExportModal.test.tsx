@@ -206,6 +206,72 @@ describe('ExportModal — CUR-105 mobile sheet opens expanded', () => {
   });
 });
 
+describe('ExportModal — CUR-136 card preview clears the expanded mobile sheet', () => {
+  const baseProps = {
+    isOpen: true,
+    onClose: vi.fn(),
+    item: makeItem(),
+    fields: FIELDS,
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('shrinks the preview container to match the sheet during an upward drag, instead of stranding it at the peek strip', async () => {
+    renderWithProviders(<ExportModal {...baseProps} />);
+
+    // The preview container is the closest absolutely-positioned ancestor of
+    // the card; it reserves the space above the sheet. Anchoring its bottom
+    // to the sheet height is what guarantees the card stays fully visible.
+    const card = document.getElementById('card-preview');
+    expect(card).not.toBeNull();
+    const previewContainer = card!.parentElement!.parentElement as HTMLElement;
+    expect(previewContainer.className).toMatch(/absolute/);
+
+    // Drive a drag that forces `mobileSheetHeight` into a concrete pixel value
+    // — JSDOM happily stores `${px}px` on inline styles (but normalises `dvh`-
+    // based `clamp()` values away), so this is what lets us read the contract.
+    const handle = document.querySelector<HTMLElement>('[class*="cursor-grab"]');
+    expect(handle).not.toBeNull();
+    Object.defineProperty(handle!, 'offsetHeight', {
+      configurable: true,
+      value: 320,
+    });
+    Object.defineProperty(window, 'innerHeight', {
+      configurable: true,
+      value: 844,
+    });
+
+    const fire = (type: string, clientY: number) => {
+      const event = new PointerEvent(type, {
+        bubbles: true,
+        clientY,
+        pointerId: 1,
+        pointerType: 'touch',
+      });
+      handle!.dispatchEvent(event);
+    };
+
+    // Touch the handle and drag upward 200px → sheet grows to ~520px.
+    await act(async () => {
+      fire('pointerdown', 400);
+      fire('pointermove', 200);
+    });
+
+    // While dragging, both the preview's bottom AND the sheet's height should
+    // resolve to the same pixel value. Before the fix, the preview was pinned
+    // to `var(--peek-height, 0px)` and ignored the drag entirely.
+    const sheet = previewContainer.parentElement!.querySelector<HTMLElement>(
+      '[class*="rounded-t-3xl"][class*="shadow-2xl"]',
+    );
+    expect(sheet).not.toBeNull();
+
+    expect(previewContainer.style.bottom).toMatch(/^\d+(\.\d+)?px$/);
+    expect(previewContainer.style.bottom).toBe(sheet!.style.height);
+  });
+});
+
 describe('ExportModal — CUR-99 fixed export resolution', () => {
   const baseProps = {
     isOpen: true,
