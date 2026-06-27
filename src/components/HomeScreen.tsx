@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { AlertCircle, Sparkles, Calendar, Search, Loader2, X } from 'lucide-react';
+import { AlertCircle, Sparkles, Calendar, Search, Plus, Loader2, X } from 'lucide-react';
 import { useTranslation } from '../i18n';
 import { useTheme, typographyClasses, accentColorClasses, labelColorClasses } from '../theme';
 import { UserCollection } from '../types';
@@ -23,6 +23,7 @@ interface HomeScreenProps {
   sampleCollection: UserCollection | undefined;
   refreshCollections: () => void;
   handleAddAction: () => void;
+  handleCreateCollectionAction: () => void;
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({
@@ -33,6 +34,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   sampleCollection,
   refreshCollections,
   handleAddAction,
+  handleCreateCollectionAction,
 }) => {
   const { t } = useTranslation();
   const { theme } = useTheme();
@@ -41,10 +43,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const debouncedSearch = useDebouncedValue(searchInput, 250);
   const normalizedSearch = debouncedSearch.trim().toLowerCase();
   const hasSearch = normalizedSearch.length > 0;
-  const editableCollections = collections.filter((c) => !c.isPublic);
-  const hasOwnedContent = editableCollections.length > 0;
+  const hasOwnedContent = collections.length > 0;
 
-  const filteredCollections = editableCollections.filter(
+  const filteredCollections = collections.filter(
     (c) =>
       !normalizedSearch ||
       c.name.toLowerCase().includes(normalizedSearch) ||
@@ -302,6 +303,25 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             />
           );
         })}
+
+        {!hasSearch && (
+          <button
+            onClick={handleCreateCollectionAction}
+            className={`group relative p-8 rounded-[2rem] border-2 border-dashed transition-all flex flex-col items-center justify-center min-h-[220px] gap-4 shadow-sm hover:shadow-xl overflow-hidden ${theme === 'vault' ? 'border-white/10 hover:border-amber-400 bg-white/5 text-stone-500' : 'border-stone-200 hover:border-amber-400 bg-white/50 text-stone-400'}`}
+          >
+            <div className="w-16 h-16 rounded-full bg-stone-50 flex items-center justify-center shadow-inner group-hover:scale-110 group-hover:shadow-lg transition-transform text-stone-300">
+              <Plus size={32} strokeWidth={1.5} />
+            </div>
+            <div className="text-center">
+              <span
+                className={`${typographyClasses.titleLarge} italic block mb-1 ${theme === 'vault' ? 'text-white/60' : 'text-stone-400'}`}
+              >
+                {t('newArchive')}
+              </span>
+              <span className={typographyClasses.labelMuted}>{t('expandSpace')}</span>
+            </div>
+          </button>
+        )}
 
         {hasSearch && filteredCollections.length === 0 && (
           <div

@@ -2760,13 +2760,14 @@ export const AppContent: React.FC = () => {
                 path="/"
                 element={
                   <HomeScreen
-                    collections={collections}
+                    collections={editableCollections}
                     stats={stats}
                     isLoading={isLoading}
                     loadError={loadError}
                     sampleCollection={sampleCollection}
                     refreshCollections={refreshCollections}
                     handleAddAction={handleAddAction}
+                    handleCreateCollectionAction={handleCreateCollectionAction}
                   />
                 }
               />

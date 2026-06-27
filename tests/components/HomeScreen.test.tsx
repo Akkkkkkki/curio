@@ -88,6 +88,7 @@ describe('HomeScreen', () => {
     sampleCollection: undefined,
     refreshCollections: vi.fn(),
     handleAddAction: vi.fn(),
+    handleCreateCollectionAction: vi.fn(),
   };
 
   beforeEach(() => {
@@ -163,14 +164,28 @@ describe('HomeScreen', () => {
     });
   });
 
+  it('keeps a create-collection action available on populated Home', () => {
+    renderWithProviders(<HomeScreen {...defaultProps} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /start a collection/i }));
+
+    expect(defaultProps.handleCreateCollectionAction).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders public collections when App has classified them as editable', () => {
+    renderWithProviders(<HomeScreen {...defaultProps} collections={[sampleCollection]} />);
+
+    expect(screen.getByTestId('collections-grid')).toBeInTheDocument();
+    expect(screen.getAllByText('Sample Gallery')[0]).toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: /start your museum with one thing you love/i }),
+    ).not.toBeInTheDocument();
+  });
+
   describe('first-run layout', () => {
     it('shows one primary action and one sample action when no editable collections exist', () => {
       renderWithProviders(
-        <HomeScreen
-          {...defaultProps}
-          collections={[sampleCollection]}
-          sampleCollection={sampleCollection}
-        />,
+        <HomeScreen {...defaultProps} collections={[]} sampleCollection={sampleCollection} />,
       );
 
       expect(
@@ -223,7 +238,7 @@ describe('HomeScreen', () => {
       const grid = screen.getByTestId('collections-grid');
 
       expect(screen.queryByText(/in the spotlight/i)).not.toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: /start a collection/i })).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /start a collection/i })).toBeInTheDocument();
       expect(heading.compareDocumentPosition(searchInput) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
         Node.DOCUMENT_POSITION_FOLLOWING,
       );
