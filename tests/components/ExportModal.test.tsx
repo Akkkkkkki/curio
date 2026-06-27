@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { act, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { renderWithProviders } from '../utils/test-utils';
 import { ExportModal } from '@/components/ExportModal';
 import type { CollectionItem, FieldDefinition } from '@/types';
@@ -461,6 +461,68 @@ describe('ExportModal — CUR-106 export feedback tone', () => {
     expect(alert.textContent).toMatch(/could not save image/i);
     // Failure must not also masquerade as a positive trust signal.
     expect(onStatus).not.toHaveBeenCalledWith(expect.anything(), 'success');
+  });
+});
+
+describe('ExportModal — CUR-137 broken-photo fallback', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('falls back to the "No photo" placeholder when the card image fails to load instead of showing a broken-image glyph', async () => {
+    renderWithProviders(
+      <ExportModal
+        isOpen
+        onClose={vi.fn()}
+        fields={[]}
+        item={makeItem({
+          photoUrl: 'https://example.invalid/missing.jpg',
+          title: 'Broken photo case',
+        })}
+      />,
+    );
+
+    // The minimal template is default and is the path the user hits from the
+    // mobile Save Image / Share flow. The card preview should render the photo
+    // slot until the load actually fails.
+    const card = document.getElementById('card-preview');
+    expect(card).not.toBeNull();
+    const img = card!.querySelector('img');
+    expect(img).not.toBeNull();
+    expect(img!.getAttribute('crossorigin')).toBe('anonymous');
+
+    // Simulate the network / 404 / CORS failure that produced the broken-image
+    // glyph in the bug report.
+    await act(async () => {
+      fireEvent.error(img!);
+    });
+
+    // The image is replaced by the explicit "No photo" placeholder. This is the
+    // user-visible contract: no broken-image glyph ever survives to the card.
+    expect(card!.querySelector('img')).toBeNull();
+    expect(screen.getByText(/no photo/i)).toBeInTheDocument();
+  });
+
+  it('marks the photo slot empty when the IndexedDB asset waterfall returns nothing, so the card never relies on a broken <img>', async () => {
+    // Default mocks already return null for both getEnhancedAsset and getAsset,
+    // simulating an item whose photo blob is missing from local + cloud.
+    renderWithProviders(
+      <ExportModal
+        isOpen
+        onClose={vi.fn()}
+        fields={[]}
+        item={makeItem({ photoUrl: 'asset', title: 'Asset-keyword case' })}
+      />,
+    );
+
+    // Wait for the loading spinner to clear (waterfall resolves).
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /save image/i })).not.toBeDisabled();
+    });
+
+    const card = document.getElementById('card-preview')!;
+    expect(card.querySelector('img')).toBeNull();
+    expect(screen.getByText(/no photo/i)).toBeInTheDocument();
   });
 });
 

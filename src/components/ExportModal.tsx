@@ -53,6 +53,12 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   const [isExpanded, setIsExpanded] = useState(true);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [isLoadingImage, setIsLoadingImage] = useState(true);
+  // CUR-137: distinguish "no photo on this item" from "photo failed to load".
+  // The card preview used to render whatever the browser put in the broken
+  // `<img>` slot (a default broken-image glyph), which then also poisoned
+  // html-to-image's canvas. Surface the same `noPhoto` placeholder either way
+  // so the exported PNG is intentional, not an accident.
+  const [imageLoadError, setImageLoadError] = useState(false);
   const [exportAction, setExportAction] = useState<null | 'save' | 'share'>(null);
   const [exportError, setExportError] = useState<string | null>(null);
   const [dragHeight, setDragHeight] = useState<number | null>(null);
@@ -105,8 +111,10 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   useEffect(() => {
     if (!isOpen) {
       setImageUrl(null);
+      setImageLoadError(false);
       return;
     }
+    setImageLoadError(false);
     if (directPhotoUrl) {
       setImageUrl(directPhotoUrl);
       setIsLoadingImage(false);
@@ -140,9 +148,12 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         if (blob && blob.size > 0) {
           objectUrl = URL.createObjectURL(blob);
           setImageUrl(objectUrl);
+        } else {
+          setImageLoadError(true);
         }
       } catch (e) {
         console.error(e);
+        setImageLoadError(true);
       } finally {
         setIsLoadingImage(false);
       }
@@ -346,6 +357,13 @@ export const ExportModal: React.FC<ExportModalProps> = ({
     return val !== undefined && val !== null ? val.toString() : null;
   };
 
+  // CUR-137: only set crossOrigin for HTTP(S) sources. Setting it on `blob:` /
+  // `data:` URLs is a no-op in spec terms but some browsers cache differently;
+  // for same-origin assets (relative paths) the attribute is unnecessary.
+  const imgCrossOrigin = imageUrl && /^https?:\/\//i.test(imageUrl) ? 'anonymous' : undefined;
+  const handleImageError = () => setImageLoadError(true);
+  const hasPhoto = Boolean(imageUrl) && !imageLoadError;
+
   const renderCardPreview = () => {
     const containerStyles = {
       minimal:
@@ -387,9 +405,11 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                   <div className="absolute inset-0 flex items-center justify-center">
                     <Loader2 className="animate-spin text-stone-200" />
                   </div>
-                ) : imageUrl ? (
+                ) : hasPhoto ? (
                   <img
-                    src={imageUrl}
+                    src={imageUrl!}
+                    crossOrigin={imgCrossOrigin}
+                    onError={handleImageError}
                     className={`w-full h-full ${imageFit === 'contain' ? 'object-contain' : 'object-cover'}`}
                     alt={item.title || t('photoPreview')}
                   />
@@ -424,10 +444,12 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           )}
           {style === 'full' && (
             <>
-              {imageUrl && (
+              {hasPhoto && (
                 <div className="absolute inset-0">
                   <img
-                    src={imageUrl}
+                    src={imageUrl!}
+                    crossOrigin={imgCrossOrigin}
+                    onError={handleImageError}
                     className={`w-full h-full ${imageFit === 'contain' ? 'object-contain' : 'object-cover'} opacity-80`}
                     alt=""
                   />
@@ -451,9 +473,11 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           {style === 'retro' && (
             <>
               <div className="w-full flex-1 border-2 border-stone-800 mb-4 bg-stone-200 grayscale contrast-125 overflow-hidden relative min-h-0">
-                {imageUrl && (
+                {hasPhoto && (
                   <img
-                    src={imageUrl}
+                    src={imageUrl!}
+                    crossOrigin={imgCrossOrigin}
+                    onError={handleImageError}
                     className={`w-full h-full mix-blend-multiply ${imageFit === 'contain' ? 'object-contain' : 'object-cover'}`}
                     alt=""
                   />
