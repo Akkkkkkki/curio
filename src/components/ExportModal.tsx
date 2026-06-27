@@ -359,13 +359,20 @@ export const ExportModal: React.FC<ExportModalProps> = ({
     const previewMaxWidth = 'min(85vw, 560px)';
 
     return (
+      // CUR-136 follow-up: fill the available height first and derive the
+      // width from `aspect-ratio`, capped at `previewMaxWidth`. Fixing the
+      // width and only clamping `max-height` (the old shape) squashes the
+      // ratio whenever the container is shorter than the natural card height
+      // — most visibly when the bottom sheet is expanded on a phone, where
+      // it also baked the squash into `renderCardToBlob()`'s export.
       <div
         id="card-preview"
         ref={cardRef}
         className={`isolate shadow-2xl transition-all duration-300 overflow-hidden relative group select-none mx-auto print:h-auto print:!w-[100mm]`}
         style={{
           aspectRatio: `${ratioW} / ${ratioH}`,
-          width: previewMaxWidth,
+          height: '100%',
+          width: 'auto',
           maxWidth: previewMaxWidth,
           maxHeight: '100%',
         }}
