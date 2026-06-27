@@ -493,9 +493,15 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         } as React.CSSProperties
       }
     >
+      {/* CUR-136: on mobile the preview's bottom tracks the sheet height so the
+          card stays fully visible above whatever portion of the sheet is up.
+          The desktop override (`md:!bottom-0`) keeps the sidebar layout, where
+          the preview spans the full height beside a fixed-width sheet. */}
       <div
-        className="absolute top-0 left-0 right-0 flex flex-col items-center justify-center px-6 py-6 md:!bottom-0 md:pr-[calc(24rem+1.5rem)] overflow-hidden print:static print:inset-auto print:p-0 print:block pointer-events-none"
-        style={{ bottom: 'var(--peek-height, 0px)' }}
+        className={`absolute top-0 left-0 right-0 flex flex-col items-center justify-center px-6 py-6 md:!bottom-0 md:pr-[calc(24rem+1.5rem)] overflow-hidden print:static print:inset-auto print:p-0 print:block pointer-events-none ${
+          isDragging ? '' : 'transition-[bottom] duration-300 ease-out'
+        }`}
+        style={{ bottom: mobileSheetHeight }}
       >
         <div className="h-full w-full flex items-center justify-center print:block print:h-auto print:w-auto">
           {renderCardPreview()}
