@@ -778,4 +778,93 @@ describe('AddItemModal', () => {
       expect(mockOnClose).not.toHaveBeenCalled();
     });
   });
+
+  describe('Vault theme contrast (CUR-22)', () => {
+    it('renders collection picker tiles with theme-aware surface tokens on Vault', () => {
+      setMockTheme('vault');
+      renderWithProviders(
+        <AddItemModal
+          isOpen
+          onClose={mockOnClose}
+          collections={[
+            createMockCollection({ id: 'a', name: 'Vinyl' }),
+            createMockCollection({ id: 'b', name: 'Chocolate' }),
+          ]}
+          onSave={mockOnSave}
+        />,
+      );
+
+      const tiles = screen.getAllByTestId('add-item-collection-tile');
+      expect(tiles).toHaveLength(2);
+      tiles.forEach((tile) => {
+        // Light Gallery tokens (bg-stone-50/50, text-stone-800) must NOT leak
+        // into the dark surface — they collapse against the dark modal body.
+        expect(tile).not.toHaveClass('bg-stone-50/50');
+        expect(tile).toHaveClass('bg-white/5');
+        expect(tile).toHaveClass('border-white/10');
+      });
+
+      const titles = tiles.map((tile) => tile.querySelector('span.font-bold'));
+      titles.forEach((title) => {
+        expect(title).not.toBeNull();
+        expect(title!.className).toMatch(/text-white/);
+        expect(title!.className).not.toMatch(/text-stone-800/);
+      });
+    });
+
+    it('renders the upload empty-state circle with a Vault-tinted surface, not a cream pill', () => {
+      setMockTheme('vault');
+      renderWithProviders(
+        <AddItemModal
+          isOpen
+          onClose={mockOnClose}
+          collections={[createMockCollection({ customFields: [] })]}
+          onSave={mockOnSave}
+        />,
+      );
+
+      const uploadEmpty = screen.getByTestId('add-item-upload-empty');
+      expect(uploadEmpty).toHaveClass('bg-white/5');
+      expect(uploadEmpty).toHaveClass('border-white/15');
+      // The empty cream pill must not survive on Vault.
+      expect(uploadEmpty).not.toHaveClass('bg-stone-50');
+      expect(uploadEmpty).not.toHaveClass('hover:bg-amber-50');
+    });
+
+    it('keeps the "Skip Manual" link hover visible against the dark surface', () => {
+      setMockTheme('vault');
+      renderWithProviders(
+        <AddItemModal
+          isOpen
+          onClose={mockOnClose}
+          collections={[createMockCollection({ customFields: [] })]}
+          onSave={mockOnSave}
+        />,
+      );
+
+      const skipLink = screen.getByTestId('add-item-skip-manual');
+      // hover:text-stone-600 was invisible on stone-900 — pin to white.
+      expect(skipLink).toHaveClass('hover:text-white');
+      expect(skipLink.className).not.toMatch(/hover:text-stone-(500|600|700)/);
+    });
+
+    it('preserves Gallery tokens for the collection picker on the default theme', () => {
+      setMockTheme('gallery');
+      renderWithProviders(
+        <AddItemModal
+          isOpen
+          onClose={mockOnClose}
+          collections={[
+            createMockCollection({ id: 'a', name: 'Vinyl' }),
+            createMockCollection({ id: 'b', name: 'Chocolate' }),
+          ]}
+          onSave={mockOnSave}
+        />,
+      );
+
+      const tile = screen.getAllByTestId('add-item-collection-tile')[0];
+      expect(tile).toHaveClass('bg-stone-50/50');
+      expect(tile).toHaveClass('border-stone-100');
+    });
+  });
 });
