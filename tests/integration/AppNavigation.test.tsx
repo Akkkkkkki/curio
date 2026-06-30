@@ -922,4 +922,105 @@ describe('App Integration Tests', () => {
     expect(screen.getByText('Test Collection')).toBeInTheDocument();
     expect(screen.getByText('Second Collection')).toBeInTheDocument();
   });
+
+  // CUR-93: Active filter chips and the "Clear all" link hardcoded amber-50
+  // and stone-500 tokens. On Vault the chips punched through the dark page as
+  // pale yellow blocks and the muted link collapsed against the surface. The
+  // fix mirrors the warning tone in StatusBanner (CUR-81) so the chips read
+  // as one system across all three themes.
+  const applyRatingFilter = async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Filter Collection' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Filter Collection' });
+    const ratingSelect = within(dialog).getByRole('combobox');
+    fireEvent.change(ratingSelect, { target: { value: '5' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: /apply/i }));
+  };
+
+  it('renders active filter chips with theme-aware tokens on Vault (CUR-93)', async () => {
+    const { ThemeProvider } = await import('@/theme');
+
+    render(
+      <MemoryRouter initialEntries={['/collection/col1']}>
+        {/* @ts-ignore - mocked ThemeProvider accepts initialTheme */}
+        <ThemeProvider initialTheme="vault">
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Test Collection')).toBeInTheDocument();
+    });
+
+    await applyRatingFilter();
+
+    const chip = await screen.findByTestId('active-filter-chip');
+    // Vault uses amber-tinted dark tokens instead of the pale amber-50 pill.
+    expect(chip.classList).toContain('bg-amber-500/10');
+    expect(chip.classList).toContain('text-amber-200');
+    expect(chip.classList).toContain('border-amber-400/20');
+    expect(chip.classList).not.toContain('bg-amber-50');
+
+    const clearAll = screen.getByTestId('active-filter-clear-all');
+    expect(clearAll.classList).toContain('text-stone-300');
+    expect(clearAll.classList).not.toContain('text-stone-500');
+  });
+
+  it('preserves Gallery tokens for active filter chips on the default theme (CUR-93)', async () => {
+    const { ThemeProvider } = await import('@/theme');
+
+    render(
+      <MemoryRouter initialEntries={['/collection/col1']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Test Collection')).toBeInTheDocument();
+    });
+
+    await applyRatingFilter();
+
+    const chip = await screen.findByTestId('active-filter-chip');
+    expect(chip.classList).toContain('bg-amber-50');
+    expect(chip.classList).toContain('text-amber-800');
+    expect(chip.classList).toContain('border-amber-100');
+
+    const clearAll = screen.getByTestId('active-filter-clear-all');
+    expect(clearAll.classList).toContain('text-stone-500');
+  });
+
+  it('uses Atelier warm-brown tokens for active filter chips (CUR-93)', async () => {
+    const { ThemeProvider } = await import('@/theme');
+
+    render(
+      <MemoryRouter initialEntries={['/collection/col1']}>
+        {/* @ts-ignore - mocked ThemeProvider accepts initialTheme */}
+        <ThemeProvider initialTheme="atelier">
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Test Collection')).toBeInTheDocument();
+    });
+
+    await applyRatingFilter();
+
+    const chip = await screen.findByTestId('active-filter-chip');
+    expect(chip.classList).toContain('bg-amber-100/70');
+    expect(chip.classList).toContain('text-amber-900');
+
+    const clearAll = screen.getByTestId('active-filter-clear-all');
+    expect(clearAll.classList).toContain('text-[#8C7B6B]');
+  });
 });

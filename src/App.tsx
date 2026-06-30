@@ -146,6 +146,36 @@ import { HomeScreen } from './components/HomeScreen';
 import { useDebouncedValue } from './hooks/useDebouncedValue';
 import { useAndroidBackButton } from './hooks/useAndroidBackButton';
 
+// CUR-93: Active filter chips and the "Clear all" link used to hardcode
+// Gallery (light) tokens, so on Vault the amber-50 pills punched through
+// the dark page and the stone-500 link collapsed against the page muted
+// text. The palette here mirrors the warning tone in StatusBanner (CUR-81)
+// and the muted link tones already used elsewhere in the file, so the
+// chips read as one system across themes.
+const filterChipClasses: Record<AppTheme, string> = {
+  gallery: 'bg-amber-50 text-amber-800 border-amber-100',
+  vault: 'bg-amber-500/10 text-amber-200 border-amber-400/20',
+  atelier: 'bg-amber-100/70 text-amber-900 border-amber-300/60',
+};
+
+const filterChipSeparatorClasses: Record<AppTheme, string> = {
+  gallery: 'text-amber-700/80',
+  vault: 'text-amber-200/70',
+  atelier: 'text-amber-800/70',
+};
+
+const filterChipIconClasses: Record<AppTheme, string> = {
+  gallery: 'text-amber-600',
+  vault: 'text-amber-200',
+  atelier: 'text-amber-800',
+};
+
+const clearFiltersLinkClasses: Record<AppTheme, string> = {
+  gallery: 'text-stone-500 hover:text-stone-800 decoration-stone-300',
+  vault: 'text-stone-300 hover:text-white decoration-white/30',
+  atelier: 'text-[#8C7B6B] hover:text-[#3D3530] decoration-[#D4C9B8]',
+};
+
 export const AppContent: React.FC = () => {
   const { t, language } = useTranslation();
   const { theme, setTheme } = useTheme();
@@ -1429,19 +1459,21 @@ export const AppContent: React.FC = () => {
             {activeFilterEntries.map(([key, value]) => (
               <button
                 key={key}
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm bg-amber-50 text-amber-800 border border-amber-100 motion-chip"
+                data-testid="active-filter-chip"
+                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm border motion-chip ${filterChipClasses[theme]}`}
                 onClick={() => handleRemoveFilter(key)}
                 title={t('clearFilter')}
               >
                 <span className="font-semibold">{getFieldLabel(key)}</span>
-                <span className="text-amber-700/80">·</span>
+                <span className={filterChipSeparatorClasses[theme]}>·</span>
                 <span className="font-medium">{value}</span>
-                <X size={14} className="text-amber-600" />
+                <X size={14} className={filterChipIconClasses[theme]} />
               </button>
             ))}
             <button
+              data-testid="active-filter-clear-all"
               onClick={handleClearFilters}
-              className="text-sm font-semibold text-stone-500 hover:text-stone-800 underline decoration-stone-300"
+              className={`text-sm font-semibold underline ${clearFiltersLinkClasses[theme]}`}
             >
               {t('clearAll')}
             </button>
