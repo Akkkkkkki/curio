@@ -1,8 +1,13 @@
 import { UserCollection } from '../types';
 import { TEMPLATES } from '../constants';
 
-export const CURRENT_SEED_VERSION = 4;
-export const SEED_IMAGE_PATH = `${import.meta.env.BASE_URL}assets/sample-vinyl.jpg`;
+export const CURRENT_SEED_VERSION = 5;
+const seedImage = (file: string) => `${import.meta.env.BASE_URL}assets/${file}`;
+// Each sample record has its own original cover artwork (an abstract vinyl
+// motif) so the pre-login gallery no longer repeats a single image across all
+// five items. SEED_IMAGE_PATH stays pointed at the first cover for callers that
+// import it (e.g. the live Gemini proxy fixture).
+export const SEED_IMAGE_PATH = seedImage('sample-vinyl.jpg');
 const SEED_TIMESTAMP = new Date().toISOString();
 
 export const INITIAL_COLLECTIONS: UserCollection[] = [
@@ -39,7 +44,7 @@ export const INITIAL_COLLECTIONS: UserCollection[] = [
         id: 'seed-vinyl-2',
         seedKey: 'a_love_supreme_seed',
         collectionId: 'sample-vinyl',
-        photoUrl: SEED_IMAGE_PATH,
+        photoUrl: seedImage('sample-vinyl-2.jpg'),
         title: 'A Love Supreme',
         rating: 5,
         data: {
@@ -60,7 +65,7 @@ export const INITIAL_COLLECTIONS: UserCollection[] = [
         id: 'seed-vinyl-3',
         seedKey: 'whats_going_on_seed',
         collectionId: 'sample-vinyl',
-        photoUrl: SEED_IMAGE_PATH,
+        photoUrl: seedImage('sample-vinyl-3.jpg'),
         title: "What's Going On",
         rating: 5,
         data: {
@@ -81,7 +86,7 @@ export const INITIAL_COLLECTIONS: UserCollection[] = [
         id: 'seed-vinyl-4',
         seedKey: 'rumours_seed',
         collectionId: 'sample-vinyl',
-        photoUrl: SEED_IMAGE_PATH,
+        photoUrl: seedImage('sample-vinyl-4.jpg'),
         title: 'Rumours',
         rating: 4,
         data: {
@@ -102,7 +107,7 @@ export const INITIAL_COLLECTIONS: UserCollection[] = [
         id: 'seed-vinyl-5',
         seedKey: 'discovery_seed',
         collectionId: 'sample-vinyl',
-        photoUrl: SEED_IMAGE_PATH,
+        photoUrl: seedImage('sample-vinyl-5.jpg'),
         title: 'Discovery',
         rating: 4,
         data: {
