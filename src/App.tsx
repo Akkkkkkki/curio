@@ -2075,7 +2075,7 @@ export const AppContent: React.FC = () => {
                   aria-describedby={
                     titleIsEmpty && !isReadOnly ? 'item-detail-title-error' : undefined
                   }
-                  className={`${typographyClasses.titleDisplay} mb-2 sm:mb-3 w-full bg-transparent border-b-2 resize-none overflow-hidden break-words leading-tight ${
+                  className={`${typographyClasses.titleHero} mb-2 sm:mb-3 w-full bg-transparent border-b-2 resize-none overflow-hidden break-words leading-tight ${
                     titleIsEmpty && !isReadOnly
                       ? 'border-red-400 focus:border-red-500'
                       : 'border-transparent'
@@ -2100,37 +2100,42 @@ export const AppContent: React.FC = () => {
                     {t('titleRequired')}
                   </p>
                 )}
-                <div className="flex flex-wrap items-center gap-2">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <button
-                      key={star}
-                      onClick={() => applyItemUpdate({ rating: star })}
-                      aria-label={t('rateStars', { count: star })}
-                      aria-pressed={item.rating === star}
-                      title={t('rateStars', { count: star })}
-                      className={`p-2 min-w-[48px] min-h-[48px] flex items-center justify-center transition-transform ${isReadOnly ? 'cursor-not-allowed opacity-70' : 'hover:scale-125'}`}
-                      disabled={isReadOnly}
-                    >
-                      <Star
-                        className={`w-6 h-6 sm:w-9 sm:h-9 ${
-                          star <= item.rating
-                            ? `${ratingColorClasses[theme]} fill-current`
-                            : ratingEmptyClasses[theme]
-                        }`}
-                        strokeWidth={1.5}
-                      />
-                    </button>
-                  ))}
-                  <span
-                    className={`shrink-0 whitespace-nowrap sm:ml-2 ${typographyClasses.label} ${mutedTextClasses[theme]}`}
-                  >
-                    {t('registryQuality')}
-                  </span>
-                  {isReadOnly && (
-                    <span className="shrink-0 whitespace-nowrap text-[12px] text-amber-500 font-semibold">
-                      {t('readOnlyControls')}
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                  {/* Keep all five stars on a single row at every width (they
+                      previously wrapped to a second row below ~360px); the
+                      label drops to its own line on narrow screens instead. */}
+                  <div className="flex items-center gap-1 sm:gap-1.5">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        onClick={() => applyItemUpdate({ rating: star })}
+                        aria-label={t('rateStars', { count: star })}
+                        aria-pressed={item.rating === star}
+                        title={t('rateStars', { count: star })}
+                        className={`shrink-0 p-2 min-h-[44px] flex items-center justify-center rounded-lg transition-transform ${isReadOnly ? 'cursor-not-allowed opacity-70' : 'hover:scale-110'}`}
+                        disabled={isReadOnly}
+                      >
+                        <Star
+                          className={`w-6 h-6 sm:w-8 sm:h-8 ${
+                            star <= item.rating
+                              ? `${ratingColorClasses[theme]} fill-current`
+                              : ratingEmptyClasses[theme]
+                          }`}
+                          strokeWidth={1.5}
+                        />
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <span className={`${typographyClasses.label} ${mutedTextClasses[theme]}`}>
+                      {t('registryQuality')}
                     </span>
-                  )}
+                    {isReadOnly && (
+                      <span className="text-[12px] text-amber-500 font-semibold">
+                        {t('readOnlyControls')}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
               {!isReadOnly && (
@@ -2899,12 +2904,25 @@ const LocalizedErrorBoundary: React.FC<{ children: React.ReactNode }> = ({ child
   );
 };
 
+// Reset scroll to the top on every route change. HashRouter has no native
+// scroll restoration, and the app's single scrolling <main> otherwise carries
+// the previous list's scroll offset into the item detail view (opening it
+// mid-page instead of at the hero).
+const ScrollToTop: React.FC = () => {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+  return null;
+};
+
 export const App: React.FC = () => {
   return (
     <ThemeProvider>
       <LanguageProvider>
         <LocalizedErrorBoundary>
           <HashRouter>
+            <ScrollToTop />
             <AppContent />
           </HashRouter>
           <SpeedInsights />
