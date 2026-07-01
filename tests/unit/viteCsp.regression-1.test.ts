@@ -26,4 +26,15 @@ describe('buildCspPolicy', () => {
     expect(connectDirective).toContain('https://fonts.googleapis.com');
     expect(connectDirective).toContain('https://fonts.gstatic.com');
   });
+
+  it('allows data: fonts in font-src so exported cards keep their brand fonts', () => {
+    // Regression: html-to-image inlines fonts as `data:font/woff2;base64,...`
+    // during export; a font-src without `data:` made the browser refuse them,
+    // so the rasterized card fell back to system fonts.
+    const policy = buildCspPolicy();
+    const fontDirective = policy.split('; ').find((d) => d.startsWith('font-src '));
+    expect(fontDirective).toContain("'self'");
+    expect(fontDirective).toContain('https://fonts.gstatic.com');
+    expect(fontDirective).toContain('data:');
+  });
 });

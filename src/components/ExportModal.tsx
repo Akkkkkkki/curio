@@ -1,12 +1,64 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { X, Printer, Share2, Download, Maximize2, Minimize2, Loader2, Camera } from 'lucide-react';
 import { toBlob } from 'html-to-image';
-import { CollectionItem, FieldDefinition } from '../types';
+import { CollectionItem, FieldDefinition, AppTheme } from '../types';
 import { Button } from './ui/Button';
+import { useTheme } from '../theme';
 import { extractCurioAssetPath, getAsset, getEnhancedAsset } from '../services/db';
 import { useTranslation } from '../i18n';
 import { trackEvent } from '../services/analytics';
 import type { StatusTone } from './StatusToast';
+
+// The export sheet/backdrop used to be hardcoded to the light "gallery" palette,
+// so in the vault/atelier themes it appeared as a jarring white panel over a
+// flat scrim. These maps let the modal *chrome* follow the active theme. The
+// card preview templates (minimal/full/retro) stay fixed on purpose — they are
+// the exported artwork, not app chrome.
+const backdropClasses: Record<AppTheme, string> = {
+  gallery: 'bg-stone-900/85',
+  vault: 'bg-black/90',
+  atelier: 'bg-[#2A2420]/85',
+};
+const sheetSurfaceClasses: Record<AppTheme, string> = {
+  gallery: 'bg-white text-stone-900',
+  vault: 'bg-stone-900 text-white',
+  atelier: 'bg-[#F5EFE4] text-[#3D3530]',
+};
+const sheetBorderClasses: Record<AppTheme, string> = {
+  gallery: 'border-stone-100',
+  vault: 'border-white/10',
+  atelier: 'border-[#D4C9B8]',
+};
+const footerSurfaceClasses: Record<AppTheme, string> = {
+  gallery: 'bg-stone-50',
+  vault: 'bg-stone-950',
+  atelier: 'bg-[#EDE4D3]',
+};
+const modalLabelClasses: Record<AppTheme, string> = {
+  gallery: 'text-stone-400',
+  vault: 'text-stone-400',
+  atelier: 'text-[#8C7B6B]',
+};
+const optionIdleClasses: Record<AppTheme, string> = {
+  gallery: 'border-stone-200 hover:border-amber-200 hover:bg-stone-50',
+  vault: 'border-white/10 hover:border-[#D4A574]/40 hover:bg-white/5',
+  atelier: 'border-[#D4C9B8] hover:border-[#A86F3C]/40 hover:bg-[#EDE4D3]',
+};
+const optionSelectedClasses: Record<AppTheme, string> = {
+  gallery: 'border-amber-500 bg-amber-50/50 ring-1 ring-amber-500',
+  vault: 'border-[#D4A574] bg-[#D4A574]/10 ring-1 ring-[#D4A574]',
+  atelier: 'border-[#A86F3C] bg-[#A86F3C]/10 ring-1 ring-[#A86F3C]',
+};
+const segmentSelectedClasses: Record<AppTheme, string> = {
+  gallery: 'bg-stone-800 text-white border-stone-800',
+  vault: 'bg-[#D4A574] text-stone-900 border-[#D4A574]',
+  atelier: 'bg-[#A86F3C] text-white border-[#A86F3C]',
+};
+const segmentIdleClasses: Record<AppTheme, string> = {
+  gallery: 'border-stone-200 text-stone-600 hover:bg-stone-50',
+  vault: 'border-white/10 text-stone-300 hover:bg-white/5',
+  atelier: 'border-[#D4C9B8] text-[#6B5344] hover:bg-[#EDE4D3]',
+};
 
 const sanitizeFilename = (value: string) =>
   value
@@ -42,6 +94,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   onStatus,
 }) => {
   const { t } = useTranslation();
+  const { theme } = useTheme();
   const [style, setStyle] = useState<TemplateStyle>('minimal');
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('3:4');
   const [imageFit, setImageFit] = useState<ImageFit>('cover');
@@ -290,7 +343,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   // Moderate open height: tall enough to reveal the action footer (Save / Share /
   // Print) while leaving the card prominent above the sheet. Clamped so the
   // footer still fits on short screens and the sheet never dominates tall ones.
-  const OPEN_SHEET_HEIGHT = 'clamp(20rem, 52dvh, 32rem)';
+  const OPEN_SHEET_HEIGHT = 'clamp(18rem, 46dvh, 28rem)';
   // Past this drag delta we commit to the new state; smaller drags snap back to
   // the current state so a tap-sized wobble never flips the sheet.
   const SNAP_DELTA_PX = 48;
@@ -517,7 +570,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   return (
     <div
       data-export-modal
-      className={`fixed inset-0 z-50 bg-stone-950/90 backdrop-blur-md animate-in fade-in duration-200 print:bg-white print:static print:block print:inset-auto print:h-auto print:overflow-visible overflow-hidden pt-[env(safe-area-inset-top,0px)] pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)]`}
+      className={`fixed inset-0 z-50 ${backdropClasses[theme]} backdrop-blur-md animate-in fade-in duration-200 print:bg-white print:static print:block print:inset-auto print:h-auto print:overflow-visible overflow-hidden pt-[env(safe-area-inset-top,0px)] pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)]`}
       style={
         {
           '--peek-height': `calc(${PEEK_HEIGHT_PX}px + env(safe-area-inset-bottom, 0px))`,
@@ -555,7 +608,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       )}
       <div
         ref={sheetRef}
-        className={`absolute inset-x-0 bottom-0 md:absolute md:top-0 md:left-auto md:inset-x-auto md:right-0 md:w-96 md:!h-full min-h-0 overflow-hidden bg-white rounded-t-3xl md:rounded-none shadow-2xl flex flex-col z-10 print:hidden [--export-footer-height:11.5rem] md:[--export-footer-height:12.5rem] ${isDragging ? '' : 'transition-[height] duration-300 ease-out'}`}
+        className={`absolute inset-x-0 bottom-0 md:absolute md:top-0 md:left-auto md:inset-x-auto md:right-0 md:w-96 md:!h-full min-h-0 overflow-hidden ${sheetSurfaceClasses[theme]} rounded-t-3xl md:rounded-none shadow-2xl flex flex-col z-10 print:hidden [--export-footer-height:9.5rem] md:[--export-footer-height:12rem] ${isDragging ? '' : 'transition-[height] duration-300 ease-out'}`}
         style={{ height: mobileSheetHeight }}
       >
         <div
@@ -565,23 +618,29 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           onPointerUp={handleSheetPointerUp}
           onPointerCancel={handleSheetPointerUp}
         >
-          <div className="w-12 h-1.5 bg-stone-300 rounded-full" />
+          <div
+            className={`w-12 h-1.5 rounded-full ${theme === 'vault' ? 'bg-white/25' : theme === 'atelier' ? 'bg-[#C9BBA6]' : 'bg-stone-300'}`}
+          />
         </div>
-        <div className="px-6 pb-4 md:pt-6 border-b border-stone-100 flex justify-between items-center shrink-0">
+        <div
+          className={`px-6 pb-4 md:pt-6 border-b ${sheetBorderClasses[theme]} flex justify-between items-center shrink-0`}
+        >
           <div>
-            <h2 className="font-serif font-bold text-xl text-stone-900">{t('exportCard')}</h2>
+            <h2 className="font-serif font-bold text-xl">{t('exportCard')}</h2>
           </div>
           <button
             onClick={onClose}
             aria-label={t('close')}
-            className="p-2 -mr-2 text-stone-400 hover:text-stone-800 rounded-full hover:bg-stone-50"
+            className={`p-2 -mr-2 rounded-full transition-colors ${theme === 'vault' ? 'text-stone-400 hover:text-white hover:bg-white/10' : theme === 'atelier' ? 'text-[#8C7B6B] hover:text-[#3D3530] hover:bg-[#EDE4D3]' : 'text-stone-400 hover:text-stone-800 hover:bg-stone-50'}`}
           >
             <X size={20} />
           </button>
         </div>
         <div className="flex-1 overflow-y-auto p-6 pb-[calc(var(--export-footer-height)+env(safe-area-inset-bottom,0px))] space-y-10">
           <div>
-            <label className="block text-xs font-bold text-stone-400 uppercase tracking-wider mb-3">
+            <label
+              className={`block text-xs font-bold ${modalLabelClasses[theme]} uppercase tracking-wider mb-3`}
+            >
               {t('cardStyle')}
             </label>
             <div className="grid grid-cols-1 gap-2">
@@ -589,14 +648,16 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                 <button
                   key={s}
                   onClick={() => setStyle(s as TemplateStyle)}
-                  className={`flex items-center p-3 rounded-xl border transition-all text-left group ${style === s ? 'border-amber-500 bg-amber-50/50 ring-1 ring-amber-500' : 'border-stone-200 hover:border-amber-200 hover:bg-stone-50'}`}
+                  className={`flex items-center p-3 rounded-xl border transition-all text-left group ${style === s ? optionSelectedClasses[theme] : optionIdleClasses[theme]}`}
                 >
                   <div
                     className={`w-10 h-10 rounded-lg mr-3 shadow-sm border ${s === 'minimal' ? 'bg-white border-stone-100' : s === 'full' ? 'bg-stone-800 border-stone-800' : 'bg-[#f4ebd9] border-stone-300'}`}
                   ></div>
                   <div>
-                    <span className="font-bold text-stone-900 capitalize block">{t(s)}</span>
-                    <span className="text-[10px] text-stone-500 uppercase tracking-wide">
+                    <span className="font-bold capitalize block">{t(s)}</span>
+                    <span
+                      className={`text-[10px] uppercase tracking-wide ${theme === 'vault' ? 'text-stone-400' : theme === 'atelier' ? 'text-[#8C7B6B]' : 'text-stone-500'}`}
+                    >
                       {t(`${s}Tag`)}
                     </span>
                   </div>
@@ -606,7 +667,9 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           </div>
           <div className="grid gap-6 md:grid-cols-2">
             <div>
-              <label className="block text-xs font-bold text-stone-400 uppercase tracking-wider mb-2">
+              <label
+                className={`block text-xs font-bold ${modalLabelClasses[theme]} uppercase tracking-wider mb-2`}
+              >
                 {t('aspectRatio')}
               </label>
               <div className="flex gap-2">
@@ -614,7 +677,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                   <button
                     key={r}
                     onClick={() => setAspectRatio(r as AspectRatio)}
-                    className={`flex-1 py-2 text-xs font-medium rounded-lg border transition-all ${aspectRatio === r ? 'bg-stone-800 text-white border-stone-800' : 'border-stone-200 text-stone-600 hover:bg-stone-50'}`}
+                    className={`flex-1 py-2 text-xs font-medium rounded-lg border transition-all ${aspectRatio === r ? segmentSelectedClasses[theme] : segmentIdleClasses[theme]}`}
                   >
                     {r}
                   </button>
@@ -622,19 +685,21 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               </div>
             </div>
             <div>
-              <label className="block text-xs font-bold text-stone-400 uppercase tracking-wider mb-2">
+              <label
+                className={`block text-xs font-bold ${modalLabelClasses[theme]} uppercase tracking-wider mb-2`}
+              >
                 {t('imageFit')}
               </label>
               <div className="flex gap-2">
                 <button
                   onClick={() => setImageFit('contain')}
-                  className={`flex-1 py-2 text-xs font-medium rounded-lg border flex items-center justify-center gap-1 ${imageFit === 'contain' ? 'bg-stone-800 text-white border-stone-800' : 'border-stone-200 text-stone-600 hover:bg-stone-50'}`}
+                  className={`flex-1 py-2 text-xs font-medium rounded-lg border flex items-center justify-center gap-1 ${imageFit === 'contain' ? segmentSelectedClasses[theme] : segmentIdleClasses[theme]}`}
                 >
                   <Minimize2 size={12} /> {t('fit')}
                 </button>
                 <button
                   onClick={() => setImageFit('cover')}
-                  className={`flex-1 py-2 text-xs font-medium rounded-lg border flex items-center justify-center gap-1 ${imageFit === 'cover' ? 'bg-stone-800 text-white border-stone-800' : 'border-stone-200 text-stone-600 hover:bg-stone-50'}`}
+                  className={`flex-1 py-2 text-xs font-medium rounded-lg border flex items-center justify-center gap-1 ${imageFit === 'cover' ? segmentSelectedClasses[theme] : segmentIdleClasses[theme]}`}
                 >
                   <Maximize2 size={12} /> {t('fill')}
                 </button>
@@ -642,14 +707,16 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             </div>
           </div>
         </div>
-        <div className="sticky bottom-0 border-t border-stone-100 bg-stone-50 space-y-3 shrink-0 px-4 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] md:px-6 md:pt-6 md:pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] min-h-[var(--export-footer-height)]">
+        <div
+          className={`sticky bottom-0 border-t ${sheetBorderClasses[theme]} ${footerSurfaceClasses[theme]} space-y-3 shrink-0 px-4 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] md:px-6 md:pt-6 md:pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] min-h-[var(--export-footer-height)]`}
+        >
           {exportError && (
             <p className="text-xs text-rose-600" role="alert">
               {exportError}
             </p>
           )}
           <Button
-            theme="gallery"
+            theme={theme}
             className="w-full"
             size="lg"
             onClick={handleSaveImage}
@@ -664,25 +731,25 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           >
             {exportAction === 'save' ? t('saving') : t('saveImage')}
           </Button>
-          <Button
-            theme="gallery"
-            variant="outline"
-            className="w-full"
-            onClick={handleShare}
-            disabled={exportAction !== null || isLoadingImage}
-            icon={
-              exportAction === 'share' ? (
-                <Loader2 size={16} className="animate-spin" />
-              ) : (
-                <Share2 size={16} />
-              )
-            }
-          >
-            {exportAction === 'share' ? t('sharing') : t('share')}
-          </Button>
-          <div className="flex justify-center">
+          <div className="flex items-center gap-2">
             <Button
-              theme="gallery"
+              theme={theme}
+              variant="outline"
+              className="flex-1"
+              onClick={handleShare}
+              disabled={exportAction !== null || isLoadingImage}
+              icon={
+                exportAction === 'share' ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <Share2 size={16} />
+                )
+              }
+            >
+              {exportAction === 'share' ? t('sharing') : t('share')}
+            </Button>
+            <Button
+              theme={theme}
               variant="ghost"
               size="sm"
               onClick={() => window.print()}

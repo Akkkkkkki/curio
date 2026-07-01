@@ -27,7 +27,10 @@ export function buildCspPolicy({ apiBaseUrl = '' }: CspPolicyOptions = {}): stri
     "default-src 'self'",
     `script-src ${scriptSrc}`,
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    "font-src 'self' https://fonts.gstatic.com",
+    // `data:` is required so html-to-image's inlined @font-face `src: url(data:font/woff2;...)`
+    // fonts render during export rasterization; without it the browser blocks the
+    // embedded fonts and the exported card silently falls back to system fonts.
+    "font-src 'self' https://fonts.gstatic.com data:",
     "img-src 'self' blob: data: https:",
     `connect-src ${connectSrc}`,
     "media-src 'self' blob:",
