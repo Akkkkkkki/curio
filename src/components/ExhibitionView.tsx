@@ -239,7 +239,7 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
                   collectionId={item.collectionId ?? collection.id}
                   type="enhanced"
                   alt={item.title || t('archivalRecord')}
-                  className="w-full h-full object-cover transition-transform duration-[2s] group-hover:scale-105"
+                  className="w-full h-full object-contain transition-transform duration-[2s] group-hover:scale-105"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-stone-950/20 to-transparent pointer-events-none" />
               </div>
