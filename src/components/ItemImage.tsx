@@ -3,6 +3,12 @@ import { extractCurioAssetPath, getAsset, getEnhancedAsset } from '../services/d
 import { Loader2, Camera, AlertCircle } from 'lucide-react';
 import { useTranslation } from '../i18n';
 
+// Tailwind emits object-fit utilities in the order contain → cover → …, so a
+// hard-coded `object-cover` here would silently win over a caller's
+// `object-contain` (e.g. the exhibit hero). Yield when the caller already
+// picked a fit.
+const OBJECT_FIT_RE = /\bobject-(contain|cover|fill|none|scale-down)\b/;
+
 interface ItemImageProps {
   itemId: string;
   photoUrl?: string; // Can be a direct URL (relative/absolute/data) or the keyword 'asset'
@@ -198,11 +204,13 @@ export const ItemImage: React.FC<ItemImageProps> = ({
     );
   }
 
+  const imgClassName = OBJECT_FIT_RE.test(className) ? className : `object-cover ${className}`;
+
   return (
     <img
       src={finalSrc}
       alt={alt}
-      className={`object-cover ${className}`}
+      className={imgClassName}
       loading="lazy"
       onError={() => setError(true)}
     />

@@ -10,8 +10,8 @@ vi.mock('@/theme', async () => {
 });
 
 vi.mock('@/components/ItemImage', () => ({
-  ItemImage: ({ alt }: { alt: string }) => (
-    <div data-testid="mock-item-image" aria-label={alt}>
+  ItemImage: ({ alt, className }: { alt: string; className?: string }) => (
+    <div data-testid="mock-item-image" aria-label={alt} data-classname={className}>
       Mock Image
     </div>
   ),
@@ -84,6 +84,21 @@ describe('ExhibitionView', () => {
       await waitFor(() => {
         expect(onClose).toHaveBeenCalledTimes(1);
       });
+    });
+
+    it('keeps landscape/square photos uncropped on both layouts (CUR-133)', () => {
+      renderWithProviders(
+        <ExhibitionView collection={collection} isOpen={true} onClose={vi.fn()} />,
+      );
+      // Both mobile and desktop layouts render an ItemImage; neither should
+      // crop with object-cover — the exhibit is the "show off" surface.
+      const images = screen.getAllByTestId('mock-item-image');
+      expect(images.length).toBeGreaterThanOrEqual(2);
+      for (const image of images) {
+        const className = image.getAttribute('data-classname') ?? '';
+        expect(className).toContain('object-contain');
+        expect(className).not.toContain('object-cover');
+      }
     });
 
     it('keeps ArrowRight / ArrowLeft navigation working alongside Esc', async () => {
