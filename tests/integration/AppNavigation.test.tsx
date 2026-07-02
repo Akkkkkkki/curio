@@ -1088,5 +1088,34 @@ describe('App Integration Tests', () => {
       expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument();
       expect(screen.queryByRole('button', { name: 'Redo' })).not.toBeInTheDocument();
     });
+
+    it('lets the browser handle Ctrl+Z when focus is inside a modal dialog', async () => {
+      await renderItemDetail();
+      await screen.findByRole('textbox', { name: 'Title' });
+
+      // Item modals (Export, Delete, Enhance, ImageEdit, …) mount above the
+      // detail while it stays in the DOM. Pressing the shortcut from a modal
+      // button must not mutate the item behind the dialog. Simulate a modal
+      // subtree to prove the closest([aria-modal]) gate short-circuits.
+      const modal = document.createElement('div');
+      modal.setAttribute('role', 'dialog');
+      modal.setAttribute('aria-modal', 'true');
+      const modalButton = document.createElement('button');
+      modal.appendChild(modalButton);
+      document.body.appendChild(modal);
+
+      try {
+        const event = new KeyboardEvent('keydown', {
+          key: 'z',
+          ctrlKey: true,
+          bubbles: true,
+          cancelable: true,
+        });
+        modalButton.dispatchEvent(event);
+        expect(event.defaultPrevented).toBe(false);
+      } finally {
+        modal.remove();
+      }
+    });
   });
 });

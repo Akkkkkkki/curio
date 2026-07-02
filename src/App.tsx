@@ -138,6 +138,15 @@ const isEditableTarget = (target: EventTarget | null): boolean => {
   return target.isContentEditable;
 };
 
+// CUR-135: item modals (Export, Delete, Enhance, ImageEdit, …) mount above
+// the item detail while it stays in the DOM. Focus inside a dialog must not
+// silently mutate the item behind it — the app-level undo should only fire
+// while the item detail itself is the active surface.
+const isInsideModalDialog = (target: EventTarget | null): boolean => {
+  if (!(target instanceof HTMLElement)) return false;
+  return target.closest('[aria-modal="true"], [data-export-modal]') !== null;
+};
+
 const isLegacyAiNoteItem = (item: CollectionItem): boolean => {
   const story = item.notes;
   if (!story || !story.trim()) return false;
@@ -1738,6 +1747,7 @@ export const AppContent: React.FC = () => {
         const isRedo = (key === 'z' && e.shiftKey) || (key === 'y' && e.ctrlKey && !e.metaKey);
         if (!isUndo && !isRedo) return;
         if (isEditableTarget(e.target)) return;
+        if (isInsideModalDialog(e.target)) return;
         if (isUndo && current.historyLength > 0) {
           e.preventDefault();
           current.handleUndo();
