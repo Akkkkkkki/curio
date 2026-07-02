@@ -101,6 +101,38 @@ describe('ExhibitionView', () => {
       }
     });
 
+    it('labels pagination dots and marks the current exhibit (CUR-132)', async () => {
+      renderWithProviders(
+        <ExhibitionView collection={collection} isOpen={true} onClose={vi.fn()} />,
+      );
+
+      const firstExhibitDots = screen.getAllByRole('button', { name: 'Jump to exhibit 1' });
+      const secondExhibitDots = screen.getAllByRole('button', { name: 'Jump to exhibit 2' });
+
+      // Both mobile and desktop layouts are mounted; the ARIA contract must
+      // stay consistent across each set of pagination controls.
+      expect(firstExhibitDots).toHaveLength(2);
+      expect(secondExhibitDots).toHaveLength(2);
+      for (const dot of firstExhibitDots) {
+        expect(dot).toHaveAttribute('aria-current', 'true');
+      }
+      for (const dot of secondExhibitDots) {
+        expect(dot).not.toHaveAttribute('aria-current');
+      }
+
+      fireEvent.click(secondExhibitDots[0]);
+
+      await waitFor(() => {
+        expect(screen.getByRole('dialog')).toHaveAccessibleName(/2.*2/);
+      });
+      for (const dot of screen.getAllByRole('button', { name: 'Jump to exhibit 2' })) {
+        expect(dot).toHaveAttribute('aria-current', 'true');
+      }
+      for (const dot of screen.getAllByRole('button', { name: 'Jump to exhibit 1' })) {
+        expect(dot).not.toHaveAttribute('aria-current');
+      }
+    });
+
     it('keeps ArrowRight / ArrowLeft navigation working alongside Esc', async () => {
       const onClose = vi.fn();
       renderWithProviders(
