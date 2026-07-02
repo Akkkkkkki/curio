@@ -123,6 +123,21 @@ import { trackEvent } from './services/analytics';
  */
 const STORY_FEATURE_LAUNCHED_AT = '2026-05-16T00:00:00.000Z';
 
+// CUR-135: Item Detail undo/redo can be reached from the keyboard.
+// `navigator.platform` is deprecated but still populated in every browser
+// Curio targets; jsdom exposes it too, so tests see a stable value.
+const IS_MAC =
+  typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/i.test(navigator.platform || '');
+const UNDO_SHORTCUT_LABEL = IS_MAC ? '⌘Z' : 'Ctrl+Z';
+const REDO_SHORTCUT_LABEL = IS_MAC ? '⌘⇧Z' : 'Ctrl+Shift+Z';
+
+const isEditableTarget = (target: EventTarget | null): boolean => {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+  return target.isContentEditable;
+};
+
 const isLegacyAiNoteItem = (item: CollectionItem): boolean => {
   const story = item.notes;
   if (!story || !story.trim()) return false;
@@ -1699,6 +1714,42 @@ export const AppContent: React.FC = () => {
       ta.style.height = `${ta.scrollHeight}px`;
     }, [item?.title]);
 
+    // CUR-135: install the keyboard shortcut listener before any early return
+    // so the hook order stays stable while the item is still loading. The ref
+    // is populated further down once handleUndo/handleRedo are defined.
+    const shortcutRef = useRef({
+      isReadOnly: false,
+      historyLength: 0,
+      futureLength: 0,
+      handleUndo: () => {},
+      handleRedo: () => {},
+    });
+
+    useEffect(() => {
+      const handler = (e: KeyboardEvent) => {
+        const current = shortcutRef.current;
+        if (current.isReadOnly) return;
+        const mod = e.metaKey || e.ctrlKey;
+        if (!mod) return;
+        const key = e.key.toLowerCase();
+        const isUndo = key === 'z' && !e.shiftKey;
+        // Windows-style redo (Ctrl+Y) — skip when Meta is also held so it
+        // doesn't collide with browser History shortcuts on macOS.
+        const isRedo = (key === 'z' && e.shiftKey) || (key === 'y' && e.ctrlKey && !e.metaKey);
+        if (!isUndo && !isRedo) return;
+        if (isEditableTarget(e.target)) return;
+        if (isUndo && current.historyLength > 0) {
+          e.preventDefault();
+          current.handleUndo();
+        } else if (isRedo && current.futureLength > 0) {
+          e.preventDefault();
+          current.handleRedo();
+        }
+      };
+      window.addEventListener('keydown', handler);
+      return () => window.removeEventListener('keydown', handler);
+    }, []);
+
     if (!collection || !item) {
       // CUR-118: deep-link reload of /collection/:id/item/:itemId must wait
       // for the cloud fetch instead of bouncing to Home / parent collection.
@@ -1856,6 +1907,17 @@ export const AppContent: React.FC = () => {
       setDetailStoryPrompts([]);
       setDetailPromptsFetchedFor(null);
     }, [item.id]);
+
+    // CUR-135: Cmd/Ctrl+Z, Cmd/Ctrl+Shift+Z, Ctrl+Y drive the app-level
+    // undo/redo stacks that the on-screen buttons already use. Text-field
+    // focus defers to the browser's native per-field undo so typing history
+    // stays reachable; the shortcut only steps the app-level stack once the
+    // user has clicked out of the field. Read-only items ignore both keys.
+    shortcutRef.current.isReadOnly = isReadOnly;
+    shortcutRef.current.historyLength = history.length;
+    shortcutRef.current.futureLength = future.length;
+    shortcutRef.current.handleUndo = handleUndo;
+    shortcutRef.current.handleRedo = handleRedo;
 
     const handleDelete = () => {
       if (isReadOnly) return;
@@ -2139,7 +2201,7 @@ export const AppContent: React.FC = () => {
                     onClick={handleUndo}
                     disabled={history.length === 0}
                     aria-label={t('undo')}
-                    title={t('undo')}
+                    title={`${t('undo')} (${UNDO_SHORTCUT_LABEL})`}
                     className={`p-3 sm:p-4 rounded-full transition-colors ${mutedTextClasses[theme]} ${
                       history.length === 0
                         ? 'opacity-50 cursor-not-allowed'
@@ -2154,7 +2216,7 @@ export const AppContent: React.FC = () => {
                     onClick={handleRedo}
                     disabled={future.length === 0}
                     aria-label={t('redo')}
-                    title={t('redo')}
+                    title={`${t('redo')} (${REDO_SHORTCUT_LABEL})`}
                     className={`p-3 sm:p-4 rounded-full transition-colors ${mutedTextClasses[theme]} ${
                       future.length === 0
                         ? 'opacity-50 cursor-not-allowed'

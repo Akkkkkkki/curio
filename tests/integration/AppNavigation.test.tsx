@@ -1028,4 +1028,65 @@ describe('App Integration Tests', () => {
     const clearAll = screen.getByTestId('active-filter-clear-all');
     expect(clearAll.classList).toContain('text-[#8C7B6B]');
   });
+
+  // CUR-135: Item Detail undo/redo can be reached from the keyboard so power
+  // editors don't have to leave their editing context to step back a change.
+  describe('Item Detail undo/redo keyboard shortcut (CUR-135)', () => {
+    const renderItemDetail = async () => {
+      const { ThemeProvider } = await import('@/theme');
+      render(
+        <MemoryRouter initialEntries={['/collection/col1/item/item1']}>
+          <ThemeProvider>
+            <LanguageProvider>
+              <AppContent />
+            </LanguageProvider>
+          </ThemeProvider>
+        </MemoryRouter>,
+      );
+    };
+
+    it('reveals the shortcut hint on the Undo / Redo button titles', async () => {
+      await renderItemDetail();
+      const undoButton = await screen.findByRole('button', { name: 'Undo' });
+      const redoButton = screen.getByRole('button', { name: 'Redo' });
+      // jsdom reports navigator.platform as an empty string, so tests exercise
+      // the non-Mac shortcut labels. The Mac branch is a swap of the display
+      // string only — no separate code path.
+      expect(undoButton.getAttribute('title')).toBe('Undo (Ctrl+Z)');
+      expect(redoButton.getAttribute('title')).toBe('Redo (Ctrl+Shift+Z)');
+      // aria-label stays the plain action so screen readers keep announcing
+      // "Undo" / "Redo" cleanly without spelling out the shortcut.
+      expect(undoButton.getAttribute('aria-label')).toBe('Undo');
+      expect(redoButton.getAttribute('aria-label')).toBe('Redo');
+    });
+
+    it('defers to the browser when Ctrl+Z fires inside the title textarea', async () => {
+      await renderItemDetail();
+      const titleField = (await screen.findByRole('textbox', {
+        name: 'Title',
+      })) as HTMLTextAreaElement;
+
+      // Native undo inside a text field is the browser's job — the handler
+      // must not preventDefault, so per-field typing history stays reachable.
+      const event = new KeyboardEvent('keydown', {
+        key: 'z',
+        ctrlKey: true,
+        bubbles: true,
+        cancelable: true,
+      });
+      titleField.dispatchEvent(event);
+      expect(event.defaultPrevented).toBe(false);
+    });
+
+    it('hides the Undo button on read-only public sample collections', async () => {
+      vi.mocked(db.getLocalCollections).mockResolvedValue([{ ...mockCollection, isPublic: true }]);
+      await renderItemDetail();
+
+      // Read-only detail hides the whole action row, so the shortcut has no
+      // buttons to expose and no history to step through.
+      await screen.findByRole('textbox', { name: 'Title' });
+      expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Redo' })).not.toBeInTheDocument();
+    });
+  });
 });
