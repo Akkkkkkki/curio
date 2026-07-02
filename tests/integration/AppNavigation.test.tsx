@@ -244,6 +244,29 @@ describe('App Integration Tests', () => {
     expect(screen.queryByTestId('access-gate')).not.toBeInTheDocument();
   });
 
+  it('marks the app shell ready when the first-run fallback is rendered', async () => {
+    const { ThemeProvider } = await import('@/theme');
+    vi.mocked(supabaseService.isSupabaseConfigured).mockReturnValue(false);
+
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('heading', { name: /start your museum with one thing you love/i }),
+      ).toBeInTheDocument();
+    });
+
+    expect(screen.getByTestId('app-shell')).toHaveAttribute('data-ready', 'true');
+  });
+
   it('greets signed-out visitors with a product-explaining welcome gate', async () => {
     const { ThemeProvider } = await import('@/theme');
     vi.mocked(supabaseService.isSupabaseConfigured).mockReturnValue(true);

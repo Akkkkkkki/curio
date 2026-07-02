@@ -2737,10 +2737,14 @@ export const AppContent: React.FC = () => {
     </div>
   );
 
+  const appReady = !isLoading && (!isSupabaseReady || authReady);
+
   return (
     <div
       className={`min-h-screen transition-colors duration-1000 ${themeColors[theme]}`}
       data-theme={theme}
+      data-testid="app-shell"
+      data-ready={appReady ? 'true' : 'false'}
     >
       <Layout
         onOpenAuth={() => setIsAuthModalOpen(true)}
