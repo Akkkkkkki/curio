@@ -2,7 +2,13 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { AlertCircle, Sparkles, Calendar, Search, Plus, Loader2, X } from 'lucide-react';
 import { useTranslation } from '../i18n';
-import { useTheme, typographyClasses, accentColorClasses, labelColorClasses } from '../theme';
+import {
+  useTheme,
+  typographyClasses,
+  accentColorClasses,
+  labelColorClasses,
+  matSurfaceClasses,
+} from '../theme';
 import { UserCollection } from '../types';
 import { Button } from './ui/Button';
 import { CollectionCardSkeleton } from './ui/Skeleton';
@@ -106,6 +112,30 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     atelier: 'bg-[#faf9f6] text-stone-800 border-[#e8e6e1] shadow-inner',
   };
 
+  const newArchiveTileClasses = {
+    gallery: 'border-stone-200 hover:border-amber-400 bg-white/50 text-stone-400',
+    vault: 'border-white/10 hover:border-amber-400 bg-white/5 text-stone-500',
+    atelier: 'border-[#D4C9B8] hover:border-[#A86F3C] bg-[#EDE4D3]/60 text-[#8C7B6B]',
+  };
+
+  const newArchiveDiscClasses = {
+    gallery: 'bg-stone-50 text-stone-300',
+    vault: 'bg-white/5 text-stone-500',
+    atelier: 'bg-[#F5EFE4] text-[#8C7B6B]',
+  };
+
+  const newArchiveTitleClasses = {
+    gallery: 'text-stone-400',
+    vault: 'text-white/60',
+    atelier: 'text-[#8C7B6B]',
+  };
+
+  const searchPlaceholderClasses = {
+    gallery: 'placeholder:text-stone-300',
+    vault: 'placeholder:text-stone-400',
+    atelier: 'placeholder:text-[#8C7B6B]',
+  };
+
   if (!hasOwnedContent) {
     return (
       <div className="min-h-[calc(100vh-9rem)] flex items-center justify-center px-4 py-10 sm:py-16 animate-in fade-in duration-700">
@@ -181,7 +211,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             placeholder={t('searchPlaceholder')}
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            className={`w-full pl-12 sm:pl-14 pr-12 sm:pr-14 py-3.5 sm:py-4 rounded-[1.5rem] sm:rounded-[1.75rem] border focus:ring-4 focus:ring-amber-500/5 outline-none transition-all shadow-lg text-sm sm:text-base font-serif italic placeholder:text-stone-300 ${theme === 'vault' ? 'bg-stone-900 border-white/10 text-white' : 'bg-white border-stone-200 text-stone-900'}`}
+            className={`w-full pl-12 sm:pl-14 pr-12 sm:pr-14 py-3.5 sm:py-4 rounded-[1.5rem] sm:rounded-[1.75rem] border focus:ring-4 focus:ring-amber-500/5 outline-none transition-all shadow-lg text-sm sm:text-base font-serif italic ${searchPlaceholderClasses[theme]} ${theme === 'vault' ? 'bg-stone-900 border-white/10 text-white' : theme === 'atelier' ? 'bg-[#F5EFE4] border-[#D4C9B8] text-[#3D3530]' : 'bg-white border-stone-200 text-stone-900'}`}
           />
           {searchInput.length > 0 && (
             <button
@@ -202,7 +232,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           className={`relative overflow-hidden rounded-[2rem] border p-5 shadow-md transition-all duration-500 sm:p-6 ${themeBaseClasses[theme]}`}
         >
           <div className="grid gap-5 md:grid-cols-[180px_1fr] md:items-center">
-            <div className="aspect-square overflow-hidden rounded-2xl bg-stone-100 shadow-inner">
+            <div
+              className={`aspect-square overflow-hidden rounded-2xl shadow-inner ${matSurfaceClasses[theme]}`}
+            >
               <ItemImage
                 itemId={primaryHistoryItem.id}
                 collectionId={primaryHistoryItem.collectionId}
@@ -307,14 +339,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         {!hasSearch && (
           <button
             onClick={handleCreateCollectionAction}
-            className={`group relative p-8 rounded-[2rem] border-2 border-dashed transition-all flex flex-col items-center justify-center min-h-[220px] gap-4 shadow-sm hover:shadow-xl overflow-hidden ${theme === 'vault' ? 'border-white/10 hover:border-amber-400 bg-white/5 text-stone-500' : 'border-stone-200 hover:border-amber-400 bg-white/50 text-stone-400'}`}
+            className={`group relative p-8 rounded-[2rem] border-2 border-dashed transition-all flex flex-col items-center justify-center min-h-[220px] gap-4 shadow-sm hover:shadow-xl overflow-hidden ${newArchiveTileClasses[theme]}`}
           >
-            <div className="w-16 h-16 rounded-full bg-stone-50 flex items-center justify-center shadow-inner group-hover:scale-110 group-hover:shadow-lg transition-transform text-stone-300">
+            <div
+              className={`w-16 h-16 rounded-full flex items-center justify-center shadow-inner group-hover:scale-110 group-hover:shadow-lg transition-transform ${newArchiveDiscClasses[theme]}`}
+            >
               <Plus size={32} strokeWidth={1.5} />
             </div>
             <div className="text-center">
               <span
-                className={`${typographyClasses.titleLarge} italic block mb-1 ${theme === 'vault' ? 'text-white/60' : 'text-stone-400'}`}
+                className={`${typographyClasses.titleLarge} italic block mb-1 ${newArchiveTitleClasses[theme]}`}
               >
                 {t('newArchive')}
               </span>

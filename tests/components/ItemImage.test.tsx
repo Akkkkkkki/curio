@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderWithProviders, screen, fireEvent } from '../utils/test-utils';
+import { setMockTheme } from '../utils/test-utils';
 import { ItemImage } from '@/components/ItemImage';
 
 vi.mock('@/services/db', () => ({
@@ -8,9 +9,21 @@ vi.mock('@/services/db', () => ({
   getEnhancedAsset: vi.fn(async () => null),
 }));
 
+// Route the real useTheme through the test-utils mock state so tests can drive
+// theme via setMockTheme('vault' | 'atelier' | 'gallery').
+vi.mock('@/theme', async () => {
+  const { createThemeMock } = await import('../utils/test-utils');
+  return createThemeMock();
+});
+
 describe('ItemImage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    setMockTheme('gallery');
+  });
+
+  afterEach(() => {
+    setMockTheme('gallery');
   });
 
   describe('Direct-source fallback (CUR-120)', () => {
@@ -40,6 +53,42 @@ describe('ItemImage', () => {
 
       const img = screen.getByAltText('A photo') as HTMLImageElement;
       expect(img.src).toBe('https://example.com/photo.jpg');
+    });
+  });
+
+  describe('themed placeholder surface (CUR-96)', () => {
+    it('paints the no-source placeholder with the Vault mat instead of bg-stone-100', () => {
+      setMockTheme('vault');
+      const { container } = renderWithProviders(
+        <ItemImage itemId="empty" photoUrl="" alt="Empty" className="h-full w-full" />,
+      );
+
+      const label = screen.getByText(/no photo/i);
+      const placeholder = label.parentElement as HTMLElement | null;
+      expect(placeholder).not.toBeNull();
+      expect(placeholder!.className).toMatch(/bg-\[#1C1917\]/);
+      expect(placeholder!.className).not.toMatch(/bg-stone-100/);
+    });
+
+    it('paints the error placeholder with the Vault mat when a direct-URL photo fails', () => {
+      setMockTheme('vault');
+      renderWithProviders(
+        <ItemImage
+          itemId="err"
+          photoUrl="https://example.com/missing.jpg"
+          alt="Broken"
+          className="h-full w-full"
+        />,
+      );
+
+      const img = screen.getByAltText('Broken') as HTMLImageElement;
+      fireEvent.error(img);
+
+      const label = screen.getByText(/image error/i);
+      const placeholder = label.parentElement as HTMLElement | null;
+      expect(placeholder).not.toBeNull();
+      expect(placeholder!.className).toMatch(/bg-\[#1C1917\]/);
+      expect(placeholder!.className).not.toMatch(/bg-stone-100/);
     });
   });
 
