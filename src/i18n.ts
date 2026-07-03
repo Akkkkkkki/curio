@@ -480,6 +480,7 @@ export const translations = {
     signupLegalConsentTail: '.',
     legalBackToCurio: 'Back to Curio',
     legalDraftBadge: 'Beta — plain-language summary',
+    legalLastUpdatedLabel: 'Last updated',
     legalPrivacyIntro:
       'Curio is in early development. A formal policy will arrive before general availability. In the meantime, here is what we actually do with your data today.',
     legalPrivacyDataTitle: 'What we store',
@@ -969,6 +970,7 @@ export const translations = {
     signupLegalConsentTail: '。',
     legalBackToCurio: '返回 Curio',
     legalDraftBadge: '测试版 · 简明说明',
+    legalLastUpdatedLabel: '最近更新',
     legalPrivacyIntro:
       'Curio 仍在早期开发阶段，正式政策将在公开发布前推出。这里先说明我们目前如何处理您的数据。',
     legalPrivacyDataTitle: '我们保存什么',

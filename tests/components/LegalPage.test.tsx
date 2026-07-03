@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { render, screen } from '@testing-library/react';
 import { LanguageProvider } from '@/i18n';
@@ -18,6 +18,10 @@ function renderAtPath(path: string) {
     </MemoryRouter>,
   );
 }
+
+afterEach(() => {
+  window.localStorage.clear();
+});
 
 describe('LegalPage (CUR-57)', () => {
   it('renders the Privacy Policy at /legal/privacy with all summary sections', () => {
@@ -57,5 +61,39 @@ describe('LegalPage (CUR-57)', () => {
   it('falls back to the Privacy doc when the param is unknown', () => {
     renderAtPath('/legal/something-else');
     expect(screen.getByTestId('legal-page-privacy')).toBeInTheDocument();
+  });
+});
+
+describe('LegalPage last-updated date (CUR-139)', () => {
+  it('renders a machine-readable Last updated time on the Privacy page in EN', () => {
+    renderAtPath('/legal/privacy');
+    const timeEl = screen.getByTestId('legal-last-updated');
+    expect(timeEl.tagName).toBe('TIME');
+    expect(timeEl).toHaveAttribute('datetime');
+    expect(timeEl.getAttribute('datetime')).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    // Label appears alongside the time so users know what the date means.
+    expect(screen.getByText(/last updated/i)).toBeInTheDocument();
+  });
+
+  it('renders a machine-readable Last updated time on the Terms page in EN', () => {
+    renderAtPath('/legal/terms');
+    const timeEl = screen.getByTestId('legal-last-updated');
+    expect(timeEl.tagName).toBe('TIME');
+    expect(timeEl).toHaveAttribute('datetime');
+    expect(timeEl.getAttribute('datetime')).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it('localises the Last updated label to Chinese when the ZH locale is active', () => {
+    window.localStorage.setItem('curio_language', 'zh');
+    renderAtPath('/legal/privacy');
+    const timeEl = screen.getByTestId('legal-last-updated');
+    expect(timeEl).toHaveAttribute('datetime');
+    expect(screen.getByText(/最近更新/)).toBeInTheDocument();
+  });
+
+  it('keeps the Beta / plain-language summary badge alongside the date', () => {
+    renderAtPath('/legal/privacy');
+    expect(screen.getByText(/beta — plain-language summary/i)).toBeInTheDocument();
+    expect(screen.getByTestId('legal-last-updated')).toBeInTheDocument();
   });
 });
