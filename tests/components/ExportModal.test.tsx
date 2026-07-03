@@ -571,3 +571,47 @@ describe('ExportModal — product analytics', () => {
     });
   });
 });
+
+describe('ExportModal — CUR-104 retro rating badge', () => {
+  const baseProps = {
+    isOpen: true,
+    onClose: vi.fn(),
+    fields: FIELDS,
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const openRetro = async () => {
+    const userEvent = (await import('@testing-library/user-event')).default;
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: /retro/i }));
+  };
+
+  it('never labels the rating as a catalog "NO." number, and renders it as stars a viewer will read as a rating', async () => {
+    renderWithProviders(<ExportModal {...baseProps} item={makeItem({ rating: 4 })} />);
+    await openRetro();
+
+    const card = document.getElementById('card-preview')!;
+    // The badge previously read "NO. 4", which viewers mistake for a catalog
+    // number rather than the user's own rating.
+    expect(card.textContent).not.toMatch(/NO\.\s*\d/);
+
+    // The badge renders the rating as filled stars — one glyph per star —
+    // so it reads as a rating without a misleading text prefix.
+    const badge = screen.getByLabelText(/rated 4 out of 5/i);
+    expect(badge.textContent).toBe('★★★★');
+  });
+
+  it('hides the retro rating badge for unrated items so cards never show "NO. 0"', async () => {
+    renderWithProviders(<ExportModal {...baseProps} item={makeItem({ rating: 0 })} />);
+    await openRetro();
+
+    // Neither the misleading legacy label nor an empty rating chip should
+    // survive to the exported card.
+    const card = document.getElementById('card-preview')!;
+    expect(card.textContent).not.toMatch(/NO\.\s*0/);
+    expect(screen.queryByLabelText(/rated .* out of 5/i)).not.toBeInTheDocument();
+  });
+});
