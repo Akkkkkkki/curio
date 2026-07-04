@@ -91,4 +91,25 @@ describe('DeleteCollectionModal', () => {
       });
     });
   });
+
+  describe('Vault theme contrast (CUR-22)', () => {
+    it('renders the warning icon with a Vault-tinted tile, not a pastel pill', () => {
+      setMockTheme('vault');
+      renderWithProviders(<DeleteCollectionModal {...defaultProps} />);
+      const icon = screen.getByTestId('delete-collection-warning-icon');
+      expect(icon).toHaveClass('bg-red-500/15');
+      expect(icon).toHaveClass('text-red-300');
+      // Cream pastel must NOT leak through onto the dark surface.
+      expect(icon).not.toHaveClass('bg-red-100');
+      expect(icon).not.toHaveClass('text-red-600');
+    });
+
+    it('keeps the Gallery icon tile unchanged on the default theme', () => {
+      setMockTheme('gallery');
+      renderWithProviders(<DeleteCollectionModal {...defaultProps} />);
+      const icon = screen.getByTestId('delete-collection-warning-icon');
+      expect(icon).toHaveClass('bg-red-100');
+      expect(icon).toHaveClass('text-red-600');
+    });
+  });
 });

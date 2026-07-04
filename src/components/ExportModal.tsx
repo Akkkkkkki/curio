@@ -6,6 +6,7 @@ import { Button } from './ui/Button';
 import { extractCurioAssetPath, getAsset, getEnhancedAsset } from '../services/db';
 import { useTranslation } from '../i18n';
 import { trackEvent } from '../services/analytics';
+import type { StatusTone } from './StatusToast';
 
 const sanitizeFilename = (value: string) =>
   value
@@ -18,6 +19,10 @@ interface ExportModalProps {
   onClose: () => void;
   item: CollectionItem;
   fields: FieldDefinition[];
+  // CUR-106: lets the modal surface positive / informational outcomes through
+  // the shared toast pattern (Saved / Synced / Will sync style). Real errors
+  // still render inline next to the action buttons.
+  onStatus?: (message: string, tone: StatusTone) => void;
 }
 
 type TemplateStyle = 'minimal' | 'full' | 'retro';
@@ -29,7 +34,13 @@ type ImageFit = 'cover' | 'contain';
 // a phone export reads as sharp as a desktop export when re-shared.
 const EXPORT_TARGET_SHORT_EDGE_PX = 1080;
 
-export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item, fields }) => {
+export const ExportModal: React.FC<ExportModalProps> = ({
+  isOpen,
+  onClose,
+  item,
+  fields,
+  onStatus,
+}) => {
   const { t } = useTranslation();
   const [style, setStyle] = useState<TemplateStyle>('minimal');
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('3:4');
@@ -42,6 +53,12 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
   const [isExpanded, setIsExpanded] = useState(true);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [isLoadingImage, setIsLoadingImage] = useState(true);
+  // CUR-137: distinguish "no photo on this item" from "photo failed to load".
+  // The card preview used to render whatever the browser put in the broken
+  // `<img>` slot (a default broken-image glyph), which then also poisoned
+  // html-to-image's canvas. Surface the same `noPhoto` placeholder either way
+  // so the exported PNG is intentional, not an accident.
+  const [imageLoadError, setImageLoadError] = useState(false);
   const [exportAction, setExportAction] = useState<null | 'save' | 'share'>(null);
   const [exportError, setExportError] = useState<string | null>(null);
   const [dragHeight, setDragHeight] = useState<number | null>(null);
@@ -94,8 +111,10 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
   useEffect(() => {
     if (!isOpen) {
       setImageUrl(null);
+      setImageLoadError(false);
       return;
     }
+    setImageLoadError(false);
     if (directPhotoUrl) {
       setImageUrl(directPhotoUrl);
       setIsLoadingImage(false);
@@ -129,9 +148,12 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
         if (blob && blob.size > 0) {
           objectUrl = URL.createObjectURL(blob);
           setImageUrl(objectUrl);
+        } else {
+          setImageLoadError(true);
         }
       } catch (e) {
         console.error(e);
+        setImageLoadError(true);
       } finally {
         setIsLoadingImage(false);
       }
@@ -204,13 +226,17 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
       anchor.click();
       anchor.remove();
       setTimeout(() => URL.revokeObjectURL(url), 2000);
+      // CUR-106: browser download chrome is easy to miss inside the dark
+      // export overlay (and on mobile is sometimes invisible). Mirror the
+      // trust pattern used for Saved / Synced so the outcome is explicit.
+      onStatus?.(t('imageSaved'), 'success');
     } catch (err) {
       console.error('Save image failed:', err);
       setExportError(t('saveImageFailed'));
     } finally {
       setExportAction(null);
     }
-  }, [exportAction, item.title, renderCardToBlob, t]);
+  }, [exportAction, item.title, onStatus, renderCardToBlob, t]);
 
   const handleShare = useCallback(async () => {
     if (exportAction) return;
@@ -240,7 +266,12 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
       anchor.remove();
       setTimeout(() => URL.revokeObjectURL(url), 2000);
       trackEvent('share_completed', { method: 'download_fallback', surface: 'item_card' });
-      setExportError(t('shareFailed'));
+      // CUR-106: fallback download is the standard path on most desktop
+      // browsers — it is not a failure. Surface it as a neutral info toast
+      // ("Sharing isn't available — image saved instead") so the user
+      // understands what happened, instead of a red `role="alert"` in the
+      // footer that read as broken every time.
+      onStatus?.(t('shareUnavailableSavedInstead'), 'info');
     } catch (err) {
       const error = err as DOMException;
       if (error?.name === 'AbortError') return;
@@ -253,7 +284,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
     } finally {
       setExportAction(null);
     }
-  }, [exportAction, item.title, renderCardToBlob, t]);
+  }, [exportAction, item.title, onStatus, renderCardToBlob, t]);
 
   const PEEK_HEIGHT_PX = 56;
   // Moderate open height: tall enough to reveal the action footer (Save / Share /
@@ -326,6 +357,13 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
     return val !== undefined && val !== null ? val.toString() : null;
   };
 
+  // CUR-137: only set crossOrigin for HTTP(S) sources. Setting it on `blob:` /
+  // `data:` URLs is a no-op in spec terms but some browsers cache differently;
+  // for same-origin assets (relative paths) the attribute is unnecessary.
+  const imgCrossOrigin = imageUrl && /^https?:\/\//i.test(imageUrl) ? 'anonymous' : undefined;
+  const handleImageError = () => setImageLoadError(true);
+  const hasPhoto = Boolean(imageUrl) && !imageLoadError;
+
   const renderCardPreview = () => {
     const containerStyles = {
       minimal:
@@ -339,13 +377,20 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
     const previewMaxWidth = 'min(85vw, 560px)';
 
     return (
+      // CUR-136 follow-up: fill the available height first and derive the
+      // width from `aspect-ratio`, capped at `previewMaxWidth`. Fixing the
+      // width and only clamping `max-height` (the old shape) squashes the
+      // ratio whenever the container is shorter than the natural card height
+      // — most visibly when the bottom sheet is expanded on a phone, where
+      // it also baked the squash into `renderCardToBlob()`'s export.
       <div
         id="card-preview"
         ref={cardRef}
         className={`isolate shadow-2xl transition-all duration-300 overflow-hidden relative group select-none mx-auto print:h-auto print:!w-[100mm]`}
         style={{
           aspectRatio: `${ratioW} / ${ratioH}`,
-          width: previewMaxWidth,
+          height: '100%',
+          width: 'auto',
           maxWidth: previewMaxWidth,
           maxHeight: '100%',
         }}
@@ -360,9 +405,11 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
                   <div className="absolute inset-0 flex items-center justify-center">
                     <Loader2 className="animate-spin text-stone-200" />
                   </div>
-                ) : imageUrl ? (
+                ) : hasPhoto ? (
                   <img
-                    src={imageUrl}
+                    src={imageUrl!}
+                    crossOrigin={imgCrossOrigin}
+                    onError={handleImageError}
                     className={`w-full h-full ${imageFit === 'contain' ? 'object-contain' : 'object-cover'}`}
                     alt={item.title || t('photoPreview')}
                   />
@@ -397,10 +444,12 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
           )}
           {style === 'full' && (
             <>
-              {imageUrl && (
+              {hasPhoto && (
                 <div className="absolute inset-0">
                   <img
-                    src={imageUrl}
+                    src={imageUrl!}
+                    crossOrigin={imgCrossOrigin}
+                    onError={handleImageError}
                     className={`w-full h-full ${imageFit === 'contain' ? 'object-contain' : 'object-cover'} opacity-80`}
                     alt=""
                   />
@@ -424,9 +473,11 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
           {style === 'retro' && (
             <>
               <div className="w-full flex-1 border-2 border-stone-800 mb-4 bg-stone-200 grayscale contrast-125 overflow-hidden relative min-h-0">
-                {imageUrl && (
+                {hasPhoto && (
                   <img
-                    src={imageUrl}
+                    src={imageUrl!}
+                    crossOrigin={imgCrossOrigin}
+                    onError={handleImageError}
                     className={`w-full h-full mix-blend-multiply ${imageFit === 'contain' ? 'object-contain' : 'object-cover'}`}
                     alt=""
                   />
@@ -439,9 +490,14 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
                   >
                     {item.title}
                   </h3>
-                  <span className="font-mono text-xs font-bold bg-stone-900 text-[#f4ebd9] px-1 flex-shrink-0">
-                    NO. {item.rating}
-                  </span>
+                  {item.rating > 0 && (
+                    <span
+                      className="font-mono text-xs font-bold bg-stone-900 text-[#f4ebd9] px-1 flex-shrink-0"
+                      aria-label={t('ratedOutOfFive', { rating: item.rating })}
+                    >
+                      {'★'.repeat(item.rating)}
+                    </span>
+                  )}
                 </div>
                 <div
                   className={`text-center ${metaSize} font-mono text-stone-400 mt-4 uppercase tracking-widest`}
@@ -473,9 +529,15 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
         } as React.CSSProperties
       }
     >
+      {/* CUR-136: on mobile the preview's bottom tracks the sheet height so the
+          card stays fully visible above whatever portion of the sheet is up.
+          The desktop override (`md:!bottom-0`) keeps the sidebar layout, where
+          the preview spans the full height beside a fixed-width sheet. */}
       <div
-        className="absolute top-0 left-0 right-0 flex flex-col items-center justify-center px-6 py-6 md:!bottom-0 md:pr-[calc(24rem+1.5rem)] overflow-hidden print:static print:inset-auto print:p-0 print:block pointer-events-none"
-        style={{ bottom: 'var(--peek-height, 0px)' }}
+        className={`absolute top-0 left-0 right-0 flex flex-col items-center justify-center px-6 py-6 md:!bottom-0 md:pr-[calc(24rem+1.5rem)] overflow-hidden print:static print:inset-auto print:p-0 print:block pointer-events-none ${
+          isDragging ? '' : 'transition-[bottom] duration-300 ease-out'
+        }`}
+        style={{ bottom: mobileSheetHeight }}
       >
         <div className="h-full w-full flex items-center justify-center print:block print:h-auto print:w-auto">
           {renderCardPreview()}

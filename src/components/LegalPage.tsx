@@ -24,12 +24,19 @@ const TERMS_SECTIONS: Section[] = [
   { titleKey: 'legalTermsAvailabilityTitle', bodyKey: 'legalTermsAvailabilityBody' },
 ];
 
+// Bump these whenever the corresponding copy above/below is materially changed
+// so returning users can see the policy is a different revision.
+const LEGAL_LAST_UPDATED: Record<LegalDoc, string> = {
+  privacy: '2026-07-03',
+  terms: '2026-07-03',
+};
+
 const isLegalDoc = (value: string | undefined): value is LegalDoc =>
   value === 'privacy' || value === 'terms';
 
 export const LegalPage: React.FC = () => {
   const { doc } = useParams<{ doc: string }>();
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const { theme } = useTheme();
 
   const resolvedDoc: LegalDoc = isLegalDoc(doc) ? doc : 'privacy';
@@ -83,6 +90,25 @@ export const LegalPage: React.FC = () => {
             </span>
           </div>
           <h1 className={typographyClasses.titleLarge}>{t(titleKey)}</h1>
+          {(() => {
+            const iso = LEGAL_LAST_UPDATED[resolvedDoc];
+            const parsed = new Date(`${iso}T00:00:00Z`);
+            const locale = language === 'zh' ? 'zh-CN' : 'en-US';
+            const formatted = Number.isNaN(parsed.getTime())
+              ? iso
+              : new Intl.DateTimeFormat(locale, {
+                  dateStyle: 'long',
+                  timeZone: 'UTC',
+                }).format(parsed);
+            return (
+              <p className={`${typographyClasses.labelMuted} ${mutedClass}`}>
+                {t('legalLastUpdatedLabel')}{' '}
+                <time dateTime={iso} data-testid="legal-last-updated">
+                  {formatted}
+                </time>
+              </p>
+            );
+          })()}
           <p className={`${typographyClasses.body} ${mutedClass}`}>{t(introKey)}</p>
         </div>
 

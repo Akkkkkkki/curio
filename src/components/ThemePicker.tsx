@@ -1,7 +1,7 @@
 import React from 'react';
 import { Paintbrush, Check } from 'lucide-react';
 import { AppTheme } from '../types';
-import { useTheme } from '../theme';
+import { mutedTextClasses, useTheme } from '../theme';
 import { useTranslation, type TranslationKey } from '../i18n';
 
 const optionMeta: Record<AppTheme, { labelKey: TranslationKey; swatch: string[] }> = {
@@ -33,10 +33,16 @@ export const ThemePicker: React.FC<ThemePickerProps> = ({ layout = 'inline' }) =
     theme === 'vault'
       ? 'bg-white/10 text-white border border-white/20'
       : 'bg-white shadow-sm ring-1 ring-amber-200 text-stone-900';
-  const stackedSurface =
-    theme === 'vault'
-      ? 'border-white/10 bg-white/5 text-white'
-      : 'border-stone-200 bg-white text-stone-600';
+  const stackedSurfaceByTheme: Record<AppTheme, string> = {
+    gallery: 'border-stone-200 bg-white text-stone-600',
+    vault: 'border-white/10 bg-white/5 text-white',
+    atelier: 'border-[#D4C9B8] bg-[#F5EFE4] text-[#3D3530]',
+  };
+  const stackedActiveByTheme: Record<AppTheme, string> = {
+    gallery: 'border-amber-200 bg-amber-50 text-stone-900 shadow-sm',
+    vault: 'border-white/20 bg-white/10 text-white shadow-sm',
+    atelier: 'border-[#A86F3C]/40 bg-[#EDE4D3] text-[#3D3530] shadow-sm',
+  };
 
   if (isStacked) {
     return (
@@ -46,15 +52,13 @@ export const ThemePicker: React.FC<ThemePickerProps> = ({ layout = 'inline' }) =
             key={opt}
             onClick={() => setTheme(opt)}
             className={`flex items-center justify-between w-full px-3 py-2 rounded-lg border transition-all text-sm font-semibold ${
-              theme === opt
-                ? 'border-amber-200 bg-amber-50 text-stone-900 shadow-sm'
-                : stackedSurface
+              theme === opt ? stackedActiveByTheme[theme] : stackedSurfaceByTheme[theme]
             }`}
             aria-label={t(optionMeta[opt].labelKey)}
             title={t(optionMeta[opt].labelKey)}
           >
             <span className="flex items-center gap-2">
-              <Paintbrush size={14} className="text-stone-300" />
+              <Paintbrush size={14} className={mutedTextClasses[theme]} />
               <span>{t(optionMeta[opt].labelKey)}</span>
               {theme === opt && <Check size={14} />}
             </span>
