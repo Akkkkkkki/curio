@@ -15,9 +15,70 @@ import {
 import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from '../i18n';
 import { ThemePicker } from './ThemePicker';
-import { useTheme, cardSurfaceClasses } from '../theme';
+import { useTheme, cardSurfaceClasses, dividerClasses } from '../theme';
+import { AppTheme } from '../types';
 
 type ProfileSource = 'header' | 'bottomNav';
+
+// CUR-108: the profile menu's auth-status chip and local-import card hardcoded
+// the Gallery 50-tone palette, so the "Signed In/Out" trust signal and the
+// import explanation collapsed against Vault (dark) and Atelier (cream)
+// surfaces. These records mirror the per-theme tone mapping established by
+// StatusBanner/StatusToast (CUR-81 / CUR-88) so the surfaces feel like one
+// system across all three themes.
+const authChipSignedInClasses: Record<AppTheme, string> = {
+  gallery: 'bg-emerald-50 text-emerald-600',
+  vault: 'bg-emerald-500/15 text-emerald-300',
+  atelier: 'bg-emerald-100/70 text-emerald-700',
+};
+
+const authChipSignedOutClasses: Record<AppTheme, string> = {
+  gallery: 'bg-amber-50 text-amber-600',
+  vault: 'bg-amber-500/15 text-amber-300',
+  atelier: 'bg-amber-100/70 text-amber-800',
+};
+
+const authChipUnconfiguredClasses: Record<AppTheme, string> = {
+  gallery: 'bg-stone-50 text-stone-400',
+  vault: 'bg-white/10 text-white/60',
+  atelier: 'bg-[#EDE4D3] text-[#8C7B6B]',
+};
+
+const importCardSurfaceClasses: Record<AppTheme, string> = {
+  gallery: 'border-amber-100 bg-amber-50/60',
+  vault: 'border-amber-500/25 bg-amber-500/10',
+  atelier: 'border-amber-300/60 bg-amber-100/70',
+};
+
+const importCardTitleClasses: Record<AppTheme, string> = {
+  gallery: 'text-amber-900',
+  vault: 'text-amber-200',
+  atelier: 'text-amber-900',
+};
+
+const importCardBodyClasses: Record<AppTheme, string> = {
+  gallery: 'text-stone-600',
+  vault: 'text-stone-300',
+  atelier: 'text-[#3D3530]',
+};
+
+const importCardActionClasses: Record<AppTheme, string> = {
+  gallery: 'bg-amber-600 text-white hover:bg-amber-700',
+  vault: 'bg-[#D4A574] text-stone-950 hover:bg-[#E0B585]',
+  atelier: 'bg-[#A86F3C] text-white hover:bg-[#8B5A2B]',
+};
+
+const importCardStatusClasses: Record<AppTheme, string> = {
+  gallery: 'text-amber-700',
+  vault: 'text-amber-200',
+  atelier: 'text-amber-900',
+};
+
+const importCardErrorClasses: Record<AppTheme, string> = {
+  gallery: 'text-red-500',
+  vault: 'text-red-300',
+  atelier: 'text-red-700',
+};
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -176,7 +237,14 @@ export const Layout: React.FC<LayoutProps> = ({
 
         <div className="flex items-start gap-3 mt-3">
           <div
-            className={`p-2 rounded-xl ${isSupabaseConfigured ? (isAuthenticated ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600') : theme === 'vault' ? 'bg-white/10 text-white/60' : 'bg-stone-50 text-stone-400'}`}
+            data-testid="profile-auth-chip"
+            className={`p-2 rounded-xl ${
+              !isSupabaseConfigured
+                ? authChipUnconfiguredClasses[theme]
+                : isAuthenticated
+                  ? authChipSignedInClasses[theme]
+                  : authChipSignedOutClasses[theme]
+            }`}
           >
             {statusIcon}
           </div>
@@ -259,23 +327,34 @@ export const Layout: React.FC<LayoutProps> = ({
       )}
 
       {hasLocalImport && isAuthenticated && onImportLocal && (
-        <div className="p-2 border-t border-stone-50">
-          <div className="p-3 rounded-xl border border-amber-100 bg-amber-50/60">
-            <p className="text-[12px] font-bold text-amber-900 uppercase tracking-[0.18em] mb-1">
+        <div className={`p-2 border-t ${dividerClasses[theme]}`}>
+          <div
+            data-testid="profile-import-card"
+            className={`p-3 rounded-xl border ${importCardSurfaceClasses[theme]}`}
+          >
+            <p
+              className={`text-[12px] font-bold uppercase tracking-[0.18em] mb-1 ${importCardTitleClasses[theme]}`}
+            >
               {t('importLocalTitle')}
             </p>
-            <p className="text-[12px] text-stone-600 leading-snug mb-3">{t('importLocalDesc')}</p>
+            <p className={`text-[12px] leading-snug mb-3 ${importCardBodyClasses[theme]}`}>
+              {t('importLocalDesc')}
+            </p>
             <button
               onClick={onImportLocal}
               disabled={importState === 'running'}
-              className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-bold rounded-lg bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-60"
+              className={`w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-bold rounded-lg disabled:opacity-60 ${importCardActionClasses[theme]}`}
             >
               <Download size={14} />
               {importState === 'running' ? t('importing') : t('importLocalAction')}
             </button>
             {importMessage && (
               <p
-                className={`text-[12px] mt-2 ${importState === 'error' ? 'text-red-500' : 'text-amber-700'}`}
+                className={`text-[12px] mt-2 ${
+                  importState === 'error'
+                    ? importCardErrorClasses[theme]
+                    : importCardStatusClasses[theme]
+                }`}
               >
                 {importMessage}
               </p>
@@ -381,6 +460,7 @@ export const Layout: React.FC<LayoutProps> = ({
           <div className={`grid ${exploreTo ? 'grid-cols-4' : 'grid-cols-3'} items-center w-full`}>
             <Link
               to="/"
+              aria-current={location.pathname === '/' ? 'page' : undefined}
               className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition-colors ${location.pathname === '/' ? 'text-amber-500' : bottomNavMuted}`}
             >
               <Home size={22} />
@@ -391,6 +471,7 @@ export const Layout: React.FC<LayoutProps> = ({
               <Link
                 to={exploreTo}
                 onClick={onExploreSamples}
+                aria-current={isExploreActive ? 'page' : undefined}
                 className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition-colors ${isExploreActive ? 'text-amber-500' : bottomNavMuted}`}
               >
                 <Compass size={22} />

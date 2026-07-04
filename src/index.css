@@ -153,6 +153,10 @@ body {
 }
 
 /* Print styles */
+/* CUR-103: scope the card-only print rules to when the Export modal is open.
+   `#card-preview` only exists while `<ExportModal data-export-modal>` is
+   mounted; without the scope, Ctrl/Cmd+P on any other screen hides everything
+   and prints a blank sheet. */
 @media print {
   * {
     -webkit-print-color-adjust: exact !important;
@@ -164,18 +168,18 @@ body {
     padding: 0 !important;
     background: white !important;
   }
-  body * {
+  body:has([data-export-modal]) * {
     visibility: hidden !important;
   }
-  body *:not(#card-preview):not(#card-preview *) {
+  body:has([data-export-modal]) *:not(#card-preview):not(#card-preview *) {
     background: transparent !important;
     backdrop-filter: none !important;
   }
-  #card-preview,
-  #card-preview * {
+  body:has([data-export-modal]) #card-preview,
+  body:has([data-export-modal]) #card-preview * {
     visibility: visible !important;
   }
-  #card-preview {
+  body:has([data-export-modal]) #card-preview {
     position: fixed !important;
     left: 50% !important;
     top: 10mm !important;

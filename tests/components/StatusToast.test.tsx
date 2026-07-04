@@ -34,11 +34,11 @@ describe('StatusToast', () => {
 
   describe('rendering and accessibility', () => {
     it('renders message with default info tone and status role', () => {
-      renderWithProviders(<StatusToast message="Saved to archive" />);
+      renderWithProviders(<StatusToast message="Saved & backed up" />);
       const toast = getToast();
       expect(toast).toHaveAttribute('role', 'status');
       expect(toast).toHaveAttribute('aria-live', 'polite');
-      expect(screen.getByTestId('status-toast-message')).toHaveTextContent('Saved to archive');
+      expect(screen.getByTestId('status-toast-message')).toHaveTextContent('Saved & backed up');
     });
 
     it('renders action button and calls onAction', async () => {

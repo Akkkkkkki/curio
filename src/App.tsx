@@ -51,6 +51,7 @@ import {
 } from 'lucide-react';
 import { Button } from './components/ui/Button';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
+import { CollectionScreenSkeleton, ItemDetailSkeleton } from './components/ui/Skeleton';
 import {
   fetchCloudCollections,
   getLocalCollections,
@@ -123,6 +124,39 @@ import { trackEvent } from './services/analytics';
  */
 const STORY_FEATURE_LAUNCHED_AT = '2026-05-16T00:00:00.000Z';
 
+// CUR-135: Item Detail undo/redo can be reached from the keyboard.
+// `navigator.platform` is deprecated but still populated in every browser
+// Curio targets; jsdom exposes it too, so tests see a stable value.
+const IS_MAC =
+  typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/i.test(navigator.platform || '');
+const UNDO_SHORTCUT_LABEL = IS_MAC ? '⌘Z' : 'Ctrl+Z';
+const REDO_SHORTCUT_LABEL = IS_MAC ? '⌘⇧Z' : 'Ctrl+Shift+Z';
+
+type ItemSaveState = {
+  status: 'saving' | 'saved' | 'error';
+  error?: string;
+};
+
+// Sentinel for "the admin lookup has settled for a signed-out session" so the
+// app-shell readiness marker can distinguish it from "lookup still pending".
+const ANONYMOUS_ADMIN_SCOPE = 'anonymous';
+
+const isEditableTarget = (target: EventTarget | null): boolean => {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+  return target.isContentEditable;
+};
+
+// CUR-135: item modals (Export, Delete, Enhance, ImageEdit, …) mount above
+// the item detail while it stays in the DOM. Focus inside a dialog must not
+// silently mutate the item behind it — the app-level undo should only fire
+// while the item detail itself is the active surface.
+const isInsideModalDialog = (target: EventTarget | null): boolean => {
+  if (!(target instanceof HTMLElement)) return false;
+  return target.closest('[aria-modal="true"], [data-export-modal]') !== null;
+};
+
 const isLegacyAiNoteItem = (item: CollectionItem): boolean => {
   const story = item.notes;
   if (!story || !story.trim()) return false;
@@ -142,9 +176,40 @@ import {
 } from './config';
 import { detectConflicts } from './utils/conflictDetection';
 import { sortCollectionItems, type ItemSort } from './utils/collectionSorting';
+import { matchesItemFilters } from './utils/itemFilter';
 import { HomeScreen } from './components/HomeScreen';
 import { useDebouncedValue } from './hooks/useDebouncedValue';
 import { useAndroidBackButton } from './hooks/useAndroidBackButton';
+
+// CUR-93: Active filter chips and the "Clear all" link used to hardcode
+// Gallery (light) tokens, so on Vault the amber-50 pills punched through
+// the dark page and the stone-500 link collapsed against the page muted
+// text. The palette here mirrors the warning tone in StatusBanner (CUR-81)
+// and the muted link tones already used elsewhere in the file, so the
+// chips read as one system across themes.
+const filterChipClasses: Record<AppTheme, string> = {
+  gallery: 'bg-amber-50 text-amber-800 border-amber-100',
+  vault: 'bg-amber-500/10 text-amber-200 border-amber-400/20',
+  atelier: 'bg-amber-100/70 text-amber-900 border-amber-300/60',
+};
+
+const filterChipSeparatorClasses: Record<AppTheme, string> = {
+  gallery: 'text-amber-700/80',
+  vault: 'text-amber-200/70',
+  atelier: 'text-amber-800/70',
+};
+
+const filterChipIconClasses: Record<AppTheme, string> = {
+  gallery: 'text-amber-600',
+  vault: 'text-amber-200',
+  atelier: 'text-amber-800',
+};
+
+const clearFiltersLinkClasses: Record<AppTheme, string> = {
+  gallery: 'text-stone-500 hover:text-stone-800 decoration-stone-300',
+  vault: 'text-stone-300 hover:text-white decoration-white/30',
+  atelier: 'text-[#8C7B6B] hover:text-[#3D3530] decoration-[#D4C9B8]',
+};
 
 export const AppContent: React.FC = () => {
   const { t, language } = useTranslation();
@@ -156,6 +221,12 @@ export const AppContent: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [authReady, setAuthReady] = useState(false);
+  // Which user the async admin-profile lookup has settled for, and which
+  // user/role identity the last completed collections refresh served. Both
+  // feed the app-shell readiness marker so E2E waits can't race the admin
+  // lookup → re-refresh → seed sequence on an authenticated first run.
+  const [adminCheckedFor, setAdminCheckedFor] = useState<string | null>(null);
+  const [refreshedForKey, setRefreshedForKey] = useState<string | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
   const [allowPublicBrowse, setAllowPublicBrowse] = useState(false);
@@ -177,6 +248,7 @@ export const AppContent: React.FC = () => {
   const showStatusRef = useRef<(message: string, tone?: StatusTone) => void>(() => undefined);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [itemSaveStates, setItemSaveStates] = useState<Record<string, ItemSaveState>>({});
   const [pendingAssetUploads, setPendingAssetUploads] = useState(0);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [conflicts, setConflicts] = useState<ReturnType<typeof detectConflicts>>([]);
@@ -191,6 +263,12 @@ export const AppContent: React.FC = () => {
   );
   const saveTimeoutRef = useRef<Record<string, any>>({});
   const pendingEditedFieldsRef = useRef<Record<string, Set<string>>>({});
+  const pendingEditedItemIdsRef = useRef<Record<string, Set<string>>>({});
+  // Every Item Detail edit bumps the item's revision. A save records the
+  // revision it carries when it starts, so a generic sync event only resolves
+  // the badge when no newer edit is still waiting to be backed up.
+  const itemSaveRevisionRef = useRef<Record<string, number>>({});
+  const pendingDetailSavesRef = useRef<Map<string, number>>(new Map());
   const statusTimeoutRef = useRef<number | null>(null);
   const pendingSyncToastRef = useRef(false);
   const hasQuotaWarningRef = useRef(false);
@@ -236,6 +314,21 @@ export const AppContent: React.FC = () => {
       console.warn('Pending upload count check failed:', error);
     }
   }, []);
+
+  const setItemSaveState = useCallback(
+    (itemIds: Iterable<string>, status: ItemSaveState['status'], error?: string) => {
+      const ids = [...itemIds];
+      if (ids.length === 0) return;
+      setItemSaveStates((prev) => {
+        const next = { ...prev };
+        ids.forEach((itemId) => {
+          next[itemId] = error ? { status, error } : { status };
+        });
+        return next;
+      });
+    },
+    [],
+  );
 
   const checkStorageQuota = useCallback(async () => {
     if (!navigator.storage?.estimate) return;
@@ -329,6 +422,23 @@ export const AppContent: React.FC = () => {
     const handleSyncStatus = (status: SyncStatus, error?: string) => {
       setSyncStatus(status);
       setSyncError(error ?? null);
+      if (status === 'synced' || status === 'error') {
+        // Only resolve items whose recorded save revision is still the latest;
+        // an item edited again since this save started stays "Saving" until
+        // its own save reports back.
+        const resolvedIds: string[] = [];
+        pendingDetailSavesRef.current.forEach((revision, itemId) => {
+          if (revision === (itemSaveRevisionRef.current[itemId] ?? 0)) {
+            resolvedIds.push(itemId);
+          }
+        });
+        pendingDetailSavesRef.current.clear();
+        if (status === 'synced') {
+          setItemSaveState(resolvedIds, 'saved');
+        } else {
+          setItemSaveState(resolvedIds, 'error', error || tRef.current('statusSyncPaused'));
+        }
+      }
       if (status === 'error') {
         trackEvent('sync_failed', {
           operation: 'collection_sync',
@@ -339,7 +449,7 @@ export const AppContent: React.FC = () => {
     };
     setSyncStatusCallback(handleSyncStatus);
     return () => setSyncStatusCallback(null);
-  }, []);
+  }, [setItemSaveState]);
 
   useEffect(() => {
     if (conflicts.length === 0) {
@@ -433,6 +543,7 @@ export const AppContent: React.FC = () => {
     let isMounted = true;
     if (!isSupabaseReady || !supabase || !user) {
       setIsAdmin(false);
+      setAdminCheckedFor(ANONYMOUS_ADMIN_SCOPE);
       return () => {
         isMounted = false;
       };
@@ -455,6 +566,8 @@ export const AppContent: React.FC = () => {
       } catch (e) {
         console.warn('Admin status check failed:', e);
         if (isMounted) setIsAdmin(false);
+      } finally {
+        if (isMounted) setAdminCheckedFor(user.id);
       }
     };
 
@@ -573,12 +686,18 @@ export const AppContent: React.FC = () => {
   );
 
   const refreshCollections = useCallback(async () => {
+    // Records which user/role identity this refresh serves; the app-shell
+    // readiness marker requires the last completed refresh to match the
+    // current identity so an admin's post-lookup re-refresh (which seeds the
+    // sample data) can't be raced by tests waiting on readiness.
+    const refreshIdentityKey = `${user?.id ?? 'anon'}:${isAdmin ? 'admin' : 'member'}`;
     if (!isSupabaseReady) {
       setCollections(fallbackSampleCollections);
       setLoadError(null);
       setConflicts([]);
       setIsConflictModalOpen(false);
       setIsLoading(false);
+      setRefreshedForKey(refreshIdentityKey);
       return;
     }
     setIsLoading(true);
@@ -629,6 +748,7 @@ export const AppContent: React.FC = () => {
       }
       showStatusRef.current(tRef.current('statusSyncPaused'), 'error');
       setIsLoading(false);
+      setRefreshedForKey(refreshIdentityKey);
       return;
     }
 
@@ -687,6 +807,7 @@ export const AppContent: React.FC = () => {
       setCollections(resolvedCollections);
       setLoadError(null);
       setIsLoading(false);
+      setRefreshedForKey(refreshIdentityKey);
       if (showSyncedStatus) {
         showStatusRef.current(tRef.current('statusSynced'), 'success');
       }
@@ -726,6 +847,7 @@ export const AppContent: React.FC = () => {
       }
       showStatusRef.current(tRef.current('statusSyncPaused'), 'error');
       setIsLoading(false);
+      setRefreshedForKey(refreshIdentityKey);
     }
   }, [
     user,
@@ -778,7 +900,7 @@ export const AppContent: React.FC = () => {
   };
 
   const debouncedSaveCollection = useCallback(
-    (collection: UserCollection, changedFields: string[]) => {
+    (collection: UserCollection, changedFields: string[], changedItemIds: string[] = []) => {
       if (saveTimeoutRef.current[collection.id]) {
         clearTimeout(saveTimeoutRef.current[collection.id]);
       }
@@ -787,17 +909,46 @@ export const AppContent: React.FC = () => {
       const accumulated = pendingEditedFieldsRef.current[collection.id] ?? new Set<string>();
       changedFields.forEach((field) => accumulated.add(field));
       pendingEditedFieldsRef.current[collection.id] = accumulated;
+      const pendingItemIds = pendingEditedItemIdsRef.current[collection.id] ?? new Set<string>();
+      changedItemIds.forEach((itemId) => pendingItemIds.add(itemId));
+      pendingEditedItemIdsRef.current[collection.id] = pendingItemIds;
       saveTimeoutRef.current[collection.id] = setTimeout(() => {
         const editedFields = pendingEditedFieldsRef.current[collection.id];
+        const detailItemIds = pendingEditedItemIdsRef.current[collection.id] ?? new Set<string>();
         delete pendingEditedFieldsRef.current[collection.id];
+        delete pendingEditedItemIdsRef.current[collection.id];
+        const saveRevisions = new Map<string, number>();
+        detailItemIds.forEach((itemId) => {
+          const revision = itemSaveRevisionRef.current[itemId] ?? 0;
+          saveRevisions.set(itemId, revision);
+          pendingDetailSavesRef.current.set(itemId, revision);
+        });
+        // Resolve only items this save still speaks for — an item edited again
+        // after this save started keeps its "Saving" badge for the newer save.
+        const settleItems = (status: 'saved' | 'error', error?: string) => {
+          const settledIds: string[] = [];
+          saveRevisions.forEach((revision, itemId) => {
+            if (pendingDetailSavesRef.current.get(itemId) === revision) {
+              pendingDetailSavesRef.current.delete(itemId);
+            }
+            if (revision === (itemSaveRevisionRef.current[itemId] ?? 0)) {
+              settledIds.push(itemId);
+            }
+          });
+          setItemSaveState(settledIds, status, error);
+        };
         saveCollection(collection)
           .then(() => {
             trackEvent('item_edited', {
               fields: [...(editedFields ?? [])].sort().join(','),
               surface: 'item_detail',
             });
+            if (!isSupabaseReady) {
+              settleItems('saved');
+            }
           })
           .catch((err) => {
+            settleItems('error', err instanceof Error ? err.message : t('statusSyncPaused'));
             console.warn('Sync failed', err);
             showStatus(
               t('statusSyncError').replace('{error}', err.message || 'Unknown error'),
@@ -806,7 +957,7 @@ export const AppContent: React.FC = () => {
           });
       }, 1500);
     },
-    [showStatus, t],
+    [isSupabaseReady, setItemSaveState, showStatus, t],
   );
 
   const canEditCollection = useCallback(
@@ -891,6 +1042,8 @@ export const AppContent: React.FC = () => {
 
   const updateItem = (collectionId: string, itemId: string, updates: Partial<CollectionItem>) => {
     if (!canEditCollection(collectionId)) return;
+    itemSaveRevisionRef.current[itemId] = (itemSaveRevisionRef.current[itemId] ?? 0) + 1;
+    setItemSaveState([itemId], 'saving');
     const now = new Date().toISOString();
     setCollections((prev) =>
       prev.map((c) => {
@@ -902,7 +1055,7 @@ export const AppContent: React.FC = () => {
               item.id === itemId ? { ...item, ...updates, updatedAt: now } : item,
             ),
           };
-          debouncedSaveCollection(newC, Object.keys(updates));
+          debouncedSaveCollection(newC, Object.keys(updates), [itemId]);
           return newC;
         }
         return c;
@@ -1155,16 +1308,7 @@ export const AppContent: React.FC = () => {
           item.title.toLowerCase().includes(term) ||
           item.notes?.toLowerCase().includes(term) ||
           Object.values(item.data).some((val) => String(val).toLowerCase().includes(term));
-        const matchesFilters = (Object.entries(activeFilters) as [string, string][]).every(
-          ([key, value]) => {
-            if (!value) return true;
-            if (key === 'rating') return item.rating >= parseInt(value);
-            const itemVal = item.data[key];
-            if (itemVal === undefined || itemVal === null) return false;
-            return String(itemVal).toLowerCase().includes(value.toLowerCase());
-          },
-        );
-        return matchesSearch && matchesFilters;
+        return matchesSearch && matchesItemFilters(item, activeFilters, collection.customFields);
       });
     }, [collection, debouncedFilter, activeFilters]);
 
@@ -1251,7 +1395,13 @@ export const AppContent: React.FC = () => {
       }
     };
 
-    if (!collection) return <Navigate to="/" replace />;
+    if (!collection) {
+      // CUR-118: don't bounce a deep-link reload back to Home while the
+      // initial cloud fetch is still in flight. Only redirect once loading
+      // has settled and the id is genuinely absent.
+      if (isLoading) return <CollectionScreenSkeleton label={t('restoringArchives')} />;
+      return <Navigate to="/" replace />;
+    }
 
     return (
       <div className="space-y-10 animate-in slide-in-from-bottom-4 duration-500">
@@ -1387,14 +1537,29 @@ export const AppContent: React.FC = () => {
                   <option value="rating">{t('sortRating')}</option>
                 </select>
               </div>
-              <div className="relative flex gap-2 flex-1 min-w-[12rem]">
-                <input
-                  type="text"
-                  placeholder={t('collectionSearchPlaceholder')}
-                  value={filterInput}
-                  onChange={(e) => setFilterInput(e.target.value)}
-                  className={`pl-4 pr-4 py-2 rounded-xl border focus:ring-4 focus:ring-amber-500/5 outline-none text-sm w-full transition-all shadow-sm font-serif italic ${theme === 'vault' ? 'bg-stone-900 border-white/10 text-white' : 'bg-white border-stone-200 text-stone-900'}`}
-                />
+              <div className="flex gap-2 flex-1 min-w-[12rem]">
+                <div className="relative flex-1">
+                  <input
+                    type="text"
+                    placeholder={t('collectionSearchPlaceholder')}
+                    aria-label={t('collectionSearchPlaceholder')}
+                    value={filterInput}
+                    onChange={(e) => setFilterInput(e.target.value)}
+                    className={`pl-4 pr-11 py-2 rounded-xl border focus:ring-4 focus:ring-amber-500/5 outline-none text-sm w-full transition-all shadow-sm font-serif italic ${theme === 'vault' ? 'bg-stone-900 border-white/10 text-white' : 'bg-white border-stone-200 text-stone-900'}`}
+                  />
+                  {filterInput.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setFilterInput('')}
+                      aria-label={t('clearSearch')}
+                      title={t('clearSearch')}
+                      data-testid="collection-search-clear"
+                      className={`absolute right-1 sm:right-2 top-1/2 -translate-y-1/2 w-11 h-11 sm:w-9 sm:h-9 rounded-full flex items-center justify-center transition-colors ${theme === 'vault' ? 'text-stone-300 hover:bg-white/10' : 'text-stone-400 hover:bg-stone-100 hover:text-stone-600'}`}
+                    >
+                      <X size={16} />
+                    </button>
+                  )}
+                </div>
                 <Button
                   variant={activeFilterCount > 0 ? 'primary' : 'outline'}
                   className={`w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center p-0 rounded-xl ${theme === 'vault' ? 'bg-stone-900 border-white/10' : activeFilterCount > 0 ? '' : 'bg-white'}`}
@@ -1419,19 +1584,21 @@ export const AppContent: React.FC = () => {
             {activeFilterEntries.map(([key, value]) => (
               <button
                 key={key}
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm bg-amber-50 text-amber-800 border border-amber-100 motion-chip"
+                data-testid="active-filter-chip"
+                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm border motion-chip ${filterChipClasses[theme]}`}
                 onClick={() => handleRemoveFilter(key)}
                 title={t('clearFilter')}
               >
                 <span className="font-semibold">{getFieldLabel(key)}</span>
-                <span className="text-amber-700/80">·</span>
+                <span className={filterChipSeparatorClasses[theme]}>·</span>
                 <span className="font-medium">{value}</span>
-                <X size={14} className="text-amber-600" />
+                <X size={14} className={filterChipIconClasses[theme]} />
               </button>
             ))}
             <button
+              data-testid="active-filter-clear-all"
               onClick={handleClearFilters}
-              className="text-sm font-semibold text-stone-500 hover:text-stone-800 underline decoration-stone-300"
+              className={`text-sm font-semibold underline ${clearFiltersLinkClasses[theme]}`}
             >
               {t('clearAll')}
             </button>
@@ -1584,6 +1751,7 @@ export const AppContent: React.FC = () => {
           isOpen={isFilterModalOpen}
           onClose={() => setIsFilterModalOpen(false)}
           fields={collection.customFields}
+          items={collection.items}
           activeFilters={activeFilters}
           onApply={setActiveFilters}
         />
@@ -1657,8 +1825,57 @@ export const AppContent: React.FC = () => {
       ta.style.height = `${ta.scrollHeight}px`;
     }, [item?.title]);
 
-    if (!collection || !item) return <Navigate to={`/collection/${id}`} replace />;
+    // CUR-135: install the keyboard shortcut listener before any early return
+    // so the hook order stays stable while the item is still loading. The ref
+    // is populated further down once handleUndo/handleRedo are defined.
+    const shortcutRef = useRef({
+      isReadOnly: false,
+      historyLength: 0,
+      futureLength: 0,
+      handleUndo: () => {},
+      handleRedo: () => {},
+    });
+
+    useEffect(() => {
+      const handler = (e: KeyboardEvent) => {
+        const current = shortcutRef.current;
+        if (current.isReadOnly) return;
+        const mod = e.metaKey || e.ctrlKey;
+        if (!mod) return;
+        const key = e.key.toLowerCase();
+        const isUndo = key === 'z' && !e.shiftKey;
+        // Windows-style redo (Ctrl+Y) — skip when Meta is also held so it
+        // doesn't collide with browser History shortcuts on macOS.
+        const isRedo = (key === 'z' && e.shiftKey) || (key === 'y' && e.ctrlKey && !e.metaKey);
+        if (!isUndo && !isRedo) return;
+        if (isEditableTarget(e.target)) return;
+        if (isInsideModalDialog(e.target)) return;
+        if (isUndo && current.historyLength > 0) {
+          e.preventDefault();
+          current.handleUndo();
+        } else if (isRedo && current.futureLength > 0) {
+          e.preventDefault();
+          current.handleRedo();
+        }
+      };
+      window.addEventListener('keydown', handler);
+      return () => window.removeEventListener('keydown', handler);
+    }, []);
+
+    if (!collection || !item) {
+      // CUR-118: deep-link reload of /collection/:id/item/:itemId must wait
+      // for the cloud fetch instead of bouncing to Home / parent collection.
+      // The `!item` half matters too: `refreshCollections()` flips `isLoading`
+      // without clearing existing collection state, so a follow-up refresh
+      // can leave the parent collection cached while the item is still in
+      // the pending cloud response — without this guard, the shared link
+      // would lose the item to the parent route before the fetch resolves.
+      if (isLoading) return <ItemDetailSkeleton label={t('restoringArchives')} />;
+      if (!collection) return <Navigate to="/" replace />;
+      return <Navigate to={`/collection/${id}`} replace />;
+    }
     const isReadOnly = Boolean(collection.isPublic) && !isAdmin;
+    const itemSaveState = itemSaveStates[item.id];
 
     const snapshotItem = (target: CollectionItem) => ({
       title: target.title,
@@ -1804,6 +2021,17 @@ export const AppContent: React.FC = () => {
       setDetailPromptsFetchedFor(null);
     }, [item.id]);
 
+    // CUR-135: Cmd/Ctrl+Z, Cmd/Ctrl+Shift+Z, Ctrl+Y drive the app-level
+    // undo/redo stacks that the on-screen buttons already use. Text-field
+    // focus defers to the browser's native per-field undo so typing history
+    // stays reachable; the shortcut only steps the app-level stack once the
+    // user has clicked out of the field. Read-only items ignore both keys.
+    shortcutRef.current.isReadOnly = isReadOnly;
+    shortcutRef.current.historyLength = history.length;
+    shortcutRef.current.futureLength = future.length;
+    shortcutRef.current.handleUndo = handleUndo;
+    shortcutRef.current.handleRedo = handleRedo;
+
     const handleDelete = () => {
       if (isReadOnly) return;
       setIsDeleteItemModalOpen(true);
@@ -1814,6 +2042,29 @@ export const AppContent: React.FC = () => {
         setIsDeleteItemModalOpen(false);
         navigate(`/collection/${collection.id}`);
       }
+    };
+
+    const handleRetryItemSave = () => {
+      const revision = itemSaveRevisionRef.current[item.id] ?? 0;
+      setItemSaveState([item.id], 'saving');
+      pendingDetailSavesRef.current.set(item.id, revision);
+      const settleRetry = (status: 'saved' | 'error', error?: string) => {
+        if (pendingDetailSavesRef.current.get(item.id) === revision) {
+          pendingDetailSavesRef.current.delete(item.id);
+        }
+        if (revision === (itemSaveRevisionRef.current[item.id] ?? 0)) {
+          setItemSaveState([item.id], status, error);
+        }
+      };
+      saveCollection(collection)
+        .then(() => {
+          if (!isSupabaseReady) {
+            settleRetry('saved');
+          }
+        })
+        .catch((err) => {
+          settleRetry('error', err instanceof Error ? err.message : t('statusSyncPaused'));
+        });
     };
 
     const applyEditedPhoto = async (dataUrl: string) => {
@@ -2047,6 +2298,56 @@ export const AppContent: React.FC = () => {
                     {t('titleRequired')}
                   </p>
                 )}
+                {!isReadOnly && itemSaveState && (
+                  <div
+                    role="status"
+                    aria-live="polite"
+                    data-testid="item-save-status"
+                    className={`mb-3 inline-flex max-w-full flex-wrap items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${
+                      itemSaveState.status === 'error'
+                        ? theme === 'vault'
+                          ? 'border-red-400/40 bg-red-500/10 text-red-200'
+                          : 'border-red-200 bg-red-50 text-red-700'
+                        : itemSaveState.status === 'saved'
+                          ? theme === 'vault'
+                            ? 'border-emerald-400/30 bg-emerald-500/10 text-emerald-200'
+                            : theme === 'atelier'
+                              ? 'border-[#d7d0c5] bg-white/70 text-[#5f6f4f]'
+                              : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                          : theme === 'vault'
+                            ? 'border-white/10 bg-white/5 text-stone-300'
+                            : 'border-stone-200 bg-stone-50 text-stone-600'
+                    }`}
+                  >
+                    {itemSaveState.status === 'saving' && (
+                      <Loader2 size={14} className="shrink-0 animate-spin" aria-hidden />
+                    )}
+                    {itemSaveState.status === 'saved' && (
+                      <CheckSquare size={14} className="shrink-0" aria-hidden />
+                    )}
+                    {itemSaveState.status === 'error' && (
+                      <AlertCircle size={14} className="shrink-0" aria-hidden />
+                    )}
+                    <span>
+                      {itemSaveState.status === 'saving'
+                        ? t('itemSaveStatusSaving')
+                        : itemSaveState.status === 'saved'
+                          ? t('itemSaveStatusSaved')
+                          : t('itemSaveStatusError')}
+                    </span>
+                    {itemSaveState.status === 'error' && (
+                      <button
+                        type="button"
+                        onClick={handleRetryItemSave}
+                        className={`rounded-full px-2 py-0.5 text-[11px] underline-offset-2 hover:underline ${
+                          theme === 'vault' ? 'bg-white/10 text-white' : 'bg-white/80 text-red-800'
+                        }`}
+                      >
+                        {t('actionRetry')}
+                      </button>
+                    )}
+                  </div>
+                )}
                 <div className="flex flex-wrap items-center gap-2">
                   {[1, 2, 3, 4, 5].map((star) => (
                     <button
@@ -2086,7 +2387,7 @@ export const AppContent: React.FC = () => {
                     onClick={handleUndo}
                     disabled={history.length === 0}
                     aria-label={t('undo')}
-                    title={t('undo')}
+                    title={`${t('undo')} (${UNDO_SHORTCUT_LABEL})`}
                     className={`p-3 sm:p-4 rounded-full transition-colors ${mutedTextClasses[theme]} ${
                       history.length === 0
                         ? 'opacity-50 cursor-not-allowed'
@@ -2101,7 +2402,7 @@ export const AppContent: React.FC = () => {
                     onClick={handleRedo}
                     disabled={future.length === 0}
                     aria-label={t('redo')}
-                    title={t('redo')}
+                    title={`${t('redo')} (${REDO_SHORTCUT_LABEL})`}
                     className={`p-3 sm:p-4 rounded-full transition-colors ${mutedTextClasses[theme]} ${
                       future.length === 0
                         ? 'opacity-50 cursor-not-allowed'
@@ -2346,6 +2647,7 @@ export const AppContent: React.FC = () => {
           onClose={() => setIsExportOpen(false)}
           item={item}
           fields={collection.customFields}
+          onStatus={showStatus}
         />
         <EnhanceImageModal
           isOpen={isEnhanceOpen}
@@ -2548,9 +2850,20 @@ export const AppContent: React.FC = () => {
       setIsCreateCollectionOpen(true);
       return;
     }
-    setAddModalDefaultCollectionId(undefined);
+    // When the bottom-nav Add is tapped from inside a collection (or one of
+    // its items), inherit that collection so the modal opens on the upload
+    // step instead of forcing a redundant picker pass — same behavior as the
+    // in-screen "Add Item" button. Read-only samples are filtered by
+    // editableCollections.some(...), so a visitor inside a public sample
+    // still gets the picker.
+    const collectionInPath = location.pathname.match(/^\/collection\/([^/]+)/)?.[1];
+    const presetCollectionId =
+      collectionInPath && editableCollections.some((c) => c.id === collectionInPath)
+        ? collectionInPath
+        : undefined;
+    setAddModalDefaultCollectionId(presetCollectionId);
     setIsAddModalOpen(true);
-  }, [editableCollections.length, isAuthenticated]);
+  }, [editableCollections, isAuthenticated, location.pathname]);
 
   const handleCreateCollectionAction = useCallback(() => {
     if (!isAuthenticated) {
@@ -2672,10 +2985,25 @@ export const AppContent: React.FC = () => {
     </div>
   );
 
+  // Ready means: initial load settled, auth settled, the admin-profile lookup
+  // settled for the current session, and the last completed collections
+  // refresh served the current user/role identity. The identity key flips in
+  // the same render as an isAdmin/user change, so the marker can never show
+  // ready during the window between an admin lookup resolving and the seeding
+  // re-refresh it triggers.
+  const currentIdentityKey = `${user?.id ?? 'anon'}:${isAdmin ? 'admin' : 'member'}`;
+  const adminLookupSettled = adminCheckedFor === (user ? user.id : ANONYMOUS_ADMIN_SCOPE);
+  const appReady =
+    !isLoading &&
+    (!isSupabaseReady ||
+      (authReady && adminLookupSettled && refreshedForKey === currentIdentityKey));
+
   return (
     <div
       className={`min-h-screen transition-colors duration-1000 ${themeColors[theme]}`}
       data-theme={theme}
+      data-testid="app-shell"
+      data-ready={appReady ? 'true' : 'false'}
     >
       <Layout
         onOpenAuth={() => setIsAuthModalOpen(true)}
@@ -2727,7 +3055,7 @@ export const AppContent: React.FC = () => {
                 path="/"
                 element={
                   <HomeScreen
-                    collections={collections}
+                    collections={editableCollections}
                     stats={stats}
                     isLoading={isLoading}
                     loadError={loadError}

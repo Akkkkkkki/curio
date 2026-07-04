@@ -2,6 +2,13 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { extractCurioAssetPath, getAsset, getEnhancedAsset } from '../services/db';
 import { Loader2, Camera, AlertCircle } from 'lucide-react';
 import { useTranslation } from '../i18n';
+import { useTheme, matSurfaceClasses } from '../theme';
+
+// Tailwind emits object-fit utilities in the order contain → cover → …, so a
+// hard-coded `object-cover` here would silently win over a caller's
+// `object-contain` (e.g. the exhibit hero). Yield when the caller already
+// picked a fit.
+const OBJECT_FIT_RE = /\bobject-(contain|cover|fill|none|scale-down)\b/;
 
 interface ItemImageProps {
   itemId: string;
@@ -23,12 +30,12 @@ export const ItemImage: React.FC<ItemImageProps> = ({
   type = 'display',
 }) => {
   const { t } = useTranslation();
+  const { theme } = useTheme();
+  const placeholderSurface = matSurfaceClasses[theme];
   const [dbUrl, setDbUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
-  const [fallbackSrc, setFallbackSrc] = useState<string | null>(null);
   const currentUrlRef = useRef<string | null>(null);
-  const defaultFallback = `${import.meta.env.BASE_URL}assets/sample-vinyl.jpg`;
   const remoteAssetPath = useMemo(() => {
     if (!photoUrl) return null;
     if (photoUrl === 'asset') return null;
@@ -70,8 +77,6 @@ export const ItemImage: React.FC<ItemImageProps> = ({
     resolvedPhotoUrl && resolvedPhotoUrl !== 'asset' && resolvedPhotoUrl !== '';
 
   useEffect(() => {
-    // Reset fallback/error when the source changes
-    setFallbackSrc(null);
     setError(false);
   }, [photoUrl]);
 
@@ -157,12 +162,12 @@ export const ItemImage: React.FC<ItemImageProps> = ({
     };
   }, []);
 
-  const finalSrc = fallbackSrc || (isDirectSource ? resolvedPhotoUrl : dbUrl);
+  const finalSrc = isDirectSource ? resolvedPhotoUrl : dbUrl;
 
   if (loading && !finalSrc) {
     return (
-      <div className={`relative overflow-hidden bg-stone-100 ${className}`}>
-        <div className="absolute inset-0 bg-gradient-to-r from-stone-100 via-stone-50 to-stone-100 animate-pulse" />
+      <div className={`relative overflow-hidden ${placeholderSurface} ${className}`}>
+        <div className={`absolute inset-0 animate-pulse ${placeholderSurface}`} />
         <div className="absolute inset-0 flex items-center justify-center">
           <Loader2 className="animate-spin text-stone-300" size={24} />
         </div>
@@ -174,7 +179,7 @@ export const ItemImage: React.FC<ItemImageProps> = ({
   if (error || (!finalSrc && !loading)) {
     return (
       <div
-        className={`flex flex-col items-center justify-center bg-stone-100 text-stone-300 ${className} min-h-[100px]`}
+        className={`flex flex-col items-center justify-center ${placeholderSurface} text-stone-300 ${className} min-h-[100px]`}
       >
         {error ? (
           <AlertCircle size={32} className="opacity-10 mb-2" />
@@ -192,7 +197,7 @@ export const ItemImage: React.FC<ItemImageProps> = ({
   if (!finalSrc || finalSrc.trim() === '') {
     return (
       <div
-        className={`flex flex-col items-center justify-center bg-stone-100 text-stone-300 ${className} min-h-[100px]`}
+        className={`flex flex-col items-center justify-center ${placeholderSurface} text-stone-300 ${className} min-h-[100px]`}
       >
         <Camera size={32} className="opacity-10 mb-2" />
         <span className="text-[10px] font-bold uppercase tracking-widest opacity-30">
@@ -202,21 +207,15 @@ export const ItemImage: React.FC<ItemImageProps> = ({
     );
   }
 
+  const imgClassName = OBJECT_FIT_RE.test(className) ? className : `object-cover ${className}`;
+
   return (
     <img
       src={finalSrc}
       alt={alt}
-      className={`object-cover ${className}`}
+      className={imgClassName}
       loading="lazy"
-      onError={() => {
-        // Handle native browser load errors (e.g., 404 for relative paths)
-        if (!fallbackSrc && isDirectSource) {
-          setFallbackSrc(defaultFallback);
-          setError(false);
-          return;
-        }
-        setError(true);
-      }}
+      onError={() => setError(true)}
     />
   );
 };

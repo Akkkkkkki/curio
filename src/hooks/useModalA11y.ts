@@ -43,17 +43,6 @@ export function useModalA11y(
   useEffect(() => {
     if (!isOpen) return;
 
-    const focusTarget = initialFocusRef?.current;
-    const dialog = dialogRef.current;
-    const frameId = requestAnimationFrame(() => {
-      if (focusTarget) {
-        focusTarget.focus();
-        return;
-      }
-      const firstFocusable = dialog?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR);
-      firstFocusable?.focus();
-    });
-
     const getFocusable = () => {
       const el = dialogRef.current;
       if (!el) return [] as HTMLElement[];
@@ -61,6 +50,19 @@ export function useModalA11y(
         (n) => n.offsetParent !== null,
       );
     };
+
+    const focusTarget = initialFocusRef?.current;
+    const frameId = requestAnimationFrame(() => {
+      if (focusTarget) {
+        focusTarget.focus();
+        return;
+      }
+      // ExhibitionView renders mobile + desktop layouts side-by-side and hides
+      // one with `display: none`; the unfiltered DOM-first focusable can be in
+      // the hidden subtree, where `focus()` is a no-op. Pick from the same
+      // visible set the focus trap uses.
+      getFocusable()[0]?.focus();
+    });
 
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
