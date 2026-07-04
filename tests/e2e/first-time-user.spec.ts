@@ -9,8 +9,15 @@ import { test, expect, Page } from '@playwright/test';
  * - Read-only clarity
  */
 
+async function waitForAppReady(page: Page) {
+  await expect(page.getByTestId('app-shell')).toHaveAttribute('data-ready', 'true', {
+    timeout: 15000,
+  });
+}
+
 async function ensureSampleBrowse(page: Page) {
   await page.goto('/');
+  await waitForAppReady(page);
   const sampleLink = page
     .getByRole('link', { name: /wander a sample museum/i })
     .or(page.getByRole('link', { name: /explore/i }))
@@ -29,8 +36,15 @@ test.describe('First-Time User Experience', () => {
     await page.context().clearCookies();
   });
 
+  test('should expose deterministic readiness before first-run assertions', async ({ page }) => {
+    await page.goto('/');
+
+    await waitForAppReady(page);
+  });
+
   test('should show a single primary + single secondary CTA on first launch', async ({ page }) => {
     await page.goto('/');
+    await waitForAppReady(page);
 
     await expect(
       page.getByRole('heading', { name: /start your museum with one thing you love/i }),
@@ -42,6 +56,7 @@ test.describe('First-Time User Experience', () => {
 
   test('should never strand first-time users on a cloud-required dead end', async ({ page }) => {
     await page.goto('/');
+    await waitForAppReady(page);
 
     await expect(page.getByRole('link', { name: /wander a sample museum/i })).toBeVisible();
     await expect(page.getByText(/no account needed to look around/i)).toBeVisible();
@@ -90,6 +105,7 @@ test.describe('First-Time User Experience', () => {
 
   test('should prompt for auth when starting “Add your first item”', async ({ page }) => {
     await page.goto('/');
+    await waitForAppReady(page);
 
     await page.getByRole('button', { name: /add your first piece/i }).click();
     const modal = page.getByTestId('auth-modal');
@@ -136,6 +152,7 @@ test.describe('Navigation and Routing', () => {
 
   test('should redirect invalid routes back to home', async ({ page }) => {
     await page.goto('/#/invalid-route-that-does-not-exist');
+    await waitForAppReady(page);
     if (await page.getByTestId('access-gate').isVisible()) {
       await expect(page.getByTestId('access-gate')).toBeVisible();
       return;

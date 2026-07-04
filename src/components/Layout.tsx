@@ -460,6 +460,7 @@ export const Layout: React.FC<LayoutProps> = ({
           <div className={`grid ${exploreTo ? 'grid-cols-4' : 'grid-cols-3'} items-center w-full`}>
             <Link
               to="/"
+              aria-current={location.pathname === '/' ? 'page' : undefined}
               className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition-colors ${location.pathname === '/' ? 'text-amber-500' : bottomNavMuted}`}
             >
               <Home size={22} />
@@ -470,6 +471,7 @@ export const Layout: React.FC<LayoutProps> = ({
               <Link
                 to={exploreTo}
                 onClick={onExploreSamples}
+                aria-current={isExploreActive ? 'page' : undefined}
                 className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition-colors ${isExploreActive ? 'text-amber-500' : bottomNavMuted}`}
               >
                 <Compass size={22} />
