@@ -31,13 +31,18 @@ afterAll(() => {
   });
 });
 
-const makeQuery = (data: any[]) => {
+const makeQuery = (data: any[], onAwait?: () => Promise<void>) => {
   const query: any = {};
   query.select = vi.fn().mockReturnValue(query);
   query.or = vi.fn().mockReturnValue(query);
   query.eq = vi.fn().mockReturnValue(query);
   query.in = vi.fn().mockReturnValue(query);
-  query.then = (resolve: (value: any) => any) => Promise.resolve(resolve({ data, error: null }));
+  query.then = async (resolve: (value: any) => any) => {
+    // Allow tests to simulate work that happens while the (awaited) cloud
+    // query is in flight — e.g. a user creating a collection mid-fetch.
+    if (onAwait) await onAwait();
+    return resolve({ data, error: null });
+  };
   return query;
 };
 
@@ -45,13 +50,15 @@ function createSupabaseMock({
   collections,
   items,
   userId = 'user-123',
+  itemsOnAwait,
 }: {
   collections: any[];
   items: any[];
   userId?: string | null;
+  itemsOnAwait?: () => Promise<void>;
 }) {
   const collectionsQuery = makeQuery(collections);
-  const itemsQuery = makeQuery(items);
+  const itemsQuery = makeQuery(items, itemsOnAwait);
   const from = vi.fn((table: string) => (table === 'collections' ? collectionsQuery : itemsQuery));
   return {
     supabase: {
@@ -271,5 +278,64 @@ describe('Phase 2.1 — services/db.ts loadCollections merge behavior', () => {
 
     expect(merged).toHaveLength(1);
     expect(merged[0].name).toBe('Local Name');
+  });
+
+  it('preserves a local-only collection created while the cloud fetch is in flight (CUR-37)', async () => {
+    const cloudCollections = [
+      {
+        id: 'col-1',
+        user_id: 'user-123',
+        template_id: 'vinyl',
+        name: 'Cloud Collection',
+        icon: '☁️',
+        is_public: false,
+        updated_at: new Date('2024-01-03T00:00:00Z').toISOString(),
+      },
+    ];
+    const cloudItems: any[] = [];
+
+    // Declared up front so the mock's mid-fetch hook can reach the db module.
+    let dbMod: typeof import('@/services/db');
+
+    const { supabase } = createSupabaseMock({
+      collections: cloudCollections,
+      items: cloudItems,
+      // Simulate the user creating a brand-new collection offline while the
+      // (slow) cloud round-trip is still in flight. Before the fix this write
+      // landed after loadCollections had already snapshotted local state, so
+      // saveAllCollections(merged) clobbered it.
+      itemsOnAwait: async () => {
+        await dbMod.saveCollection(
+          baseCollection({
+            id: 'col-created-mid-fetch',
+            name: 'Created During Sync',
+            ownerId: undefined, // unsynced, local-only
+            updatedAt: new Date('2024-06-01T00:00:00Z').toISOString(),
+          }),
+        );
+      },
+    });
+
+    dbMod = await importDbModuleFresh(supabase);
+
+    const db = await dbMod.initDB();
+    openDb = db;
+    await clearStores(db, ['collections', 'assets', 'display', 'settings']);
+
+    // Start from a clean local cache that only has the cloud-backed collection.
+    await dbMod.saveAllCollections([
+      baseCollection({ id: 'col-1', name: 'Local Collection', ownerId: 'user-123' }),
+    ]);
+
+    const merged = await dbMod.loadCollections();
+
+    const ids = merged.map((c) => c.id).sort();
+    expect(ids).toContain('col-created-mid-fetch');
+    expect(ids).toContain('col-1');
+
+    // And it must actually be persisted (not just returned), so a subsequent
+    // load without a cloud round-trip still sees it.
+    const persisted = await dbMod.loadCollections();
+    expect(persisted.map((c) => c.id)).toContain('col-created-mid-fetch');
   });
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, within, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, within, fireEvent, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { AppContent } from '@/App';
 import { LanguageProvider } from '@/i18n';
@@ -133,6 +133,19 @@ describe('App Integration Tests', () => {
     vi.mocked(supabaseService.supabase!.auth.getSession).mockResolvedValue({
       data: { session: { user: { id: 'user1' } } },
     } as never);
+    // Re-assert the default profiles-lookup shape every test so a test that
+    // overrides `from` (e.g. to defer the admin lookup) cannot leak into the
+    // next one — clearAllMocks does not restore implementations.
+    vi.mocked(supabaseService.supabase!.from).mockImplementation(
+      () =>
+        ({
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              single: vi.fn().mockResolvedValue({ data: null, error: null }),
+            })),
+          })),
+        }) as never,
+    );
     vi.mocked(db.getLocalCollections).mockResolvedValue([mockCollection]);
     vi.mocked(db.fetchCloudCollections).mockResolvedValue([]);
     vi.mocked(db.getPendingSyncIds).mockResolvedValue([]);
@@ -147,6 +160,7 @@ describe('App Integration Tests', () => {
     vi.mocked(db.syncPendingDeletes).mockResolvedValue(0);
     vi.mocked(db.requestPersistence).mockResolvedValue(true);
     vi.mocked(db.saveAllCollections).mockResolvedValue(undefined);
+    vi.mocked(db.saveCollection).mockResolvedValue(undefined);
     vi.mocked(db.initDB).mockResolvedValue({} as never);
   });
 
@@ -216,7 +230,7 @@ describe('App Integration Tests', () => {
     });
   });
 
-  it('shows the public sample gallery instead of a dead-end gate when cloud is not configured', async () => {
+  it('shows the first-run Home with a sample path instead of a dead-end gate when cloud is not configured', async () => {
     const { ThemeProvider } = await import('@/theme');
     vi.mocked(supabaseService.isSupabaseConfigured).mockReturnValue(false);
 
@@ -231,12 +245,83 @@ describe('App Integration Tests', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId('collections-grid')).toBeInTheDocument();
+      expect(
+        screen.getByRole('heading', { name: /start your museum with one thing you love/i }),
+      ).toBeInTheDocument();
     });
 
-    expect(screen.getAllByText('The Vinyl Vault')[0]).toBeInTheDocument();
-    expect(screen.getByText('5')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /wander a sample museum/i })).toHaveAttribute(
+      'href',
+      '/collection/sample-vinyl',
+    );
+    expect(screen.queryByTestId('collections-grid')).not.toBeInTheDocument();
     expect(screen.queryByTestId('access-gate')).not.toBeInTheDocument();
+  });
+
+  it('marks the app shell ready when the first-run fallback is rendered', async () => {
+    const { ThemeProvider } = await import('@/theme');
+    vi.mocked(supabaseService.isSupabaseConfigured).mockReturnValue(false);
+
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('heading', { name: /start your museum with one thing you love/i }),
+      ).toBeInTheDocument();
+    });
+
+    expect(screen.getByTestId('app-shell')).toHaveAttribute('data-ready', 'true');
+  });
+
+  it('holds app-shell readiness until the admin lookup settles and the admin re-refresh completes', async () => {
+    const { ThemeProvider } = await import('@/theme');
+    let resolveProfile!: (value: { data: { is_admin: boolean } | null; error: null }) => void;
+    const profilePromise = new Promise<{ data: { is_admin: boolean } | null; error: null }>(
+      (resolve) => {
+        resolveProfile = resolve;
+      },
+    );
+    vi.mocked(supabaseService.supabase!.from).mockReturnValue({
+      select: vi.fn(() => ({
+        eq: vi.fn(() => ({ single: vi.fn(() => profilePromise) })),
+      })),
+    } as never);
+
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    // The signed-in member refresh completes, but readiness must hold while
+    // the admin-profile lookup is still pending — seeding depends on it.
+    await waitFor(() => {
+      expect(db.fetchCloudCollections).toHaveBeenCalledTimes(1);
+    });
+    expect(screen.getByTestId('app-shell')).toHaveAttribute('data-ready', 'false');
+
+    await act(async () => {
+      resolveProfile({ data: { is_admin: true }, error: null });
+    });
+
+    // The admin identity triggers a second (seeding) refresh; readiness only
+    // arrives once that refresh has completed for the admin identity.
+    await waitFor(() => {
+      expect(db.fetchCloudCollections).toHaveBeenCalledTimes(2);
+      expect(screen.getByTestId('app-shell')).toHaveAttribute('data-ready', 'true');
+    });
   });
 
   it('greets signed-out visitors with a product-explaining welcome gate', async () => {
@@ -579,5 +664,726 @@ describe('App Integration Tests', () => {
     } finally {
       window.localStorage.removeItem('curio_language');
     }
+  });
+
+  // CUR-115: Item Detail title textarea must announce its accessible name,
+  // required state, and validation error to assistive tech. The visual red
+  // border alone leaves SR users with no signal that the field is invalid.
+  it('exposes the Item Detail title textarea with aria-label and aria-required (CUR-115)', async () => {
+    const { ThemeProvider } = await import('@/theme');
+
+    render(
+      <MemoryRouter initialEntries={['/collection/col1/item/item1']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    const titleInput = await screen.findByRole('textbox', { name: 'Title' });
+    expect(titleInput).toBeInstanceOf(HTMLTextAreaElement);
+    expect(titleInput).toHaveAttribute('aria-required', 'true');
+    // A filled title is not invalid and must not be linked to an error.
+    expect(titleInput).not.toHaveAttribute('aria-invalid', 'true');
+    expect(titleInput).not.toHaveAttribute('aria-describedby');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('flags the Item Detail title as invalid and links the error when empty (CUR-115)', async () => {
+    const { ThemeProvider } = await import('@/theme');
+    const collectionWithUntitled = {
+      ...mockCollection,
+      items: [{ ...mockCollection.items[0], title: '' }],
+    };
+    vi.mocked(db.getLocalCollections).mockResolvedValue([collectionWithUntitled]);
+
+    render(
+      <MemoryRouter initialEntries={['/collection/col1/item/item1']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    const titleInput = await screen.findByRole('textbox', { name: 'Title' });
+    expect(titleInput).toHaveAttribute('aria-invalid', 'true');
+    expect(titleInput).toHaveAttribute('aria-describedby', 'item-detail-title-error');
+
+    const errorMessage = screen.getByRole('alert');
+    expect(errorMessage).toHaveAttribute('id', 'item-detail-title-error');
+    expect(errorMessage.textContent).toBe('Title is required');
+  });
+
+  it('deep-links the access-gate "Explore sample" CTA into the sample collection (#287)', async () => {
+    const { ThemeProvider } = await import('@/theme');
+    // Signed-out visitor, Supabase configured, with a public sample loaded.
+    // Clicking "Explore sample" on the access gate must land the user *on*
+    // the sample collection, not on an intermediate home grid — the
+    // single-path first-run contract calls for one tap from the gate into
+    // the gallery preview.
+    const publicSample = {
+      id: 'sample-vinyl',
+      name: 'The Vinyl Vault',
+      templateId: 'vinyl',
+      icon: '🎵',
+      customFields: [],
+      items: [
+        {
+          id: 'sample-item-1',
+          collectionId: 'sample-vinyl',
+          title: 'Kind of Blue',
+          rating: 5,
+          data: {},
+          photoUrl: '',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          notes: '',
+        },
+      ],
+      isPublic: true,
+      updatedAt: new Date().toISOString(),
+    };
+    vi.mocked(supabaseService.isSupabaseConfigured).mockReturnValue(true);
+    vi.mocked(supabaseService.supabase!.auth.getSession).mockResolvedValue({
+      data: { session: null },
+    } as never);
+    vi.mocked(db.getLocalCollections).mockResolvedValue([]);
+    vi.mocked(db.fetchCloudCollections).mockResolvedValue([publicSample]);
+    vi.mocked(db.mergeCollections).mockImplementation((local, cloud) =>
+      cloud.length ? cloud : local,
+    );
+
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('access-gate')).toBeInTheDocument();
+    });
+    // Wait for the initial cloud load so sampleCollectionId is resolvable
+    // by the time the CTA fires (matches the real-world timing — by the
+    // time a visitor reads the gate and clicks, the load has finished).
+    await waitFor(() => {
+      expect(vi.mocked(db.fetchCloudCollections)).toHaveBeenCalled();
+    });
+
+    fireEvent.click(screen.getByTestId('cta-secondary-explore-sample'));
+
+    // Access gate clears AND we land on the sample collection itself —
+    // items-grid is unique to CollectionScreen, so its presence (plus the
+    // absence of collections-grid) is positive proof of the deep-link.
+    await waitFor(() => {
+      expect(screen.queryByTestId('access-gate')).not.toBeInTheDocument();
+    });
+    expect(await screen.findByTestId('items-grid')).toBeInTheDocument();
+    expect(screen.queryByTestId('collections-grid')).not.toBeInTheDocument();
+  });
+
+  // CUR-118: a hard reload on a deep link must not bounce back to Home while
+  // the initial cloud fetch is still in flight. The route should hold its URL
+  // and render a loading affordance until data resolves, then render the
+  // target collection / item.
+  it('shows a loading skeleton on /collection/:id while cloud fetch is in flight (CUR-118)', async () => {
+    const { ThemeProvider } = await import('@/theme');
+    let resolveCloud: (value: (typeof mockCollection)[]) => void = () => {};
+    vi.mocked(db.getLocalCollections).mockResolvedValue([]);
+    vi.mocked(db.fetchCloudCollections).mockReturnValue(
+      new Promise((resolve) => {
+        resolveCloud = resolve;
+      }) as never,
+    );
+
+    render(
+      <MemoryRouter initialEntries={['/collection/col1']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    // While loading, the deep-link route renders its own skeleton — not
+    // HomeScreen's collections-grid. Bouncing back to Home would surface
+    // the grid (or the home loader) instead, so this asserts both halves.
+    // Re-query inside waitFor: the route screens remount on app re-renders,
+    // so a node captured by findBy can detach before the assertion runs.
+    await waitFor(() => {
+      expect(screen.getByTestId('collection-screen-skeleton')).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('collections-grid')).not.toBeInTheDocument();
+
+    // Once the cloud fetch resolves, the actual collection takes over.
+    resolveCloud([mockCollection]);
+    await waitFor(() => {
+      expect(screen.getAllByText('Test Collection')[0]).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('collection-screen-skeleton')).not.toBeInTheDocument();
+  });
+
+  it('shows a loading skeleton on /collection/:id/item/:itemId while cloud fetch is in flight (CUR-118)', async () => {
+    const { ThemeProvider } = await import('@/theme');
+    let resolveCloud: (value: (typeof mockCollection)[]) => void = () => {};
+    vi.mocked(db.getLocalCollections).mockResolvedValue([]);
+    vi.mocked(db.fetchCloudCollections).mockReturnValue(
+      new Promise((resolve) => {
+        resolveCloud = resolve;
+      }) as never,
+    );
+
+    render(
+      <MemoryRouter initialEntries={['/collection/col1/item/item1']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('item-detail-skeleton')).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('collections-grid')).not.toBeInTheDocument();
+
+    resolveCloud([mockCollection]);
+    // Once data lands, the item detail textarea (Title) replaces the skeleton.
+    await waitFor(() => {
+      expect(screen.getByRole('textbox', { name: 'Title' })).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('item-detail-skeleton')).not.toBeInTheDocument();
+  });
+
+  it('falls back to Home when /collection/:id is genuinely missing after load (CUR-118)', async () => {
+    const { ThemeProvider } = await import('@/theme');
+    vi.mocked(db.getLocalCollections).mockResolvedValue([mockCollection]);
+    vi.mocked(db.fetchCloudCollections).mockResolvedValue([mockCollection]);
+
+    render(
+      <MemoryRouter initialEntries={['/collection/does-not-exist']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    // Once loading completes and the id is still unknown, Navigate fires
+    // and HomeScreen's grid takes over — the loading skeleton disappears.
+    await waitFor(() => {
+      expect(screen.getByTestId('collections-grid')).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('collection-screen-skeleton')).not.toBeInTheDocument();
+  });
+
+  // CUR-118 follow-up (Codex review on #299): when the parent collection
+  // is already cached but the item is only in the pending cloud response,
+  // the missing-item branch must also wait for `isLoading` to settle —
+  // otherwise a refresh-mid-deep-link drops the user on the parent route.
+  it('holds /collection/:id/item/:itemId on the skeleton when the item is still pending while the collection is cached (CUR-118)', async () => {
+    const { ThemeProvider } = await import('@/theme');
+    // Local cache has the collection but no item; cloud will eventually
+    // deliver the same collection with the item attached.
+    const cachedCollectionWithoutItem = { ...mockCollection, items: [] };
+    let resolveCloud: (value: (typeof mockCollection)[]) => void = () => {};
+    vi.mocked(db.getLocalCollections).mockResolvedValue([cachedCollectionWithoutItem]);
+    vi.mocked(db.fetchCloudCollections).mockReturnValue(
+      new Promise((resolve) => {
+        resolveCloud = resolve;
+      }) as never,
+    );
+
+    render(
+      <MemoryRouter initialEntries={['/collection/col1/item/item1']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    // While `isLoading` is true and only the cached collection (no item) is
+    // visible, the route must stay on the skeleton instead of redirecting
+    // to the parent collection.
+    await waitFor(() => {
+      expect(screen.getByTestId('item-detail-skeleton')).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('items-grid')).not.toBeInTheDocument();
+
+    // Cloud lands with the item attached — detail renders.
+    resolveCloud([mockCollection]);
+    await waitFor(() => {
+      expect(screen.getByRole('textbox', { name: 'Title' })).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('item-detail-skeleton')).not.toBeInTheDocument();
+  });
+
+  // CUR-117: the bottom-nav Add is the most-touched primary action on mobile.
+  // When the user is already inside a collection (or one of its items), it
+  // must inherit that collection and open the modal on the upload step, the
+  // same as the in-screen "Add Item" button — otherwise the user is forced to
+  // re-pick a collection they just had open.
+  it('bottom-nav Add inherits the current collection from /collection/:id (CUR-117)', async () => {
+    const { ThemeProvider } = await import('@/theme');
+    // Two editable collections are required to prove the fix — with a single
+    // collection, the modal auto-picks it regardless, so the regression
+    // (forcing the picker) would only surface with multiple targets.
+    const secondCollection = {
+      ...mockCollection,
+      id: 'col2',
+      name: 'Second Collection',
+      items: [],
+    };
+    vi.mocked(db.getLocalCollections).mockResolvedValue([mockCollection, secondCollection]);
+
+    render(
+      <MemoryRouter initialEntries={['/collection/col1']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Test Collection')).toBeInTheDocument();
+    });
+
+    const bottomNav = screen.getByRole('navigation', { name: 'Primary' });
+    fireEvent.click(within(bottomNav).getByTestId('bottom-nav-add-pill'));
+
+    // Upload step renders the "Take Photo" CTA; the collection picker would
+    // show the "Start a collection" heading instead. Asserting the upload
+    // affordance proves the modal skipped the redundant pick step.
+    expect(await screen.findByRole('button', { name: /take photo/i })).toBeInTheDocument();
+    expect(screen.queryByText('Start a collection')).not.toBeInTheDocument();
+  });
+
+  it('bottom-nav Add inherits the current collection from /collection/:id/item/:itemId (CUR-117)', async () => {
+    const { ThemeProvider } = await import('@/theme');
+    // Two editable collections so the modal would otherwise force a picker
+    // pass. The bottom-nav Add must still inherit col1 from the URL.
+    const secondCollection = {
+      ...mockCollection,
+      id: 'col2',
+      name: 'Second Collection',
+      items: [],
+    };
+    vi.mocked(db.getLocalCollections).mockResolvedValue([mockCollection, secondCollection]);
+
+    render(
+      <MemoryRouter initialEntries={['/collection/col1/item/item1']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('textbox', { name: 'Title' })).toBeInTheDocument();
+
+    const bottomNav = screen.getByRole('navigation', { name: 'Primary' });
+    fireEvent.click(within(bottomNav).getByTestId('bottom-nav-add-pill'));
+
+    expect(await screen.findByRole('button', { name: /take photo/i })).toBeInTheDocument();
+    expect(screen.queryByText('Start a collection')).not.toBeInTheDocument();
+  });
+
+  it('bottom-nav Add still shows the picker from inside a read-only sample collection (CUR-117)', async () => {
+    const { ThemeProvider } = await import('@/theme');
+    // Public sample (read-only for non-admin) plus two editable private
+    // collections. The user is browsing the sample, so the modal must NOT
+    // preset the sample (they can't save into it). With more than one
+    // editable target available, the picker must render so the user can
+    // route the new item to their own collection.
+    const publicSample = {
+      id: 'sample-vinyl',
+      name: 'The Vinyl Vault',
+      templateId: 'vinyl',
+      icon: '🎵',
+      customFields: [],
+      items: [],
+      isPublic: true,
+      updatedAt: new Date().toISOString(),
+    };
+    const secondCollection = {
+      ...mockCollection,
+      id: 'col2',
+      name: 'Second Collection',
+      items: [],
+    };
+    vi.mocked(db.getLocalCollections).mockResolvedValue([
+      publicSample,
+      mockCollection,
+      secondCollection,
+    ]);
+
+    render(
+      <MemoryRouter initialEntries={['/collection/sample-vinyl']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('The Vinyl Vault')).toBeInTheDocument();
+    });
+
+    const bottomNav = screen.getByRole('navigation', { name: 'Primary' });
+    fireEvent.click(within(bottomNav).getByTestId('bottom-nav-add-pill'));
+
+    // Picker step shows the "Start a collection" heading and the user's own
+    // collection cards — proving the modal refused to default to the sample
+    // and instead let the user choose where the item belongs.
+    expect(await screen.findByText('Start a collection')).toBeInTheDocument();
+    expect(screen.getByText('Test Collection')).toBeInTheDocument();
+    expect(screen.getByText('Second Collection')).toBeInTheDocument();
+  });
+
+  // CUR-93: Active filter chips and the "Clear all" link hardcoded amber-50
+  // and stone-500 tokens. On Vault the chips punched through the dark page as
+  // pale yellow blocks and the muted link collapsed against the surface. The
+  // fix mirrors the warning tone in StatusBanner (CUR-81) so the chips read
+  // as one system across all three themes.
+  const applyRatingFilter = async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Filter Collection' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Filter Collection' });
+    const ratingSelect = within(dialog).getByRole('combobox');
+    fireEvent.change(ratingSelect, { target: { value: '5' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: /apply/i }));
+  };
+
+  it('renders active filter chips with theme-aware tokens on Vault (CUR-93)', async () => {
+    const { ThemeProvider } = await import('@/theme');
+
+    render(
+      <MemoryRouter initialEntries={['/collection/col1']}>
+        {/* @ts-ignore - mocked ThemeProvider accepts initialTheme */}
+        <ThemeProvider initialTheme="vault">
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Test Collection')).toBeInTheDocument();
+    });
+
+    await applyRatingFilter();
+
+    const chip = await screen.findByTestId('active-filter-chip');
+    // Vault uses amber-tinted dark tokens instead of the pale amber-50 pill.
+    expect(chip.classList).toContain('bg-amber-500/10');
+    expect(chip.classList).toContain('text-amber-200');
+    expect(chip.classList).toContain('border-amber-400/20');
+    expect(chip.classList).not.toContain('bg-amber-50');
+
+    const clearAll = screen.getByTestId('active-filter-clear-all');
+    expect(clearAll.classList).toContain('text-stone-300');
+    expect(clearAll.classList).not.toContain('text-stone-500');
+  });
+
+  it('preserves Gallery tokens for active filter chips on the default theme (CUR-93)', async () => {
+    const { ThemeProvider } = await import('@/theme');
+
+    render(
+      <MemoryRouter initialEntries={['/collection/col1']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Test Collection')).toBeInTheDocument();
+    });
+
+    await applyRatingFilter();
+
+    const chip = await screen.findByTestId('active-filter-chip');
+    expect(chip.classList).toContain('bg-amber-50');
+    expect(chip.classList).toContain('text-amber-800');
+    expect(chip.classList).toContain('border-amber-100');
+
+    const clearAll = screen.getByTestId('active-filter-clear-all');
+    expect(clearAll.classList).toContain('text-stone-500');
+  });
+
+  it('uses Atelier warm-brown tokens for active filter chips (CUR-93)', async () => {
+    const { ThemeProvider } = await import('@/theme');
+
+    render(
+      <MemoryRouter initialEntries={['/collection/col1']}>
+        {/* @ts-ignore - mocked ThemeProvider accepts initialTheme */}
+        <ThemeProvider initialTheme="atelier">
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Test Collection')).toBeInTheDocument();
+    });
+
+    await applyRatingFilter();
+
+    const chip = await screen.findByTestId('active-filter-chip');
+    expect(chip.classList).toContain('bg-amber-100/70');
+    expect(chip.classList).toContain('text-amber-900');
+
+    const clearAll = screen.getByTestId('active-filter-clear-all');
+    expect(clearAll.classList).toContain('text-[#8C7B6B]');
+  });
+
+  // CUR-135: Item Detail undo/redo can be reached from the keyboard so power
+  // editors don't have to leave their editing context to step back a change.
+  describe('Item Detail persistent save status (CUR-60)', () => {
+    const renderItemDetail = async () => {
+      const { ThemeProvider } = await import('@/theme');
+      render(
+        <MemoryRouter initialEntries={['/collection/col1/item/item1']}>
+          <ThemeProvider>
+            <LanguageProvider>
+              <AppContent />
+            </LanguageProvider>
+          </ThemeProvider>
+        </MemoryRouter>,
+      );
+    };
+
+    const getSyncStatusCallback = () => {
+      const callback = vi
+        .mocked(db.setSyncStatusCallback)
+        .mock.calls.map(([candidate]) => candidate)
+        .findLast((candidate) => typeof candidate === 'function');
+      expect(callback).toBeTypeOf('function');
+      return callback as (status: db.SyncStatus, error?: string) => void;
+    };
+
+    it('shows Saving during the debounce and Saved after sync confirms backup', async () => {
+      await renderItemDetail();
+      const titleField = (await screen.findByRole('textbox', {
+        name: 'Title',
+      })) as HTMLTextAreaElement;
+
+      vi.useFakeTimers();
+      try {
+        act(() => {
+          fireEvent.change(titleField, { target: { value: 'Edited Item' } });
+        });
+
+        expect(screen.getByTestId('item-save-status')).toHaveTextContent('Saving…');
+        expect(db.saveCollection).not.toHaveBeenCalled();
+
+        await act(async () => {
+          vi.advanceTimersByTime(1500);
+          await Promise.resolve();
+        });
+
+        expect(db.saveCollection).toHaveBeenCalledTimes(1);
+
+        act(() => {
+          getSyncStatusCallback()('synced');
+        });
+
+        expect(screen.getByTestId('item-save-status')).toHaveTextContent('Saved & backed up');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('keeps Saving when a sync completes for an older save while a newer edit is pending', async () => {
+      await renderItemDetail();
+      const titleField = (await screen.findByRole('textbox', {
+        name: 'Title',
+      })) as HTMLTextAreaElement;
+
+      vi.useFakeTimers();
+      try {
+        // First edit's debounce fires and its save starts.
+        act(() => {
+          fireEvent.change(titleField, { target: { value: 'Edited Item' } });
+        });
+        await act(async () => {
+          vi.advanceTimersByTime(1500);
+          await Promise.resolve();
+        });
+        expect(db.saveCollection).toHaveBeenCalledTimes(1);
+
+        // A second edit lands before the first save's sync confirmation.
+        // Re-query the field: the detail screen re-renders between edits.
+        act(() => {
+          fireEvent.change(screen.getByRole('textbox', { name: 'Title' }), {
+            target: { value: 'Edited Item Again' },
+          });
+        });
+        expect(screen.getByTestId('item-save-status')).toHaveTextContent('Saving…');
+
+        // The first save's sync event must not mark the newer edit as backed up.
+        act(() => {
+          getSyncStatusCallback()('synced');
+        });
+        expect(screen.getByTestId('item-save-status')).toHaveTextContent('Saving…');
+
+        // Once the second save runs and its sync confirms, the badge resolves.
+        await act(async () => {
+          vi.advanceTimersByTime(1500);
+          await Promise.resolve();
+        });
+        expect(db.saveCollection).toHaveBeenCalledTimes(2);
+        act(() => {
+          getSyncStatusCallback()('synced');
+        });
+        expect(screen.getByTestId('item-save-status')).toHaveTextContent('Saved & backed up');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('keeps a retryable error state when sync fails', async () => {
+      await renderItemDetail();
+      const titleField = (await screen.findByRole('textbox', {
+        name: 'Title',
+      })) as HTMLTextAreaElement;
+
+      vi.useFakeTimers();
+      try {
+        act(() => {
+          fireEvent.change(titleField, { target: { value: 'Edited Item' } });
+        });
+        await act(async () => {
+          vi.advanceTimersByTime(1500);
+          await Promise.resolve();
+        });
+
+        act(() => {
+          getSyncStatusCallback()('error', 'network unavailable');
+        });
+
+        const status = screen.getByTestId('item-save-status');
+        expect(status).toHaveTextContent('Save failed');
+
+        await act(async () => {
+          fireEvent.click(within(status).getByRole('button', { name: 'Retry' }));
+          await Promise.resolve();
+        });
+
+        expect(db.saveCollection).toHaveBeenCalledTimes(2);
+        expect(screen.getByTestId('item-save-status')).toHaveTextContent('Saving…');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  });
+
+  describe('Item Detail undo/redo keyboard shortcut (CUR-135)', () => {
+    const renderItemDetail = async () => {
+      const { ThemeProvider } = await import('@/theme');
+      render(
+        <MemoryRouter initialEntries={['/collection/col1/item/item1']}>
+          <ThemeProvider>
+            <LanguageProvider>
+              <AppContent />
+            </LanguageProvider>
+          </ThemeProvider>
+        </MemoryRouter>,
+      );
+    };
+
+    it('reveals the shortcut hint on the Undo / Redo button titles', async () => {
+      await renderItemDetail();
+      const undoButton = await screen.findByRole('button', { name: 'Undo' });
+      const redoButton = screen.getByRole('button', { name: 'Redo' });
+      // jsdom reports navigator.platform as an empty string, so tests exercise
+      // the non-Mac shortcut labels. The Mac branch is a swap of the display
+      // string only — no separate code path.
+      expect(undoButton.getAttribute('title')).toBe('Undo (Ctrl+Z)');
+      expect(redoButton.getAttribute('title')).toBe('Redo (Ctrl+Shift+Z)');
+      // aria-label stays the plain action so screen readers keep announcing
+      // "Undo" / "Redo" cleanly without spelling out the shortcut.
+      expect(undoButton.getAttribute('aria-label')).toBe('Undo');
+      expect(redoButton.getAttribute('aria-label')).toBe('Redo');
+    });
+
+    it('defers to the browser when Ctrl+Z fires inside the title textarea', async () => {
+      await renderItemDetail();
+      const titleField = (await screen.findByRole('textbox', {
+        name: 'Title',
+      })) as HTMLTextAreaElement;
+
+      // Native undo inside a text field is the browser's job — the handler
+      // must not preventDefault, so per-field typing history stays reachable.
+      const event = new KeyboardEvent('keydown', {
+        key: 'z',
+        ctrlKey: true,
+        bubbles: true,
+        cancelable: true,
+      });
+      titleField.dispatchEvent(event);
+      expect(event.defaultPrevented).toBe(false);
+    });
+
+    it('hides the Undo button on read-only public sample collections', async () => {
+      vi.mocked(db.getLocalCollections).mockResolvedValue([{ ...mockCollection, isPublic: true }]);
+      await renderItemDetail();
+
+      // Read-only detail hides the whole action row, so the shortcut has no
+      // buttons to expose and no history to step through.
+      await screen.findByRole('textbox', { name: 'Title' });
+      expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Redo' })).not.toBeInTheDocument();
+    });
+
+    it('lets the browser handle Ctrl+Z when focus is inside a modal dialog', async () => {
+      await renderItemDetail();
+      await screen.findByRole('textbox', { name: 'Title' });
+
+      // Item modals (Export, Delete, Enhance, ImageEdit, …) mount above the
+      // detail while it stays in the DOM. Pressing the shortcut from a modal
+      // button must not mutate the item behind the dialog. Simulate a modal
+      // subtree to prove the closest([aria-modal]) gate short-circuits.
+      const modal = document.createElement('div');
+      modal.setAttribute('role', 'dialog');
+      modal.setAttribute('aria-modal', 'true');
+      const modalButton = document.createElement('button');
+      modal.appendChild(modalButton);
+      document.body.appendChild(modal);
+
+      try {
+        const event = new KeyboardEvent('keydown', {
+          key: 'z',
+          ctrlKey: true,
+          bubbles: true,
+          cancelable: true,
+        });
+        modalButton.dispatchEvent(event);
+        expect(event.defaultPrevented).toBe(false);
+      } finally {
+        modal.remove();
+      }
+    });
   });
 });

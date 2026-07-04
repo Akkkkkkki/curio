@@ -100,7 +100,6 @@ VITE_API_BASE_URL=http://localhost:8787
 VITE_AI_ENABLED=true
 VITE_AI_METADATA_ENABLED=true
 VITE_AI_IMAGE_EDIT_ENABLED=true
-VITE_VOICE_GUIDE_ENABLED=false
 ```
 
 The Gemini proxy expects:
@@ -154,7 +153,7 @@ GEMINI_IMAGE_MODEL=gemini-2.5-flash-image
 **Services:**
 
 - `services/db.ts` - IndexedDB operations, Supabase sync logic, and merge strategies
-- `services/geminiService.ts` - Image analysis and audio guide AI integration
+- `services/geminiService.ts` - Image analysis (vision-based metadata extraction)
 - `services/supabase.ts` - Authentication (email/password) and client configuration
 - `services/imageProcessor.ts` - Image resizing and optimization (original + display)
 - `src/services/seedCollections.ts` - Public sample data (Vinyl Vault with 4 items)
@@ -172,7 +171,6 @@ GEMINI_IMAGE_MODEL=gemini-2.5-flash-image
 
 - `components/Layout.tsx` - Header with sync status, auth menu, theme/language toggles
 - `components/AddItemModal.tsx` - Multi-step item creation with AI analysis
-- `components/MuseumGuide.tsx` - Real-time audio conversation with Gemini
 - `components/ExhibitionView.tsx` - Fullscreen slideshow mode
 - `components/ui/Button.tsx` - Reusable button component
 - `components/ui/Divider.tsx` - Theme-aware horizontal/vertical dividers
@@ -185,7 +183,7 @@ GEMINI_IMAGE_MODEL=gemini-2.5-flash-image
   Collections grid, search, "on this day" history
 
 /collection/:id → CollectionScreen
-  Item grid/waterfall, filters, exhibition mode, museum guide
+  Item grid/waterfall, filters, exhibition mode
 
 /collection/:id/item/:itemId → ItemDetailScreen
   Full item view with editable fields, rating, notes, export
@@ -207,7 +205,7 @@ GEMINI_IMAGE_MODEL=gemini-2.5-flash-image
 **Main App State** (AppContent component):
 
 - `collections: UserCollection[]` - All collections and items
-- Modal states for add item, create collection, museum guide
+- Modal states for add item, create collection
 - `saveTimeoutRef` - Debounce timer for cloud sync
 
 ### Gemini AI Integration
@@ -220,10 +218,9 @@ GEMINI_IMAGE_MODEL=gemini-2.5-flash-image
 - Returns structured metadata (title, field values)
 - AI-generated descriptions are treated as hidden metadata; the visible narrative (Story) is human-authored
 
-**Museum Guide (deferred):**
+**Museum Guide / voice companion (deferred):**
 
-- Feature-flagged by `VITE_VOICE_GUIDE_ENABLED` (disabled by default)
-- Museum Guide / voice companion is a deferred feature per `docs/PRODUCT_STRATEGY.md`
+- Not built. The component, its UI entry points, and runtime state were removed; the deferred status is tracked in `docs/PRODUCT_STRATEGY.md`.
 
 **AI Image Enhancement (deferred):**
 

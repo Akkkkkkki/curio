@@ -4,6 +4,7 @@ import { X, ChevronLeft, ChevronRight, Star } from 'lucide-react';
 import { UserCollection } from '../types';
 import { ItemImage } from './ItemImage';
 import { useTranslation, getFieldTranslation } from '../i18n';
+import { useModalA11y } from '../hooks/useModalA11y';
 
 interface ExhibitionViewProps {
   collection: UserCollection;
@@ -22,6 +23,7 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
   const [index, setIndex] = useState(initialIndex);
   const [showInfo, setShowInfo] = useState(true);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
   const getFieldLabel = (fieldId: string, fallback: string) =>
     getFieldTranslation(t, fieldId, fallback);
 
@@ -34,17 +36,18 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
     [collection.items.length],
   );
 
-  // Keyboard navigation
+  // Esc-to-close, focus trap and focus restore live in the shared modal a11y
+  // primitive; only arrow-key navigation is bespoke to the exhibition view.
+  useModalA11y(dialogRef, isOpen, onClose);
   useEffect(() => {
     if (!isOpen) return;
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'ArrowRight') next();
       else if (e.key === 'ArrowLeft') prev();
-      else if (e.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [isOpen, next, prev, onClose]);
+  }, [isOpen, next, prev]);
 
   if (!isOpen || collection.items.length === 0) return null;
 
@@ -66,8 +69,14 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
     touchStartRef.current = null;
   };
 
+  const dialogLabel = `${collection.name} — ${t('exhibitNo', { n: index + 1, total: collection.items.length })}`;
+
   const content = (
     <div
+      ref={dialogRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label={dialogLabel}
       className="fixed inset-0 z-[9999] bg-stone-950 text-white animate-in fade-in duration-500 flex flex-col pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)] pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)]"
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
@@ -174,6 +183,8 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
             <button
               key={i}
               onClick={() => setIndex(i)}
+              aria-label={t('exhibitionJumpTo', { n: i + 1 })}
+              aria-current={i === index ? 'true' : undefined}
               className={`h-1 rounded-full transition-all ${
                 i === index ? 'w-6 bg-amber-500' : 'w-1.5 bg-white/20 hover:bg-white/30'
               }`}
@@ -228,7 +239,7 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
                   collectionId={item.collectionId ?? collection.id}
                   type="enhanced"
                   alt={item.title || t('archivalRecord')}
-                  className="w-full h-full object-cover transition-transform duration-[2s] group-hover:scale-105"
+                  className="w-full h-full object-contain transition-transform duration-[2s] group-hover:scale-105"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-stone-950/20 to-transparent pointer-events-none" />
               </div>
@@ -289,6 +300,8 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
               <button
                 key={i}
                 onClick={() => setIndex(i)}
+                aria-label={t('exhibitionJumpTo', { n: i + 1 })}
+                aria-current={i === index ? 'true' : undefined}
                 className={`h-1.5 rounded-full transition-all ${
                   i === index ? 'w-10 bg-amber-500' : 'w-3 bg-white/20 hover:bg-white/30'
                 }`}

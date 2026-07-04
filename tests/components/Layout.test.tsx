@@ -688,6 +688,316 @@ describe('Layout Component', () => {
     });
   });
 
+  // CUR-112: Privacy / Terms have no in-app discovery path after signup.
+  // Profile menu (shared by header dropdown + mobile bottom sheet) now surfaces
+  // both legal docs in every auth state.
+  describe('CUR-112 Legal links in profile menu', () => {
+    const authenticatedUser = { id: 'user-1', email: 'test@example.com' };
+
+    it('surfaces Terms and Privacy links in the header dropdown when signed in', async () => {
+      renderWithProviders(<Layout {...defaultProps} user={authenticatedUser} />);
+
+      fireEvent.click(screen.getByRole('button', { name: /account/i }));
+
+      await waitFor(() => {
+        const legal = within(screen.getByTestId('profile-dropdown')).getByTestId(
+          'profile-legal-links',
+        );
+        expect(within(legal).getByRole('link', { name: 'Terms of Service' })).toHaveAttribute(
+          'href',
+          '#/legal/terms',
+        );
+        expect(within(legal).getByRole('link', { name: 'Privacy Policy' })).toHaveAttribute(
+          'href',
+          '#/legal/privacy',
+        );
+      });
+    });
+
+    it('surfaces the same Terms and Privacy links when signed out', async () => {
+      renderWithProviders(<Layout {...defaultProps} user={null} />);
+
+      fireEvent.click(screen.getByRole('button', { name: /account/i }));
+
+      await waitFor(() => {
+        const legal = within(screen.getByTestId('profile-dropdown')).getByTestId(
+          'profile-legal-links',
+        );
+        expect(within(legal).getByRole('link', { name: 'Terms of Service' })).toBeInTheDocument();
+        expect(within(legal).getByRole('link', { name: 'Privacy Policy' })).toBeInTheDocument();
+      });
+    });
+
+    it('opens both legal links in a new tab with secure rel (mirrors signup pattern)', async () => {
+      renderWithProviders(<Layout {...defaultProps} user={authenticatedUser} />);
+
+      fireEvent.click(screen.getByRole('button', { name: /account/i }));
+
+      await waitFor(() => {
+        const legal = within(screen.getByTestId('profile-dropdown')).getByTestId(
+          'profile-legal-links',
+        );
+        for (const name of ['Terms of Service', 'Privacy Policy']) {
+          const link = within(legal).getByRole('link', { name });
+          expect(link).toHaveAttribute('target', '_blank');
+          expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+        }
+      });
+    });
+
+    it('surfaces both links from the mobile bottom sheet', async () => {
+      renderWithProviders(<Layout {...defaultProps} user={authenticatedUser} />);
+
+      const bottomNav = screen.getByRole('navigation', { name: /primary/i });
+      fireEvent.click(within(bottomNav).getByText('Profile').closest('button')!);
+
+      await waitFor(() => {
+        const legal = within(screen.getByTestId('profile-bottom-sheet')).getByTestId(
+          'profile-legal-links',
+        );
+        expect(within(legal).getByRole('link', { name: 'Terms of Service' })).toHaveAttribute(
+          'href',
+          '#/legal/terms',
+        );
+        expect(within(legal).getByRole('link', { name: 'Privacy Policy' })).toHaveAttribute(
+          'href',
+          '#/legal/privacy',
+        );
+      });
+    });
+  });
+
+  // CUR-108: Profile menu auth-status chip and local-import card hardcoded the
+  // Gallery 50-tone palette, so on Vault the chip turned pastel-on-near-black
+  // and on Atelier it clashed with cream; the import card body copy failed
+  // contrast on Vault. These tests pin the per-theme tone mapping so the
+  // surfaces stay legible and palette-coherent across all three themes.
+  describe('CUR-108 Profile menu theming', () => {
+    const authenticatedUser = { id: 'user-1', email: 'test@example.com' };
+
+    const openChip = async () => {
+      fireEvent.click(screen.getByRole('button', { name: /account/i }));
+      const dropdown = await screen.findByTestId('profile-dropdown');
+      return within(dropdown).getByTestId('profile-auth-chip');
+    };
+
+    describe.each([
+      {
+        theme: 'gallery' as const,
+        signedIn: ['bg-emerald-50', 'text-emerald-600'],
+        signedOut: ['bg-amber-50', 'text-amber-600'],
+        unconfigured: ['bg-stone-50', 'text-stone-400'],
+      },
+      {
+        theme: 'vault' as const,
+        signedIn: ['bg-emerald-500/15', 'text-emerald-300'],
+        signedOut: ['bg-amber-500/15', 'text-amber-300'],
+        unconfigured: ['bg-white/10', 'text-white/60'],
+      },
+      {
+        theme: 'atelier' as const,
+        signedIn: ['bg-emerald-100/70', 'text-emerald-700'],
+        signedOut: ['bg-amber-100/70', 'text-amber-800'],
+        unconfigured: ['bg-[#EDE4D3]', 'text-[#8C7B6B]'],
+      },
+    ])('Auth-status chip in $theme', ({ theme, signedIn, signedOut, unconfigured }) => {
+      beforeEach(() => {
+        setMockTheme(theme);
+      });
+
+      it('uses theme-aware signed-in chip tones', async () => {
+        renderWithProviders(<Layout {...defaultProps} user={authenticatedUser} />);
+        const chip = await openChip();
+        for (const cls of signedIn) expect(chip.classList.contains(cls)).toBe(true);
+      });
+
+      it('uses theme-aware signed-out chip tones', async () => {
+        renderWithProviders(<Layout {...defaultProps} user={null} />);
+        const chip = await openChip();
+        for (const cls of signedOut) expect(chip.classList.contains(cls)).toBe(true);
+      });
+
+      it('uses theme-aware unconfigured chip tones', async () => {
+        renderWithProviders(<Layout {...defaultProps} user={null} isSupabaseConfigured={false} />);
+        const chip = await openChip();
+        for (const cls of unconfigured) expect(chip.classList.contains(cls)).toBe(true);
+      });
+    });
+
+    describe.each([
+      {
+        theme: 'gallery' as const,
+        surface: ['border-amber-100', 'bg-amber-50/60'],
+        title: 'text-amber-900',
+        body: 'text-stone-600',
+        action: 'bg-amber-600',
+        status: 'text-amber-700',
+        error: 'text-red-500',
+      },
+      {
+        theme: 'vault' as const,
+        surface: ['border-amber-500/25', 'bg-amber-500/10'],
+        title: 'text-amber-200',
+        body: 'text-stone-300',
+        action: 'bg-[#D4A574]',
+        status: 'text-amber-200',
+        error: 'text-red-300',
+      },
+      {
+        theme: 'atelier' as const,
+        surface: ['border-amber-300/60', 'bg-amber-100/70'],
+        title: 'text-amber-900',
+        body: 'text-[#3D3530]',
+        action: 'bg-[#A86F3C]',
+        status: 'text-amber-900',
+        error: 'text-red-700',
+      },
+    ])('Local-import card in $theme', ({ theme, surface, title, body, action, status, error }) => {
+      beforeEach(() => {
+        setMockTheme(theme);
+      });
+
+      const openWithImport = async (extraProps: Record<string, unknown> = {}) => {
+        renderWithProviders(
+          <Layout
+            {...defaultProps}
+            user={authenticatedUser}
+            hasLocalImport={true}
+            onImportLocal={vi.fn()}
+            {...extraProps}
+          />,
+        );
+        fireEvent.click(screen.getByRole('button', { name: /account/i }));
+        await waitFor(() => expect(screen.getByText('Local data found')).toBeInTheDocument());
+      };
+
+      it('applies the theme-aware card surface', async () => {
+        await openWithImport();
+        const card = screen.getByTestId('profile-import-card');
+        for (const cls of surface) expect(card.className).toContain(cls);
+      });
+
+      it('applies theme-aware title, body, and action tones', async () => {
+        await openWithImport();
+        const card = screen.getByTestId('profile-import-card');
+        const titleEl = card.querySelector('p:first-child') as HTMLElement;
+        const bodyEl = titleEl.nextElementSibling as HTMLElement;
+        const actionEl = card.querySelector('button') as HTMLElement;
+
+        expect(titleEl.className).toContain(title);
+        expect(bodyEl.className).toContain(body);
+        expect(actionEl.className).toContain(action);
+      });
+
+      it('uses the theme-aware status tone for non-error import messages', async () => {
+        await openWithImport({ importMessage: 'Imported 3 collections', importState: 'done' });
+        const card = screen.getByTestId('profile-import-card');
+        const messageEl = card.querySelector('p:last-of-type') as HTMLElement;
+        expect(messageEl).toHaveTextContent('Imported 3 collections');
+        expect(messageEl.className).toContain(status);
+      });
+
+      it('uses the theme-aware error tone when the import fails', async () => {
+        await openWithImport({ importMessage: 'Import failed', importState: 'error' });
+        const card = screen.getByTestId('profile-import-card');
+        const messageEl = card.querySelector('p:last-of-type') as HTMLElement;
+        expect(messageEl).toHaveTextContent('Import failed');
+        expect(messageEl.className).toContain(error);
+      });
+    });
+
+    // Regression guard for the pre-fix bug: Vault chip rendered the Gallery
+    // bg-emerald-50 / bg-amber-50 light wash. Pin the absence so a casual
+    // refactor cannot reintroduce it.
+    it('does not leak Gallery 50-tones into the Vault signed-in chip', async () => {
+      setMockTheme('vault');
+      renderWithProviders(<Layout {...defaultProps} user={authenticatedUser} />);
+      const chip = await openChip();
+      expect(chip.classList.contains('bg-emerald-50')).toBe(false);
+      expect(chip.classList.contains('text-emerald-600')).toBe(false);
+    });
+
+    it('does not leak Gallery 50-tones into the Vault local-import card', async () => {
+      setMockTheme('vault');
+      renderWithProviders(
+        <Layout
+          {...defaultProps}
+          user={authenticatedUser}
+          hasLocalImport={true}
+          onImportLocal={vi.fn()}
+        />,
+      );
+      fireEvent.click(screen.getByRole('button', { name: /account/i }));
+      await waitFor(() => expect(screen.getByText('Local data found')).toBeInTheDocument());
+
+      const card = screen.getByTestId('profile-import-card');
+      expect(card.classList.contains('bg-amber-50/60')).toBe(false);
+      expect(card.classList.contains('border-amber-100')).toBe(false);
+    });
+  });
+
+  // CUR-138: Bottom-nav Home / Explore links were flagged as active only via
+  // color (text-amber-500) with no programmatic signal, so screen readers
+  // could not tell which tab was the current page. Pin aria-current="page"
+  // on the active tab and its absence on inactive tabs and non-page buttons.
+  describe('CUR-138 Bottom-nav aria-current', () => {
+    const findBottomNav = () => screen.getByRole('navigation', { name: /primary/i });
+
+    beforeEach(() => {
+      window.location.hash = '#/';
+    });
+
+    it('marks the Home link as the current page on Home', () => {
+      renderWithProviders(<Layout {...defaultProps} sampleCollectionId="sample-vinyl-1" />);
+
+      const nav = findBottomNav();
+      const homeLink = within(nav).getByRole('link', { name: /home/i });
+      expect(homeLink).toHaveAttribute('aria-current', 'page');
+
+      const exploreLink = within(nav).getByRole('link', { name: /explore/i });
+      expect(exploreLink).not.toHaveAttribute('aria-current');
+    });
+
+    it('marks the Explore link as the current page while browsing the sample collection', () => {
+      window.location.hash = '#/collection/sample-vinyl-1';
+      renderWithProviders(<Layout {...defaultProps} sampleCollectionId="sample-vinyl-1" />);
+
+      const nav = findBottomNav();
+      const exploreLink = within(nav).getByRole('link', { name: /explore/i });
+      expect(exploreLink).toHaveAttribute('aria-current', 'page');
+
+      const homeLink = within(nav).getByRole('link', { name: /home/i });
+      expect(homeLink).not.toHaveAttribute('aria-current');
+    });
+
+    it('leaves both tabs uncurrent when the route is neither Home nor the sample collection', () => {
+      window.location.hash = '#/collection/other-user-collection';
+      renderWithProviders(<Layout {...defaultProps} sampleCollectionId="sample-vinyl-1" />);
+
+      const nav = findBottomNav();
+      expect(within(nav).getByRole('link', { name: /home/i })).not.toHaveAttribute('aria-current');
+      expect(within(nav).getByRole('link', { name: /explore/i })).not.toHaveAttribute(
+        'aria-current',
+      );
+    });
+
+    it('does not set aria-current on the Add or Profile trigger buttons', () => {
+      renderWithProviders(
+        <Layout
+          {...defaultProps}
+          user={{ id: 'user-1', email: 'test@example.com' }}
+          sampleCollectionId="sample-vinyl-1"
+        />,
+      );
+
+      const nav = findBottomNav();
+      const addButton = within(nav).getByText('Add').closest('button');
+      const profileButton = within(nav).getByText('Profile').closest('button');
+      expect(addButton).not.toHaveAttribute('aria-current');
+      expect(profileButton).not.toHaveAttribute('aria-current');
+    });
+  });
+
   describe('Accessibility', () => {
     it('has accessible account button with aria-label', () => {
       renderWithProviders(<Layout {...defaultProps} />);

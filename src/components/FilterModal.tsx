@@ -1,15 +1,17 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { X, Filter, RotateCcw, ChevronDown } from 'lucide-react';
-import { FieldDefinition } from '../types';
+import { CollectionItem, FieldDefinition } from '../types';
 import { Button } from './ui/Button';
 import { useTranslation, getFieldTranslation } from '../i18n';
 import { useTheme, panelSurfaceClasses, overlaySurfaceClasses, mutedTextClasses } from '../theme';
 import { useModalA11y } from '../hooks/useModalA11y';
+import { deriveSelectOptions } from '../utils/itemFilter';
 
 interface FilterModalProps {
   isOpen: boolean;
   onClose: () => void;
   fields: FieldDefinition[];
+  items: CollectionItem[];
   activeFilters: Record<string, string>;
   onApply: (filters: Record<string, string>) => void;
 }
@@ -18,6 +20,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
   isOpen,
   onClose,
   fields,
+  items,
   activeFilters,
   onApply,
 }) => {
@@ -34,6 +37,19 @@ export const FilterModal: React.FC<FilterModalProps> = ({
   const mutedText = mutedTextClasses[theme];
   const getFieldLabel = (fieldId: string, fallback: string) =>
     getFieldTranslation(t, fieldId, fallback);
+
+  // Derive select options from what's actually in the collection (union of the
+  // field's declared options and any values on existing items). This means
+  // stray AI-extracted values still appear as filterable, and new declared
+  // options show up before any item uses them.
+  const selectOptionsByField = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const field of fields) {
+      if (field.type !== 'select') continue;
+      map.set(field.id, deriveSelectOptions(field.id, field.options, items));
+    }
+    return map;
+  }, [fields, items]);
 
   useEffect(() => {
     if (isOpen) setLocalFilters(activeFilters);
@@ -94,12 +110,14 @@ export const FilterModal: React.FC<FilterModalProps> = ({
         <div className="px-6 py-5 pb-24 sm:pb-5 space-y-5 overflow-y-auto flex-1">
           <div className="space-y-2">
             <label
+              htmlFor="filter-field-rating"
               className={`block text-[12px] sm:text-[11px] font-semibold uppercase tracking-[0.18em] ${mutedText}`}
             >
               {t('rating')}
             </label>
             <div className="relative">
               <select
+                id="filter-field-rating"
                 value={localFilters['rating'] || ''}
                 onChange={(e) => setLocalFilters({ ...localFilters, rating: e.target.value })}
                 className={`w-full p-3 rounded-2xl text-sm outline-none appearance-none ${inputSurface}`}
@@ -115,27 +133,63 @@ export const FilterModal: React.FC<FilterModalProps> = ({
               />
             </div>
           </div>
-          {fields.map((field) => (
-            <div key={field.id} className="space-y-2">
+          {fields.map((field) => {
+            const inputId = `filter-field-${field.id}`;
+            const value = localFilters[field.id] || '';
+            const setValue = (next: string) =>
+              setLocalFilters({ ...localFilters, [field.id]: next });
+            const label = (
               <label
+                htmlFor={inputId}
                 className={`block text-[12px] sm:text-[11px] font-semibold uppercase tracking-[0.18em] ${mutedText}`}
               >
                 {getFieldLabel(field.id, field.label)}
               </label>
-              <input
-                type="text"
-                value={localFilters[field.id] || ''}
-                onChange={(e) =>
-                  setLocalFilters({
-                    ...localFilters,
-                    [field.id]: e.target.value,
-                  })
-                }
-                className={`w-full p-3 rounded-2xl text-sm outline-none ${inputSurface}`}
-                placeholder={t('filterPlaceholder')}
-              />
-            </div>
-          ))}
+            );
+
+            if (field.type === 'select') {
+              const options = selectOptionsByField.get(field.id) ?? [];
+              return (
+                <div key={field.id} className="space-y-2">
+                  {label}
+                  <div className="relative">
+                    <select
+                      id={inputId}
+                      value={value}
+                      onChange={(e) => setValue(e.target.value)}
+                      className={`w-full p-3 rounded-2xl text-sm outline-none appearance-none ${inputSurface}`}
+                    >
+                      <option value="">{t('anyValue')}</option>
+                      {options.map((opt) => (
+                        <option key={opt} value={opt}>
+                          {opt}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown
+                      size={16}
+                      className={`absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none ${theme === 'vault' ? 'text-white/50' : 'text-stone-400'}`}
+                    />
+                  </div>
+                </div>
+              );
+            }
+
+            return (
+              <div key={field.id} className="space-y-2">
+                {label}
+                <input
+                  id={inputId}
+                  type="text"
+                  inputMode={field.type === 'number' ? 'numeric' : undefined}
+                  value={value}
+                  onChange={(e) => setValue(e.target.value)}
+                  className={`w-full p-3 rounded-2xl text-sm outline-none ${inputSurface}`}
+                  placeholder={t('filterPlaceholder')}
+                />
+              </div>
+            );
+          })}
         </div>
         <div
           className={`px-6 py-4 border-t flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 ${theme === 'vault' ? 'border-white/10 bg-white/5' : 'border-stone-100 bg-white'}`}
