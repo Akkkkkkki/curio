@@ -133,6 +133,19 @@ describe('App Integration Tests', () => {
     vi.mocked(supabaseService.supabase!.auth.getSession).mockResolvedValue({
       data: { session: { user: { id: 'user1' } } },
     } as never);
+    // Re-assert the default profiles-lookup shape every test so a test that
+    // overrides `from` (e.g. to defer the admin lookup) cannot leak into the
+    // next one — clearAllMocks does not restore implementations.
+    vi.mocked(supabaseService.supabase!.from).mockImplementation(
+      () =>
+        ({
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              single: vi.fn().mockResolvedValue({ data: null, error: null }),
+            })),
+          })),
+        }) as never,
+    );
     vi.mocked(db.getLocalCollections).mockResolvedValue([mockCollection]);
     vi.mocked(db.fetchCloudCollections).mockResolvedValue([]);
     vi.mocked(db.getPendingSyncIds).mockResolvedValue([]);
@@ -246,6 +259,72 @@ describe('App Integration Tests', () => {
     );
     expect(screen.queryByTestId('collections-grid')).not.toBeInTheDocument();
     expect(screen.queryByTestId('access-gate')).not.toBeInTheDocument();
+  });
+
+  it('marks the app shell ready when the first-run fallback is rendered', async () => {
+    const { ThemeProvider } = await import('@/theme');
+    vi.mocked(supabaseService.isSupabaseConfigured).mockReturnValue(false);
+
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('heading', { name: /start your museum with one thing you love/i }),
+      ).toBeInTheDocument();
+    });
+
+    expect(screen.getByTestId('app-shell')).toHaveAttribute('data-ready', 'true');
+  });
+
+  it('holds app-shell readiness until the admin lookup settles and the admin re-refresh completes', async () => {
+    const { ThemeProvider } = await import('@/theme');
+    let resolveProfile!: (value: { data: { is_admin: boolean } | null; error: null }) => void;
+    const profilePromise = new Promise<{ data: { is_admin: boolean } | null; error: null }>(
+      (resolve) => {
+        resolveProfile = resolve;
+      },
+    );
+    vi.mocked(supabaseService.supabase!.from).mockReturnValue({
+      select: vi.fn(() => ({
+        eq: vi.fn(() => ({ single: vi.fn(() => profilePromise) })),
+      })),
+    } as never);
+
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    // The signed-in member refresh completes, but readiness must hold while
+    // the admin-profile lookup is still pending — seeding depends on it.
+    await waitFor(() => {
+      expect(db.fetchCloudCollections).toHaveBeenCalledTimes(1);
+    });
+    expect(screen.getByTestId('app-shell')).toHaveAttribute('data-ready', 'false');
+
+    await act(async () => {
+      resolveProfile({ data: { is_admin: true }, error: null });
+    });
+
+    // The admin identity triggers a second (seeding) refresh; readiness only
+    // arrives once that refresh has completed for the admin identity.
+    await waitFor(() => {
+      expect(db.fetchCloudCollections).toHaveBeenCalledTimes(2);
+      expect(screen.getByTestId('app-shell')).toHaveAttribute('data-ready', 'true');
+    });
   });
 
   it('greets signed-out visitors with a product-explaining welcome gate', async () => {
@@ -741,7 +820,11 @@ describe('App Integration Tests', () => {
     // While loading, the deep-link route renders its own skeleton — not
     // HomeScreen's collections-grid. Bouncing back to Home would surface
     // the grid (or the home loader) instead, so this asserts both halves.
-    expect(await screen.findByTestId('collection-screen-skeleton')).toBeInTheDocument();
+    // Re-query inside waitFor: the route screens remount on app re-renders,
+    // so a node captured by findBy can detach before the assertion runs.
+    await waitFor(() => {
+      expect(screen.getByTestId('collection-screen-skeleton')).toBeInTheDocument();
+    });
     expect(screen.queryByTestId('collections-grid')).not.toBeInTheDocument();
 
     // Once the cloud fetch resolves, the actual collection takes over.
@@ -772,12 +855,16 @@ describe('App Integration Tests', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByTestId('item-detail-skeleton')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId('item-detail-skeleton')).toBeInTheDocument();
+    });
     expect(screen.queryByTestId('collections-grid')).not.toBeInTheDocument();
 
     resolveCloud([mockCollection]);
     // Once data lands, the item detail textarea (Title) replaces the skeleton.
-    expect(await screen.findByRole('textbox', { name: 'Title' })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole('textbox', { name: 'Title' })).toBeInTheDocument();
+    });
     expect(screen.queryByTestId('item-detail-skeleton')).not.toBeInTheDocument();
   });
 
@@ -834,12 +921,16 @@ describe('App Integration Tests', () => {
     // While `isLoading` is true and only the cached collection (no item) is
     // visible, the route must stay on the skeleton instead of redirecting
     // to the parent collection.
-    expect(await screen.findByTestId('item-detail-skeleton')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId('item-detail-skeleton')).toBeInTheDocument();
+    });
     expect(screen.queryByTestId('items-grid')).not.toBeInTheDocument();
 
     // Cloud lands with the item attached — detail renders.
     resolveCloud([mockCollection]);
-    expect(await screen.findByRole('textbox', { name: 'Title' })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole('textbox', { name: 'Title' })).toBeInTheDocument();
+    });
     expect(screen.queryByTestId('item-detail-skeleton')).not.toBeInTheDocument();
   });
 
