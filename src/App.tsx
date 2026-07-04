@@ -166,6 +166,7 @@ import {
 } from './config';
 import { detectConflicts } from './utils/conflictDetection';
 import { sortCollectionItems, type ItemSort } from './utils/collectionSorting';
+import { matchesItemFilters } from './utils/itemFilter';
 import { HomeScreen } from './components/HomeScreen';
 import { useDebouncedValue } from './hooks/useDebouncedValue';
 import { useAndroidBackButton } from './hooks/useAndroidBackButton';
@@ -1198,16 +1199,7 @@ export const AppContent: React.FC = () => {
           item.title.toLowerCase().includes(term) ||
           item.notes?.toLowerCase().includes(term) ||
           Object.values(item.data).some((val) => String(val).toLowerCase().includes(term));
-        const matchesFilters = (Object.entries(activeFilters) as [string, string][]).every(
-          ([key, value]) => {
-            if (!value) return true;
-            if (key === 'rating') return item.rating >= parseInt(value);
-            const itemVal = item.data[key];
-            if (itemVal === undefined || itemVal === null) return false;
-            return String(itemVal).toLowerCase().includes(value.toLowerCase());
-          },
-        );
-        return matchesSearch && matchesFilters;
+        return matchesSearch && matchesItemFilters(item, activeFilters, collection.customFields);
       });
     }, [collection, debouncedFilter, activeFilters]);
 
@@ -1650,6 +1642,7 @@ export const AppContent: React.FC = () => {
           isOpen={isFilterModalOpen}
           onClose={() => setIsFilterModalOpen(false)}
           fields={collection.customFields}
+          items={collection.items}
           activeFilters={activeFilters}
           onApply={setActiveFilters}
         />
