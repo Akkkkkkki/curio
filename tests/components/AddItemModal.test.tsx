@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 import { screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { renderWithProviders } from '../utils/test-utils';
+import { renderWithProviders, setMockTheme } from '../utils/test-utils';
 import { AddItemModal } from '@/components/AddItemModal';
 import { createMockCollection } from '../utils/fixtures/collections';
 
@@ -31,6 +31,15 @@ vi.mock('@/services/imageProcessor', async () => {
   };
 });
 
+vi.mock('@/services/analytics', async () => {
+  const actual =
+    await vi.importActual<typeof import('@/services/analytics')>('@/services/analytics');
+  return {
+    ...actual,
+    trackEvent: vi.fn(),
+  };
+});
+
 vi.mock('@capacitor/camera', () => ({
   Camera: {
     getPhoto: vi.fn(),
@@ -45,10 +54,12 @@ vi.mock('@capacitor/camera', () => ({
 }));
 
 import { analyzeImage, refreshAiEnabled } from '@/services/geminiService';
-import { Camera } from '@capacitor/camera';
+import { trackEvent } from '@/services/analytics';
+import { Camera, CameraSource } from '@capacitor/camera';
 
 const mockAnalyzeImage = analyzeImage as ReturnType<typeof vi.fn>;
 const mockRefreshAiEnabled = refreshAiEnabled as ReturnType<typeof vi.fn>;
+const mockTrackEvent = trackEvent as ReturnType<typeof vi.fn>;
 const mockGetPhoto = Camera.getPhoto as ReturnType<typeof vi.fn>;
 
 class MockFileReader {
@@ -81,7 +92,24 @@ describe('AddItemModal', () => {
     mockOnSave.mockResolvedValue(undefined);
     mockRefreshAiEnabled.mockResolvedValue(false);
     mockAnalyzeImage.mockReset();
+    mockTrackEvent.mockClear();
     mockGetPhoto.mockReset();
+    setMockTheme('gallery');
+  });
+
+  it('tracks an item creation start each time the modal opens', () => {
+    renderWithProviders(
+      <AddItemModal
+        isOpen
+        onClose={mockOnClose}
+        collections={[createMockCollection()]}
+        onSave={mockOnSave}
+      />,
+    );
+
+    expect(mockTrackEvent).toHaveBeenCalledWith('item_creation_started', {
+      surface: 'add_item_modal',
+    });
   });
 
   it('renders nothing when closed', () => {
@@ -107,7 +135,7 @@ describe('AddItemModal', () => {
     );
 
     // Starts on the select-type step with both collections offered.
-    expect(screen.getByText('New Archive')).toBeInTheDocument();
+    expect(screen.getByText('Start a collection')).toBeInTheDocument();
     expect(screen.getByText('Vinyl Vault')).toBeInTheDocument();
 
     // Pick Vinyl Vault → advances to the upload step.
@@ -128,7 +156,7 @@ describe('AddItemModal', () => {
     // Should remain on the upload step. Previously this would snap back to
     // select-type and silently drop `selectedCollectionId`.
     expect(screen.getByRole('heading', { name: 'Upload Photo' })).toBeInTheDocument();
-    expect(screen.queryByText('New Archive')).not.toBeInTheDocument();
+    expect(screen.queryByText('Start a collection')).not.toBeInTheDocument();
   });
 
   it('skips collection picker when defaultCollectionId matches a known collection', async () => {
@@ -147,7 +175,7 @@ describe('AddItemModal', () => {
 
     // Should skip select-type and land on upload step directly.
     expect(screen.getByRole('heading', { name: 'Upload Photo' })).toBeInTheDocument();
-    expect(screen.queryByText('New Archive')).not.toBeInTheDocument();
+    expect(screen.queryByText('Start a collection')).not.toBeInTheDocument();
   });
 
   it('falls back to collection picker when defaultCollectionId does not match any collection', async () => {
@@ -165,7 +193,7 @@ describe('AddItemModal', () => {
     );
 
     // Should show the collection picker since the default ID is stale.
-    expect(screen.getByText('New Archive')).toBeInTheDocument();
+    expect(screen.getByText('Start a collection')).toBeInTheDocument();
     expect(screen.getByText('Vinyl Vault')).toBeInTheDocument();
   });
 
@@ -178,7 +206,7 @@ describe('AddItemModal', () => {
     );
 
     // Without a default, multi-collection modal starts on picker.
-    expect(screen.getByText('New Archive')).toBeInTheDocument();
+    expect(screen.getByText('Start a collection')).toBeInTheDocument();
   });
 
   it('routes to collection picker (not upload dead-end) when defaultCollectionId becomes stale mid-session', async () => {
@@ -342,7 +370,7 @@ describe('AddItemModal', () => {
     );
 
     // Stale default + multiple collections → must show picker, not upload dead-end.
-    expect(screen.getByText('New Archive')).toBeInTheDocument();
+    expect(screen.getByText('Start a collection')).toBeInTheDocument();
     expect(screen.getByText('Vinyl Vault')).toBeInTheDocument();
     expect(screen.getByText('Sneaker Gallery')).toBeInTheDocument();
   });
@@ -377,6 +405,18 @@ describe('AddItemModal', () => {
     });
 
     expect(await screen.findByDisplayValue('Mock Artifact')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Save 1 pieces' }));
+
+    await waitFor(() => {
+      expect(mockOnSave).toHaveBeenCalledTimes(1);
+      expect(mockTrackEvent).toHaveBeenCalledWith('item_saved', {
+        mode: 'batch',
+        has_story: false,
+        has_photo: true,
+        story_length_bucket: '0',
+      });
+    });
   });
 
   it('does not re-save already-saved items when a batch save fails partway and is retried', async () => {
@@ -408,7 +448,7 @@ describe('AddItemModal', () => {
       .mockResolvedValueOnce(undefined)
       .mockRejectedValueOnce(new Error('Could not save image. Please try again.'));
 
-    await user.click(screen.getByRole('button', { name: /Archive \d+ Artifacts/ }));
+    await user.click(screen.getByRole('button', { name: /Save \d+ pieces/ }));
 
     expect(await screen.findByText('Could not save image. Please try again.')).toBeInTheDocument();
     expect(mockOnClose).not.toHaveBeenCalled();
@@ -423,7 +463,7 @@ describe('AddItemModal', () => {
     mockOnSave.mockReset();
     mockOnSave.mockResolvedValue(undefined);
 
-    await user.click(screen.getByRole('button', { name: /Archive \d+ Artifacts/ }));
+    await user.click(screen.getByRole('button', { name: /Save \d+ pieces/ }));
 
     await waitFor(() => {
       expect(mockOnSave).toHaveBeenCalledTimes(1);
@@ -436,6 +476,76 @@ describe('AddItemModal', () => {
       collection.id,
       expect.objectContaining({ title: 'Artifact A' }),
     );
+  });
+
+  it('exposes the upload-step circle as a keyboard-activatable button (CUR-119)', async () => {
+    const user = userEvent.setup();
+    mockGetPhoto.mockResolvedValue({ dataUrl: undefined });
+
+    renderWithProviders(
+      <AddItemModal
+        isOpen
+        onClose={mockOnClose}
+        collections={[createMockCollection()]}
+        onSave={mockOnSave}
+      />,
+    );
+
+    await screen.findByRole('heading', { name: 'Upload Photo' });
+
+    // The visual circle and the explicit CTA below both name themselves
+    // "Upload Photo". The circle is the first interactive control on the
+    // step and used to be a div with no role/tabindex/keyboard handler.
+    const uploadButtons = screen.getAllByRole('button', { name: 'Upload Photo' });
+    expect(uploadButtons.length).toBeGreaterThanOrEqual(2);
+
+    const circle = uploadButtons[0];
+    expect(circle.tagName).toBe('BUTTON');
+
+    circle.focus();
+    expect(circle).toHaveFocus();
+
+    await user.keyboard('{Enter}');
+
+    await waitFor(() => {
+      expect(mockGetPhoto).toHaveBeenCalledWith(
+        expect.objectContaining({ source: CameraSource.Photos }),
+      );
+    });
+  });
+
+  it('renders the analyzing step with theme-aware copy on Vault (#110)', async () => {
+    const user = userEvent.setup();
+    setMockTheme('vault');
+    mockRefreshAiEnabled.mockResolvedValue(true);
+    // Pending promise — keep the modal on the analyzing step so we can inspect it.
+    mockAnalyzeImage.mockReturnValue(new Promise<never>(() => {}));
+
+    const collection = createMockCollection({ name: 'Artifacts', customFields: [] });
+    renderWithProviders(
+      <AddItemModal isOpen onClose={mockOnClose} collections={[collection]} onSave={mockOnSave} />,
+    );
+
+    const file = new File(['a'], 'a.png', { type: 'image/png' });
+    const input = screen.getByTestId('add-item-batch-input') as HTMLInputElement;
+    await user.upload(input, file);
+
+    // Heading must use the theme's foreground; text-stone-900 would disappear on the dark Vault panel.
+    const heading = await screen.findByRole('heading', { name: 'Analyzing photo...' });
+    expect(heading.className).toContain('text-white');
+    expect(heading.className).not.toContain('text-stone-900');
+
+    // Helper copy ("Gemini is extracting…") must stay above WCAG AA on stone-900,
+    // i.e. it must not regress to stone-500 (~3.77:1).
+    const helper = screen.getByText('Gemini is extracting details for your collection.');
+    expect(helper.className).not.toContain('text-stone-500');
+
+    // CUR-92: the Sparkles pill behind the icon must drop the Gallery-only
+    // white surface so it doesn't punch through the Vault panel.
+    const sparklesIcon = heading.parentElement?.parentElement?.querySelector('svg.lucide-sparkles');
+    const pill = sparklesIcon?.parentElement;
+    expect(pill?.className).not.toContain('bg-white');
+    expect(pill?.className).not.toContain('border-stone-100');
   });
 
   it('fades the verify-step scroll edge while fields remain below the fold (CUR-45)', async () => {
@@ -643,7 +753,9 @@ describe('AddItemModal', () => {
       );
 
       // Single-image upload routes to the verify step (not batch-verify).
-      await user.click(screen.getByRole('button', { name: /upload photo/i }));
+      // Two controls expose "Upload Photo" — the visual circle (CUR-119) and
+      // the explicit CTA below it. Clicking either calls pickFromGallery.
+      await user.click(screen.getAllByRole('button', { name: /upload photo/i })[0]);
 
       // Wait for analysis to land on the verify step.
       expect(await screen.findByDisplayValue('Mock Artifact')).toBeInTheDocument();
@@ -664,6 +776,95 @@ describe('AddItemModal', () => {
       expect(screen.queryByTestId('add-item-discard-confirm')).not.toBeInTheDocument();
       expect(screen.getByDisplayValue('Mock Artifact')).toBeInTheDocument();
       expect(mockOnClose).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Vault theme contrast (CUR-22)', () => {
+    it('renders collection picker tiles with theme-aware surface tokens on Vault', () => {
+      setMockTheme('vault');
+      renderWithProviders(
+        <AddItemModal
+          isOpen
+          onClose={mockOnClose}
+          collections={[
+            createMockCollection({ id: 'a', name: 'Vinyl' }),
+            createMockCollection({ id: 'b', name: 'Chocolate' }),
+          ]}
+          onSave={mockOnSave}
+        />,
+      );
+
+      const tiles = screen.getAllByTestId('add-item-collection-tile');
+      expect(tiles).toHaveLength(2);
+      tiles.forEach((tile) => {
+        // Light Gallery tokens (bg-stone-50/50, text-stone-800) must NOT leak
+        // into the dark surface — they collapse against the dark modal body.
+        expect(tile).not.toHaveClass('bg-stone-50/50');
+        expect(tile).toHaveClass('bg-white/5');
+        expect(tile).toHaveClass('border-white/10');
+      });
+
+      const titles = tiles.map((tile) => tile.querySelector('span.font-bold'));
+      titles.forEach((title) => {
+        expect(title).not.toBeNull();
+        expect(title!.className).toMatch(/text-white/);
+        expect(title!.className).not.toMatch(/text-stone-800/);
+      });
+    });
+
+    it('renders the upload empty-state circle with a Vault-tinted surface, not a cream pill', () => {
+      setMockTheme('vault');
+      renderWithProviders(
+        <AddItemModal
+          isOpen
+          onClose={mockOnClose}
+          collections={[createMockCollection({ customFields: [] })]}
+          onSave={mockOnSave}
+        />,
+      );
+
+      const uploadEmpty = screen.getByTestId('add-item-upload-empty');
+      expect(uploadEmpty).toHaveClass('bg-white/5');
+      expect(uploadEmpty).toHaveClass('border-white/15');
+      // The empty cream pill must not survive on Vault.
+      expect(uploadEmpty).not.toHaveClass('bg-stone-50');
+      expect(uploadEmpty).not.toHaveClass('hover:bg-amber-50');
+    });
+
+    it('keeps the "Skip Manual" link hover visible against the dark surface', () => {
+      setMockTheme('vault');
+      renderWithProviders(
+        <AddItemModal
+          isOpen
+          onClose={mockOnClose}
+          collections={[createMockCollection({ customFields: [] })]}
+          onSave={mockOnSave}
+        />,
+      );
+
+      const skipLink = screen.getByTestId('add-item-skip-manual');
+      // hover:text-stone-600 was invisible on stone-900 — pin to white.
+      expect(skipLink).toHaveClass('hover:text-white');
+      expect(skipLink.className).not.toMatch(/hover:text-stone-(500|600|700)/);
+    });
+
+    it('preserves Gallery tokens for the collection picker on the default theme', () => {
+      setMockTheme('gallery');
+      renderWithProviders(
+        <AddItemModal
+          isOpen
+          onClose={mockOnClose}
+          collections={[
+            createMockCollection({ id: 'a', name: 'Vinyl' }),
+            createMockCollection({ id: 'b', name: 'Chocolate' }),
+          ]}
+          onSave={mockOnSave}
+        />,
+      );
+
+      const tile = screen.getAllByTestId('add-item-collection-tile')[0];
+      expect(tile).toHaveClass('bg-stone-50/50');
+      expect(tile).toHaveClass('border-stone-100');
     });
   });
 });

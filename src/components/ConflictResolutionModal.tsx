@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { X, GitMerge, Cloud, Laptop, ArrowRight } from 'lucide-react';
 import { useTranslation } from '../i18n';
-import { useTheme, panelSurfaceClasses, overlaySurfaceClasses } from '../theme';
+import { useTheme, panelSurfaceClasses, overlaySurfaceClasses, mutedTextClasses } from '../theme';
 import { useModalA11y } from '../hooks/useModalA11y';
 
 export type ConflictEntry = {
@@ -68,6 +68,7 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
   const surfaceClass = panelSurfaceClasses[theme];
   const overlayClass = `${overlaySurfaceClasses[theme]} motion-overlay`;
   const borderClass = theme === 'vault' ? 'border-white/10' : 'border-stone-100';
+  const mutedText = mutedTextClasses[theme];
 
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -117,7 +118,7 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
             {t('conflictDesc')}
           </p>
           {conflicts.length === 0 && (
-            <div className="text-sm text-stone-500">{t('conflictEmpty')}</div>
+            <div className={`text-sm ${mutedText}`}>{t('conflictEmpty')}</div>
           )}
           {conflicts.map((conflict) => {
             const localTime = new Date(conflict.localUpdatedAt || 0).getTime();
@@ -166,7 +167,7 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
                         {t('conflictNewerBadge')}
                       </div>
                     )}
-                    <div className="flex items-center gap-2 mb-2 text-stone-500">
+                    <div className={`flex items-center gap-2 mb-2 ${mutedText}`}>
                       <Cloud size={14} />
                       <span className="text-xs font-semibold">{t('cloudVersion')}</span>
                     </div>
@@ -194,7 +195,7 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
                         {t('conflictNewerBadge')}
                       </div>
                     )}
-                    <div className="flex items-center gap-2 mb-2 text-stone-500">
+                    <div className={`flex items-center gap-2 mb-2 ${mutedText}`}>
                       <Laptop size={14} />
                       <span className="text-xs font-semibold">{t('localVersion')}</span>
                     </div>

@@ -9,16 +9,26 @@ import { test, expect, Page } from '@playwright/test';
  * - Read-only clarity
  */
 
+async function waitForAppReady(page: Page) {
+  await expect(page.getByTestId('app-shell')).toHaveAttribute('data-ready', 'true', {
+    timeout: 15000,
+  });
+}
+
 async function ensureSampleBrowse(page: Page) {
   await page.goto('/');
-  const accessGate = page.getByTestId('access-gate');
-  if (await accessGate.isVisible()) {
-    await expect(page.getByTestId('first-run-ctas')).toBeVisible();
-    const explore = page.getByTestId('cta-secondary-explore-sample');
-    test.skip(!(await explore.isVisible()), 'Supabase not configured; sample gallery unavailable');
-    await explore.click();
-  }
-  await expect(page.getByTestId('collections-grid')).toBeVisible({ timeout: 10000 });
+  await waitForAppReady(page);
+  const sampleLink = page
+    .getByRole('link', { name: /wander a sample museum/i })
+    .or(page.getByRole('link', { name: /explore/i }))
+    .first();
+  test.skip(!(await sampleLink.isVisible().catch(() => false)), 'Sample gallery unavailable');
+
+  await sampleLink.click();
+  await expect(page).toHaveURL(/#\/collection\//);
+  await expect(page.getByRole('heading', { name: 'The Vinyl Vault' })).toBeVisible({
+    timeout: 10000,
+  });
 }
 
 test.describe('First-Time User Experience', () => {
@@ -26,50 +36,35 @@ test.describe('First-Time User Experience', () => {
     await page.context().clearCookies();
   });
 
-  const sampleVinylCard = (page: Page) =>
-    page
-      .getByTestId('collection-card')
-      .filter({ has: page.getByRole('heading', { name: 'The Vinyl Vault' }) })
-      .first();
+  test('should expose deterministic readiness before first-run assertions', async ({ page }) => {
+    await page.goto('/');
+
+    await waitForAppReady(page);
+  });
 
   test('should show a single primary + single secondary CTA on first launch', async ({ page }) => {
     await page.goto('/');
-    const accessGate = page.getByTestId('access-gate');
-    test.skip(!(await accessGate.isVisible()), 'Access gate not shown in this environment');
+    await waitForAppReady(page);
 
-    const explore = page.getByTestId('cta-secondary-explore-sample');
-    const exploreVisible = await explore.isVisible().catch(() => false);
-    const ctas = page.getByTestId('first-run-ctas').locator('button');
-
-    if (!exploreVisible) {
-      // Cloud-required fallback (no sample gallery available).
-      await expect(ctas).toHaveCount(1);
-      await expect(page.getByText(/configure supabase/i)).toBeVisible();
-      return;
-    }
-
-    await expect(ctas).toHaveCount(2);
-    await expect(page.getByTestId('cta-primary-add-first')).toBeVisible();
-    await expect(explore).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: /start your museum with one thing you love/i }),
+    ).toBeVisible();
+    await expect(page.getByRole('button', { name: /add your first piece/i })).toBeVisible();
+    await expect(page.getByRole('link', { name: /wander a sample museum/i })).toBeVisible();
+    await expect(page.getByTestId('collections-grid')).toHaveCount(0);
   });
 
   test('should never strand first-time users on a cloud-required dead end', async ({ page }) => {
     await page.goto('/');
+    await waitForAppReady(page);
 
-    const accessGate = page.getByTestId('access-gate');
-    if (await accessGate.isVisible().catch(() => false)) {
-      await expect(page.getByTestId('cta-secondary-explore-sample')).toBeVisible();
-      return;
-    }
-
-    await expect(page.getByTestId('collections-grid')).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'The Vinyl Vault' })).toBeVisible();
+    await expect(page.getByRole('link', { name: /wander a sample museum/i })).toBeVisible();
+    await expect(page.getByText(/no account needed to look around/i)).toBeVisible();
   });
 
   test('should allow exploring sample collections without authentication', async ({ page }) => {
     await ensureSampleBrowse(page);
-    await expect(page.getByTestId('collection-card').first()).toBeVisible();
-    // Use role=heading to avoid matching the tooltip text (strict mode).
+    await expect(page.getByTestId('items-grid')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'The Vinyl Vault' })).toBeVisible();
   });
 
@@ -77,8 +72,6 @@ test.describe('First-Time User Experience', () => {
     page,
   }) => {
     await ensureSampleBrowse(page);
-    await sampleVinylCard(page).click();
-    await expect(page).toHaveURL(/#\/collection\//);
 
     await expect(page.getByTestId('read-only-banner')).toBeVisible();
     // Assert the specific banner description (avoid broad /sample/i matches in strict mode).
@@ -90,7 +83,6 @@ test.describe('First-Time User Experience', () => {
 
   test('should allow viewing item details in the sample collection', async ({ page }) => {
     await ensureSampleBrowse(page);
-    await sampleVinylCard(page).click();
     await expect(page.getByTestId('items-grid')).toBeVisible();
 
     await page.getByTestId('item-card').first().click();
@@ -102,7 +94,6 @@ test.describe('First-Time User Experience', () => {
 
   test('should open export modal from item detail', async ({ page }) => {
     await ensureSampleBrowse(page);
-    await sampleVinylCard(page).click();
     await expect(page.getByTestId('items-grid')).toBeVisible();
 
     await page.getByTestId('item-card').first().click();
@@ -114,10 +105,9 @@ test.describe('First-Time User Experience', () => {
 
   test('should prompt for auth when starting “Add your first item”', async ({ page }) => {
     await page.goto('/');
-    const accessGate = page.getByTestId('access-gate');
-    test.skip(!(await accessGate.isVisible()), 'Access gate not shown in this environment');
+    await waitForAppReady(page);
 
-    await page.getByTestId('cta-primary-add-first').click();
+    await page.getByRole('button', { name: /add your first piece/i }).click();
     const modal = page.getByTestId('auth-modal');
     test.skip(
       !(await modal.isVisible().catch(() => false)),
@@ -162,6 +152,7 @@ test.describe('Navigation and Routing', () => {
 
   test('should redirect invalid routes back to home', async ({ page }) => {
     await page.goto('/#/invalid-route-that-does-not-exist');
+    await waitForAppReady(page);
     if (await page.getByTestId('access-gate').isVisible()) {
       await expect(page.getByTestId('access-gate')).toBeVisible();
       return;

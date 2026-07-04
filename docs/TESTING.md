@@ -93,5 +93,6 @@ npm run server
   - `npm run format:check` (verifies formatting)
 
 - Playwright will start (or reuse) the dev server automatically (see `playwright.config.ts`).
+- `@playwright/test` is pinned to the `1.56.x` line on purpose: it matches the Chromium build pre-baked into Claude Code web sessions (`/opt/pw-browsers`, build 1194), so `npm run test:e2e` runs offline there without downloading a browser. Keep the client version and the available browser build in sync when upgrading (CI installs browsers fresh via `npx playwright install`).
 - Unit tests use mocked Supabase; do **not** rely on a local Supabase instance.
 - `tests/README.md` is intentionally short and points back here to avoid duplicate guidance.

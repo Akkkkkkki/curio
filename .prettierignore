@@ -7,3 +7,4 @@ coverage
 .context
 supabase
 package-lock.json
+docs/reviews/*.html

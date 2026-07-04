@@ -45,7 +45,16 @@ export const DeleteCollectionModal: React.FC<DeleteCollectionModalProps> = ({
         <div className="sm:hidden h-3" />
         <div className={`flex items-center justify-between px-6 py-5 border-b ${borderClass}`}>
           <div className="flex items-center gap-2">
-            <div className="p-1.5 rounded-lg bg-red-100 text-red-600">
+            <div
+              data-testid="delete-collection-warning-icon"
+              className={`p-1.5 rounded-lg ${
+                theme === 'vault'
+                  ? 'bg-red-500/15 text-red-300'
+                  : theme === 'atelier'
+                    ? 'bg-red-100/70 text-red-700'
+                    : 'bg-red-100 text-red-600'
+              }`}
+            >
               <AlertTriangle size={18} />
             </div>
             <h2

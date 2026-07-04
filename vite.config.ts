@@ -14,6 +14,11 @@ export function buildCspPolicy({ apiBaseUrl = '' }: CspPolicyOptions = {}): stri
     'https://*.supabase.co',
     'wss://*.supabase.co',
     ...(apiBaseUrl ? [apiBaseUrl] : []),
+    // html-to-image fetches the Google Fonts stylesheet + font files to inline
+    // them into the exported card; without these origins the fetch is blocked by
+    // CSP and "Save image" / "Share" fail with a generic error.
+    'https://fonts.googleapis.com',
+    'https://fonts.gstatic.com',
   ].join(' ');
 
   const scriptSrc = ["'self'", 'https://va.vercel-scripts.com'].join(' ');
