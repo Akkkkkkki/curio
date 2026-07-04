@@ -136,6 +136,10 @@ type ItemSaveState = {
   error?: string;
 };
 
+// Sentinel for "the admin lookup has settled for a signed-out session" so the
+// app-shell readiness marker can distinguish it from "lookup still pending".
+const ANONYMOUS_ADMIN_SCOPE = 'anonymous';
+
 const isEditableTarget = (target: EventTarget | null): boolean => {
   if (!(target instanceof HTMLElement)) return false;
   const tag = target.tagName;
@@ -216,6 +220,12 @@ export const AppContent: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [authReady, setAuthReady] = useState(false);
+  // Which user the async admin-profile lookup has settled for, and which
+  // user/role identity the last completed collections refresh served. Both
+  // feed the app-shell readiness marker so E2E waits can't race the admin
+  // lookup → re-refresh → seed sequence on an authenticated first run.
+  const [adminCheckedFor, setAdminCheckedFor] = useState<string | null>(null);
+  const [refreshedForKey, setRefreshedForKey] = useState<string | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
   const [allowPublicBrowse, setAllowPublicBrowse] = useState(false);
@@ -532,6 +542,7 @@ export const AppContent: React.FC = () => {
     let isMounted = true;
     if (!isSupabaseReady || !supabase || !user) {
       setIsAdmin(false);
+      setAdminCheckedFor(ANONYMOUS_ADMIN_SCOPE);
       return () => {
         isMounted = false;
       };
@@ -554,6 +565,8 @@ export const AppContent: React.FC = () => {
       } catch (e) {
         console.warn('Admin status check failed:', e);
         if (isMounted) setIsAdmin(false);
+      } finally {
+        if (isMounted) setAdminCheckedFor(user.id);
       }
     };
 
@@ -672,12 +685,18 @@ export const AppContent: React.FC = () => {
   );
 
   const refreshCollections = useCallback(async () => {
+    // Records which user/role identity this refresh serves; the app-shell
+    // readiness marker requires the last completed refresh to match the
+    // current identity so an admin's post-lookup re-refresh (which seeds the
+    // sample data) can't be raced by tests waiting on readiness.
+    const refreshIdentityKey = `${user?.id ?? 'anon'}:${isAdmin ? 'admin' : 'member'}`;
     if (!isSupabaseReady) {
       setCollections(fallbackSampleCollections);
       setLoadError(null);
       setConflicts([]);
       setIsConflictModalOpen(false);
       setIsLoading(false);
+      setRefreshedForKey(refreshIdentityKey);
       return;
     }
     setIsLoading(true);
@@ -721,6 +740,7 @@ export const AppContent: React.FC = () => {
       }
       showStatusRef.current(tRef.current('statusSyncPaused'), 'error');
       setIsLoading(false);
+      setRefreshedForKey(refreshIdentityKey);
       return;
     }
 
@@ -775,6 +795,7 @@ export const AppContent: React.FC = () => {
       setCollections(resolvedCollections);
       setLoadError(null);
       setIsLoading(false);
+      setRefreshedForKey(refreshIdentityKey);
       if (showSyncedStatus) {
         showStatusRef.current(tRef.current('statusSynced'), 'success');
       }
@@ -814,6 +835,7 @@ export const AppContent: React.FC = () => {
       }
       showStatusRef.current(tRef.current('statusSyncPaused'), 'error');
       setIsLoading(false);
+      setRefreshedForKey(refreshIdentityKey);
     }
   }, [
     user,
@@ -2951,7 +2973,18 @@ export const AppContent: React.FC = () => {
     </div>
   );
 
-  const appReady = !isLoading && (!isSupabaseReady || authReady);
+  // Ready means: initial load settled, auth settled, the admin-profile lookup
+  // settled for the current session, and the last completed collections
+  // refresh served the current user/role identity. The identity key flips in
+  // the same render as an isAdmin/user change, so the marker can never show
+  // ready during the window between an admin lookup resolving and the seeding
+  // re-refresh it triggers.
+  const currentIdentityKey = `${user?.id ?? 'anon'}:${isAdmin ? 'admin' : 'member'}`;
+  const adminLookupSettled = adminCheckedFor === (user ? user.id : ANONYMOUS_ADMIN_SCOPE);
+  const appReady =
+    !isLoading &&
+    (!isSupabaseReady ||
+      (authReady && adminLookupSettled && refreshedForKey === currentIdentityKey));
 
   return (
     <div
