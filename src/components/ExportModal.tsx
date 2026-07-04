@@ -490,9 +490,14 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                   >
                     {item.title}
                   </h3>
-                  <span className="font-mono text-xs font-bold bg-stone-900 text-[#f4ebd9] px-1 flex-shrink-0">
-                    NO. {item.rating}
-                  </span>
+                  {item.rating > 0 && (
+                    <span
+                      className="font-mono text-xs font-bold bg-stone-900 text-[#f4ebd9] px-1 flex-shrink-0"
+                      aria-label={t('ratedOutOfFive', { rating: item.rating })}
+                    >
+                      {'★'.repeat(item.rating)}
+                    </span>
+                  )}
                 </div>
                 <div
                   className={`text-center ${metaSize} font-mono text-stone-400 mt-4 uppercase tracking-widest`}

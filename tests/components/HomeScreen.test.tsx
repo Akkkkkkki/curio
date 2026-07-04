@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderWithProviders, screen, fireEvent, waitFor, within } from '../utils/test-utils';
+import { setMockTheme } from '../utils/test-utils';
 import { HomeScreen } from '@/components/HomeScreen';
 import { UserCollection } from '@/types';
 
@@ -7,6 +8,13 @@ import { UserCollection } from '@/types';
 vi.mock('@/hooks/useDebouncedValue', () => ({
   useDebouncedValue: (value: any) => value,
 }));
+
+// Route the real useTheme through the test-utils mock state so tests can drive
+// theme via setMockTheme('vault' | 'atelier' | 'gallery').
+vi.mock('@/theme', async () => {
+  const { createThemeMock } = await import('../utils/test-utils');
+  return createThemeMock();
+});
 
 describe('HomeScreen', () => {
   const mockCollections: UserCollection[] = [
@@ -93,6 +101,11 @@ describe('HomeScreen', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    setMockTheme('gallery');
+  });
+
+  afterEach(() => {
+    setMockTheme('gallery');
   });
 
   it('renders collections', () => {
@@ -260,6 +273,58 @@ describe('HomeScreen', () => {
     renderWithProviders(<HomeScreen {...defaultProps} loadError="Failed to load" />);
     expect(screen.getByText(/sync paused/i)).toBeInTheDocument();
     expect(screen.getByText('Failed to load')).toBeInTheDocument();
+  });
+
+  describe('theme-aware surfaces (CUR-96)', () => {
+    const makeHistoryItem = (id: string, title: string, year: number) => ({
+      id,
+      title,
+      data: {},
+      rating: 0,
+      notes: '',
+      photoUrl: '',
+      createdAt: new Date(year, 0, 1).toISOString(),
+      updatedAt: '',
+      collectionId: 'col1',
+      userId: 'user1',
+    });
+
+    it('renders the "New Archive" inner disc with a Vault-aware surface (not the gallery bg-stone-50)', () => {
+      setMockTheme('vault');
+      renderWithProviders(<HomeScreen {...defaultProps} />);
+
+      const tile = screen.getByRole('button', { name: /start a collection/i });
+      const disc = tile.querySelector('div');
+
+      expect(disc).not.toBeNull();
+      expect(disc!.className).not.toMatch(/bg-stone-50/);
+      expect(disc!.className).toMatch(/bg-white\/5/);
+      expect(disc!.className).not.toMatch(/text-stone-300/);
+    });
+
+    it('places the On This Day image on the Vault mat instead of a bg-stone-100 placeholder', () => {
+      const historyItems = [makeHistoryItem('h1', 'Remembered ticket', 2020)];
+      setMockTheme('vault');
+      const { container } = renderWithProviders(
+        <HomeScreen {...defaultProps} stats={{ ...defaultProps.stats, historyItems }} />,
+      );
+
+      // On This Day image container is the ancestor with aspect-square + rounded-2xl.
+      const imageContainer = container.querySelector('div.aspect-square.rounded-2xl');
+      expect(imageContainer).not.toBeNull();
+      expect(imageContainer!.className).not.toMatch(/bg-stone-100/);
+      expect(imageContainer!.className).toMatch(/bg-\[#1C1917\]/);
+    });
+
+    it('uses a Vault-legible placeholder on the hero search input', () => {
+      setMockTheme('vault');
+      renderWithProviders(<HomeScreen {...defaultProps} />);
+
+      const searchInput = screen.getByPlaceholderText(/search/i);
+      // Vault should not inherit the Gallery-only stone-300 placeholder token.
+      expect(searchInput.className).not.toMatch(/placeholder:text-stone-300/);
+      expect(searchInput.className).toMatch(/placeholder:text-stone-400/);
+    });
   });
 
   describe('On This Day', () => {

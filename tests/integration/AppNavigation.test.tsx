@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, within, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, within, fireEvent, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { AppContent } from '@/App';
 import { LanguageProvider } from '@/i18n';
@@ -147,6 +147,7 @@ describe('App Integration Tests', () => {
     vi.mocked(db.syncPendingDeletes).mockResolvedValue(0);
     vi.mocked(db.requestPersistence).mockResolvedValue(true);
     vi.mocked(db.saveAllCollections).mockResolvedValue(undefined);
+    vi.mocked(db.saveCollection).mockResolvedValue(undefined);
     vi.mocked(db.initDB).mockResolvedValue({} as never);
   });
 
@@ -1050,5 +1051,234 @@ describe('App Integration Tests', () => {
 
     const clearAll = screen.getByTestId('active-filter-clear-all');
     expect(clearAll.classList).toContain('text-[#8C7B6B]');
+  });
+
+  // CUR-135: Item Detail undo/redo can be reached from the keyboard so power
+  // editors don't have to leave their editing context to step back a change.
+  describe('Item Detail persistent save status (CUR-60)', () => {
+    const renderItemDetail = async () => {
+      const { ThemeProvider } = await import('@/theme');
+      render(
+        <MemoryRouter initialEntries={['/collection/col1/item/item1']}>
+          <ThemeProvider>
+            <LanguageProvider>
+              <AppContent />
+            </LanguageProvider>
+          </ThemeProvider>
+        </MemoryRouter>,
+      );
+    };
+
+    const getSyncStatusCallback = () => {
+      const callback = vi
+        .mocked(db.setSyncStatusCallback)
+        .mock.calls.map(([candidate]) => candidate)
+        .findLast((candidate) => typeof candidate === 'function');
+      expect(callback).toBeTypeOf('function');
+      return callback as (status: db.SyncStatus, error?: string) => void;
+    };
+
+    it('shows Saving during the debounce and Saved after sync confirms backup', async () => {
+      await renderItemDetail();
+      const titleField = (await screen.findByRole('textbox', {
+        name: 'Title',
+      })) as HTMLTextAreaElement;
+
+      vi.useFakeTimers();
+      try {
+        act(() => {
+          fireEvent.change(titleField, { target: { value: 'Edited Item' } });
+        });
+
+        expect(screen.getByTestId('item-save-status')).toHaveTextContent('Saving…');
+        expect(db.saveCollection).not.toHaveBeenCalled();
+
+        await act(async () => {
+          vi.advanceTimersByTime(1500);
+          await Promise.resolve();
+        });
+
+        expect(db.saveCollection).toHaveBeenCalledTimes(1);
+
+        act(() => {
+          getSyncStatusCallback()('synced');
+        });
+
+        expect(screen.getByTestId('item-save-status')).toHaveTextContent('Saved & backed up');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('keeps Saving when a sync completes for an older save while a newer edit is pending', async () => {
+      await renderItemDetail();
+      const titleField = (await screen.findByRole('textbox', {
+        name: 'Title',
+      })) as HTMLTextAreaElement;
+
+      vi.useFakeTimers();
+      try {
+        // First edit's debounce fires and its save starts.
+        act(() => {
+          fireEvent.change(titleField, { target: { value: 'Edited Item' } });
+        });
+        await act(async () => {
+          vi.advanceTimersByTime(1500);
+          await Promise.resolve();
+        });
+        expect(db.saveCollection).toHaveBeenCalledTimes(1);
+
+        // A second edit lands before the first save's sync confirmation.
+        // Re-query the field: the detail screen re-renders between edits.
+        act(() => {
+          fireEvent.change(screen.getByRole('textbox', { name: 'Title' }), {
+            target: { value: 'Edited Item Again' },
+          });
+        });
+        expect(screen.getByTestId('item-save-status')).toHaveTextContent('Saving…');
+
+        // The first save's sync event must not mark the newer edit as backed up.
+        act(() => {
+          getSyncStatusCallback()('synced');
+        });
+        expect(screen.getByTestId('item-save-status')).toHaveTextContent('Saving…');
+
+        // Once the second save runs and its sync confirms, the badge resolves.
+        await act(async () => {
+          vi.advanceTimersByTime(1500);
+          await Promise.resolve();
+        });
+        expect(db.saveCollection).toHaveBeenCalledTimes(2);
+        act(() => {
+          getSyncStatusCallback()('synced');
+        });
+        expect(screen.getByTestId('item-save-status')).toHaveTextContent('Saved & backed up');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('keeps a retryable error state when sync fails', async () => {
+      await renderItemDetail();
+      const titleField = (await screen.findByRole('textbox', {
+        name: 'Title',
+      })) as HTMLTextAreaElement;
+
+      vi.useFakeTimers();
+      try {
+        act(() => {
+          fireEvent.change(titleField, { target: { value: 'Edited Item' } });
+        });
+        await act(async () => {
+          vi.advanceTimersByTime(1500);
+          await Promise.resolve();
+        });
+
+        act(() => {
+          getSyncStatusCallback()('error', 'network unavailable');
+        });
+
+        const status = screen.getByTestId('item-save-status');
+        expect(status).toHaveTextContent('Save failed');
+
+        await act(async () => {
+          fireEvent.click(within(status).getByRole('button', { name: 'Retry' }));
+          await Promise.resolve();
+        });
+
+        expect(db.saveCollection).toHaveBeenCalledTimes(2);
+        expect(screen.getByTestId('item-save-status')).toHaveTextContent('Saving…');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  });
+
+  describe('Item Detail undo/redo keyboard shortcut (CUR-135)', () => {
+    const renderItemDetail = async () => {
+      const { ThemeProvider } = await import('@/theme');
+      render(
+        <MemoryRouter initialEntries={['/collection/col1/item/item1']}>
+          <ThemeProvider>
+            <LanguageProvider>
+              <AppContent />
+            </LanguageProvider>
+          </ThemeProvider>
+        </MemoryRouter>,
+      );
+    };
+
+    it('reveals the shortcut hint on the Undo / Redo button titles', async () => {
+      await renderItemDetail();
+      const undoButton = await screen.findByRole('button', { name: 'Undo' });
+      const redoButton = screen.getByRole('button', { name: 'Redo' });
+      // jsdom reports navigator.platform as an empty string, so tests exercise
+      // the non-Mac shortcut labels. The Mac branch is a swap of the display
+      // string only — no separate code path.
+      expect(undoButton.getAttribute('title')).toBe('Undo (Ctrl+Z)');
+      expect(redoButton.getAttribute('title')).toBe('Redo (Ctrl+Shift+Z)');
+      // aria-label stays the plain action so screen readers keep announcing
+      // "Undo" / "Redo" cleanly without spelling out the shortcut.
+      expect(undoButton.getAttribute('aria-label')).toBe('Undo');
+      expect(redoButton.getAttribute('aria-label')).toBe('Redo');
+    });
+
+    it('defers to the browser when Ctrl+Z fires inside the title textarea', async () => {
+      await renderItemDetail();
+      const titleField = (await screen.findByRole('textbox', {
+        name: 'Title',
+      })) as HTMLTextAreaElement;
+
+      // Native undo inside a text field is the browser's job — the handler
+      // must not preventDefault, so per-field typing history stays reachable.
+      const event = new KeyboardEvent('keydown', {
+        key: 'z',
+        ctrlKey: true,
+        bubbles: true,
+        cancelable: true,
+      });
+      titleField.dispatchEvent(event);
+      expect(event.defaultPrevented).toBe(false);
+    });
+
+    it('hides the Undo button on read-only public sample collections', async () => {
+      vi.mocked(db.getLocalCollections).mockResolvedValue([{ ...mockCollection, isPublic: true }]);
+      await renderItemDetail();
+
+      // Read-only detail hides the whole action row, so the shortcut has no
+      // buttons to expose and no history to step through.
+      await screen.findByRole('textbox', { name: 'Title' });
+      expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Redo' })).not.toBeInTheDocument();
+    });
+
+    it('lets the browser handle Ctrl+Z when focus is inside a modal dialog', async () => {
+      await renderItemDetail();
+      await screen.findByRole('textbox', { name: 'Title' });
+
+      // Item modals (Export, Delete, Enhance, ImageEdit, …) mount above the
+      // detail while it stays in the DOM. Pressing the shortcut from a modal
+      // button must not mutate the item behind the dialog. Simulate a modal
+      // subtree to prove the closest([aria-modal]) gate short-circuits.
+      const modal = document.createElement('div');
+      modal.setAttribute('role', 'dialog');
+      modal.setAttribute('aria-modal', 'true');
+      const modalButton = document.createElement('button');
+      modal.appendChild(modalButton);
+      document.body.appendChild(modal);
+
+      try {
+        const event = new KeyboardEvent('keydown', {
+          key: 'z',
+          ctrlKey: true,
+          bubbles: true,
+          cancelable: true,
+        });
+        modalButton.dispatchEvent(event);
+        expect(event.defaultPrevented).toBe(false);
+      } finally {
+        modal.remove();
+      }
+    });
   });
 });
