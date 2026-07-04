@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, within, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, within, fireEvent, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { AppContent } from '@/App';
 import { LanguageProvider } from '@/i18n';
@@ -147,6 +147,7 @@ describe('App Integration Tests', () => {
     vi.mocked(db.syncPendingDeletes).mockResolvedValue(0);
     vi.mocked(db.requestPersistence).mockResolvedValue(true);
     vi.mocked(db.saveAllCollections).mockResolvedValue(undefined);
+    vi.mocked(db.saveCollection).mockResolvedValue(undefined);
     vi.mocked(db.initDB).mockResolvedValue({} as never);
   });
 
@@ -1031,6 +1032,97 @@ describe('App Integration Tests', () => {
 
   // CUR-135: Item Detail undo/redo can be reached from the keyboard so power
   // editors don't have to leave their editing context to step back a change.
+  describe('Item Detail persistent save status (CUR-60)', () => {
+    const renderItemDetail = async () => {
+      const { ThemeProvider } = await import('@/theme');
+      render(
+        <MemoryRouter initialEntries={['/collection/col1/item/item1']}>
+          <ThemeProvider>
+            <LanguageProvider>
+              <AppContent />
+            </LanguageProvider>
+          </ThemeProvider>
+        </MemoryRouter>,
+      );
+    };
+
+    const getSyncStatusCallback = () => {
+      const callback = vi
+        .mocked(db.setSyncStatusCallback)
+        .mock.calls.map(([candidate]) => candidate)
+        .findLast((candidate) => typeof candidate === 'function');
+      expect(callback).toBeTypeOf('function');
+      return callback as (status: db.SyncStatus, error?: string) => void;
+    };
+
+    it('shows Saving during the debounce and Saved after sync confirms backup', async () => {
+      await renderItemDetail();
+      const titleField = (await screen.findByRole('textbox', {
+        name: 'Title',
+      })) as HTMLTextAreaElement;
+
+      vi.useFakeTimers();
+      try {
+        act(() => {
+          fireEvent.change(titleField, { target: { value: 'Edited Item' } });
+        });
+
+        expect(screen.getByTestId('item-save-status')).toHaveTextContent('Saving…');
+        expect(db.saveCollection).not.toHaveBeenCalled();
+
+        await act(async () => {
+          vi.advanceTimersByTime(1500);
+          await Promise.resolve();
+        });
+
+        expect(db.saveCollection).toHaveBeenCalledTimes(1);
+
+        act(() => {
+          getSyncStatusCallback()('synced');
+        });
+
+        expect(screen.getByTestId('item-save-status')).toHaveTextContent('Saved & backed up');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('keeps a retryable error state when sync fails', async () => {
+      await renderItemDetail();
+      const titleField = (await screen.findByRole('textbox', {
+        name: 'Title',
+      })) as HTMLTextAreaElement;
+
+      vi.useFakeTimers();
+      try {
+        act(() => {
+          fireEvent.change(titleField, { target: { value: 'Edited Item' } });
+        });
+        await act(async () => {
+          vi.advanceTimersByTime(1500);
+          await Promise.resolve();
+        });
+
+        act(() => {
+          getSyncStatusCallback()('error', 'network unavailable');
+        });
+
+        const status = screen.getByTestId('item-save-status');
+        expect(status).toHaveTextContent('Save failed');
+
+        await act(async () => {
+          fireEvent.click(within(status).getByRole('button', { name: 'Retry' }));
+          await Promise.resolve();
+        });
+
+        expect(db.saveCollection).toHaveBeenCalledTimes(2);
+        expect(screen.getByTestId('item-save-status')).toHaveTextContent('Saving…');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  });
+
   describe('Item Detail undo/redo keyboard shortcut (CUR-135)', () => {
     const renderItemDetail = async () => {
       const { ThemeProvider } = await import('@/theme');

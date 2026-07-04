@@ -131,6 +131,11 @@ const IS_MAC =
 const UNDO_SHORTCUT_LABEL = IS_MAC ? '⌘Z' : 'Ctrl+Z';
 const REDO_SHORTCUT_LABEL = IS_MAC ? '⌘⇧Z' : 'Ctrl+Shift+Z';
 
+type ItemSaveState = {
+  status: 'saving' | 'saved' | 'error';
+  error?: string;
+};
+
 const isEditableTarget = (target: EventTarget | null): boolean => {
   if (!(target instanceof HTMLElement)) return false;
   const tag = target.tagName;
@@ -231,6 +236,7 @@ export const AppContent: React.FC = () => {
   const showStatusRef = useRef<(message: string, tone?: StatusTone) => void>(() => undefined);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [itemSaveStates, setItemSaveStates] = useState<Record<string, ItemSaveState>>({});
   const [pendingAssetUploads, setPendingAssetUploads] = useState(0);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [conflicts, setConflicts] = useState<ReturnType<typeof detectConflicts>>([]);
@@ -245,6 +251,8 @@ export const AppContent: React.FC = () => {
   );
   const saveTimeoutRef = useRef<Record<string, any>>({});
   const pendingEditedFieldsRef = useRef<Record<string, Set<string>>>({});
+  const pendingEditedItemIdsRef = useRef<Record<string, Set<string>>>({});
+  const pendingDetailSaveIdsRef = useRef<Set<string>>(new Set());
   const statusTimeoutRef = useRef<number | null>(null);
   const pendingSyncToastRef = useRef(false);
   const hasQuotaWarningRef = useRef(false);
@@ -290,6 +298,21 @@ export const AppContent: React.FC = () => {
       console.warn('Pending upload count check failed:', error);
     }
   }, []);
+
+  const setItemSaveState = useCallback(
+    (itemIds: Iterable<string>, status: ItemSaveState['status'], error?: string) => {
+      const ids = [...itemIds];
+      if (ids.length === 0) return;
+      setItemSaveStates((prev) => {
+        const next = { ...prev };
+        ids.forEach((itemId) => {
+          next[itemId] = error ? { status, error } : { status };
+        });
+        return next;
+      });
+    },
+    [],
+  );
 
   const checkStorageQuota = useCallback(async () => {
     if (!navigator.storage?.estimate) return;
@@ -383,6 +406,18 @@ export const AppContent: React.FC = () => {
     const handleSyncStatus = (status: SyncStatus, error?: string) => {
       setSyncStatus(status);
       setSyncError(error ?? null);
+      if (status === 'synced') {
+        setItemSaveState(pendingDetailSaveIdsRef.current, 'saved');
+        pendingDetailSaveIdsRef.current.clear();
+      }
+      if (status === 'error') {
+        setItemSaveState(
+          pendingDetailSaveIdsRef.current,
+          'error',
+          error || tRef.current('statusSyncPaused'),
+        );
+        pendingDetailSaveIdsRef.current.clear();
+      }
       if (status === 'error') {
         trackEvent('sync_failed', {
           operation: 'collection_sync',
@@ -393,7 +428,7 @@ export const AppContent: React.FC = () => {
     };
     setSyncStatusCallback(handleSyncStatus);
     return () => setSyncStatusCallback(null);
-  }, []);
+  }, [setItemSaveState]);
 
   useEffect(() => {
     if (conflicts.length === 0) {
@@ -821,7 +856,7 @@ export const AppContent: React.FC = () => {
   };
 
   const debouncedSaveCollection = useCallback(
-    (collection: UserCollection, changedFields: string[]) => {
+    (collection: UserCollection, changedFields: string[], changedItemIds: string[] = []) => {
       if (saveTimeoutRef.current[collection.id]) {
         clearTimeout(saveTimeoutRef.current[collection.id]);
       }
@@ -830,17 +865,32 @@ export const AppContent: React.FC = () => {
       const accumulated = pendingEditedFieldsRef.current[collection.id] ?? new Set<string>();
       changedFields.forEach((field) => accumulated.add(field));
       pendingEditedFieldsRef.current[collection.id] = accumulated;
+      const pendingItemIds = pendingEditedItemIdsRef.current[collection.id] ?? new Set<string>();
+      changedItemIds.forEach((itemId) => pendingItemIds.add(itemId));
+      pendingEditedItemIdsRef.current[collection.id] = pendingItemIds;
       saveTimeoutRef.current[collection.id] = setTimeout(() => {
         const editedFields = pendingEditedFieldsRef.current[collection.id];
+        const detailItemIds = pendingEditedItemIdsRef.current[collection.id] ?? new Set<string>();
         delete pendingEditedFieldsRef.current[collection.id];
+        delete pendingEditedItemIdsRef.current[collection.id];
+        detailItemIds.forEach((itemId) => pendingDetailSaveIdsRef.current.add(itemId));
         saveCollection(collection)
           .then(() => {
             trackEvent('item_edited', {
               fields: [...(editedFields ?? [])].sort().join(','),
               surface: 'item_detail',
             });
+            if (!isSupabaseReady) {
+              setItemSaveState(detailItemIds, 'saved');
+            }
           })
           .catch((err) => {
+            detailItemIds.forEach((itemId) => pendingDetailSaveIdsRef.current.delete(itemId));
+            setItemSaveState(
+              detailItemIds,
+              'error',
+              err instanceof Error ? err.message : t('statusSyncPaused'),
+            );
             console.warn('Sync failed', err);
             showStatus(
               t('statusSyncError').replace('{error}', err.message || 'Unknown error'),
@@ -849,7 +899,7 @@ export const AppContent: React.FC = () => {
           });
       }, 1500);
     },
-    [showStatus, t],
+    [isSupabaseReady, setItemSaveState, showStatus, t],
   );
 
   const canEditCollection = useCallback(
@@ -934,6 +984,7 @@ export const AppContent: React.FC = () => {
 
   const updateItem = (collectionId: string, itemId: string, updates: Partial<CollectionItem>) => {
     if (!canEditCollection(collectionId)) return;
+    setItemSaveState([itemId], 'saving');
     const now = new Date().toISOString();
     setCollections((prev) =>
       prev.map((c) => {
@@ -945,7 +996,7 @@ export const AppContent: React.FC = () => {
               item.id === itemId ? { ...item, ...updates, updatedAt: now } : item,
             ),
           };
-          debouncedSaveCollection(newC, Object.keys(updates));
+          debouncedSaveCollection(newC, Object.keys(updates), [itemId]);
           return newC;
         }
         return c;
@@ -1773,6 +1824,7 @@ export const AppContent: React.FC = () => {
       return <Navigate to={`/collection/${id}`} replace />;
     }
     const isReadOnly = Boolean(collection.isPublic) && !isAdmin;
+    const itemSaveState = itemSaveStates[item.id];
 
     const snapshotItem = (target: CollectionItem) => ({
       title: target.title,
@@ -1939,6 +1991,26 @@ export const AppContent: React.FC = () => {
         setIsDeleteItemModalOpen(false);
         navigate(`/collection/${collection.id}`);
       }
+    };
+
+    const handleRetryItemSave = () => {
+      setItemSaveState([item.id], 'saving');
+      pendingDetailSaveIdsRef.current.add(item.id);
+      saveCollection(collection)
+        .then(() => {
+          if (!isSupabaseReady) {
+            pendingDetailSaveIdsRef.current.delete(item.id);
+            setItemSaveState([item.id], 'saved');
+          }
+        })
+        .catch((err) => {
+          pendingDetailSaveIdsRef.current.delete(item.id);
+          setItemSaveState(
+            [item.id],
+            'error',
+            err instanceof Error ? err.message : t('statusSyncPaused'),
+          );
+        });
     };
 
     const applyEditedPhoto = async (dataUrl: string) => {
@@ -2171,6 +2243,56 @@ export const AppContent: React.FC = () => {
                   >
                     {t('titleRequired')}
                   </p>
+                )}
+                {!isReadOnly && itemSaveState && (
+                  <div
+                    role="status"
+                    aria-live="polite"
+                    data-testid="item-save-status"
+                    className={`mb-3 inline-flex max-w-full flex-wrap items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${
+                      itemSaveState.status === 'error'
+                        ? theme === 'vault'
+                          ? 'border-red-400/40 bg-red-500/10 text-red-200'
+                          : 'border-red-200 bg-red-50 text-red-700'
+                        : itemSaveState.status === 'saved'
+                          ? theme === 'vault'
+                            ? 'border-emerald-400/30 bg-emerald-500/10 text-emerald-200'
+                            : theme === 'atelier'
+                              ? 'border-[#d7d0c5] bg-white/70 text-[#5f6f4f]'
+                              : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                          : theme === 'vault'
+                            ? 'border-white/10 bg-white/5 text-stone-300'
+                            : 'border-stone-200 bg-stone-50 text-stone-600'
+                    }`}
+                  >
+                    {itemSaveState.status === 'saving' && (
+                      <Loader2 size={14} className="shrink-0 animate-spin" aria-hidden />
+                    )}
+                    {itemSaveState.status === 'saved' && (
+                      <CheckSquare size={14} className="shrink-0" aria-hidden />
+                    )}
+                    {itemSaveState.status === 'error' && (
+                      <AlertCircle size={14} className="shrink-0" aria-hidden />
+                    )}
+                    <span>
+                      {itemSaveState.status === 'saving'
+                        ? t('itemSaveStatusSaving')
+                        : itemSaveState.status === 'saved'
+                          ? t('itemSaveStatusSaved')
+                          : t('itemSaveStatusError')}
+                    </span>
+                    {itemSaveState.status === 'error' && (
+                      <button
+                        type="button"
+                        onClick={handleRetryItemSave}
+                        className={`rounded-full px-2 py-0.5 text-[11px] underline-offset-2 hover:underline ${
+                          theme === 'vault' ? 'bg-white/10 text-white' : 'bg-white/80 text-red-800'
+                        }`}
+                      >
+                        {t('actionRetry')}
+                      </button>
+                    )}
+                  </div>
                 )}
                 <div className="flex flex-wrap items-center gap-2">
                   {[1, 2, 3, 4, 5].map((star) => (
