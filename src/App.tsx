@@ -253,7 +253,11 @@ export const AppContent: React.FC = () => {
   const saveTimeoutRef = useRef<Record<string, any>>({});
   const pendingEditedFieldsRef = useRef<Record<string, Set<string>>>({});
   const pendingEditedItemIdsRef = useRef<Record<string, Set<string>>>({});
-  const pendingDetailSaveIdsRef = useRef<Set<string>>(new Set());
+  // Every Item Detail edit bumps the item's revision. A save records the
+  // revision it carries when it starts, so a generic sync event only resolves
+  // the badge when no newer edit is still waiting to be backed up.
+  const itemSaveRevisionRef = useRef<Record<string, number>>({});
+  const pendingDetailSavesRef = useRef<Map<string, number>>(new Map());
   const statusTimeoutRef = useRef<number | null>(null);
   const pendingSyncToastRef = useRef(false);
   const hasQuotaWarningRef = useRef(false);
@@ -407,17 +411,22 @@ export const AppContent: React.FC = () => {
     const handleSyncStatus = (status: SyncStatus, error?: string) => {
       setSyncStatus(status);
       setSyncError(error ?? null);
-      if (status === 'synced') {
-        setItemSaveState(pendingDetailSaveIdsRef.current, 'saved');
-        pendingDetailSaveIdsRef.current.clear();
-      }
-      if (status === 'error') {
-        setItemSaveState(
-          pendingDetailSaveIdsRef.current,
-          'error',
-          error || tRef.current('statusSyncPaused'),
-        );
-        pendingDetailSaveIdsRef.current.clear();
+      if (status === 'synced' || status === 'error') {
+        // Only resolve items whose recorded save revision is still the latest;
+        // an item edited again since this save started stays "Saving" until
+        // its own save reports back.
+        const resolvedIds: string[] = [];
+        pendingDetailSavesRef.current.forEach((revision, itemId) => {
+          if (revision === (itemSaveRevisionRef.current[itemId] ?? 0)) {
+            resolvedIds.push(itemId);
+          }
+        });
+        pendingDetailSavesRef.current.clear();
+        if (status === 'synced') {
+          setItemSaveState(resolvedIds, 'saved');
+        } else {
+          setItemSaveState(resolvedIds, 'error', error || tRef.current('statusSyncPaused'));
+        }
       }
       if (status === 'error') {
         trackEvent('sync_failed', {
@@ -874,7 +883,26 @@ export const AppContent: React.FC = () => {
         const detailItemIds = pendingEditedItemIdsRef.current[collection.id] ?? new Set<string>();
         delete pendingEditedFieldsRef.current[collection.id];
         delete pendingEditedItemIdsRef.current[collection.id];
-        detailItemIds.forEach((itemId) => pendingDetailSaveIdsRef.current.add(itemId));
+        const saveRevisions = new Map<string, number>();
+        detailItemIds.forEach((itemId) => {
+          const revision = itemSaveRevisionRef.current[itemId] ?? 0;
+          saveRevisions.set(itemId, revision);
+          pendingDetailSavesRef.current.set(itemId, revision);
+        });
+        // Resolve only items this save still speaks for — an item edited again
+        // after this save started keeps its "Saving" badge for the newer save.
+        const settleItems = (status: 'saved' | 'error', error?: string) => {
+          const settledIds: string[] = [];
+          saveRevisions.forEach((revision, itemId) => {
+            if (pendingDetailSavesRef.current.get(itemId) === revision) {
+              pendingDetailSavesRef.current.delete(itemId);
+            }
+            if (revision === (itemSaveRevisionRef.current[itemId] ?? 0)) {
+              settledIds.push(itemId);
+            }
+          });
+          setItemSaveState(settledIds, status, error);
+        };
         saveCollection(collection)
           .then(() => {
             trackEvent('item_edited', {
@@ -882,16 +910,11 @@ export const AppContent: React.FC = () => {
               surface: 'item_detail',
             });
             if (!isSupabaseReady) {
-              setItemSaveState(detailItemIds, 'saved');
+              settleItems('saved');
             }
           })
           .catch((err) => {
-            detailItemIds.forEach((itemId) => pendingDetailSaveIdsRef.current.delete(itemId));
-            setItemSaveState(
-              detailItemIds,
-              'error',
-              err instanceof Error ? err.message : t('statusSyncPaused'),
-            );
+            settleItems('error', err instanceof Error ? err.message : t('statusSyncPaused'));
             console.warn('Sync failed', err);
             showStatus(
               t('statusSyncError').replace('{error}', err.message || 'Unknown error'),
@@ -985,6 +1008,7 @@ export const AppContent: React.FC = () => {
 
   const updateItem = (collectionId: string, itemId: string, updates: Partial<CollectionItem>) => {
     if (!canEditCollection(collectionId)) return;
+    itemSaveRevisionRef.current[itemId] = (itemSaveRevisionRef.current[itemId] ?? 0) + 1;
     setItemSaveState([itemId], 'saving');
     const now = new Date().toISOString();
     setCollections((prev) =>
@@ -1987,22 +2011,25 @@ export const AppContent: React.FC = () => {
     };
 
     const handleRetryItemSave = () => {
+      const revision = itemSaveRevisionRef.current[item.id] ?? 0;
       setItemSaveState([item.id], 'saving');
-      pendingDetailSaveIdsRef.current.add(item.id);
+      pendingDetailSavesRef.current.set(item.id, revision);
+      const settleRetry = (status: 'saved' | 'error', error?: string) => {
+        if (pendingDetailSavesRef.current.get(item.id) === revision) {
+          pendingDetailSavesRef.current.delete(item.id);
+        }
+        if (revision === (itemSaveRevisionRef.current[item.id] ?? 0)) {
+          setItemSaveState([item.id], status, error);
+        }
+      };
       saveCollection(collection)
         .then(() => {
           if (!isSupabaseReady) {
-            pendingDetailSaveIdsRef.current.delete(item.id);
-            setItemSaveState([item.id], 'saved');
+            settleRetry('saved');
           }
         })
         .catch((err) => {
-          pendingDetailSaveIdsRef.current.delete(item.id);
-          setItemSaveState(
-            [item.id],
-            'error',
-            err instanceof Error ? err.message : t('statusSyncPaused'),
-          );
+          settleRetry('error', err instanceof Error ? err.message : t('statusSyncPaused'));
         });
     };
 

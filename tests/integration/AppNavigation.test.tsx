@@ -1087,6 +1087,54 @@ describe('App Integration Tests', () => {
       }
     });
 
+    it('keeps Saving when a sync completes for an older save while a newer edit is pending', async () => {
+      await renderItemDetail();
+      const titleField = (await screen.findByRole('textbox', {
+        name: 'Title',
+      })) as HTMLTextAreaElement;
+
+      vi.useFakeTimers();
+      try {
+        // First edit's debounce fires and its save starts.
+        act(() => {
+          fireEvent.change(titleField, { target: { value: 'Edited Item' } });
+        });
+        await act(async () => {
+          vi.advanceTimersByTime(1500);
+          await Promise.resolve();
+        });
+        expect(db.saveCollection).toHaveBeenCalledTimes(1);
+
+        // A second edit lands before the first save's sync confirmation.
+        // Re-query the field: the detail screen re-renders between edits.
+        act(() => {
+          fireEvent.change(screen.getByRole('textbox', { name: 'Title' }), {
+            target: { value: 'Edited Item Again' },
+          });
+        });
+        expect(screen.getByTestId('item-save-status')).toHaveTextContent('Saving…');
+
+        // The first save's sync event must not mark the newer edit as backed up.
+        act(() => {
+          getSyncStatusCallback()('synced');
+        });
+        expect(screen.getByTestId('item-save-status')).toHaveTextContent('Saving…');
+
+        // Once the second save runs and its sync confirms, the badge resolves.
+        await act(async () => {
+          vi.advanceTimersByTime(1500);
+          await Promise.resolve();
+        });
+        expect(db.saveCollection).toHaveBeenCalledTimes(2);
+        act(() => {
+          getSyncStatusCallback()('synced');
+        });
+        expect(screen.getByTestId('item-save-status')).toHaveTextContent('Saved & backed up');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
     it('keeps a retryable error state when sync fails', async () => {
       await renderItemDetail();
       const titleField = (await screen.findByRole('textbox', {
