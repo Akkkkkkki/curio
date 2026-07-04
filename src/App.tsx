@@ -123,6 +123,35 @@ import { trackEvent } from './services/analytics';
  */
 const STORY_FEATURE_LAUNCHED_AT = '2026-05-16T00:00:00.000Z';
 
+// CUR-135: Item Detail undo/redo can be reached from the keyboard.
+// `navigator.platform` is deprecated but still populated in every browser
+// Curio targets; jsdom exposes it too, so tests see a stable value.
+const IS_MAC =
+  typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/i.test(navigator.platform || '');
+const UNDO_SHORTCUT_LABEL = IS_MAC ? '⌘Z' : 'Ctrl+Z';
+const REDO_SHORTCUT_LABEL = IS_MAC ? '⌘⇧Z' : 'Ctrl+Shift+Z';
+
+type ItemSaveState = {
+  status: 'saving' | 'saved' | 'error';
+  error?: string;
+};
+
+const isEditableTarget = (target: EventTarget | null): boolean => {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+  return target.isContentEditable;
+};
+
+// CUR-135: item modals (Export, Delete, Enhance, ImageEdit, …) mount above
+// the item detail while it stays in the DOM. Focus inside a dialog must not
+// silently mutate the item behind it — the app-level undo should only fire
+// while the item detail itself is the active surface.
+const isInsideModalDialog = (target: EventTarget | null): boolean => {
+  if (!(target instanceof HTMLElement)) return false;
+  return target.closest('[aria-modal="true"], [data-export-modal]') !== null;
+};
+
 const isLegacyAiNoteItem = (item: CollectionItem): boolean => {
   const story = item.notes;
   if (!story || !story.trim()) return false;
@@ -142,9 +171,40 @@ import {
 } from './config';
 import { detectConflicts } from './utils/conflictDetection';
 import { sortCollectionItems, type ItemSort } from './utils/collectionSorting';
+import { matchesItemFilters } from './utils/itemFilter';
 import { HomeScreen } from './components/HomeScreen';
 import { useDebouncedValue } from './hooks/useDebouncedValue';
 import { useAndroidBackButton } from './hooks/useAndroidBackButton';
+
+// CUR-93: Active filter chips and the "Clear all" link used to hardcode
+// Gallery (light) tokens, so on Vault the amber-50 pills punched through
+// the dark page and the stone-500 link collapsed against the page muted
+// text. The palette here mirrors the warning tone in StatusBanner (CUR-81)
+// and the muted link tones already used elsewhere in the file, so the
+// chips read as one system across themes.
+const filterChipClasses: Record<AppTheme, string> = {
+  gallery: 'bg-amber-50 text-amber-800 border-amber-100',
+  vault: 'bg-amber-500/10 text-amber-200 border-amber-400/20',
+  atelier: 'bg-amber-100/70 text-amber-900 border-amber-300/60',
+};
+
+const filterChipSeparatorClasses: Record<AppTheme, string> = {
+  gallery: 'text-amber-700/80',
+  vault: 'text-amber-200/70',
+  atelier: 'text-amber-800/70',
+};
+
+const filterChipIconClasses: Record<AppTheme, string> = {
+  gallery: 'text-amber-600',
+  vault: 'text-amber-200',
+  atelier: 'text-amber-800',
+};
+
+const clearFiltersLinkClasses: Record<AppTheme, string> = {
+  gallery: 'text-stone-500 hover:text-stone-800 decoration-stone-300',
+  vault: 'text-stone-300 hover:text-white decoration-white/30',
+  atelier: 'text-[#8C7B6B] hover:text-[#3D3530] decoration-[#D4C9B8]',
+};
 
 export const AppContent: React.FC = () => {
   const { t, language } = useTranslation();
@@ -177,6 +237,7 @@ export const AppContent: React.FC = () => {
   const showStatusRef = useRef<(message: string, tone?: StatusTone) => void>(() => undefined);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [itemSaveStates, setItemSaveStates] = useState<Record<string, ItemSaveState>>({});
   const [pendingAssetUploads, setPendingAssetUploads] = useState(0);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [conflicts, setConflicts] = useState<ReturnType<typeof detectConflicts>>([]);
@@ -191,6 +252,12 @@ export const AppContent: React.FC = () => {
   );
   const saveTimeoutRef = useRef<Record<string, any>>({});
   const pendingEditedFieldsRef = useRef<Record<string, Set<string>>>({});
+  const pendingEditedItemIdsRef = useRef<Record<string, Set<string>>>({});
+  // Every Item Detail edit bumps the item's revision. A save records the
+  // revision it carries when it starts, so a generic sync event only resolves
+  // the badge when no newer edit is still waiting to be backed up.
+  const itemSaveRevisionRef = useRef<Record<string, number>>({});
+  const pendingDetailSavesRef = useRef<Map<string, number>>(new Map());
   const statusTimeoutRef = useRef<number | null>(null);
   const pendingSyncToastRef = useRef(false);
   const hasQuotaWarningRef = useRef(false);
@@ -236,6 +303,21 @@ export const AppContent: React.FC = () => {
       console.warn('Pending upload count check failed:', error);
     }
   }, []);
+
+  const setItemSaveState = useCallback(
+    (itemIds: Iterable<string>, status: ItemSaveState['status'], error?: string) => {
+      const ids = [...itemIds];
+      if (ids.length === 0) return;
+      setItemSaveStates((prev) => {
+        const next = { ...prev };
+        ids.forEach((itemId) => {
+          next[itemId] = error ? { status, error } : { status };
+        });
+        return next;
+      });
+    },
+    [],
+  );
 
   const checkStorageQuota = useCallback(async () => {
     if (!navigator.storage?.estimate) return;
@@ -329,6 +411,23 @@ export const AppContent: React.FC = () => {
     const handleSyncStatus = (status: SyncStatus, error?: string) => {
       setSyncStatus(status);
       setSyncError(error ?? null);
+      if (status === 'synced' || status === 'error') {
+        // Only resolve items whose recorded save revision is still the latest;
+        // an item edited again since this save started stays "Saving" until
+        // its own save reports back.
+        const resolvedIds: string[] = [];
+        pendingDetailSavesRef.current.forEach((revision, itemId) => {
+          if (revision === (itemSaveRevisionRef.current[itemId] ?? 0)) {
+            resolvedIds.push(itemId);
+          }
+        });
+        pendingDetailSavesRef.current.clear();
+        if (status === 'synced') {
+          setItemSaveState(resolvedIds, 'saved');
+        } else {
+          setItemSaveState(resolvedIds, 'error', error || tRef.current('statusSyncPaused'));
+        }
+      }
       if (status === 'error') {
         trackEvent('sync_failed', {
           operation: 'collection_sync',
@@ -339,7 +438,7 @@ export const AppContent: React.FC = () => {
     };
     setSyncStatusCallback(handleSyncStatus);
     return () => setSyncStatusCallback(null);
-  }, []);
+  }, [setItemSaveState]);
 
   useEffect(() => {
     if (conflicts.length === 0) {
@@ -767,7 +866,7 @@ export const AppContent: React.FC = () => {
   };
 
   const debouncedSaveCollection = useCallback(
-    (collection: UserCollection, changedFields: string[]) => {
+    (collection: UserCollection, changedFields: string[], changedItemIds: string[] = []) => {
       if (saveTimeoutRef.current[collection.id]) {
         clearTimeout(saveTimeoutRef.current[collection.id]);
       }
@@ -776,18 +875,47 @@ export const AppContent: React.FC = () => {
       const accumulated = pendingEditedFieldsRef.current[collection.id] ?? new Set<string>();
       changedFields.forEach((field) => accumulated.add(field));
       pendingEditedFieldsRef.current[collection.id] = accumulated;
+      const pendingItemIds = pendingEditedItemIdsRef.current[collection.id] ?? new Set<string>();
+      changedItemIds.forEach((itemId) => pendingItemIds.add(itemId));
+      pendingEditedItemIdsRef.current[collection.id] = pendingItemIds;
       saveTimeoutRef.current[collection.id] = setTimeout(() => {
         delete saveTimeoutRef.current[collection.id];
         const editedFields = pendingEditedFieldsRef.current[collection.id];
+        const detailItemIds = pendingEditedItemIdsRef.current[collection.id] ?? new Set<string>();
         delete pendingEditedFieldsRef.current[collection.id];
+        delete pendingEditedItemIdsRef.current[collection.id];
+        const saveRevisions = new Map<string, number>();
+        detailItemIds.forEach((itemId) => {
+          const revision = itemSaveRevisionRef.current[itemId] ?? 0;
+          saveRevisions.set(itemId, revision);
+          pendingDetailSavesRef.current.set(itemId, revision);
+        });
+        // Resolve only items this save still speaks for — an item edited again
+        // after this save started keeps its "Saving" badge for the newer save.
+        const settleItems = (status: 'saved' | 'error', error?: string) => {
+          const settledIds: string[] = [];
+          saveRevisions.forEach((revision, itemId) => {
+            if (pendingDetailSavesRef.current.get(itemId) === revision) {
+              pendingDetailSavesRef.current.delete(itemId);
+            }
+            if (revision === (itemSaveRevisionRef.current[itemId] ?? 0)) {
+              settledIds.push(itemId);
+            }
+          });
+          setItemSaveState(settledIds, status, error);
+        };
         saveCollection(collection)
           .then(() => {
             trackEvent('item_edited', {
               fields: [...(editedFields ?? [])].sort().join(','),
               surface: 'item_detail',
             });
+            if (!isSupabaseReady) {
+              settleItems('saved');
+            }
           })
           .catch((err) => {
+            settleItems('error', err instanceof Error ? err.message : t('statusSyncPaused'));
             console.warn('Sync failed', err);
             showStatus(
               t('statusSyncError').replace('{error}', err.message || 'Unknown error'),
@@ -796,7 +924,7 @@ export const AppContent: React.FC = () => {
           });
       }, 1500);
     },
-    [showStatus, t],
+    [isSupabaseReady, setItemSaveState, showStatus, t],
   );
 
   const clearPendingCollectionSave = useCallback((collectionId: string) => {
@@ -805,6 +933,7 @@ export const AppContent: React.FC = () => {
       delete saveTimeoutRef.current[collectionId];
     }
     delete pendingEditedFieldsRef.current[collectionId];
+    delete pendingEditedItemIdsRef.current[collectionId];
   }, []);
 
   const canEditCollection = useCallback(
@@ -889,6 +1018,8 @@ export const AppContent: React.FC = () => {
 
   const updateItem = (collectionId: string, itemId: string, updates: Partial<CollectionItem>) => {
     if (!canEditCollection(collectionId)) return;
+    itemSaveRevisionRef.current[itemId] = (itemSaveRevisionRef.current[itemId] ?? 0) + 1;
+    setItemSaveState([itemId], 'saving');
     const now = new Date().toISOString();
     setCollections((prev) =>
       prev.map((c) => {
@@ -900,7 +1031,7 @@ export const AppContent: React.FC = () => {
               item.id === itemId ? { ...item, ...updates, updatedAt: now } : item,
             ),
           };
-          debouncedSaveCollection(newC, Object.keys(updates));
+          debouncedSaveCollection(newC, Object.keys(updates), [itemId]);
           return newC;
         }
         return c;
@@ -1154,16 +1285,7 @@ export const AppContent: React.FC = () => {
           item.title.toLowerCase().includes(term) ||
           item.notes?.toLowerCase().includes(term) ||
           Object.values(item.data).some((val) => String(val).toLowerCase().includes(term));
-        const matchesFilters = (Object.entries(activeFilters) as [string, string][]).every(
-          ([key, value]) => {
-            if (!value) return true;
-            if (key === 'rating') return item.rating >= parseInt(value);
-            const itemVal = item.data[key];
-            if (itemVal === undefined || itemVal === null) return false;
-            return String(itemVal).toLowerCase().includes(value.toLowerCase());
-          },
-        );
-        return matchesSearch && matchesFilters;
+        return matchesSearch && matchesItemFilters(item, activeFilters, collection.customFields);
       });
     }, [collection, debouncedFilter, activeFilters]);
 
@@ -1440,19 +1562,21 @@ export const AppContent: React.FC = () => {
             {activeFilterEntries.map(([key, value]) => (
               <button
                 key={key}
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm bg-amber-50 text-amber-800 border border-amber-100 motion-chip"
+                data-testid="active-filter-chip"
+                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm border motion-chip ${filterChipClasses[theme]}`}
                 onClick={() => handleRemoveFilter(key)}
                 title={t('clearFilter')}
               >
                 <span className="font-semibold">{getFieldLabel(key)}</span>
-                <span className="text-amber-700/80">·</span>
+                <span className={filterChipSeparatorClasses[theme]}>·</span>
                 <span className="font-medium">{value}</span>
-                <X size={14} className="text-amber-600" />
+                <X size={14} className={filterChipIconClasses[theme]} />
               </button>
             ))}
             <button
+              data-testid="active-filter-clear-all"
               onClick={handleClearFilters}
-              className="text-sm font-semibold text-stone-500 hover:text-stone-800 underline decoration-stone-300"
+              className={`text-sm font-semibold underline ${clearFiltersLinkClasses[theme]}`}
             >
               {t('clearAll')}
             </button>
@@ -1605,6 +1729,7 @@ export const AppContent: React.FC = () => {
           isOpen={isFilterModalOpen}
           onClose={() => setIsFilterModalOpen(false)}
           fields={collection.customFields}
+          items={collection.items}
           activeFilters={activeFilters}
           onApply={setActiveFilters}
         />
@@ -1678,6 +1803,43 @@ export const AppContent: React.FC = () => {
       ta.style.height = `${ta.scrollHeight}px`;
     }, [item?.title]);
 
+    // CUR-135: install the keyboard shortcut listener before any early return
+    // so the hook order stays stable while the item is still loading. The ref
+    // is populated further down once handleUndo/handleRedo are defined.
+    const shortcutRef = useRef({
+      isReadOnly: false,
+      historyLength: 0,
+      futureLength: 0,
+      handleUndo: () => {},
+      handleRedo: () => {},
+    });
+
+    useEffect(() => {
+      const handler = (e: KeyboardEvent) => {
+        const current = shortcutRef.current;
+        if (current.isReadOnly) return;
+        const mod = e.metaKey || e.ctrlKey;
+        if (!mod) return;
+        const key = e.key.toLowerCase();
+        const isUndo = key === 'z' && !e.shiftKey;
+        // Windows-style redo (Ctrl+Y) — skip when Meta is also held so it
+        // doesn't collide with browser History shortcuts on macOS.
+        const isRedo = (key === 'z' && e.shiftKey) || (key === 'y' && e.ctrlKey && !e.metaKey);
+        if (!isUndo && !isRedo) return;
+        if (isEditableTarget(e.target)) return;
+        if (isInsideModalDialog(e.target)) return;
+        if (isUndo && current.historyLength > 0) {
+          e.preventDefault();
+          current.handleUndo();
+        } else if (isRedo && current.futureLength > 0) {
+          e.preventDefault();
+          current.handleRedo();
+        }
+      };
+      window.addEventListener('keydown', handler);
+      return () => window.removeEventListener('keydown', handler);
+    }, []);
+
     if (!collection || !item) {
       // CUR-118: deep-link reload of /collection/:id/item/:itemId must wait
       // for the cloud fetch instead of bouncing to Home / parent collection.
@@ -1691,6 +1853,7 @@ export const AppContent: React.FC = () => {
       return <Navigate to={`/collection/${id}`} replace />;
     }
     const isReadOnly = Boolean(collection.isPublic) && !isAdmin;
+    const itemSaveState = itemSaveStates[item.id];
 
     const snapshotItem = (target: CollectionItem) => ({
       title: target.title,
@@ -1836,6 +1999,17 @@ export const AppContent: React.FC = () => {
       setDetailPromptsFetchedFor(null);
     }, [item.id]);
 
+    // CUR-135: Cmd/Ctrl+Z, Cmd/Ctrl+Shift+Z, Ctrl+Y drive the app-level
+    // undo/redo stacks that the on-screen buttons already use. Text-field
+    // focus defers to the browser's native per-field undo so typing history
+    // stays reachable; the shortcut only steps the app-level stack once the
+    // user has clicked out of the field. Read-only items ignore both keys.
+    shortcutRef.current.isReadOnly = isReadOnly;
+    shortcutRef.current.historyLength = history.length;
+    shortcutRef.current.futureLength = future.length;
+    shortcutRef.current.handleUndo = handleUndo;
+    shortcutRef.current.handleRedo = handleRedo;
+
     const handleDelete = () => {
       if (isReadOnly) return;
       setIsDeleteItemModalOpen(true);
@@ -1846,6 +2020,29 @@ export const AppContent: React.FC = () => {
         setIsDeleteItemModalOpen(false);
         navigate(`/collection/${collection.id}`);
       }
+    };
+
+    const handleRetryItemSave = () => {
+      const revision = itemSaveRevisionRef.current[item.id] ?? 0;
+      setItemSaveState([item.id], 'saving');
+      pendingDetailSavesRef.current.set(item.id, revision);
+      const settleRetry = (status: 'saved' | 'error', error?: string) => {
+        if (pendingDetailSavesRef.current.get(item.id) === revision) {
+          pendingDetailSavesRef.current.delete(item.id);
+        }
+        if (revision === (itemSaveRevisionRef.current[item.id] ?? 0)) {
+          setItemSaveState([item.id], status, error);
+        }
+      };
+      saveCollection(collection)
+        .then(() => {
+          if (!isSupabaseReady) {
+            settleRetry('saved');
+          }
+        })
+        .catch((err) => {
+          settleRetry('error', err instanceof Error ? err.message : t('statusSyncPaused'));
+        });
     };
 
     const applyEditedPhoto = async (dataUrl: string) => {
@@ -2079,6 +2276,56 @@ export const AppContent: React.FC = () => {
                     {t('titleRequired')}
                   </p>
                 )}
+                {!isReadOnly && itemSaveState && (
+                  <div
+                    role="status"
+                    aria-live="polite"
+                    data-testid="item-save-status"
+                    className={`mb-3 inline-flex max-w-full flex-wrap items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${
+                      itemSaveState.status === 'error'
+                        ? theme === 'vault'
+                          ? 'border-red-400/40 bg-red-500/10 text-red-200'
+                          : 'border-red-200 bg-red-50 text-red-700'
+                        : itemSaveState.status === 'saved'
+                          ? theme === 'vault'
+                            ? 'border-emerald-400/30 bg-emerald-500/10 text-emerald-200'
+                            : theme === 'atelier'
+                              ? 'border-[#d7d0c5] bg-white/70 text-[#5f6f4f]'
+                              : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                          : theme === 'vault'
+                            ? 'border-white/10 bg-white/5 text-stone-300'
+                            : 'border-stone-200 bg-stone-50 text-stone-600'
+                    }`}
+                  >
+                    {itemSaveState.status === 'saving' && (
+                      <Loader2 size={14} className="shrink-0 animate-spin" aria-hidden />
+                    )}
+                    {itemSaveState.status === 'saved' && (
+                      <CheckSquare size={14} className="shrink-0" aria-hidden />
+                    )}
+                    {itemSaveState.status === 'error' && (
+                      <AlertCircle size={14} className="shrink-0" aria-hidden />
+                    )}
+                    <span>
+                      {itemSaveState.status === 'saving'
+                        ? t('itemSaveStatusSaving')
+                        : itemSaveState.status === 'saved'
+                          ? t('itemSaveStatusSaved')
+                          : t('itemSaveStatusError')}
+                    </span>
+                    {itemSaveState.status === 'error' && (
+                      <button
+                        type="button"
+                        onClick={handleRetryItemSave}
+                        className={`rounded-full px-2 py-0.5 text-[11px] underline-offset-2 hover:underline ${
+                          theme === 'vault' ? 'bg-white/10 text-white' : 'bg-white/80 text-red-800'
+                        }`}
+                      >
+                        {t('actionRetry')}
+                      </button>
+                    )}
+                  </div>
+                )}
                 <div className="flex flex-wrap items-center gap-2">
                   {[1, 2, 3, 4, 5].map((star) => (
                     <button
@@ -2118,7 +2365,7 @@ export const AppContent: React.FC = () => {
                     onClick={handleUndo}
                     disabled={history.length === 0}
                     aria-label={t('undo')}
-                    title={t('undo')}
+                    title={`${t('undo')} (${UNDO_SHORTCUT_LABEL})`}
                     className={`p-3 sm:p-4 rounded-full transition-colors ${mutedTextClasses[theme]} ${
                       history.length === 0
                         ? 'opacity-50 cursor-not-allowed'
@@ -2133,7 +2380,7 @@ export const AppContent: React.FC = () => {
                     onClick={handleRedo}
                     disabled={future.length === 0}
                     aria-label={t('redo')}
-                    title={t('redo')}
+                    title={`${t('redo')} (${REDO_SHORTCUT_LABEL})`}
                     className={`p-3 sm:p-4 rounded-full transition-colors ${mutedTextClasses[theme]} ${
                       future.length === 0
                         ? 'opacity-50 cursor-not-allowed'
@@ -2771,7 +3018,7 @@ export const AppContent: React.FC = () => {
                 path="/"
                 element={
                   <HomeScreen
-                    collections={collections}
+                    collections={editableCollections}
                     stats={stats}
                     isLoading={isLoading}
                     loadError={loadError}

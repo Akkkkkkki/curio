@@ -180,6 +180,39 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     vault: 'border-white/15 text-stone-300 hover:border-amber-400/40 hover:bg-white/5',
     atelier: 'border-[#D4C9B8] text-[#8C7B6B] hover:border-[#A86F3C]/40 hover:bg-[#EDE4D3]',
   }[theme];
+  // CUR-22: theme-aware tone tokens for the upload empty state, collection
+  // picker tiles, and subtle "skip / hide" links so Vault stops rendering a
+  // bright cream pill / heading inside an otherwise dark modal.
+  const uploadEmptyTileClass = {
+    gallery: 'bg-stone-50 border-stone-200 text-stone-400 hover:border-amber-400 hover:bg-amber-50',
+    vault: 'bg-white/5 border-white/15 text-stone-300 hover:border-amber-400/60 hover:bg-white/10',
+    atelier:
+      'bg-[#EDE4D3] border-[#D4C9B8] text-[#8C7B6B] hover:border-[#A86F3C]/60 hover:bg-[#E6D9C2]',
+  }[theme];
+  const uploadHeadingClass = {
+    gallery: 'text-stone-900',
+    vault: 'text-white',
+    atelier: 'text-[#3D3530]',
+  }[theme];
+  const selectTileClass = {
+    gallery: 'border border-stone-100 bg-stone-50/50 hover:border-amber-400 hover:bg-amber-50',
+    vault: 'border border-white/10 bg-white/5 hover:border-amber-400/60 hover:bg-white/10',
+    atelier: 'border border-[#D4C9B8] bg-[#EDE4D3]/60 hover:border-[#A86F3C]/60 hover:bg-[#EDE4D3]',
+  }[theme];
+  const selectTileTitleClass = {
+    gallery: 'text-stone-800',
+    vault: 'text-white',
+    atelier: 'text-[#3D3530]',
+  }[theme];
+  // Subtle "skip / dismiss" link hover tone. The original
+  // "hover:text-stone-600 / hover:text-stone-700" disappears against Vault's
+  // stone-900 surface — pin a theme-specific destination so the hover affordance
+  // stays legible across all three themes.
+  const subtleLinkHoverClass = {
+    gallery: 'hover:text-stone-700',
+    vault: 'hover:text-white',
+    atelier: 'hover:text-[#3D3530]',
+  }[theme];
   // Matches the dialog surface so the bottom fade blends into the panel bg.
   const scrollFadeFrom =
     theme === 'vault' ? 'from-stone-900' : theme === 'atelier' ? 'from-[#F5EFE4]' : 'from-white';
@@ -936,15 +969,18 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
               setSelectedCollectionId(c.id);
               setStep('upload');
             }}
-            className="p-4 sm:p-6 rounded-xl sm:rounded-2xl border border-stone-100 bg-stone-50/50 hover:border-amber-400 hover:bg-amber-50 transition-all text-left group shadow-sm hover:shadow-md"
+            data-testid="add-item-collection-tile"
+            className={`p-4 sm:p-6 rounded-xl sm:rounded-2xl ${selectTileClass} transition-all text-left group shadow-sm hover:shadow-md`}
           >
             <span className="block text-2xl sm:text-3xl mb-2 sm:mb-3 group-hover:scale-110 transition-transform origin-left">
               {c.icon || '📦'}
             </span>
-            <span className="font-bold text-stone-800 block text-base sm:text-lg truncate">
+            <span
+              className={`font-bold ${selectTileTitleClass} block text-base sm:text-lg truncate`}
+            >
               {c.name}
             </span>
-            <span className="text-[10px] text-stone-400 font-medium uppercase tracking-wider">
+            <span className={`text-[10px] font-medium uppercase tracking-wider ${mutedText}`}>
               {t('artifacts')}: {c.items.length}
             </span>
           </button>
@@ -961,7 +997,8 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
             type="button"
             onClick={pickFromGallery}
             aria-label={imagePreview ? t('changePhoto') : undefined}
-            className="w-32 h-32 sm:w-40 sm:h-40 rounded-full bg-stone-50 border-2 border-dashed border-stone-200 flex flex-col items-center justify-center text-stone-400 group hover:border-amber-400 hover:bg-amber-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40 focus-visible:ring-offset-2 transition-all cursor-pointer overflow-hidden"
+            data-testid="add-item-upload-empty"
+            className={`w-32 h-32 sm:w-40 sm:h-40 rounded-full border-2 border-dashed flex flex-col items-center justify-center group focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40 focus-visible:ring-offset-2 transition-all cursor-pointer overflow-hidden ${uploadEmptyTileClass}`}
           >
             {imagePreview ? (
               <img src={imagePreview} className="w-full h-full object-cover" alt="" />
@@ -977,7 +1014,9 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
         </div>
       </div>
       <div>
-        <h3 className="text-xl sm:text-2xl font-serif font-bold text-stone-900 mb-1 sm:mb-2">
+        <h3
+          className={`text-xl sm:text-2xl font-serif font-bold mb-1 sm:mb-2 ${uploadHeadingClass}`}
+        >
           {t('uploadPhoto')}
         </h3>
         <p className={`text-sm sm:text-base ${mutedText} max-w-xs mx-auto`}>
@@ -1010,7 +1049,8 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
         </Button>
         <button
           onClick={switchToManual}
-          className="text-xs sm:text-sm font-medium text-stone-400 hover:text-stone-600"
+          data-testid="add-item-skip-manual"
+          className={`text-xs sm:text-sm font-medium transition-colors ${mutedText} ${subtleLinkHoverClass}`}
         >
           {t('skipManual')}
         </button>
@@ -1339,7 +1379,8 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setPromptsOpen(false)}
-                  className={`text-[11px] ${mutedText} hover:text-stone-700`}
+                  data-testid="add-item-story-prompt-hide"
+                  className={`text-[11px] transition-colors ${mutedText} ${subtleLinkHoverClass}`}
                 >
                   {t('storyPromptHide')}
                 </button>

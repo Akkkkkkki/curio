@@ -66,6 +66,33 @@ describe('useModalA11y', () => {
     expect(document.activeElement).toBe(screen.getByTestId('first'));
   });
 
+  it('skips DOM-first focusables hidden by layout (e.g. ExhibitionView responsive layouts)', async () => {
+    // Regression for Codex P2 on PR #313: ExhibitionView renders mobile + desktop
+    // layouts in DOM order and toggles one with Tailwind's `sm:hidden`. In a real
+    // browser the hidden subtree's `offsetParent` is null and `focus()` is a no-op;
+    // initial focus must skip it and land on the visible layout's control instead.
+    function ResponsiveHarness() {
+      const dialogRef = useRef<HTMLDivElement>(null);
+      useModalA11y(dialogRef, true, () => {});
+      return (
+        <div ref={dialogRef} role="dialog" aria-modal="true">
+          <button data-testid="hidden">hidden close</button>
+          <button data-testid="visible">visible close</button>
+        </div>
+      );
+    }
+    const { unmount } = render(<ResponsiveHarness />);
+    // jsdom does not run layout, so simulate the browser's display:none result:
+    // hidden descendants report `offsetParent === null`.
+    const hidden = screen.getByTestId('hidden');
+    Object.defineProperty(hidden, 'offsetParent', { configurable: true, get: () => null });
+
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+
+    expect(document.activeElement).toBe(screen.getByTestId('visible'));
+    unmount();
+  });
+
   it('focuses initialFocusRef when provided (safe action on confirm modals)', async () => {
     const onClose = vi.fn();
     render(<Harness isOpen={true} onClose={onClose} useInitialFocus />);

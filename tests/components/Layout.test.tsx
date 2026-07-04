@@ -936,6 +936,68 @@ describe('Layout Component', () => {
     });
   });
 
+  // CUR-138: Bottom-nav Home / Explore links were flagged as active only via
+  // color (text-amber-500) with no programmatic signal, so screen readers
+  // could not tell which tab was the current page. Pin aria-current="page"
+  // on the active tab and its absence on inactive tabs and non-page buttons.
+  describe('CUR-138 Bottom-nav aria-current', () => {
+    const findBottomNav = () => screen.getByRole('navigation', { name: /primary/i });
+
+    beforeEach(() => {
+      window.location.hash = '#/';
+    });
+
+    it('marks the Home link as the current page on Home', () => {
+      renderWithProviders(<Layout {...defaultProps} sampleCollectionId="sample-vinyl-1" />);
+
+      const nav = findBottomNav();
+      const homeLink = within(nav).getByRole('link', { name: /home/i });
+      expect(homeLink).toHaveAttribute('aria-current', 'page');
+
+      const exploreLink = within(nav).getByRole('link', { name: /explore/i });
+      expect(exploreLink).not.toHaveAttribute('aria-current');
+    });
+
+    it('marks the Explore link as the current page while browsing the sample collection', () => {
+      window.location.hash = '#/collection/sample-vinyl-1';
+      renderWithProviders(<Layout {...defaultProps} sampleCollectionId="sample-vinyl-1" />);
+
+      const nav = findBottomNav();
+      const exploreLink = within(nav).getByRole('link', { name: /explore/i });
+      expect(exploreLink).toHaveAttribute('aria-current', 'page');
+
+      const homeLink = within(nav).getByRole('link', { name: /home/i });
+      expect(homeLink).not.toHaveAttribute('aria-current');
+    });
+
+    it('leaves both tabs uncurrent when the route is neither Home nor the sample collection', () => {
+      window.location.hash = '#/collection/other-user-collection';
+      renderWithProviders(<Layout {...defaultProps} sampleCollectionId="sample-vinyl-1" />);
+
+      const nav = findBottomNav();
+      expect(within(nav).getByRole('link', { name: /home/i })).not.toHaveAttribute('aria-current');
+      expect(within(nav).getByRole('link', { name: /explore/i })).not.toHaveAttribute(
+        'aria-current',
+      );
+    });
+
+    it('does not set aria-current on the Add or Profile trigger buttons', () => {
+      renderWithProviders(
+        <Layout
+          {...defaultProps}
+          user={{ id: 'user-1', email: 'test@example.com' }}
+          sampleCollectionId="sample-vinyl-1"
+        />,
+      );
+
+      const nav = findBottomNav();
+      const addButton = within(nav).getByText('Add').closest('button');
+      const profileButton = within(nav).getByText('Profile').closest('button');
+      expect(addButton).not.toHaveAttribute('aria-current');
+      expect(profileButton).not.toHaveAttribute('aria-current');
+    });
+  });
+
   describe('Accessibility', () => {
     it('has accessible account button with aria-label', () => {
       renderWithProviders(<Layout {...defaultProps} />);
