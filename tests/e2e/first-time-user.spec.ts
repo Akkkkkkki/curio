@@ -119,19 +119,13 @@ test.describe('First-Time User Experience', () => {
   test('should allow switching theme + language without authentication', async ({ page }) => {
     await ensureSampleBrowse(page);
 
-    // Open account menu → switch theme.
-    // Account button is in the header on desktop; on mobile, it's the bottom-nav Profile.
-    await page
-      .getByRole('button', { name: 'Account' })
-      .or(page.getByRole('button', { name: 'Profile', exact: true }))
-      .first()
-      .click();
+    // CUR-127: theme is a dedicated header quick toggle — no account menu needed.
+    await page.getByTestId('theme-picker').click();
     // Avoid matching the "The Vinyl Vault" collection card button.
     await page.getByRole('button', { name: 'The Vault (Moody)' }).click();
     await expect(page.locator('[data-theme="vault"]')).toBeVisible();
 
-    // Dismiss the profile menu so subsequent clicks on the header aren't intercepted
-    // by the mobile bottom-sheet backdrop.
+    // Dismiss the theme popover so subsequent clicks on the header aren't intercepted.
     await page.keyboard.press('Escape');
 
     // Toggle language button in header.
