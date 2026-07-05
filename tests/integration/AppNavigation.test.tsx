@@ -637,6 +637,43 @@ describe('App Integration Tests', () => {
     expect(fieldInput?.className).not.toContain('placeholder:text-stone-100');
   });
 
+  it('renders Item Detail rating stars with Vault filled and empty contrast tokens (CUR-98)', async () => {
+    const { ThemeProvider } = await import('@/theme');
+    const collectionWithLowRating = {
+      ...mockCollection,
+      items: [
+        {
+          ...mockCollection.items[0],
+          rating: 2,
+        },
+      ],
+    };
+    vi.mocked(db.getLocalCollections).mockResolvedValue([collectionWithLowRating]);
+
+    render(
+      <MemoryRouter initialEntries={['/collection/col1/item/item1']}>
+        {/* @ts-ignore - mocked ThemeProvider accepts initialTheme */}
+        <ThemeProvider initialTheme="vault">
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    const filledButton = await screen.findByRole('button', { name: 'Rate 2 stars' });
+    const emptyButton = await screen.findByRole('button', { name: 'Rate 3 stars' });
+    const filledStar = filledButton.querySelector('svg');
+    const emptyStar = emptyButton.querySelector('svg');
+
+    expect(filledButton).toHaveAttribute('aria-pressed', 'true');
+    expect(filledStar).toHaveClass('text-[#D4A574]');
+    expect(filledStar).toHaveClass('fill-current');
+    expect(emptyStar).toHaveClass('text-[#D4A574]/30');
+    expect(emptyStar).not.toHaveClass('fill-current');
+    expect(emptyStar?.getAttribute('class')).not.toContain('text-amber-500/20');
+  });
+
   it('has i18n keys for collection search empty state', async () => {
     const { translations } = await import('@/i18n');
 
