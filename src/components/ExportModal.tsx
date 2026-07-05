@@ -5,6 +5,8 @@ import { CollectionItem, FieldDefinition } from '../types';
 import { Button } from './ui/Button';
 import { extractCurioAssetPath, getAsset, getEnhancedAsset } from '../services/db';
 import { useTranslation } from '../i18n';
+import { trackEvent } from '../services/analytics';
+import type { StatusTone } from './StatusToast';
 
 const sanitizeFilename = (value: string) =>
   value
@@ -17,20 +19,46 @@ interface ExportModalProps {
   onClose: () => void;
   item: CollectionItem;
   fields: FieldDefinition[];
+  // CUR-106: lets the modal surface positive / informational outcomes through
+  // the shared toast pattern (Saved / Synced / Will sync style). Real errors
+  // still render inline next to the action buttons.
+  onStatus?: (message: string, tone: StatusTone) => void;
 }
 
 type TemplateStyle = 'minimal' | 'full' | 'retro';
 type AspectRatio = '1:1' | '3:4' | '9:16';
 type ImageFit = 'cover' | 'contain';
 
-export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item, fields }) => {
+// CUR-99: rasterize the card at a fixed minimum short-edge resolution
+// (1080px) instead of inheriting the viewport-dependent preview size, so
+// a phone export reads as sharp as a desktop export when re-shared.
+const EXPORT_TARGET_SHORT_EDGE_PX = 1080;
+
+export const ExportModal: React.FC<ExportModalProps> = ({
+  isOpen,
+  onClose,
+  item,
+  fields,
+  onStatus,
+}) => {
   const { t } = useTranslation();
   const [style, setStyle] = useState<TemplateStyle>('minimal');
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('3:4');
   const [imageFit, setImageFit] = useState<ImageFit>('cover');
-  const [isExpanded, setIsExpanded] = useState(false);
+  // CUR-105: open the mobile bottom sheet so Save / Share / Print are visible on
+  // first open. The open height is a moderate fraction of the screen (see
+  // OPEN_SHEET_HEIGHT) so the card stays prominent above it; users can drag the
+  // handle / tap it to collapse to a peek and admire the card, then drag or tap
+  // again to re-open. Desktop is unaffected (sheet is forced full-height at md:).
+  const [isExpanded, setIsExpanded] = useState(true);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [isLoadingImage, setIsLoadingImage] = useState(true);
+  // CUR-137: distinguish "no photo on this item" from "photo failed to load".
+  // The card preview used to render whatever the browser put in the broken
+  // `<img>` slot (a default broken-image glyph), which then also poisoned
+  // html-to-image's canvas. Surface the same `noPhoto` placeholder either way
+  // so the exported PNG is intentional, not an accident.
+  const [imageLoadError, setImageLoadError] = useState(false);
   const [exportAction, setExportAction] = useState<null | 'save' | 'share'>(null);
   const [exportError, setExportError] = useState<string | null>(null);
   const [dragHeight, setDragHeight] = useState<number | null>(null);
@@ -83,8 +111,10 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
   useEffect(() => {
     if (!isOpen) {
       setImageUrl(null);
+      setImageLoadError(false);
       return;
     }
+    setImageLoadError(false);
     if (directPhotoUrl) {
       setImageUrl(directPhotoUrl);
       setIsLoadingImage(false);
@@ -118,9 +148,12 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
         if (blob && blob.size > 0) {
           objectUrl = URL.createObjectURL(blob);
           setImageUrl(objectUrl);
+        } else {
+          setImageLoadError(true);
         }
       } catch (e) {
         console.error(e);
+        setImageLoadError(true);
       } finally {
         setIsLoadingImage(false);
       }
@@ -130,19 +163,6 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [isOpen, item.id, item.collectionId, item.photoEnhancedPath, remoteAssetPath, directPhotoUrl]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    if (import.meta.env.DEV) {
-      setTimeout(() => {
-        const modal = document.querySelector('[data-export-modal]') as HTMLElement;
-        if (modal) {
-          const rect = modal.getBoundingClientRect();
-          console.log('Modal position check:', rect);
-        }
-      }, 600);
-    }
-  }, [isOpen]);
 
   const renderCardToBlob = useCallback(async (): Promise<Blob | null> => {
     const node = cardRef.current;
@@ -166,10 +186,29 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
           }),
       ),
     );
-    return toBlob(node, {
-      pixelRatio: 2,
-      backgroundColor: '#ffffff',
-    });
+    // Width is the short edge for every supported aspect ratio (1:1, 3:4, 9:16),
+    // so scaling pixelRatio off offsetWidth is enough. Floor at 2 so retina
+    // desktop exports keep their current quality.
+    const previewWidth = node.offsetWidth;
+    const pixelRatio =
+      previewWidth > 0 ? Math.max(2, EXPORT_TARGET_SHORT_EDGE_PX / previewWidth) : 2;
+    try {
+      return await toBlob(node, {
+        pixelRatio,
+        backgroundColor: '#ffffff',
+      });
+    } catch (err) {
+      // html-to-image inlines the brand web fonts by fetching them. If that
+      // fetch fails (offline, CSP, flaky network) the whole export rejects.
+      // Retry without font embedding so the user still gets a card — it falls
+      // back to system serif/mono, which is far better than a hard failure.
+      console.warn('Card export failed with embedded fonts, retrying without them:', err);
+      return await toBlob(node, {
+        pixelRatio,
+        backgroundColor: '#ffffff',
+        skipFonts: true,
+      });
+    }
   }, []);
 
   const handleSaveImage = useCallback(async () => {
@@ -187,16 +226,21 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
       anchor.click();
       anchor.remove();
       setTimeout(() => URL.revokeObjectURL(url), 2000);
+      // CUR-106: browser download chrome is easy to miss inside the dark
+      // export overlay (and on mobile is sometimes invisible). Mirror the
+      // trust pattern used for Saved / Synced so the outcome is explicit.
+      onStatus?.(t('imageSaved'), 'success');
     } catch (err) {
       console.error('Save image failed:', err);
       setExportError(t('saveImageFailed'));
     } finally {
       setExportAction(null);
     }
-  }, [exportAction, item.title, renderCardToBlob, t]);
+  }, [exportAction, item.title, onStatus, renderCardToBlob, t]);
 
   const handleShare = useCallback(async () => {
     if (exportAction) return;
+    trackEvent('share_initiated', { surface: 'item_card' });
     setExportAction('share');
     setExportError(null);
     try {
@@ -209,6 +253,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
       };
       if (typeof nav.share === 'function' && nav.canShare?.({ files: [file] })) {
         await nav.share({ files: [file], title: item.title || t('exportCard') });
+        trackEvent('share_completed', { method: 'native', surface: 'item_card' });
         return;
       }
       // No share target — fall back to download so the user still gets the image.
@@ -220,18 +265,35 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
       anchor.click();
       anchor.remove();
       setTimeout(() => URL.revokeObjectURL(url), 2000);
-      setExportError(t('shareFailed'));
+      trackEvent('share_completed', { method: 'download_fallback', surface: 'item_card' });
+      // CUR-106: fallback download is the standard path on most desktop
+      // browsers — it is not a failure. Surface it as a neutral info toast
+      // ("Sharing isn't available — image saved instead") so the user
+      // understands what happened, instead of a red `role="alert"` in the
+      // footer that read as broken every time.
+      onStatus?.(t('shareUnavailableSavedInstead'), 'info');
     } catch (err) {
       const error = err as DOMException;
       if (error?.name === 'AbortError') return;
       console.error('Share failed:', err);
+      trackEvent('share_failed', {
+        reason: error?.name || 'unknown',
+        surface: 'item_card',
+      });
       setExportError(t('saveImageFailed'));
     } finally {
       setExportAction(null);
     }
-  }, [exportAction, item.title, renderCardToBlob, t]);
+  }, [exportAction, item.title, onStatus, renderCardToBlob, t]);
 
   const PEEK_HEIGHT_PX = 56;
+  // Moderate open height: tall enough to reveal the action footer (Save / Share /
+  // Print) while leaving the card prominent above the sheet. Clamped so the
+  // footer still fits on short screens and the sheet never dominates tall ones.
+  const OPEN_SHEET_HEIGHT = 'clamp(20rem, 52dvh, 32rem)';
+  // Past this drag delta we commit to the new state; smaller drags snap back to
+  // the current state so a tap-sized wobble never flips the sheet.
+  const SNAP_DELTA_PX = 48;
 
   const handleSheetPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (window.matchMedia('(min-width: 768px)').matches) return;
@@ -271,8 +333,16 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
     }
     const finalHeight = dragHeight ?? drag.startHeight;
     if (drag.moved) {
-      const threshold = window.innerHeight * 0.35;
-      setIsExpanded(finalHeight > threshold);
+      // Snap by drag *direction* relative to where the drag started, not an
+      // absolute screen fraction. The old absolute threshold meant a short swipe
+      // up from the peek could never clear it, so a collapsed sheet got stuck.
+      const delta = finalHeight - drag.startHeight; // > 0 means dragged up (grew)
+      if (delta > SNAP_DELTA_PX) {
+        setIsExpanded(true);
+      } else if (delta < -SNAP_DELTA_PX) {
+        setIsExpanded(false);
+      }
+      // Otherwise keep the current state — the sheet snaps back to its prior snap.
     } else {
       setIsExpanded((prev) => !prev);
     }
@@ -287,6 +357,13 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
     return val !== undefined && val !== null ? val.toString() : null;
   };
 
+  // CUR-137: only set crossOrigin for HTTP(S) sources. Setting it on `blob:` /
+  // `data:` URLs is a no-op in spec terms but some browsers cache differently;
+  // for same-origin assets (relative paths) the attribute is unnecessary.
+  const imgCrossOrigin = imageUrl && /^https?:\/\//i.test(imageUrl) ? 'anonymous' : undefined;
+  const handleImageError = () => setImageLoadError(true);
+  const hasPhoto = Boolean(imageUrl) && !imageLoadError;
+
   const renderCardPreview = () => {
     const containerStyles = {
       minimal:
@@ -300,13 +377,20 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
     const previewMaxWidth = 'min(85vw, 560px)';
 
     return (
+      // CUR-136 follow-up: fill the available height first and derive the
+      // width from `aspect-ratio`, capped at `previewMaxWidth`. Fixing the
+      // width and only clamping `max-height` (the old shape) squashes the
+      // ratio whenever the container is shorter than the natural card height
+      // — most visibly when the bottom sheet is expanded on a phone, where
+      // it also baked the squash into `renderCardToBlob()`'s export.
       <div
         id="card-preview"
         ref={cardRef}
         className={`isolate shadow-2xl transition-all duration-300 overflow-hidden relative group select-none mx-auto print:h-auto print:!w-[100mm]`}
         style={{
           aspectRatio: `${ratioW} / ${ratioH}`,
-          width: previewMaxWidth,
+          height: '100%',
+          width: 'auto',
           maxWidth: previewMaxWidth,
           maxHeight: '100%',
         }}
@@ -321,9 +405,11 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
                   <div className="absolute inset-0 flex items-center justify-center">
                     <Loader2 className="animate-spin text-stone-200" />
                   </div>
-                ) : imageUrl ? (
+                ) : hasPhoto ? (
                   <img
-                    src={imageUrl}
+                    src={imageUrl!}
+                    crossOrigin={imgCrossOrigin}
+                    onError={handleImageError}
                     className={`w-full h-full ${imageFit === 'contain' ? 'object-contain' : 'object-cover'}`}
                     alt={item.title || t('photoPreview')}
                   />
@@ -336,7 +422,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
               </div>
               <div className="flex-shrink-0 w-full">
                 <h3
-                  className={`font-serif ${titleSize} font-bold text-stone-900 leading-tight mb-2 line-clamp-2`}
+                  className={`font-serif ${titleSize} font-bold text-stone-900 leading-tight mb-2 break-words`}
                 >
                   {item.title}
                 </h3>
@@ -358,10 +444,12 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
           )}
           {style === 'full' && (
             <>
-              {imageUrl && (
+              {hasPhoto && (
                 <div className="absolute inset-0">
                   <img
-                    src={imageUrl}
+                    src={imageUrl!}
+                    crossOrigin={imgCrossOrigin}
+                    onError={handleImageError}
                     className={`w-full h-full ${imageFit === 'contain' ? 'object-contain' : 'object-cover'} opacity-80`}
                     alt=""
                   />
@@ -385,24 +473,31 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
           {style === 'retro' && (
             <>
               <div className="w-full flex-1 border-2 border-stone-800 mb-4 bg-stone-200 grayscale contrast-125 overflow-hidden relative min-h-0">
-                {imageUrl && (
+                {hasPhoto && (
                   <img
-                    src={imageUrl}
+                    src={imageUrl!}
+                    crossOrigin={imgCrossOrigin}
+                    onError={handleImageError}
                     className={`w-full h-full mix-blend-multiply ${imageFit === 'contain' ? 'object-contain' : 'object-cover'}`}
                     alt=""
                   />
                 )}
               </div>
               <div className="flex-shrink-0 text-left">
-                <div className="flex justify-between items-end border-b-2 border-stone-800 pb-2 mb-3">
+                <div className="flex justify-between items-end gap-3 border-b-2 border-stone-800 pb-2 mb-3">
                   <h3
-                    className={`font-serif ${aspectRatio === '1:1' ? 'text-lg' : 'text-2xl'} font-bold text-stone-900 uppercase tracking-tighter line-clamp-2`}
+                    className={`font-serif ${aspectRatio === '1:1' ? 'text-lg' : 'text-2xl'} font-bold text-stone-900 uppercase tracking-tighter break-words min-w-0 flex-1`}
                   >
                     {item.title}
                   </h3>
-                  <span className="font-mono text-xs font-bold bg-stone-900 text-[#f4ebd9] px-1">
-                    NO. {item.rating}
-                  </span>
+                  {item.rating > 0 && (
+                    <span
+                      className="font-mono text-xs font-bold bg-stone-900 text-[#f4ebd9] px-1 flex-shrink-0"
+                      aria-label={t('ratedOutOfFive', { rating: item.rating })}
+                    >
+                      {'★'.repeat(item.rating)}
+                    </span>
+                  )}
                 </div>
                 <div
                   className={`text-center ${metaSize} font-mono text-stone-400 mt-4 uppercase tracking-widest`}
@@ -421,7 +516,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
   const mobileSheetHeight = isDragging
     ? `${dragHeight}px`
     : isExpanded
-      ? '85dvh'
+      ? OPEN_SHEET_HEIGHT
       : 'var(--peek-height)';
 
   return (
@@ -434,26 +529,38 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
         } as React.CSSProperties
       }
     >
+      {/* CUR-136: on mobile the preview's bottom tracks the sheet height so the
+          card stays fully visible above whatever portion of the sheet is up.
+          The desktop override (`md:!bottom-0`) keeps the sidebar layout, where
+          the preview spans the full height beside a fixed-width sheet. */}
       <div
-        className="absolute top-0 left-0 right-0 flex flex-col items-center justify-center px-6 py-6 md:!bottom-0 md:pr-[calc(24rem+1.5rem)] overflow-hidden print:static print:inset-auto print:p-0 print:block pointer-events-none"
-        style={{ bottom: 'var(--peek-height, 0px)' }}
+        className={`absolute top-0 left-0 right-0 flex flex-col items-center justify-center px-6 py-6 md:!bottom-0 md:pr-[calc(24rem+1.5rem)] overflow-hidden print:static print:inset-auto print:p-0 print:block pointer-events-none ${
+          isDragging ? '' : 'transition-[bottom] duration-300 ease-out'
+        }`}
+        style={{ bottom: mobileSheetHeight }}
       >
         <div className="h-full w-full flex items-center justify-center print:block print:h-auto print:w-auto">
           {renderCardPreview()}
         </div>
       </div>
       {isExpanded && (
+        // Transparent tap-outside-to-collapse overlay. Touch-only convenience
+        // duplicating the drag handle; the action collapses the sheet, it does
+        // not close the modal — so it stays out of the a11y tree (the X button
+        // in the sheet header remains the single accessible Close action).
         <button
           type="button"
-          aria-label={t('close')}
+          aria-hidden="true"
+          tabIndex={-1}
           onClick={() => setIsExpanded(false)}
+          data-testid="export-sheet-tap-to-collapse"
           className="md:hidden absolute inset-0 z-[5] bg-transparent print:hidden"
           style={{ bottom: mobileSheetHeight }}
         />
       )}
       <div
         ref={sheetRef}
-        className={`absolute inset-x-0 bottom-0 md:absolute md:top-0 md:left-auto md:inset-x-auto md:right-0 md:w-96 md:!h-full min-h-0 overflow-hidden bg-white rounded-t-3xl md:rounded-none shadow-2xl flex flex-col z-10 print:hidden [--export-footer-height:8.5rem] md:[--export-footer-height:9.5rem] ${isDragging ? '' : 'transition-[height] duration-300 ease-out'}`}
+        className={`absolute inset-x-0 bottom-0 md:absolute md:top-0 md:left-auto md:inset-x-auto md:right-0 md:w-96 md:!h-full min-h-0 overflow-hidden bg-white rounded-t-3xl md:rounded-none shadow-2xl flex flex-col z-10 print:hidden [--export-footer-height:11.5rem] md:[--export-footer-height:12.5rem] ${isDragging ? '' : 'transition-[height] duration-300 ease-out'}`}
         style={{ height: mobileSheetHeight }}
       >
         <div
@@ -547,6 +654,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
             </p>
           )}
           <Button
+            theme="gallery"
             className="w-full"
             size="lg"
             onClick={handleSaveImage}
@@ -561,30 +669,32 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, item,
           >
             {exportAction === 'save' ? t('saving') : t('saveImage')}
           </Button>
-          <div className="flex gap-2">
+          <Button
+            theme="gallery"
+            variant="outline"
+            className="w-full"
+            onClick={handleShare}
+            disabled={exportAction !== null || isLoadingImage}
+            icon={
+              exportAction === 'share' ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <Share2 size={16} />
+              )
+            }
+          >
+            {exportAction === 'share' ? t('sharing') : t('share')}
+          </Button>
+          <div className="flex justify-center">
             <Button
-              variant="outline"
-              className="flex-1"
+              theme="gallery"
+              variant="ghost"
+              size="sm"
               onClick={() => window.print()}
-              disabled={exportAction !== null}
-              icon={<Printer size={16} />}
+              disabled={exportAction !== null || isLoadingImage}
+              icon={<Printer size={14} />}
             >
               {t('print')}
-            </Button>
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={handleShare}
-              disabled={exportAction !== null || isLoadingImage}
-              icon={
-                exportAction === 'share' ? (
-                  <Loader2 size={16} className="animate-spin" />
-                ) : (
-                  <Share2 size={16} />
-                )
-              }
-            >
-              {exportAction === 'share' ? t('sharing') : t('share')}
             </Button>
           </div>
         </div>

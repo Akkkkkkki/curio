@@ -16,7 +16,7 @@ Object.defineProperty(window, 'matchMedia', {
   })),
 });
 
-// Mock navigator.mediaDevices (for audio guide/museum guide)
+// Mock navigator.mediaDevices (used by components that probe media capabilities)
 Object.defineProperty(navigator, 'mediaDevices', {
   writable: true,
   value: {

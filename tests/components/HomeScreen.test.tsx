@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderWithProviders, screen, fireEvent, waitFor } from '../utils/test-utils';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { renderWithProviders, screen, fireEvent, waitFor, within } from '../utils/test-utils';
+import { setMockTheme } from '../utils/test-utils';
 import { HomeScreen } from '@/components/HomeScreen';
 import { UserCollection } from '@/types';
 
@@ -7,6 +8,13 @@ import { UserCollection } from '@/types';
 vi.mock('@/hooks/useDebouncedValue', () => ({
   useDebouncedValue: (value: any) => value,
 }));
+
+// Route the real useTheme through the test-utils mock state so tests can drive
+// theme via setMockTheme('vault' | 'atelier' | 'gallery').
+vi.mock('@/theme', async () => {
+  const { createThemeMock } = await import('../utils/test-utils');
+  return createThemeMock();
+});
 
 describe('HomeScreen', () => {
   const mockCollections: UserCollection[] = [
@@ -49,6 +57,32 @@ describe('HomeScreen', () => {
     },
   ];
 
+  const sampleCollection: UserCollection = {
+    id: 'sample',
+    name: 'Sample Gallery',
+    items: [
+      {
+        id: 'sample-item',
+        title: 'Sample Vase',
+        data: {},
+        rating: 4,
+        notes: '',
+        photoUrl: '',
+        createdAt: '',
+        updatedAt: '',
+        collectionId: 'sample',
+        userId: 'sample-user',
+      },
+    ],
+    templateId: 'general',
+    icon: '🏛️',
+    customFields: [],
+    isPublic: true,
+    ownerId: 'sample-user',
+    updatedAt: '',
+    createdAt: '',
+  };
+
   const defaultProps = {
     collections: mockCollections,
     stats: {
@@ -67,6 +101,11 @@ describe('HomeScreen', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    setMockTheme('gallery');
+  });
+
+  afterEach(() => {
+    setMockTheme('gallery');
   });
 
   it('renders collections', () => {
@@ -100,14 +139,257 @@ describe('HomeScreen', () => {
     });
   });
 
+  it('exposes an inline clear button on the search input only when it has a value', async () => {
+    renderWithProviders(<HomeScreen {...defaultProps} />);
+
+    expect(screen.queryByRole('button', { name: /clear search/i })).not.toBeInTheDocument();
+
+    const searchInput = screen.getByPlaceholderText(/search/i) as HTMLInputElement;
+    fireEvent.change(searchInput, { target: { value: 'Vinyl' } });
+
+    const clearButton = await screen.findByRole('button', { name: /clear search/i });
+    fireEvent.click(clearButton);
+
+    await waitFor(() => {
+      expect(searchInput.value).toBe('');
+      expect(screen.queryByRole('button', { name: /clear search/i })).not.toBeInTheDocument();
+      expect(screen.getAllByText('Stamps')[0]).toBeInTheDocument();
+    });
+  });
+
+  it('offers a Clear search action in the empty-results card', async () => {
+    renderWithProviders(<HomeScreen {...defaultProps} />);
+
+    const searchInput = screen.getByPlaceholderText(/search/i) as HTMLInputElement;
+    fireEvent.change(searchInput, { target: { value: 'zzzzz' } });
+
+    await waitFor(() => {
+      expect(screen.getByText(/no matches found/i)).toBeInTheDocument();
+    });
+
+    const clearButtons = screen.getAllByRole('button', { name: /clear search/i });
+    fireEvent.click(clearButtons[clearButtons.length - 1]);
+
+    await waitFor(() => {
+      expect(searchInput.value).toBe('');
+      expect(screen.queryByText(/no matches found/i)).not.toBeInTheDocument();
+      expect(screen.getAllByText('Vinyl Records')[0]).toBeInTheDocument();
+    });
+  });
+
+  it('keeps a create-collection action available on populated Home', () => {
+    renderWithProviders(<HomeScreen {...defaultProps} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /start a collection/i }));
+
+    expect(defaultProps.handleCreateCollectionAction).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders public collections when App has classified them as editable', () => {
+    renderWithProviders(<HomeScreen {...defaultProps} collections={[sampleCollection]} />);
+
+    expect(screen.getByTestId('collections-grid')).toBeInTheDocument();
+    expect(screen.getAllByText('Sample Gallery')[0]).toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: /start your museum with one thing you love/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  describe('first-run layout', () => {
+    it('shows one primary action and one sample action when no editable collections exist', () => {
+      renderWithProviders(
+        <HomeScreen {...defaultProps} collections={[]} sampleCollection={sampleCollection} />,
+      );
+
+      expect(
+        screen.getByRole('heading', { name: /start your museum with one thing you love/i }),
+      ).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /add your first piece/i })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: /wander a sample museum/i })).toHaveAttribute(
+        'href',
+        '#/collection/sample',
+      );
+      expect(screen.getByText(/no account needed to look around/i)).toBeInTheDocument();
+      expect(screen.queryByText(/quick start/i)).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /got it/i })).not.toBeInTheDocument();
+      expect(screen.queryByTestId('collections-grid')).not.toBeInTheDocument();
+      expect(screen.queryByText('Sample Gallery')).not.toBeInTheDocument();
+    });
+
+    it('lays the search bar out in normal flow without a negative top margin', () => {
+      const { container } = renderWithProviders(<HomeScreen {...defaultProps} />);
+
+      const searchInput = screen.getByPlaceholderText(/search/i);
+      const searchContainer = searchInput.closest('div.relative.max-w-xl') as HTMLElement | null;
+
+      expect(searchContainer).not.toBeNull();
+      expect(searchContainer!.className).not.toMatch(/-mt-/);
+    });
+
+    it('orders populated Home as header, search, On This Day, then grid', () => {
+      const historyItems = [
+        {
+          id: 'history-item',
+          title: 'Remembered ticket',
+          data: {},
+          rating: 0,
+          notes: '',
+          photoUrl: '',
+          createdAt: new Date(2020, 0, 1).toISOString(),
+          updatedAt: '',
+          collectionId: 'col1',
+          userId: 'user1',
+        },
+      ];
+      renderWithProviders(
+        <HomeScreen {...defaultProps} stats={{ ...defaultProps.stats, historyItems }} />,
+      );
+
+      const heading = screen.getByRole('heading', { name: /your museum/i });
+      const searchInput = screen.getByPlaceholderText(/search/i);
+      const onThisDay = screen.getByText(/on this day/i);
+      const grid = screen.getByTestId('collections-grid');
+
+      expect(screen.queryByText(/in the spotlight/i)).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /start a collection/i })).toBeInTheDocument();
+      expect(heading.compareDocumentPosition(searchInput) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+        Node.DOCUMENT_POSITION_FOLLOWING,
+      );
+      expect(
+        searchInput.compareDocumentPosition(onThisDay) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+      expect(onThisDay.compareDocumentPosition(grid) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+        Node.DOCUMENT_POSITION_FOLLOWING,
+      );
+    });
+  });
+
   it('shows loading state', () => {
     renderWithProviders(<HomeScreen {...defaultProps} isLoading={true} />);
-    expect(screen.getByText('Restoring the archives...')).toBeInTheDocument();
+    expect(screen.getByText('Opening your museum...')).toBeInTheDocument();
   });
 
   it('shows error state', () => {
     renderWithProviders(<HomeScreen {...defaultProps} loadError="Failed to load" />);
     expect(screen.getByText(/sync paused/i)).toBeInTheDocument();
     expect(screen.getByText('Failed to load')).toBeInTheDocument();
+  });
+
+  describe('theme-aware surfaces (CUR-96)', () => {
+    const makeHistoryItem = (id: string, title: string, year: number) => ({
+      id,
+      title,
+      data: {},
+      rating: 0,
+      notes: '',
+      photoUrl: '',
+      createdAt: new Date(year, 0, 1).toISOString(),
+      updatedAt: '',
+      collectionId: 'col1',
+      userId: 'user1',
+    });
+
+    it('renders the "New Archive" inner disc with a Vault-aware surface (not the gallery bg-stone-50)', () => {
+      setMockTheme('vault');
+      renderWithProviders(<HomeScreen {...defaultProps} />);
+
+      const tile = screen.getByRole('button', { name: /start a collection/i });
+      const disc = tile.querySelector('div');
+
+      expect(disc).not.toBeNull();
+      expect(disc!.className).not.toMatch(/bg-stone-50/);
+      expect(disc!.className).toMatch(/bg-white\/5/);
+      expect(disc!.className).not.toMatch(/text-stone-300/);
+    });
+
+    it('places the On This Day image on the Vault mat instead of a bg-stone-100 placeholder', () => {
+      const historyItems = [makeHistoryItem('h1', 'Remembered ticket', 2020)];
+      setMockTheme('vault');
+      const { container } = renderWithProviders(
+        <HomeScreen {...defaultProps} stats={{ ...defaultProps.stats, historyItems }} />,
+      );
+
+      // On This Day image container is the ancestor with aspect-square + rounded-2xl.
+      const imageContainer = container.querySelector('div.aspect-square.rounded-2xl');
+      expect(imageContainer).not.toBeNull();
+      expect(imageContainer!.className).not.toMatch(/bg-stone-100/);
+      expect(imageContainer!.className).toMatch(/bg-\[#1C1917\]/);
+    });
+
+    it('uses a Vault-legible placeholder on the hero search input', () => {
+      setMockTheme('vault');
+      renderWithProviders(<HomeScreen {...defaultProps} />);
+
+      const searchInput = screen.getByPlaceholderText(/search/i);
+      // Vault should not inherit the Gallery-only stone-300 placeholder token.
+      expect(searchInput.className).not.toMatch(/placeholder:text-stone-300/);
+      expect(searchInput.className).toMatch(/placeholder:text-stone-400/);
+    });
+  });
+
+  describe('On This Day', () => {
+    const makeHistoryItem = (id: string, title: string, year: number) => ({
+      id,
+      title,
+      data: {},
+      rating: 0,
+      notes: '',
+      photoUrl: '',
+      createdAt: new Date(year, 0, 1).toISOString(),
+      updatedAt: '',
+      collectionId: 'col1',
+      userId: 'user1',
+    });
+
+    it('hides the "See all" CTA when every memory already fits in the preview', () => {
+      const historyItems = [
+        makeHistoryItem('h1', 'First memory', 2020),
+        makeHistoryItem('h2', 'Second memory', 2021),
+        makeHistoryItem('h3', 'Third memory', 2022),
+      ];
+      const { container } = renderWithProviders(
+        <HomeScreen {...defaultProps} stats={{ ...defaultProps.stats, historyItems }} />,
+      );
+
+      const list = container.querySelector('#on-this-day-list') as HTMLElement;
+      expect(list).toBeTruthy();
+      historyItems.forEach((item) => {
+        expect(within(list).getByText(item.title)).toBeInTheDocument();
+      });
+      expect(screen.queryByRole('button', { name: /See all/i })).not.toBeInTheDocument();
+      expect(screen.queryByText(/And \d+ more/)).not.toBeInTheDocument();
+    });
+
+    it('reveals every memory inline when "See all" is pressed', () => {
+      const historyItems = [
+        makeHistoryItem('h1', 'First memory', 2018),
+        makeHistoryItem('h2', 'Second memory', 2019),
+        makeHistoryItem('h3', 'Third memory', 2020),
+        makeHistoryItem('h4', 'Fourth memory', 2021),
+        makeHistoryItem('h5', 'Fifth memory', 2022),
+      ];
+      const { container } = renderWithProviders(
+        <HomeScreen {...defaultProps} stats={{ ...defaultProps.stats, historyItems }} />,
+      );
+
+      const list = () => container.querySelector('#on-this-day-list') as HTMLElement;
+      expect(within(list()).getByText('First memory')).toBeInTheDocument();
+      expect(within(list()).getByText('Second memory')).toBeInTheDocument();
+      expect(within(list()).getByText('Third memory')).toBeInTheDocument();
+      expect(within(list()).queryByText('Fourth memory')).not.toBeInTheDocument();
+      expect(within(list()).queryByText('Fifth memory')).not.toBeInTheDocument();
+      expect(screen.getByText('And 2 more')).toBeInTheDocument();
+
+      const seeAll = screen.getByRole('button', { name: /See all 5 memories/i });
+      expect(seeAll).toHaveAttribute('aria-expanded', 'false');
+      expect(seeAll).toHaveAttribute('aria-controls', 'on-this-day-list');
+
+      fireEvent.click(seeAll);
+
+      expect(within(list()).getByText('Fourth memory')).toBeInTheDocument();
+      expect(within(list()).getByText('Fifth memory')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /See all/i })).not.toBeInTheDocument();
+      expect(screen.queryByText(/And \d+ more/)).not.toBeInTheDocument();
+    });
   });
 });

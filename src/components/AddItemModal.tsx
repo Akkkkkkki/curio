@@ -91,6 +91,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
   const [titleError, setTitleError] = useState<string | null>(null);
   const [batchTitleErrors, setBatchTitleErrors] = useState<Record<string, boolean>>({});
   const [isImageEditorOpen, setIsImageEditorOpen] = useState(false);
+  const [confirmingDiscard, setConfirmingDiscard] = useState(false);
   const [promptsOpen, setPromptsOpen] = useState(false);
   const [promptsLoading, setPromptsLoading] = useState(false);
   const [storyPrompts, setStoryPrompts] = useState<string[]>([]);
@@ -106,10 +107,16 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollContentRef = useRef<HTMLDivElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const confirmRef = useRef<HTMLDivElement>(null);
   const lastFocusedElementRef = useRef<HTMLElement | null>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const storyInputRef = useRef<HTMLTextAreaElement>(null);
   const analysisRunId = useRef(0);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    trackEvent('item_creation_started', { surface: 'add_item_modal' });
+  }, [isOpen]);
 
   const surfaceClass = panelSurfaceClasses[theme];
   const overlayClass = `${overlaySurfaceClasses[theme]} motion-overlay`;
@@ -119,16 +126,105 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     theme === 'vault'
       ? 'bg-white/5 border-white/10 text-white placeholder:text-stone-400'
       : 'bg-stone-50 border-stone-200 text-stone-900';
+
+  // CUR-92: theme-aware tone tokens for the analyzing + verify + batch-verify
+  // surfaces. Mirrors the StatusBanner palette (CUR-81) so banners and cards
+  // inside the modal stop flipping back to Gallery white on Vault/Atelier.
+  const analyzingPillClass = {
+    gallery: 'bg-white border-stone-100',
+    vault: 'bg-stone-800 border-white/10',
+    atelier: 'bg-[#EDE4D3] border-[#D4C9B8]',
+  }[theme];
+  const warnBannerClass = {
+    gallery: 'bg-amber-50 text-amber-700 border-amber-100',
+    vault: 'bg-amber-500/10 text-amber-200 border-amber-400/20',
+    atelier: 'bg-amber-100/70 text-amber-900 border-amber-300/60',
+  }[theme];
+  const warnBannerActionClass = {
+    gallery: 'text-amber-800 hover:text-amber-900',
+    vault: 'text-amber-100 hover:text-white',
+    atelier: 'text-[#A86F3C] hover:text-[#8B5A2B]',
+  }[theme];
+  const lowConfidenceSurfaceClass = {
+    gallery: 'bg-stone-100 text-stone-700 border-stone-200',
+    vault: 'bg-white/5 text-stone-300 border-white/10',
+    atelier: 'bg-[#EDE4D3] text-[#3D3530] border-[#D4C9B8]',
+  }[theme];
+  const lowConfidenceTitleClass = {
+    gallery: 'text-stone-900',
+    vault: 'text-white',
+    atelier: 'text-[#3D3530]',
+  }[theme];
+  const imageTileClass = {
+    gallery: 'bg-stone-100 border-stone-200',
+    vault: 'bg-white/5 border-white/10',
+    atelier: 'bg-[#EDE4D3] border-[#D4C9B8]',
+  }[theme];
+  const imageTilePlaceholderClass = {
+    gallery: 'text-stone-200',
+    vault: 'text-white/25',
+    atelier: 'text-[#8C7B6B]/50',
+  }[theme];
+  const batchItemCardClass = {
+    gallery: 'border-stone-100 bg-white',
+    vault: 'border-white/10 bg-white/5',
+    atelier: 'border-[#D4C9B8] bg-[#EDE4D3]',
+  }[theme];
+  const batchRemoveButtonClass = {
+    gallery: 'bg-white/90 text-red-500 hover:bg-white',
+    vault: 'bg-stone-900/80 text-red-300 hover:bg-stone-900',
+    atelier: 'bg-[#F5EFE4]/90 text-red-600 hover:bg-[#F5EFE4]',
+  }[theme];
+  const addMoreTileClass = {
+    gallery: 'border-stone-200 text-stone-400 hover:border-amber-200 hover:bg-stone-50',
+    vault: 'border-white/15 text-stone-300 hover:border-amber-400/40 hover:bg-white/5',
+    atelier: 'border-[#D4C9B8] text-[#8C7B6B] hover:border-[#A86F3C]/40 hover:bg-[#EDE4D3]',
+  }[theme];
+  // CUR-22: theme-aware tone tokens for the upload empty state, collection
+  // picker tiles, and subtle "skip / hide" links so Vault stops rendering a
+  // bright cream pill / heading inside an otherwise dark modal.
+  const uploadEmptyTileClass = {
+    gallery: 'bg-stone-50 border-stone-200 text-stone-400 hover:border-amber-400 hover:bg-amber-50',
+    vault: 'bg-white/5 border-white/15 text-stone-300 hover:border-amber-400/60 hover:bg-white/10',
+    atelier:
+      'bg-[#EDE4D3] border-[#D4C9B8] text-[#8C7B6B] hover:border-[#A86F3C]/60 hover:bg-[#E6D9C2]',
+  }[theme];
+  const uploadHeadingClass = {
+    gallery: 'text-stone-900',
+    vault: 'text-white',
+    atelier: 'text-[#3D3530]',
+  }[theme];
+  const selectTileClass = {
+    gallery: 'border border-stone-100 bg-stone-50/50 hover:border-amber-400 hover:bg-amber-50',
+    vault: 'border border-white/10 bg-white/5 hover:border-amber-400/60 hover:bg-white/10',
+    atelier: 'border border-[#D4C9B8] bg-[#EDE4D3]/60 hover:border-[#A86F3C]/60 hover:bg-[#EDE4D3]',
+  }[theme];
+  const selectTileTitleClass = {
+    gallery: 'text-stone-800',
+    vault: 'text-white',
+    atelier: 'text-[#3D3530]',
+  }[theme];
+  // Subtle "skip / dismiss" link hover tone. The original
+  // "hover:text-stone-600 / hover:text-stone-700" disappears against Vault's
+  // stone-900 surface — pin a theme-specific destination so the hover affordance
+  // stays legible across all three themes.
+  const subtleLinkHoverClass = {
+    gallery: 'hover:text-stone-700',
+    vault: 'hover:text-white',
+    atelier: 'hover:text-[#3D3530]',
+  }[theme];
   // Matches the dialog surface so the bottom fade blends into the panel bg.
   const scrollFadeFrom =
     theme === 'vault' ? 'from-stone-900' : theme === 'atelier' ? 'from-[#F5EFE4]' : 'from-white';
-  const dialogDescribedBy = error
-    ? 'add-item-error'
-    : analysisNeedsReview
-      ? 'add-item-review'
-      : titleError
-        ? 'add-item-title-error'
-        : undefined;
+  const dialogDescribedBy = confirmingDiscard
+    ? 'add-item-discard-desc'
+    : error
+      ? 'add-item-error'
+      : analysisNeedsReview
+        ? 'add-item-review'
+        : titleError
+          ? 'add-item-title-error'
+          : undefined;
 
   const getFieldLabel = (fieldId: string, fallback: string) => {
     return getFieldTranslation(t, fieldId, fallback);
@@ -160,7 +256,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     // the previous fetch actually returned something — otherwise let the
     // user retry by re-opening the panel.
     if (promptsFetchedFor === storyPromptsCacheKey && storyPrompts.length > 0) return;
-    trackEvent('story_prompt_panel_opened', {});
+    trackEvent('story_prompt_panel_opened', { surface: 'add_item_modal' });
     setPromptsLoading(true);
     try {
       const knownFields: Record<string, string | number> = {};
@@ -199,7 +295,10 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     const insertAt = el?.selectionStart ?? current.length;
     const next = current.slice(0, insertAt) + snippet + current.slice(insertAt);
     setFormData({ ...formData, notes: next });
-    trackEvent('story_prompt_inserted', { prompt_length: prompt.length });
+    trackEvent('story_prompt_inserted', {
+      surface: 'add_item_modal',
+      prompt_length: prompt.length,
+    });
     // Focus the textarea after the state update; caret moves to end of insert.
     requestAnimationFrame(() => {
       const t = storyInputRef.current;
@@ -244,6 +343,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     setTitleError(null);
     setBatchTitleErrors({});
     setIsImageEditorOpen(false);
+    setConfirmingDiscard(false);
     setPromptsOpen(false);
     setPromptsLoading(false);
     setStoryPrompts([]);
@@ -270,7 +370,9 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     });
 
     const getFocusable = () => {
-      const el = dialogRef.current;
+      // While the discard prompt is up, restrict tab cycling to its buttons so
+      // focus can't escape back into the form behind it.
+      const el = confirmingDiscardRef.current ? confirmRef.current : dialogRef.current;
       if (!el) return [];
       return Array.from(
         el.querySelectorAll<HTMLElement>(
@@ -281,12 +383,22 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
 
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        if (isImageEditorOpenRef.current) return;
         e.preventDefault();
+        if (confirmingDiscardRef.current) {
+          setConfirmingDiscard(false);
+          return;
+        }
+        if (hasInProgressWorkRef.current) {
+          setConfirmingDiscard(true);
+          return;
+        }
         onClose();
         return;
       }
 
       if (e.key !== 'Tab') return;
+      if (isImageEditorOpenRef.current) return;
       const focusable = getFocusable();
       if (focusable.length === 0) return;
 
@@ -343,6 +455,51 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     if (scrollContentRef.current) observer.observe(scrollContentRef.current);
     return () => observer.disconnect();
   }, [isOpen, step, updateScrollAffordance]);
+
+  // Verify and batch-verify are the only steps where the user has already
+  // invested effort worth confirming before discard: a photo upload, AI-
+  // analyzed metadata, typed Story, typed title, set rating, filled custom
+  // field, or batch items lined up for save.
+  const hasFilledFormField = Object.entries(formData.data || {}).some(([key, value]) => {
+    // Skip internal AI metadata (e.g. `_aiDescription`); it's hidden and
+    // only present alongside `imagePreview`, which is already counted.
+    if (key.startsWith('_')) return false;
+    if (value === null || value === undefined) return false;
+    if (typeof value === 'string') return value.trim().length > 0;
+    return true;
+  });
+  const hasInProgressWork =
+    (step === 'verify' || step === 'batch-verify') &&
+    (!!imagePreview ||
+      formData.title.trim().length > 0 ||
+      (formData.notes || '').trim().length > 0 ||
+      formData.rating > 0 ||
+      hasFilledFormField ||
+      batchItems.length > 0);
+
+  // Mirror the latest values into refs so the keydown handler (registered once
+  // per modal-open) reads current state without a re-registration churn that
+  // would refire on every keystroke.
+  const hasInProgressWorkRef = useRef(hasInProgressWork);
+  hasInProgressWorkRef.current = hasInProgressWork;
+  const confirmingDiscardRef = useRef(confirmingDiscard);
+  confirmingDiscardRef.current = confirmingDiscard;
+  // When the child ImageEditModal is open it owns Escape (CUR-86). Yield so the
+  // editor dismisses alone instead of also triggering this modal's discard flow.
+  const isImageEditorOpenRef = useRef(isImageEditorOpen);
+  isImageEditorOpenRef.current = isImageEditorOpen;
+
+  const requestClose = () => {
+    if (confirmingDiscard) {
+      setConfirmingDiscard(false);
+      return;
+    }
+    if (hasInProgressWork) {
+      setConfirmingDiscard(true);
+      return;
+    }
+    onClose();
+  };
 
   if (!isOpen) return null;
 
@@ -734,10 +891,12 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
         notes: story,
         data: formData.data || {},
       });
-      trackEvent(
-        story.trim().length > 0 ? 'add_item_saved_with_story' : 'add_item_saved_without_story',
-        { story_length_bucket: storyLengthBucket(story.trim().length) },
-      );
+      trackEvent('item_saved', {
+        mode: 'single',
+        has_story: story.trim().length > 0,
+        has_photo: Boolean(imagePreview),
+        story_length_bucket: storyLengthBucket(story.trim().length),
+      });
       onClose();
     } catch (e) {
       console.error('Save failed:', e);
@@ -781,10 +940,12 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
           data: item.data || {},
         });
         setBatchItems((prev) => prev.filter((b) => b.id !== item.id));
-        trackEvent(
-          story.trim().length > 0 ? 'add_item_saved_with_story' : 'add_item_saved_without_story',
-          { story_length_bucket: storyLengthBucket(story.trim().length) },
-        );
+        trackEvent('item_saved', {
+          mode: 'batch',
+          has_story: story.trim().length > 0,
+          has_photo: Boolean(item.image),
+          story_length_bucket: storyLengthBucket(story.trim().length),
+        });
       }
       onClose();
     } catch (e) {
@@ -808,15 +969,18 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
               setSelectedCollectionId(c.id);
               setStep('upload');
             }}
-            className="p-4 sm:p-6 rounded-xl sm:rounded-2xl border border-stone-100 bg-stone-50/50 hover:border-amber-400 hover:bg-amber-50 transition-all text-left group shadow-sm hover:shadow-md"
+            data-testid="add-item-collection-tile"
+            className={`p-4 sm:p-6 rounded-xl sm:rounded-2xl ${selectTileClass} transition-all text-left group shadow-sm hover:shadow-md`}
           >
             <span className="block text-2xl sm:text-3xl mb-2 sm:mb-3 group-hover:scale-110 transition-transform origin-left">
               {c.icon || '📦'}
             </span>
-            <span className="font-bold text-stone-800 block text-base sm:text-lg truncate">
+            <span
+              className={`font-bold ${selectTileTitleClass} block text-base sm:text-lg truncate`}
+            >
               {c.name}
             </span>
-            <span className="text-[10px] text-stone-400 font-medium uppercase tracking-wider">
+            <span className={`text-[10px] font-medium uppercase tracking-wider ${mutedText}`}>
               {t('artifacts')}: {c.items.length}
             </span>
           </button>
@@ -829,25 +993,30 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     <div className="text-center space-y-6 sm:space-y-8 py-2 sm:py-4">
       <div className="flex justify-center">
         <div className="relative">
-          <div
-            className="w-32 h-32 sm:w-40 sm:h-40 rounded-full bg-stone-50 border-2 border-dashed border-stone-200 flex flex-col items-center justify-center text-stone-400 group hover:border-amber-400 hover:bg-amber-50 transition-all cursor-pointer overflow-hidden"
+          <button
+            type="button"
             onClick={pickFromGallery}
+            aria-label={imagePreview ? t('changePhoto') : undefined}
+            data-testid="add-item-upload-empty"
+            className={`w-32 h-32 sm:w-40 sm:h-40 rounded-full border-2 border-dashed flex flex-col items-center justify-center group focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40 focus-visible:ring-offset-2 transition-all cursor-pointer overflow-hidden ${uploadEmptyTileClass}`}
           >
             {imagePreview ? (
-              <img src={imagePreview} className="w-full h-full object-cover" alt="Preview" />
+              <img src={imagePreview} className="w-full h-full object-cover" alt="" />
             ) : (
               <>
-                <Upload size={28} className="sm:w-8 sm:h-8 mb-2" />
+                <Upload size={28} className="sm:w-8 sm:h-8 mb-2" aria-hidden="true" />
                 <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">
                   {t('uploadPhoto')}
                 </span>
               </>
             )}
-          </div>
+          </button>
         </div>
       </div>
       <div>
-        <h3 className="text-xl sm:text-2xl font-serif font-bold text-stone-900 mb-1 sm:mb-2">
+        <h3
+          className={`text-xl sm:text-2xl font-serif font-bold mb-1 sm:mb-2 ${uploadHeadingClass}`}
+        >
           {t('uploadPhoto')}
         </h3>
         <p className={`text-sm sm:text-base ${mutedText} max-w-xs mx-auto`}>
@@ -880,7 +1049,8 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
         </Button>
         <button
           onClick={switchToManual}
-          className="text-xs sm:text-sm font-medium text-stone-400 hover:text-stone-600"
+          data-testid="add-item-skip-manual"
+          className={`text-xs sm:text-sm font-medium transition-colors ${mutedText} ${subtleLinkHoverClass}`}
         >
           {t('skipManual')}
         </button>
@@ -929,12 +1099,11 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
         )}
         <div className="space-y-4 px-1">
           {visibleBatchItems.map((item) => (
-            <div
-              key={item.id}
-              className="rounded-2xl border border-stone-100 bg-white p-3 shadow-sm"
-            >
+            <div key={item.id} className={`rounded-2xl border ${batchItemCardClass} p-3 shadow-sm`}>
               <div className="flex gap-3 items-start">
-                <div className="group relative w-20 h-20 rounded-xl overflow-hidden border border-stone-200 shrink-0">
+                <div
+                  className={`group relative w-20 h-20 rounded-xl overflow-hidden border ${imageTileClass} shrink-0`}
+                >
                   <img
                     src={item.image}
                     alt={item.title || t('photoPreview')}
@@ -943,7 +1112,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
                   <button
                     onClick={() => removeBatchItem(item.id)}
                     aria-label={t('remove')}
-                    className="absolute top-1 right-1 bg-white/80 p-1 rounded-full text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                    className={`absolute top-1 right-1 p-1.5 rounded-full shadow-sm transition-colors ${batchRemoveButtonClass}`}
                   >
                     <Trash2 size={12} />
                   </button>
@@ -1025,7 +1194,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
           )}
           <button
             onClick={() => batchInputRef.current?.click()}
-            className="w-full rounded-xl border-2 border-dashed border-stone-200 flex flex-col items-center justify-center text-stone-300 hover:border-amber-200 hover:bg-stone-50 transition-all py-6"
+            className={`w-full rounded-xl border-2 border-dashed flex flex-col items-center justify-center transition-all py-6 ${addMoreTileClass}`}
           >
             <Plus size={20} />
             <span className="text-[9px] font-bold uppercase mt-2">{t('addMore')}</span>
@@ -1039,19 +1208,27 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     <div className="text-center py-12 sm:py-20 space-y-4 sm:space-y-6">
       <div className="relative inline-block">
         <div className="absolute inset-0 bg-amber-200 rounded-full animate-ping opacity-20"></div>
-        <div className="relative bg-white p-4 sm:p-6 rounded-full shadow-lg border border-stone-100">
+        <div className={`relative p-4 sm:p-6 rounded-full shadow-lg border ${analyzingPillClass}`}>
           <Sparkles size={32} className="sm:w-10 sm:h-10 text-amber-500 animate-pulse" />
         </div>
       </div>
       <div>
-        <h3 className="text-xl sm:text-2xl font-serif font-bold text-stone-900 mb-1 sm:mb-2">
+        <h3
+          className={`text-xl sm:text-2xl font-serif font-bold mb-1 sm:mb-2 ${
+            theme === 'vault'
+              ? 'text-white'
+              : theme === 'atelier'
+                ? 'text-[#3D3530]'
+                : 'text-stone-900'
+          }`}
+        >
           {t('analyzingPhoto')}
         </h3>
-        <p className="text-sm sm:text-base text-stone-500 italic font-serif">
+        <p className={`text-sm sm:text-base italic font-serif ${mutedText}`}>
           {t('geminiExtracting')}
         </p>
         {batchProgress && batchProgress.total > 1 && (
-          <p className="text-xs text-stone-400 mt-2">
+          <p className={`text-xs mt-2 ${mutedText}`}>
             {t('batchProgress', {
               current: batchProgress.current,
               total: batchProgress.total,
@@ -1070,8 +1247,10 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
   const renderVerify = () => (
     <div className="space-y-4 sm:space-y-6">
       {lowConfidence && !error && !analysisError && (
-        <div className="p-4 bg-stone-100 text-stone-700 text-sm rounded-xl border border-stone-200 flex flex-col gap-2">
-          <div className="flex items-center gap-2 font-semibold text-stone-900">
+        <div
+          className={`p-4 text-sm rounded-xl border flex flex-col gap-2 ${lowConfidenceSurfaceClass}`}
+        >
+          <div className={`flex items-center gap-2 font-semibold ${lowConfidenceTitleClass}`}>
             <AlertCircle size={16} className="text-amber-500" />
             <span>{t('aiLowConfidenceTitle')}</span>
           </div>
@@ -1081,12 +1260,12 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
       {analysisNeedsReview && (
         <div
           id="add-item-review"
-          className="p-3 bg-amber-50 text-amber-700 text-xs rounded-xl border border-amber-100 font-medium flex items-center justify-between gap-2"
+          className={`p-3 text-xs rounded-xl border font-medium flex items-center justify-between gap-2 ${warnBannerClass}`}
         >
           <span>{t('analysisNeedsReview')}</span>
           <button
             onClick={retryAnalysis}
-            className="text-amber-800 underline underline-offset-4 font-semibold"
+            className={`underline underline-offset-4 font-semibold ${warnBannerActionClass}`}
           >
             {t('retryAnalysis')}
           </button>
@@ -1095,13 +1274,13 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
       {error && (
         <div
           id="add-item-error"
-          className="p-3 bg-amber-50 text-amber-700 text-xs rounded-xl border border-amber-100 font-medium flex items-center justify-between gap-2"
+          className={`p-3 text-xs rounded-xl border font-medium flex items-center justify-between gap-2 ${warnBannerClass}`}
         >
           <span>{error}</span>
           {analysisError && (
             <button
               onClick={switchToManual}
-              className="text-amber-800 underline underline-offset-4 font-semibold"
+              className={`underline underline-offset-4 font-semibold ${warnBannerActionClass}`}
             >
               {t('enterManually')}
             </button>
@@ -1115,7 +1294,9 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
       )}
       <div className="flex gap-4 sm:gap-6 items-start">
         <div className="flex flex-col items-center gap-2 shrink-0">
-          <div className="w-16 h-16 sm:w-24 sm:h-24 rounded-xl bg-stone-100 overflow-hidden border border-stone-200">
+          <div
+            className={`w-16 h-16 sm:w-24 sm:h-24 rounded-xl overflow-hidden border ${imageTileClass}`}
+          >
             {imagePreview ? (
               <img
                 src={imagePreview}
@@ -1123,7 +1304,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
                 className="w-full h-full object-cover"
               />
             ) : (
-              <CameraIcon className="w-full h-full p-4 sm:p-6 text-stone-200" />
+              <CameraIcon className={`w-full h-full p-4 sm:p-6 ${imageTilePlaceholderClass}`} />
             )}
           </div>
           {imagePreview && (
@@ -1198,7 +1379,8 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setPromptsOpen(false)}
-                  className={`text-[11px] ${mutedText} hover:text-stone-700`}
+                  data-testid="add-item-story-prompt-hide"
+                  className={`text-[11px] transition-colors ${mutedText} ${subtleLinkHoverClass}`}
                 >
                   {t('storyPromptHide')}
                 </button>
@@ -1299,7 +1481,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
               {t('addItem')}
             </h2>
             <button
-              onClick={onClose}
+              onClick={requestClose}
               aria-label={t('close')}
               className={`p-2 rounded-full transition-colors ${theme === 'vault' ? 'hover:bg-white/5 text-stone-300 hover:text-white' : 'hover:bg-stone-100 text-stone-400 hover:text-stone-800'}`}
             >
@@ -1308,27 +1490,81 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
           </div>
 
           <div className="relative flex-1 min-h-0">
-            <div
-              ref={scrollRef}
-              data-testid="add-item-scroll"
-              onScroll={updateScrollAffordance}
-              className="h-full overflow-y-auto p-5 pb-6 sm:p-8 overscroll-contain"
-            >
-              <div ref={scrollContentRef} className="space-y-6">
-                {step === 'select-type' && renderCollectionSelect()}
-                {step === 'upload' && renderUpload()}
-                {step === 'batch-verify' && renderBatchVerify()}
-                {step === 'analyzing' && renderAnalyzing()}
-                {step === 'verify' && renderVerify()}
+            {confirmingDiscard ? (
+              <div
+                ref={confirmRef}
+                data-testid="add-item-discard-confirm"
+                className="h-full flex flex-col items-center justify-center text-center p-6 sm:p-8"
+              >
+                <div
+                  className={`p-2.5 rounded-full mb-4 ${
+                    theme === 'vault'
+                      ? 'bg-amber-500/15 text-amber-300'
+                      : 'bg-amber-100 text-amber-700'
+                  }`}
+                  aria-hidden
+                >
+                  <AlertCircle size={22} />
+                </div>
+                <h3
+                  id="add-item-discard-title"
+                  className={`font-serif font-bold text-xl sm:text-2xl mb-2 ${theme === 'vault' ? 'text-white' : 'text-stone-900'}`}
+                >
+                  {t('discardItemTitle')}
+                </h3>
+                <p
+                  id="add-item-discard-desc"
+                  className={`text-sm leading-relaxed max-w-xs ${mutedText} mb-6`}
+                >
+                  {t('discardItemDesc')}
+                </p>
+                <div className="w-full max-w-xs flex flex-col gap-2">
+                  <Button
+                    autoFocus
+                    onClick={() => setConfirmingDiscard(false)}
+                    size="lg"
+                    className="w-full"
+                  >
+                    {t('keepEditing')}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setConfirmingDiscard(false);
+                      onClose();
+                    }}
+                    className="w-full"
+                  >
+                    {t('discardItemAction')}
+                  </Button>
+                </div>
               </div>
-            </div>
-            <div
-              aria-hidden="true"
-              data-testid="add-item-scroll-fade"
-              className={`pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t ${scrollFadeFrom} to-transparent transition-opacity duration-200 ${canScrollDown ? 'opacity-100' : 'opacity-0'}`}
-            />
+            ) : (
+              <>
+                <div
+                  ref={scrollRef}
+                  data-testid="add-item-scroll"
+                  onScroll={updateScrollAffordance}
+                  className="h-full overflow-y-auto p-5 pb-6 sm:p-8 overscroll-contain"
+                >
+                  <div ref={scrollContentRef} className="space-y-6">
+                    {step === 'select-type' && renderCollectionSelect()}
+                    {step === 'upload' && renderUpload()}
+                    {step === 'batch-verify' && renderBatchVerify()}
+                    {step === 'analyzing' && renderAnalyzing()}
+                    {step === 'verify' && renderVerify()}
+                  </div>
+                </div>
+                <div
+                  aria-hidden="true"
+                  data-testid="add-item-scroll-fade"
+                  className={`pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t ${scrollFadeFrom} to-transparent transition-opacity duration-200 ${canScrollDown ? 'opacity-100' : 'opacity-0'}`}
+                />
+              </>
+            )}
           </div>
-          {step === 'verify' &&
+          {!confirmingDiscard &&
+            step === 'verify' &&
             (() => {
               const storyEmpty = !(formData.notes || '').trim();
               const label = isSaving
@@ -1363,7 +1599,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
                 </div>
               );
             })()}
-          {step === 'batch-verify' && (
+          {!confirmingDiscard && step === 'batch-verify' && (
             <div
               className={`border-t ${borderClass} p-4 sm:p-5 ${theme === 'vault' ? 'bg-stone-950' : 'bg-white'}`}
             >

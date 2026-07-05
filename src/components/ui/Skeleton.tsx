@@ -1,4 +1,5 @@
 import React from 'react';
+import { Loader2 } from 'lucide-react';
 
 interface SkeletonProps {
   className?: string;
@@ -52,5 +53,38 @@ export const ItemCardSkeleton: React.FC = () => (
       <Skeleton variant="text" className="w-3/4 h-4" />
       <Skeleton variant="text" className="w-1/2 h-3" />
     </div>
+  </div>
+);
+
+// Deep-link routes (/collection/:id, /collection/:id/item/:itemId) reuse
+// HomeScreen's "Opening your museum…" affordance while `isLoading` is
+// true, so a hard reload on a shared link no longer bounces back to Home
+// before the cloud fetch resolves (CUR-118). The label is passed in so the
+// component stays i18n-free.
+export const CollectionScreenSkeleton: React.FC<{ label: string }> = ({ label }) => (
+  <div
+    className="space-y-8 sm:space-y-10 animate-in fade-in duration-500"
+    data-testid="collection-screen-skeleton"
+  >
+    <div className="text-center pt-4">
+      <Loader2 className="text-stone-300 animate-spin mx-auto mb-4" size={24} />
+      <p className="text-stone-400 font-serif italic text-sm">{label}</p>
+    </div>
+    <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5">
+      <ItemCardSkeleton />
+      <ItemCardSkeleton />
+      <ItemCardSkeleton />
+      <ItemCardSkeleton />
+    </div>
+  </div>
+);
+
+export const ItemDetailSkeleton: React.FC<{ label: string }> = ({ label }) => (
+  <div
+    className="flex flex-col items-center justify-center py-16 sm:py-24 animate-in fade-in duration-500"
+    data-testid="item-detail-skeleton"
+  >
+    <Loader2 className="text-stone-300 animate-spin mb-4" size={24} />
+    <p className="text-stone-400 font-serif italic text-sm">{label}</p>
   </div>
 );

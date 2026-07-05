@@ -31,6 +31,9 @@ or `docs/plan/`.
   canonical docs above.
 - `plan/DESIGN_username_system.md`: active forward-looking spec for Phase 1 public profile
   usernames. Delete once shipped and move enduring behavior into the canonical docs above.
+- `plan/DESIGN_explore_feed_pipeline.md`: active forward-looking spec for the Phase 2 Explore feed
+  content pipeline and curation model. Delete once shipped and move enduring behavior into the
+  canonical docs above.
 - `archive/CODE_REVIEW_REPORT.md`: historical point-in-time report. Keep archived, do not update.
 
 ## Documentation rules

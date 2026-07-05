@@ -109,6 +109,20 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
       ? 'bg-white/5 border border-white/10 text-white placeholder:text-stone-400'
       : 'bg-stone-50 border border-stone-200 text-stone-800';
 
+  // CUR-22: theme-aware tone tokens for the status banner and loading spinner
+  // backdrop. Mirrors the AddItemModal warnBannerClass (CUR-92) so amber
+  // pastels stop punching through Vault's stone-950 surface.
+  const statusBannerClass = {
+    gallery: 'bg-amber-50 text-amber-700 border-amber-100',
+    vault: 'bg-amber-500/10 text-amber-200 border-amber-400/20',
+    atelier: 'bg-amber-100/70 text-amber-900 border-amber-300/60',
+  }[theme];
+  const loadingSpinnerClass = {
+    gallery: 'bg-amber-50 text-amber-500',
+    vault: 'bg-amber-500/15 text-amber-300',
+    atelier: 'bg-amber-100/70 text-[#A86F3C]',
+  }[theme];
+
   const resetState = () => {
     suggestRunRef.current += 1;
     setStep('entry');
@@ -365,6 +379,21 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
     }
   }, [step, isIconPickerOpen]);
 
+  // The icon-picker effect above owns Escape while the picker is open, so this
+  // top-level handler stays unregistered in that state to preserve picker-only dismissal.
+  useEffect(() => {
+    if (!isOpen) return;
+    if (isIconPickerOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      handleClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, isIconPickerOpen]);
+
   if (!isOpen) return null;
 
   const renderEntry = () => (
@@ -508,7 +537,10 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
   const renderLoading = () => (
     <div className="text-center py-12 sm:py-16 space-y-4">
       <div className="flex justify-center">
-        <div className="w-14 h-14 rounded-full flex items-center justify-center bg-amber-50 text-amber-500">
+        <div
+          data-testid="collection-loading-spinner"
+          className={`w-14 h-14 rounded-full flex items-center justify-center ${loadingSpinnerClass}`}
+        >
           <Loader2 size={24} className="animate-spin" />
         </div>
       </div>
@@ -550,7 +582,10 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
         </div>
 
         {statusMessage && (
-          <div className="p-3 rounded-xl border text-xs font-medium bg-amber-50 text-amber-700 border-amber-100">
+          <div
+            data-testid="collection-status-message"
+            className={`p-3 rounded-xl border text-xs font-medium ${statusBannerClass}`}
+          >
             {statusMessage}
           </div>
         )}

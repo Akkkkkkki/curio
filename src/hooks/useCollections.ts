@@ -182,40 +182,65 @@ export const useCollections = ({
     }
     setIsLoading(true);
     setLoadError(null);
+
+    // Persisting storage is best-effort; never let it block or fail the load.
     try {
       await withTimeout(requestPersistence(), 4000, 'Persistence request timed out');
+    } catch (e) {
+      console.warn('Persistent storage request failed (continuing):', e);
+    }
 
-      const localCollections = await withTimeout(
+    // Local cache is a fallback; a slow/corrupt read must not block the load.
+    let localCollections: UserCollection[] = [];
+    try {
+      localCollections = await withTimeout(
         getLocalCollections(),
         4000,
         'Local cache load timed out',
       );
-      let cloudCollections: UserCollection[] = [];
-      try {
-        cloudCollections = await withTimeout(
-          fetchCloudCollections({ userId: user?.id ?? null, includePublic: true }),
-          12000,
-          'Cloud fetch timed out',
-        );
-      } catch (e) {
-        console.warn('Supabase cloud fetch failed:', e);
-        setHasLocalImport(false);
+    } catch (e) {
+      console.warn('Local cache load failed (continuing):', e);
+    }
+
+    let cloudCollections: UserCollection[] = [];
+    try {
+      cloudCollections = await withTimeout(
+        fetchCloudCollections({ userId: user?.id ?? null, includePublic: true }),
+        12000,
+        'Cloud fetch timed out',
+      );
+    } catch (e) {
+      console.warn('Supabase cloud fetch failed:', e);
+      setHasLocalImport(false);
+      // Prefer showing whatever we already have cached over a blocking error
+      // screen. Only hard-block when there is genuinely nothing to display.
+      if (localCollections.length > 0) {
         setCollections(localCollections);
+        setLoadError(null);
+      } else if (!user) {
+        setCollections(fallbackSampleCollections);
+        setLoadError(null);
+      } else {
+        setCollections([]);
         setLoadError('Unable to sync with Supabase. Check your connection and Supabase settings.');
-        showStatus(t('statusSyncPaused'), 'error');
-        return;
       }
+      showStatus(t('statusSyncPaused'), 'error');
+      setIsLoading(false);
+      return;
+    }
 
-      if (!user) {
-        setHasLocalImport(false);
-        if (cloudCollections.length === 0 && localCollections.length === 0) {
-          setCollections(fallbackSampleCollections);
-        } else {
-          setCollections(cloudCollections);
-        }
-        return;
+    if (!user) {
+      setHasLocalImport(false);
+      if (cloudCollections.length === 0 && localCollections.length === 0) {
+        setCollections(fallbackSampleCollections);
+      } else {
+        setCollections(cloudCollections);
       }
+      setIsLoading(false);
+      return;
+    }
 
+    try {
       const localOnly = hasLocalOnlyData(localCollections, cloudCollections);
       setHasLocalImport(localOnly);
 
@@ -245,27 +270,44 @@ export const useCollections = ({
         pendingDeletes,
       });
 
-      await saveAllCollections(mergedCollections);
+      // Render the merged result immediately and stop the loading state. Cache
+      // persistence and pending-sync flushing run in the background so a slow
+      // IndexedDB write or a stalled upload can never keep the user stuck on the
+      // "Opening your museum..." loading screen.
       setCollections(mergedCollections);
+      setLoadError(null);
+      setIsLoading(false);
       if (cloudCollections.length + localCollections.length > 0) {
         showStatus(t('statusSynced'), 'success');
       }
 
-      // Sync any pending changes from previous offline session (only when online and logged in)
-      if (user && navigator.onLine) {
-        const synced = await syncPendingChanges();
-        if (synced > 0) {
-          showStatus(t('statusPendingSynced').replace('{count}', String(synced)), 'success');
+      void (async () => {
+        try {
+          await saveAllCollections(mergedCollections);
+          // Sync any pending changes from a previous offline session.
+          if (navigator.onLine) {
+            const synced = await syncPendingChanges();
+            if (synced > 0) {
+              showStatus(t('statusPendingSynced').replace('{count}', String(synced)), 'success');
+            }
+            await syncPendingAssetUploads();
+            await syncPendingDeletes();
+          }
+        } catch (e) {
+          console.warn('Background cache persistence/sync failed:', e);
         }
-        await syncPendingAssetUploads();
-        await syncPendingDeletes();
-      }
+      })();
     } catch (e) {
       console.error('Initialization failed:', e);
-      setLoadError('Failed to load collections. Please try again.');
+      // Fall back to cached data rather than blanking the UI when possible.
+      if (localCollections.length > 0) {
+        setCollections(localCollections);
+        setLoadError(null);
+      } else {
+        setCollections([]);
+        setLoadError('Failed to load collections. Please try again.');
+      }
       showStatus(t('statusSyncPaused'), 'error');
-      setCollections([]);
-    } finally {
       setIsLoading(false);
     }
   }, [fallbackSampleCollections, isAdmin, isSupabaseReady, showStatus, t, user, withTimeout]);

@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { X, GitMerge, Cloud, Laptop, ArrowRight } from 'lucide-react';
 import { useTranslation } from '../i18n';
-import { useTheme, panelSurfaceClasses, overlaySurfaceClasses } from '../theme';
+import { useTheme, panelSurfaceClasses, overlaySurfaceClasses, mutedTextClasses } from '../theme';
+import { useModalA11y } from '../hooks/useModalA11y';
 
 export type ConflictEntry = {
   id: string;
@@ -36,20 +37,21 @@ const formatTime = (isoString?: string) => {
   }).format(date);
 };
 
-const getChangedFields = (local: any, cloud: any, type: 'item' | 'collection') => {
+// Returns i18n keys for fields that differ between local and cloud payloads.
+// The caller maps each key to a localized label via t().
+const getChangedFieldKeys = (local: any, cloud: any, type: 'item' | 'collection'): string[] => {
   const changes: string[] = [];
   if (type === 'item') {
-    if (local.title !== cloud.title) changes.push('Title');
-    if (local.rating !== cloud.rating) changes.push('Rating');
-    if (local.notes !== cloud.notes) changes.push('Story');
-    // Simple check for data fields
+    if (local.title !== cloud.title) changes.push('title');
+    if (local.rating !== cloud.rating) changes.push('rating');
+    if (local.notes !== cloud.notes) changes.push('story');
     const localData = JSON.stringify(local.data || {});
     const cloudData = JSON.stringify(cloud.data || {});
-    if (localData !== cloudData) changes.push('Details');
+    if (localData !== cloudData) changes.push('conflictFieldDetails');
   } else {
-    if (local.name !== cloud.name) changes.push('Name');
-    if (local.icon !== cloud.icon) changes.push('Icon');
-    if (local.description !== cloud.description) changes.push('Description');
+    if (local.name !== cloud.name) changes.push('name');
+    if (local.icon !== cloud.icon) changes.push('icon');
+    if (local.description !== cloud.description) changes.push('conflictFieldDescription');
   }
   return changes;
 };
@@ -66,6 +68,14 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
   const surfaceClass = panelSurfaceClasses[theme];
   const overlayClass = `${overlaySurfaceClasses[theme]} motion-overlay`;
   const borderClass = theme === 'vault' ? 'border-white/10' : 'border-stone-100';
+  const mutedText = mutedTextClasses[theme];
+
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  // Conflict resolution is destructive — picking a side discards data. Land
+  // initial focus on the dismiss button so keyboard users do not commit a
+  // choice by hitting Enter on the first focusable control.
+  useModalA11y(dialogRef, isOpen, onClose, { initialFocusRef: closeButtonRef });
 
   if (!isOpen) return null;
 
@@ -74,6 +84,7 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
       className={`fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 ${overlayClass} backdrop-blur-sm`}
     >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="conflict-resolution-title"
@@ -93,6 +104,7 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
             </h2>
           </div>
           <button
+            ref={closeButtonRef}
             onClick={onClose}
             aria-label={t('close')}
             className={`p-2 rounded-full transition-colors ${theme === 'vault' ? 'hover:bg-white/5 text-stone-300 hover:text-white' : 'hover:bg-stone-100 text-stone-400 hover:text-stone-800'}`}
@@ -106,18 +118,19 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
             {t('conflictDesc')}
           </p>
           {conflicts.length === 0 && (
-            <div className="text-sm text-stone-500">{t('conflictEmpty')}</div>
+            <div className={`text-sm ${mutedText}`}>{t('conflictEmpty')}</div>
           )}
           {conflicts.map((conflict) => {
             const localTime = new Date(conflict.localUpdatedAt || 0).getTime();
             const cloudTime = new Date(conflict.cloudUpdatedAt || 0).getTime();
             const isLocalNewer = localTime > cloudTime;
             const isCloudNewer = cloudTime > localTime;
-            const changes = getChangedFields(
+            const changeKeys = getChangedFieldKeys(
               conflict.localPayload,
               conflict.cloudPayload,
               conflict.type,
             );
+            const changeLabels = changeKeys.map((key) => t(key));
 
             return (
               <div
@@ -130,9 +143,9 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
                       <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 bg-stone-100 px-1.5 py-0.5 rounded">
                         {conflict.type === 'item' ? t('conflictItem') : t('conflictCollection')}
                       </span>
-                      {changes.length > 0 && (
+                      {changeLabels.length > 0 && (
                         <span className="text-[10px] text-amber-600 font-medium">
-                          Changed: {changes.join(', ')}
+                          {t('conflictChangedPrefix')} {changeLabels.join(', ')}
                         </span>
                       )}
                     </div>
@@ -151,10 +164,10 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
                   >
                     {isCloudNewer && (
                       <div className="absolute -top-2 left-3 px-2 py-0.5 bg-amber-500 text-white text-[10px] font-bold uppercase tracking-wider rounded-full shadow-sm">
-                        Newer
+                        {t('conflictNewerBadge')}
                       </div>
                     )}
-                    <div className="flex items-center gap-2 mb-2 text-stone-500">
+                    <div className={`flex items-center gap-2 mb-2 ${mutedText}`}>
                       <Cloud size={14} />
                       <span className="text-xs font-semibold">{t('cloudVersion')}</span>
                     </div>
@@ -179,10 +192,10 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
                   >
                     {isLocalNewer && (
                       <div className="absolute -top-2 left-3 px-2 py-0.5 bg-amber-500 text-white text-[10px] font-bold uppercase tracking-wider rounded-full shadow-sm">
-                        Newer
+                        {t('conflictNewerBadge')}
                       </div>
                     )}
-                    <div className="flex items-center gap-2 mb-2 text-stone-500">
+                    <div className={`flex items-center gap-2 mb-2 ${mutedText}`}>
                       <Laptop size={14} />
                       <span className="text-xs font-semibold">{t('localVersion')}</span>
                     </div>

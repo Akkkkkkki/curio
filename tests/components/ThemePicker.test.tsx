@@ -54,4 +54,38 @@ describe('ThemePicker', () => {
     const galleryButton = screen.getByRole('button', { name: /gallery/i });
     expect(galleryButton.querySelector('svg.lucide-check')).not.toBeInTheDocument();
   });
+
+  describe('stacked layout', () => {
+    // CUR-109: the stacked variant (used in the profile menu) must not
+    // hardcode Gallery's amber-50 active row on Vault/Atelier, and the
+    // paintbrush icon must stay legible on every theme.
+    it('uses Vault-toned active row when Vault is the current theme', () => {
+      setMockTheme('vault');
+      renderWithProviders(<ThemePicker layout="stacked" />);
+
+      const vaultButton = screen.getByRole('button', { name: /vault/i });
+      expect(vaultButton.className).toMatch(/bg-white\/10/);
+      expect(vaultButton.className).not.toMatch(/bg-amber-50/);
+    });
+
+    it('uses Atelier-toned active row when Atelier is the current theme', () => {
+      setMockTheme('atelier');
+      renderWithProviders(<ThemePicker layout="stacked" />);
+
+      const atelierButton = screen.getByRole('button', { name: /atelier/i });
+      expect(atelierButton.className).toContain('bg-[#EDE4D3]');
+      expect(atelierButton.className).not.toMatch(/bg-amber-50/);
+    });
+
+    it('keeps the paintbrush icon legible (no hardcoded text-stone-300 on light themes)', () => {
+      setMockTheme('gallery');
+      const { container } = renderWithProviders(<ThemePicker layout="stacked" />);
+
+      const icons = container.querySelectorAll('svg.lucide-paintbrush');
+      expect(icons.length).toBeGreaterThan(0);
+      icons.forEach((icon) => {
+        expect(icon.getAttribute('class') || '').not.toMatch(/text-stone-300/);
+      });
+    });
+  });
 });

@@ -10,9 +10,16 @@ import { test, expect, Page } from '@playwright/test';
  * - Focus management
  */
 
+async function waitForAppReady(page: Page) {
+  await expect(page.getByTestId('app-shell')).toHaveAttribute('data-ready', 'true', {
+    timeout: 15000,
+  });
+}
+
 test.describe('Accessibility', () => {
   async function openAuthModal(page: Page) {
     await page.goto('/');
+    await waitForAppReady(page);
     const gate = page.getByTestId('access-gate');
     if (await gate.isVisible()) {
       await page.getByTestId('cta-primary-add-first').click();
@@ -38,6 +45,7 @@ test.describe('Accessibility', () => {
   test.describe('Keyboard Navigation', () => {
     test('should be able to navigate home page with keyboard only', async ({ page }) => {
       await page.goto('/');
+      await waitForAppReady(page);
 
       // Press Tab to navigate through interactive elements
       await page.keyboard.press('Tab');
@@ -50,6 +58,7 @@ test.describe('Accessibility', () => {
 
     test('should close modal with Escape key and restore focus to trigger', async ({ page }) => {
       await page.goto('/');
+      await waitForAppReady(page);
       const trigger = page.getByTestId('cta-primary-add-first');
       test.skip(!(await page.getByTestId('access-gate').isVisible()), 'Access gate not shown');
 
@@ -86,6 +95,7 @@ test.describe('Accessibility', () => {
   test.describe('ARIA and Semantic HTML', () => {
     test('should have proper heading hierarchy', async ({ page }) => {
       await page.goto('/');
+      await waitForAppReady(page);
 
       const headings = await page
         .locator('h1, h2, h3, h4, h5, h6')
@@ -95,6 +105,7 @@ test.describe('Accessibility', () => {
 
     test('should have descriptive button labels', async ({ page }) => {
       await page.goto('/');
+      await waitForAppReady(page);
 
       // All buttons should have accessible names
       const buttons = page.locator('button');
@@ -133,6 +144,7 @@ test.describe('Accessibility', () => {
 
     test('should expose landmark regions (main + primary nav)', async ({ page }) => {
       await page.goto('/');
+      await waitForAppReady(page);
       await expect(page.locator('main')).toBeVisible();
       await expect(page.locator('header')).toBeVisible();
     });
@@ -141,6 +153,7 @@ test.describe('Accessibility', () => {
   test.describe('Color and Visual', () => {
     test('should have visible focus indicators', async ({ page }) => {
       await page.goto('/');
+      await waitForAppReady(page);
 
       // Focus on a button
       await page.keyboard.press('Tab');
@@ -160,17 +173,21 @@ test.describe('Accessibility', () => {
   test.describe('Images and Media', () => {
     test('should have alt text for images', async ({ page }) => {
       await page.goto('/');
+      await waitForAppReady(page);
 
-      const images = page.locator('img');
-      const count = await images.count();
+      // Snapshot the current DOM rather than auto-waiting per <img>; image elements
+      // can be replaced by a placeholder tile if their source fails to load.
+      const altTexts = await page.locator('img').evaluateAll((nodes) =>
+        nodes.slice(0, 5).map((img) => ({
+          visible: (img as HTMLElement).offsetParent !== null,
+          alt: img.getAttribute('alt'),
+        })),
+      );
 
-      for (let i = 0; i < Math.min(count, 5); i++) {
-        const img = images.nth(i);
-        if (await img.isVisible()) {
-          const alt = await img.getAttribute('alt');
-          // Images should have alt attribute (can be empty for decorative)
-          expect(alt !== null).toBeTruthy();
-        }
+      for (const { visible, alt } of altTexts) {
+        if (!visible) continue;
+        // Images should have alt attribute (can be empty for decorative)
+        expect(alt !== null).toBeTruthy();
       }
     });
   });
@@ -180,6 +197,7 @@ test.describe('Accessibility', () => {
       // Set mobile viewport
       await page.setViewportSize({ width: 375, height: 667 });
       await page.goto('/');
+      await waitForAppReady(page);
 
       // App should load and be interactive
       await expect(page.locator('body')).toBeVisible();
@@ -195,6 +213,7 @@ test.describe('Accessibility', () => {
     test('should have touch-friendly tap targets', async ({ page }) => {
       await page.setViewportSize({ width: 375, height: 667 });
       await page.goto('/');
+      await waitForAppReady(page);
 
       // Check button sizes meet minimum tap target (44x44px recommended)
       const buttons = page.locator('button');
@@ -218,6 +237,7 @@ test.describe('Accessibility', () => {
 test.describe('Theme Accessibility', () => {
   test('vault theme should have readable contrast', async ({ page }) => {
     await page.goto('/');
+    await waitForAppReady(page);
 
     // Find theme toggle if available
     const themeButton = page.locator('[data-testid="theme-picker"]').first();
