@@ -108,20 +108,98 @@ describe('Layout Component', () => {
       });
     });
 
-    it('renders ThemePicker in profile dropdown', async () => {
+    // Note: Click-outside and Escape key handlers are not currently implemented
+    // in the Layout component. These would be good accessibility improvements.
+  });
+
+  // CUR-127: theme switching moved out of the profile grab-bag into a dedicated
+  // header quick toggle, and the remaining menu items are grouped into
+  // scannable Account / About / Data sections instead of a flat list.
+  describe('CUR-127 Theme quick toggle and grouped profile menu', () => {
+    const authenticatedUser = { id: 'user-1', email: 'test@example.com' };
+
+    it('changes theme without opening the profile menu (header quick toggle)', async () => {
       renderWithProviders(<Layout {...defaultProps} />);
 
-      const accountButton = screen.getByRole('button', { name: /account/i });
-      fireEvent.click(accountButton);
+      const themeButton = screen.getByTestId('theme-picker');
+      expect(themeButton).toHaveAttribute('aria-expanded', 'false');
+      fireEvent.click(themeButton);
 
       await waitFor(() => {
-        expect(screen.getByTestId('mock-theme-picker')).toBeInTheDocument();
-        expect(screen.getByTestId('mock-theme-picker')).toHaveAttribute('data-layout', 'stacked');
+        expect(themeButton).toHaveAttribute('aria-expanded', 'true');
+        const menu = screen.getByTestId('theme-quick-menu');
+        expect(within(menu).getByTestId('mock-theme-picker')).toHaveAttribute(
+          'data-layout',
+          'stacked',
+        );
       });
     });
 
-    // Note: Click-outside and Escape key handlers are not currently implemented
-    // in the Layout component. These would be good accessibility improvements.
+    it('closes the theme popover on Escape', async () => {
+      renderWithProviders(<Layout {...defaultProps} />);
+
+      fireEvent.click(screen.getByTestId('theme-picker'));
+      await waitFor(() => {
+        expect(screen.getByTestId('theme-quick-menu')).toBeInTheDocument();
+      });
+
+      fireEvent.keyDown(document, { key: 'Escape' });
+      await waitFor(() => {
+        expect(screen.queryByTestId('theme-quick-menu')).not.toBeInTheDocument();
+      });
+    });
+
+    it('no longer renders the ThemePicker inside the profile dropdown', async () => {
+      renderWithProviders(<Layout {...defaultProps} />);
+
+      fireEvent.click(screen.getByRole('button', { name: /account/i }));
+
+      await waitFor(() => {
+        const dropdown = screen.getByTestId('profile-dropdown');
+        expect(within(dropdown).queryByTestId('mock-theme-picker')).not.toBeInTheDocument();
+      });
+    });
+
+    it('groups the profile menu into Account / About / Data sections', async () => {
+      renderWithProviders(
+        <Layout
+          {...defaultProps}
+          user={authenticatedUser}
+          hasLocalImport
+          onImportLocal={vi.fn()}
+        />,
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: /account/i }));
+
+      await waitFor(() => {
+        const dropdown = screen.getByTestId('profile-dropdown');
+        const account = within(dropdown).getByTestId('profile-account-section');
+        expect(within(account).getByText('Account Status')).toBeInTheDocument();
+        expect(within(account).getByText('Sign Out')).toBeInTheDocument();
+
+        const about = within(dropdown).getByTestId('profile-about-section');
+        expect(within(about).getByText('About')).toBeInTheDocument();
+        expect(within(about).getByTestId('profile-legal-links')).toBeInTheDocument();
+
+        const data = within(dropdown).getByTestId('profile-data-section');
+        expect(within(data).getByText('Your Data')).toBeInTheDocument();
+        expect(within(data).getByTestId('profile-import-card')).toBeInTheDocument();
+      });
+    });
+
+    it('keeps the sign-in action inside the Account section when signed out', async () => {
+      renderWithProviders(<Layout {...defaultProps} user={null} />);
+
+      fireEvent.click(screen.getByRole('button', { name: /account/i }));
+
+      await waitFor(() => {
+        const account = within(screen.getByTestId('profile-dropdown')).getByTestId(
+          'profile-account-section',
+        );
+        expect(within(account).getByText('Sign In')).toBeInTheDocument();
+      });
+    });
   });
 
   describe('Authentication Status - Not Configured', () => {
