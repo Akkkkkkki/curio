@@ -520,11 +520,38 @@ describe('App Integration Tests', () => {
     const bottomNav = screen.getByRole('navigation', { name: 'Primary' });
     fireEvent.click(within(bottomNav).getByRole('link', { name: /explore/i }));
 
-    // Gate clears (public browsing enabled) and no extra cloud fetch fires.
+    // Gate clears (public browsing enabled), sample content loads, and no extra cloud fetch fires.
     await waitFor(() => {
       expect(screen.queryByTestId('access-gate')).not.toBeInTheDocument();
     });
+    await waitFor(
+      () => {
+        expect(screen.getByRole('heading', { name: 'The Vinyl Vault' })).toBeInTheDocument();
+      },
+      { timeout: 5000 },
+    );
     expect(vi.mocked(db.fetchCloudCollections).mock.calls.length).toBe(fetchCallsAfterLoad);
+  });
+
+  it('keeps visible focus indicators on the item detail title and story fields', async () => {
+    const { ThemeProvider } = await import('@/theme');
+
+    render(
+      <MemoryRouter initialEntries={['/collection/col1/item/item1']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    const titleField = await screen.findByDisplayValue('Test Item', undefined, { timeout: 5000 });
+    const storyField = await screen.findByDisplayValue('Test notes', undefined, { timeout: 5000 });
+
+    expect(titleField.className).toContain('focus:border-amber-500');
+    expect(storyField.className).toContain('focus:border-amber-500');
+    expect(storyField.className).toContain('focus:ring-amber-500/30');
   });
 
   it('shows cached collections instead of a blocking error when the cloud fetch fails (signed in)', async () => {
