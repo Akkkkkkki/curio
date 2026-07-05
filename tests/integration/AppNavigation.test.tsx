@@ -159,8 +159,11 @@ describe('App Integration Tests', () => {
     vi.mocked(db.syncPendingAssetUploads).mockResolvedValue(0);
     vi.mocked(db.syncPendingDeletes).mockResolvedValue(0);
     vi.mocked(db.requestPersistence).mockResolvedValue(true);
-    vi.mocked(db.saveAllCollections).mockResolvedValue(undefined);
     vi.mocked(db.saveCollection).mockResolvedValue(undefined);
+    vi.mocked(db.saveAllCollections).mockResolvedValue(undefined);
+    vi.mocked(db.deleteAsset).mockResolvedValue(undefined);
+    vi.mocked(db.deleteCloudItem).mockResolvedValue(undefined);
+    vi.mocked(db.deleteCollection).mockResolvedValue(undefined);
     vi.mocked(db.initDB).mockResolvedValue({} as never);
   });
 
@@ -679,6 +682,44 @@ describe('App Integration Tests', () => {
     const errorMessage = screen.getByRole('alert');
     expect(errorMessage).toHaveAttribute('id', 'item-detail-title-error');
     expect(errorMessage.textContent).toBe('Title is required');
+  });
+
+  it('cancels a queued item edit save before deleting that item', async () => {
+    const { ThemeProvider } = await import('@/theme');
+
+    render(
+      <MemoryRouter initialEntries={['/collection/col1/item/item1']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    const titleInput = await screen.findByRole('textbox', { name: 'Title' });
+
+    vi.useFakeTimers();
+    try {
+      fireEvent.change(titleInput, { target: { value: 'Edited before delete' } });
+      expect(db.saveCollection).not.toHaveBeenCalled();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Delete Item' }));
+      const dialog = screen.getByRole('dialog', { name: 'Delete Item' });
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Delete Item' }));
+
+      expect(db.deleteCloudItem).toHaveBeenCalledWith('col1', 'item1');
+      expect(db.saveCollection).toHaveBeenCalledTimes(1);
+      expect(vi.mocked(db.saveCollection).mock.calls[0][0].items).toEqual([]);
+
+      await act(async () => {
+        vi.advanceTimersByTime(1600);
+      });
+
+      expect(db.saveCollection).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('deep-links the access-gate "Explore sample" CTA into the sample collection (#287)', async () => {

@@ -901,6 +901,7 @@ export const AppContent: React.FC = () => {
       changedItemIds.forEach((itemId) => pendingItemIds.add(itemId));
       pendingEditedItemIdsRef.current[collection.id] = pendingItemIds;
       saveTimeoutRef.current[collection.id] = setTimeout(() => {
+        delete saveTimeoutRef.current[collection.id];
         const editedFields = pendingEditedFieldsRef.current[collection.id];
         const detailItemIds = pendingEditedItemIdsRef.current[collection.id] ?? new Set<string>();
         delete pendingEditedFieldsRef.current[collection.id];
@@ -947,6 +948,15 @@ export const AppContent: React.FC = () => {
     },
     [isSupabaseReady, setItemSaveState, showStatus, t],
   );
+
+  const clearPendingCollectionSave = useCallback((collectionId: string) => {
+    if (saveTimeoutRef.current[collectionId]) {
+      clearTimeout(saveTimeoutRef.current[collectionId]);
+      delete saveTimeoutRef.current[collectionId];
+    }
+    delete pendingEditedFieldsRef.current[collectionId];
+    delete pendingEditedItemIdsRef.current[collectionId];
+  }, []);
 
   const canEditCollection = useCallback(
     (collectionId: string) => {
@@ -1170,6 +1180,7 @@ export const AppContent: React.FC = () => {
 
   const deleteItem = (collectionId: string, itemId: string) => {
     if (!canEditCollection(collectionId)) return false;
+    clearPendingCollectionSave(collectionId);
     setCollections((prev) => {
       const target = prev.find((c) => c.id === collectionId);
       if (target) {
@@ -1372,6 +1383,7 @@ export const AppContent: React.FC = () => {
     const handleDeleteCollection = async () => {
       if (!collection || isReadOnly) return;
       try {
+        clearPendingCollectionSave(collection.id);
         await deleteCollection(collection);
         setCollections((prev) => prev.filter((c) => c.id !== collection.id));
         setIsDeleteCollectionModalOpen(false);
