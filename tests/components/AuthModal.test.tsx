@@ -51,7 +51,12 @@ describe('AuthModal', () => {
     vi.clearAllMocks();
     mockIsSupabaseConfigured.mockReturnValue(true);
     mockSignIn.mockResolvedValue({ user: { id: 'test-user' } });
-    mockSignUp.mockResolvedValue({ user: { id: 'test-user' } });
+    // Default to the confirmation-disabled shape: a session exists, so
+    // sign-up proceeds straight to onAuthSuccess/onClose.
+    mockSignUp.mockResolvedValue({
+      user: { id: 'test-user' },
+      session: { access_token: 'test-token' },
+    });
     mockResetPassword.mockResolvedValue(undefined);
     mockUpdatePassword.mockResolvedValue({ id: 'test-user' });
   });
@@ -200,6 +205,21 @@ describe('AuthModal', () => {
       });
     });
 
+    it('calls onAuthSuccess and onClose when sign-up returns a session (confirmation disabled)', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(<AuthModal {...defaultProps} />);
+
+      await user.click(screen.getByText(/Don't have an account/i));
+      await user.type(screen.getByPlaceholderText(/curator@museum.com/i), 'new@example.com');
+      await user.type(screen.getByPlaceholderText(/••••••••/), 'newpassword123');
+      await user.click(screen.getByRole('button', { name: /create account/i }));
+
+      await waitFor(() => {
+        expect(mockOnAuthSuccess).toHaveBeenCalledTimes(1);
+        expect(mockOnClose).toHaveBeenCalledTimes(1);
+      });
+    });
+
     it('can toggle back to sign in mode', async () => {
       const user = userEvent.setup();
       renderWithProviders(<AuthModal {...defaultProps} />);
@@ -327,7 +347,7 @@ describe('AuthModal', () => {
     });
 
     it('shows "Creating account…" label on submit during sign-up', async () => {
-      let resolveSignUp!: (v: { user: { id: string } }) => void;
+      let resolveSignUp!: (v: { user: { id: string }; session: { access_token: string } }) => void;
       mockSignUp.mockImplementation(
         () =>
           new Promise((resolve) => {
@@ -346,7 +366,7 @@ describe('AuthModal', () => {
       const busyButton = await screen.findByRole('button', { name: /creating account/i });
       expect(busyButton).toHaveAttribute('aria-busy', 'true');
 
-      resolveSignUp({ user: { id: 'test' } });
+      resolveSignUp({ user: { id: 'test' }, session: { access_token: 'test-token' } });
       await waitFor(() => expect(mockOnAuthSuccess).toHaveBeenCalled());
     });
 
@@ -594,6 +614,45 @@ describe('AuthModal', () => {
       expect(screen.queryByText(/sent again/i)).not.toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /resend in \d+s/i })).not.toBeInTheDocument();
       expect(screen.getByRole('button', { name: /resend link/i })).not.toBeDisabled();
+    });
+  });
+
+  describe('CUR-66: email confirmation on sign-up', () => {
+    const submitSignUp = async (user: ReturnType<typeof userEvent.setup>) => {
+      await user.click(screen.getByText(/Don't have an account/i));
+      await user.type(screen.getByPlaceholderText(/curator@museum.com/i), 'new@example.com');
+      await user.type(screen.getByPlaceholderText(/••••••••/), 'newpassword123');
+      await user.click(screen.getByRole('button', { name: /create account/i }));
+    };
+
+    it('shows the check-your-email state instead of closing when sign-up returns no session', async () => {
+      mockSignUp.mockResolvedValue({ user: { id: 'unconfirmed' }, session: null });
+      const user = userEvent.setup();
+      renderWithProviders(<AuthModal {...defaultProps} />);
+
+      await submitSignUp(user);
+
+      const panel = await screen.findByTestId('confirm-email-sent');
+      expect(panel).toHaveTextContent(/check your email/i);
+      expect(panel).toHaveTextContent(/new@example\.com/);
+      // The modal must not silently close, and the queued post-auth action
+      // must not run — the account is unusable until the link is clicked.
+      expect(mockOnAuthSuccess).not.toHaveBeenCalled();
+      expect(mockOnClose).not.toHaveBeenCalled();
+      // No competing submit button in the confirmation view.
+      expect(screen.queryByRole('button', { name: /create account/i })).not.toBeInTheDocument();
+    });
+
+    it('lets the user return to sign in from the confirmation state', async () => {
+      mockSignUp.mockResolvedValue({ user: { id: 'unconfirmed' }, session: null });
+      const user = userEvent.setup();
+      renderWithProviders(<AuthModal {...defaultProps} />);
+
+      await submitSignUp(user);
+      await screen.findByTestId('confirm-email-sent');
+
+      await user.click(screen.getByRole('button', { name: /back to sign in/i }));
+      expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument();
     });
   });
 
