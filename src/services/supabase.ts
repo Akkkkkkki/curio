@@ -49,11 +49,18 @@ export const signUpWithEmail = async (email: string, pass: string) => {
       password: pass,
     });
     if (error) throw error;
-    return data.user || user;
+    // The anonymous session survives the upgrade, so callers see this
+    // path as already signed in.
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    return { user: data.user || user, session };
   }
   const { data, error } = await supabase.auth.signUp({ email, password: pass });
   if (error) throw error;
-  return data.user;
+  // When the Supabase project requires email confirmation, signUp returns a
+  // user with no session — the account is unusable until the link is clicked.
+  return { user: data.user, session: data.session };
 };
 
 export const signInWithEmail = async (email: string, pass: string) => {
