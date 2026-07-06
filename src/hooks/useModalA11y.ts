@@ -1,7 +1,10 @@
 import { useEffect, useRef } from 'react';
 
+// `tabindex="-1"` elements are skipped by native Tab order, so they must not
+// become trap boundaries or receive initial focus either — e.g. ExportModal's
+// aria-hidden tap-to-collapse overlay is a <button tabindex="-1">.
 const FOCUSABLE_SELECTOR =
-  'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+  'button:not([disabled]):not([tabindex="-1"]), [href]:not([tabindex="-1"]), input:not([disabled]):not([tabindex="-1"]), select:not([disabled]):not([tabindex="-1"]), textarea:not([disabled]):not([tabindex="-1"]), [tabindex]:not([tabindex="-1"])';
 
 interface UseModalA11yOptions {
   /**
