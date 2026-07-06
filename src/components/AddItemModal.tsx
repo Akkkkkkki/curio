@@ -612,7 +612,10 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
           locale: language,
         });
         if (result.status !== 'success') {
-          setError(result.status === 'error' ? result.message : t('analysisFallback'));
+          if (result.status === 'error') {
+            console.warn('AI analysis failed:', result.message);
+          }
+          setError(t('analysisFallback'));
           hadError = true;
           analyzed.push(createBatchItem(image, existingIds[idx] ? { id: existingIds[idx] } : {}));
           continue;
@@ -775,7 +778,10 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
         locale: language,
       });
       if (result.status !== 'success') {
-        setError(result.status === 'error' ? result.message : t('analysisFallback'));
+        if (result.status === 'error') {
+          console.warn('AI analysis failed:', result.message);
+        }
+        setError(t('analysisFallback'));
         setAnalysisError(true);
         setStep('verify');
         return;
