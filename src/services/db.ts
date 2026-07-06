@@ -1254,6 +1254,18 @@ export const hasLocalOnlyData = (
   });
 };
 
+const getCurrentLocalCollectionForCloudSync = async (
+  collectionId: string,
+): Promise<UserCollection | null | undefined> => {
+  try {
+    const localCollections = await loadLocalCollections();
+    return localCollections.find((localCollection) => localCollection.id === collectionId) ?? null;
+  } catch (error) {
+    console.warn('Local collection recheck failed before cloud sync:', error);
+    return undefined;
+  }
+};
+
 // Internal function to sync a collection to cloud (used by both saveCollection and syncPendingChanges)
 // Throws on failure so callers can retain pending syncs for retry
 const saveCollectionToCloud = async (collection: UserCollection): Promise<void> => {
@@ -1270,28 +1282,37 @@ const saveCollectionToCloud = async (collection: UserCollection): Promise<void> 
     throw new Error('No authenticated user session');
   }
 
+  const currentLocalCollection = await getCurrentLocalCollectionForCloudSync(collection.id);
+  if (currentLocalCollection === null) {
+    // A stale in-flight save can finish after the user deleted the collection.
+    // Do not resurrect cloud data from that old snapshot.
+    return;
+  }
+
+  const collectionForSync = currentLocalCollection ?? collection;
+
   // Sync Collection Metadata
   const collectionPayload: Record<string, any> = {
-    id: collection.id,
-    user_id: collection.ownerId || user.id,
-    template_id: collection.templateId,
-    name: collection.name,
-    icon: collection.icon,
-    seed_key: collection.seedKey,
-    is_public: Boolean(collection.isPublic),
+    id: collectionForSync.id,
+    user_id: collectionForSync.ownerId || user.id,
+    template_id: collectionForSync.templateId,
+    name: collectionForSync.name,
+    icon: collectionForSync.icon,
+    seed_key: collectionForSync.seedKey,
+    is_public: Boolean(collectionForSync.isPublic),
   };
   const settingsPayload: Record<string, any> = {};
-  if (collection.collectionDescription) {
-    settingsPayload.collectionDescription = collection.collectionDescription;
+  if (collectionForSync.collectionDescription) {
+    settingsPayload.collectionDescription = collectionForSync.collectionDescription;
   }
-  if (collection.customFields?.length) {
-    settingsPayload.customFields = collection.customFields;
+  if (collectionForSync.customFields?.length) {
+    settingsPayload.customFields = collectionForSync.customFields;
   }
   if (Object.keys(settingsPayload).length > 0) {
     collectionPayload.settings = settingsPayload;
   }
-  if (SUPABASE_SYNC_TIMESTAMPS && collection.updatedAt) {
-    collectionPayload.updated_at = collection.updatedAt;
+  if (SUPABASE_SYNC_TIMESTAMPS && collectionForSync.updatedAt) {
+    collectionPayload.updated_at = collectionForSync.updatedAt;
   }
 
   const { error: colError } = await supabase.from('collections').upsert(collectionPayload);
@@ -1300,10 +1321,29 @@ const saveCollectionToCloud = async (collection: UserCollection): Promise<void> 
     throw new Error(`Collection sync failed: ${colError.message}`);
   }
 
+  const latestLocalCollection = await getCurrentLocalCollectionForCloudSync(collectionForSync.id);
+  if (latestLocalCollection === null) {
+    // The collection was deleted while the metadata upsert was in flight.
+    return;
+  }
+
+  const latestCollectionForItems = latestLocalCollection ?? collectionForSync;
+  const pendingDeletes = await getPendingDeletes().catch(() => [] as PendingDelete[]);
+  const pendingDeletedItemIds = new Set(
+    pendingDeletes
+      .filter(
+        (entry) => entry.type === 'item' && entry.collectionId === latestCollectionForItems.id,
+      )
+      .map((entry) => entry.itemId),
+  );
+  const itemsForSync = latestCollectionForItems.items.filter(
+    (item) => !pendingDeletedItemIds.has(item.id),
+  );
+
   // Sync Items
-  if (collection.items.length > 0) {
-    const itemsToSync = collection.items.map((item) => {
-      const basePath = `${user.id}/collections/${collection.id}/${item.id}`;
+  if (itemsForSync.length > 0) {
+    const itemsToSync = itemsForSync.map((item) => {
+      const basePath = `${user.id}/collections/${latestCollectionForItems.id}/${item.id}`;
       const { originalPath, displayPath } = normalizePhotoPaths(item.photoUrl || '');
       const photoOriginalPath =
         item.photoUrl === 'asset' ? `${basePath}/original.jpg` : originalPath;
@@ -1312,7 +1352,7 @@ const saveCollectionToCloud = async (collection: UserCollection): Promise<void> 
       const payload: Record<string, any> = {
         id: item.id,
         user_id: user.id,
-        collection_id: collection.id,
+        collection_id: latestCollectionForItems.id,
         title: item.title,
         notes: item.notes,
         rating: item.rating,
