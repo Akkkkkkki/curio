@@ -93,6 +93,33 @@ describe('useModalA11y', () => {
     unmount();
   });
 
+  it('skips tabindex="-1" elements for initial focus and trap boundaries (e.g. ExportModal tap-to-collapse overlay)', async () => {
+    // Native Tab order never visits tabindex="-1" elements, so the trap must
+    // not use them as boundaries either — otherwise Shift+Tab from the real
+    // first control escapes the dialog instead of wrapping.
+    function OverlayHarness() {
+      const dialogRef = useRef<HTMLDivElement>(null);
+      useModalA11y(dialogRef, true, () => {});
+      return (
+        <div ref={dialogRef} role="dialog" aria-modal="true">
+          <button data-testid="overlay" aria-hidden="true" tabIndex={-1}>
+            collapse
+          </button>
+          <button data-testid="close">close</button>
+          <button data-testid="action">action</button>
+        </div>
+      );
+    }
+    const { unmount } = render(<OverlayHarness />);
+
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    expect(document.activeElement).toBe(screen.getByTestId('close'));
+
+    fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(screen.getByTestId('action'));
+    unmount();
+  });
+
   it('focuses initialFocusRef when provided (safe action on confirm modals)', async () => {
     const onClose = vi.fn();
     render(<Harness isOpen={true} onClose={onClose} useInitialFocus />);

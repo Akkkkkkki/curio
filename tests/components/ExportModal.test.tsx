@@ -172,6 +172,50 @@ describe('ExportModal — CUR-100 Print disabled while photo loading', () => {
   });
 });
 
+describe('ExportModal — CUR-42 dialog semantics', () => {
+  const baseProps = {
+    isOpen: true,
+    onClose: vi.fn(),
+    item: makeItem(),
+    fields: FIELDS,
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('renders nothing when closed', () => {
+    renderWithProviders(<ExportModal {...baseProps} isOpen={false} />);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('renders as a labelled dialog', () => {
+    renderWithProviders(<ExportModal {...baseProps} />);
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toHaveAttribute('aria-modal', 'true');
+    expect(dialog).toHaveAttribute('aria-labelledby', 'export-modal-title');
+    expect(document.getElementById('export-modal-title')).toHaveTextContent(/export card/i);
+  });
+
+  it('closes on Escape', async () => {
+    renderWithProviders(<ExportModal {...baseProps} />);
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    await waitFor(() => {
+      expect(baseProps.onClose).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('gives initial focus to the Close button, not the aria-hidden tap-to-collapse overlay', async () => {
+    renderWithProviders(<ExportModal {...baseProps} />);
+
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: /close/i }));
+  });
+});
+
 describe('ExportModal — CUR-105 mobile sheet opens expanded', () => {
   const baseProps = {
     isOpen: true,
