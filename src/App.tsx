@@ -1935,7 +1935,10 @@ export const AppContent: React.FC = () => {
       // the pending cloud response — without this guard, the shared link
       // would lose the item to the parent route before the fetch resolves.
       if (isLoading) return <ItemDetailSkeleton label={t('restoringArchives')} />;
-      if (!collection) return <Navigate to="/" replace />;
+      // CUR-144: when the whole collection is unknown, fall through to the
+      // collection route instead of straight to Home — for a signed-out
+      // visitor CollectionScreen renders the "isn't on view" explanation
+      // there (authed users continue to Home via its existing redirect).
       return <Navigate to={`/collection/${id}`} replace />;
     }
     const isReadOnly = Boolean(collection.isPublic) && !isAdmin;
@@ -2808,11 +2811,14 @@ export const AppContent: React.FC = () => {
   // exploring, so latch public browsing — the same contract as the Explore
   // CTAs (handleExploreSamples / handleExploreFromNav). Navigating Home from
   // the shared collection then lands on the sample-aware Home, not the gate.
+  // Latch only once auth has settled signed-out: a signed-in visit must not
+  // set the flag, or the welcome gate would stay suppressed after a later
+  // sign-out (Codex review on #340).
   useEffect(() => {
-    if (isCollectionRoute && !allowPublicBrowse) {
+    if (isCollectionRoute && authReady && !isAuthenticated && !allowPublicBrowse) {
       setAllowPublicBrowse(true);
     }
-  }, [isCollectionRoute, allowPublicBrowse]);
+  }, [isCollectionRoute, authReady, isAuthenticated, allowPublicBrowse]);
   const fallbackSampleCollectionId = fallbackSampleCollections[0]?.id ?? null;
   // Only expose a sample collection id that is actually present in `collections`.
   // The fallback sample is not part of merged cloud state for an authenticated

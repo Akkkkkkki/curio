@@ -1122,6 +1122,78 @@ describe('App Integration Tests', () => {
       });
     });
 
+    it('routes an anonymous item link with an unknown collection to the not-available state', async () => {
+      const { ThemeProvider } = await import('@/theme');
+
+      render(
+        <MemoryRouter initialEntries={['/collection/someone-elses-archive/item/some-item']}>
+          <ThemeProvider>
+            <LanguageProvider>
+              <AppContent />
+            </LanguageProvider>
+          </ThemeProvider>
+        </MemoryRouter>,
+      );
+
+      // The item route falls through to /collection/:id, where the anon
+      // not-available explanation renders — the visitor never silently loses
+      // the link to a bare Home (Codex review on #340).
+      await waitFor(() => {
+        expect(screen.getByTestId('collection-unavailable')).toBeInTheDocument();
+      });
+      expect(screen.queryByTestId('access-gate')).not.toBeInTheDocument();
+    });
+
+    it('does not latch public browsing for a signed-in collection visit (gate survives sign-out)', async () => {
+      const { ThemeProvider } = await import('@/theme');
+      // Signed-in session viewing a private collection; capture the auth
+      // listener so the test can emit SIGNED_OUT later.
+      vi.mocked(supabaseService.supabase!.auth.getSession).mockResolvedValue({
+        data: { session: { user: { id: 'user1' } } },
+      } as never);
+      vi.mocked(db.getLocalCollections).mockResolvedValue([mockCollection]);
+      vi.mocked(db.fetchCloudCollections).mockResolvedValue([mockCollection]);
+      let authCallback: ((event: string, session: unknown) => void) | null = null;
+      vi.mocked(supabaseService.supabase!.auth.onAuthStateChange).mockImplementation(((
+        cb: (event: string, session: unknown) => void,
+      ) => {
+        authCallback = cb;
+        return { data: { subscription: { unsubscribe: vi.fn() } } };
+      }) as never);
+
+      render(
+        <MemoryRouter initialEntries={['/collection/col1']}>
+          <ThemeProvider>
+            <LanguageProvider>
+              <AppContent />
+            </LanguageProvider>
+          </ThemeProvider>
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getAllByText('Test Collection')[0]).toBeInTheDocument();
+      });
+
+      // Leave the collection while still signed in, then sign out from Home.
+      const bottomNav = screen.getByRole('navigation', { name: 'Primary' });
+      fireEvent.click(within(bottomNav).getByRole('link', { name: /home/i }));
+      await waitFor(() => {
+        expect(screen.getByTestId('collections-grid')).toBeInTheDocument();
+      });
+
+      await act(async () => {
+        authCallback?.('SIGNED_OUT', null);
+      });
+
+      // The authed collection visit must not have latched public browsing —
+      // a signed-out Home still greets with the welcome gate (Codex review
+      // on #340).
+      await waitFor(() => {
+        expect(screen.getByTestId('access-gate')).toBeInTheDocument();
+      });
+    });
+
     it('latches public browsing so navigating Home afterwards is not re-gated', async () => {
       const { ThemeProvider } = await import('@/theme');
 
