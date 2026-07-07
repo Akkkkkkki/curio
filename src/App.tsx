@@ -1412,6 +1412,58 @@ export const AppContent: React.FC = () => {
       // initial cloud fetch is still in flight. Only redirect once loading
       // has settled and the id is genuinely absent.
       if (isLoading) return <CollectionScreenSkeleton label={t('restoringArchives')} />;
+      // CUR-144: a signed-out visitor following a dead or private link gets
+      // an explanation and a path onward (sign in / explore the sample)
+      // instead of silently landing back on the welcome card.
+      if (!user && isSupabaseReady) {
+        return (
+          <div
+            className="flex flex-col items-center justify-center px-4 py-16 sm:py-24"
+            data-testid="collection-unavailable"
+          >
+            <div
+              className={`max-w-md w-full text-center border rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-10 shadow-xl ${theme === 'vault' ? 'bg-white/5 border-white/10' : theme === 'atelier' ? 'bg-[#EDE4D3]/70 border-[#D4C9B8]' : 'bg-white/70 border-stone-200'}`}
+            >
+              <div
+                className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center mx-auto mb-5 sm:mb-6 ${theme === 'vault' ? 'bg-white/10 text-stone-400' : theme === 'atelier' ? 'bg-[#D4C9B8]/50 text-[#8C7B6B]' : 'bg-stone-100 text-stone-500'}`}
+              >
+                <Landmark size={24} />
+              </div>
+              <h1
+                className={`font-serif text-2xl font-bold mb-2 ${theme === 'vault' ? 'text-white' : theme === 'atelier' ? 'text-[#3D3530]' : 'text-stone-900'}`}
+              >
+                {t('collectionUnavailableTitle')}
+              </h1>
+              <p
+                className={`text-sm mb-6 ${theme === 'vault' ? 'text-stone-400' : theme === 'atelier' ? 'text-[#8C7B6B]' : 'text-stone-500'}`}
+              >
+                {t('collectionUnavailableDesc')}
+              </p>
+              <div className="space-y-2">
+                <Button
+                  onClick={() => setIsAuthModalOpen(true)}
+                  size="lg"
+                  className="w-full"
+                  data-testid="collection-unavailable-sign-in"
+                >
+                  {t('login')}
+                </Button>
+                {sampleCollectionId && (
+                  <Button
+                    onClick={() => navigate(`/collection/${sampleCollectionId}`)}
+                    size="lg"
+                    variant="secondary"
+                    className="w-full"
+                    data-testid="collection-unavailable-explore"
+                  >
+                    {t('exploreSample')}
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      }
       return <Navigate to="/" replace />;
     }
 
@@ -1883,7 +1935,10 @@ export const AppContent: React.FC = () => {
       // the pending cloud response — without this guard, the shared link
       // would lose the item to the parent route before the fetch resolves.
       if (isLoading) return <ItemDetailSkeleton label={t('restoringArchives')} />;
-      if (!collection) return <Navigate to="/" replace />;
+      // CUR-144: when the whole collection is unknown, fall through to the
+      // collection route instead of straight to Home — for a signed-out
+      // visitor CollectionScreen renders the "isn't on view" explanation
+      // there (authed users continue to Home via its existing redirect).
       return <Navigate to={`/collection/${id}`} replace />;
     }
     const isReadOnly = Boolean(collection.isPublic) && !isAdmin;
@@ -2745,7 +2800,25 @@ export const AppContent: React.FC = () => {
   const showAccessGate = isSupabaseReady && !isAuthenticated && !allowPublicBrowse;
   const isExploreRoute = location.pathname === '/explore';
   const isLegalRoute = location.pathname.startsWith('/legal/');
-  const shouldShowAccessGate = showAccessGate && !isExploreRoute && !isLegalRoute;
+  // CUR-144: shared collection links are the product's sharing pillar — a
+  // signed-out visitor opening /collection/:id must reach the content (or
+  // CollectionScreen's not-available state), never the generic welcome gate
+  // rendered under the collection URL.
+  const isCollectionRoute = location.pathname.startsWith('/collection/');
+  const shouldShowAccessGate =
+    showAccessGate && !isExploreRoute && !isLegalRoute && !isCollectionRoute;
+  // A signed-out visitor who arrives on a collection deep link is already
+  // exploring, so latch public browsing — the same contract as the Explore
+  // CTAs (handleExploreSamples / handleExploreFromNav). Navigating Home from
+  // the shared collection then lands on the sample-aware Home, not the gate.
+  // Latch only once auth has settled signed-out: a signed-in visit must not
+  // set the flag, or the welcome gate would stay suppressed after a later
+  // sign-out (Codex review on #340).
+  useEffect(() => {
+    if (isCollectionRoute && authReady && !isAuthenticated && !allowPublicBrowse) {
+      setAllowPublicBrowse(true);
+    }
+  }, [isCollectionRoute, authReady, isAuthenticated, allowPublicBrowse]);
   const fallbackSampleCollectionId = fallbackSampleCollections[0]?.id ?? null;
   // Only expose a sample collection id that is actually present in `collections`.
   // The fallback sample is not part of merged cloud state for an authenticated

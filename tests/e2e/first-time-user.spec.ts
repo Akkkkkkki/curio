@@ -153,4 +153,19 @@ test.describe('Navigation and Routing', () => {
     }
     await expect(page).toHaveURL(/\/#\/?$/);
   });
+
+  // CUR-144: a shared collection link opened signed-out must render the
+  // collection under its own URL — never the welcome gate.
+  test('should render the sample collection from an anonymous deep link (CUR-144)', async ({
+    page,
+  }) => {
+    await page.goto('/#/collection/sample-vinyl');
+    await waitForAppReady(page);
+
+    await expect(page.getByRole('heading', { name: 'The Vinyl Vault' })).toBeVisible({
+      timeout: 10000,
+    });
+    await expect(page).toHaveURL(/#\/collection\/sample-vinyl/);
+    await expect(page.getByTestId('access-gate')).toHaveCount(0);
+  });
 });
