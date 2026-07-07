@@ -66,4 +66,48 @@ test.describe('Authenticated User Experience', () => {
     await expect(page.getByTestId('status-toast')).toBeVisible({ timeout: 10000 });
     await expect(page.getByTestId('status-toast-message')).toContainText(/saved/i);
   });
+
+  test('keeps Save clickable on desktop when the verify fields overflow (CUR-142)', async ({
+    page,
+    isMobile,
+  }) => {
+    test.skip(isMobile, 'Desktop-only regression — the mobile dialog has a definite height');
+
+    // Short desktop viewport so the verify fields panel is guaranteed to
+    // overflow the dialog (the CUR-142 geometry: panel taller than its
+    // parent, previously painting over the Save footer).
+    await page.setViewportSize({ width: 1280, height: 600 });
+
+    await expect(page.getByTestId('collections-grid')).toBeVisible({ timeout: 15000 });
+    await page.getByText(/start a collection/i).click();
+    await expect(page.getByTestId('create-collection-modal')).toBeVisible();
+    const name = `CUR-142 ${Date.now()}`;
+    await page.getByTestId('create-collection-name').fill(name);
+    await page.getByRole('button', { name: /create/i }).click();
+
+    await expect(page.getByText(name).first()).toBeVisible({ timeout: 15000 });
+    await page.getByText(name).first().click();
+
+    await page.getByRole('button', { name: /add item/i }).click();
+    await page.getByText(/skip and add manually/i).click();
+
+    await page.getByRole('textbox').first().fill('CUR-142 Item');
+    await page.getByRole('textbox').nth(1).fill('A story long enough to keep.');
+
+    // The regression only manifests when the scroll panel actually overflows.
+    const scroller = page.getByTestId('add-item-scroll');
+    await expect
+      .poll(() => scroller.evaluate((el) => el.scrollHeight - el.clientHeight))
+      .toBeGreaterThan(0);
+
+    // Before the fix the panel covered the footer: this trial click failed
+    // with "subtree intercepts pointer events" and real clicks changed the
+    // item's rating instead of saving.
+    const save = page.getByRole('button', { name: /add to collection/i });
+    await save.click({ trial: true });
+    await save.click();
+
+    await expect(page.getByTestId('status-toast')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('status-toast-message')).toContainText(/saved/i);
+  });
 });
