@@ -581,6 +581,42 @@ describe('AddItemModal', () => {
     expect(fade.className).toContain('opacity-0');
   });
 
+  it('sizes the verify-step scroll panel with flex, never percentage heights (CUR-142)', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <AddItemModal
+        isOpen
+        onClose={mockOnClose}
+        collections={[createMockCollection()]}
+        onSave={mockOnSave}
+      />,
+    );
+
+    await user.click(await screen.findByRole('button', { name: 'Skip and add manually' }));
+
+    const scroller = screen.getByTestId('add-item-scroll');
+    const panel = scroller.parentElement!;
+
+    // The desktop dialog is sm:h-auto, so its height is indefinite and h-full
+    // on the scroller resolves to content height — the panel then paints over
+    // the Save footer and clicks land on the rating stars. Both levels must
+    // size via flex so the footer always stays below the scroll area.
+    expect(panel.className).toContain('flex-col');
+    expect(panel.className).toContain('min-h-0');
+    expect(scroller.className).not.toContain('h-full');
+    expect(scroller.className).toContain('flex-1');
+    expect(scroller.className).toContain('min-h-0');
+
+    // The Save footer is a sibling below the scroll panel, not content inside
+    // it — the structural guarantee that it cannot be covered by overflow.
+    const saveButton = screen.getByRole('button', { name: /save without story/i });
+    expect(scroller.contains(saveButton)).toBe(false);
+    expect(panel.contains(saveButton)).toBe(false);
+    expect(
+      panel.compareDocumentPosition(saveButton) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   describe('discard confirmation (CUR-80)', () => {
     it('closes immediately when the user has no work in progress on the verify step', async () => {
       const user = userEvent.setup();

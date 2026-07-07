@@ -1495,12 +1495,16 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
             </button>
           </div>
 
-          <div className="relative flex-1 min-h-0">
+          {/* The desktop dialog is sm:h-auto (indefinite height), so percentage
+              heights inside this panel never resolve — h-full falls back to
+              content height and paints over the footer, making Save
+              unclickable (CUR-142). Size children with flex instead. */}
+          <div className="relative flex-1 min-h-0 flex flex-col">
             {confirmingDiscard ? (
               <div
                 ref={confirmRef}
                 data-testid="add-item-discard-confirm"
-                className="h-full flex flex-col items-center justify-center text-center p-6 sm:p-8"
+                className="flex-1 flex flex-col items-center justify-center text-center p-6 sm:p-8"
               >
                 <div
                   className={`p-2.5 rounded-full mb-4 ${
@@ -1551,7 +1555,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
                   ref={scrollRef}
                   data-testid="add-item-scroll"
                   onScroll={updateScrollAffordance}
-                  className="h-full overflow-y-auto p-5 pb-6 sm:p-8 overscroll-contain"
+                  className="flex-1 min-h-0 overflow-y-auto p-5 pb-6 sm:p-8 overscroll-contain"
                 >
                   <div ref={scrollContentRef} className="space-y-6">
                     {step === 'select-type' && renderCollectionSelect()}
