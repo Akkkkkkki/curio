@@ -294,6 +294,9 @@ export const translations = {
     authRequiredDesc:
       'Capture, remember, and share the objects that define your taste. Add your first item to begin, or explore a sample first.',
     authRequiredAction: 'Sign In',
+    collectionUnavailableTitle: "This collection isn't on view",
+    collectionUnavailableDesc:
+      'It may be private, or its link may have changed. Sign in to see your own museum, or wander the sample gallery.',
     authLoading: 'Checking session...',
     authLoadingDesc: 'Verifying your account status.',
     cloudRequiredTitle: 'Cloud setup required',
@@ -799,6 +802,9 @@ export const translations = {
     accessGateTagline: '为你珍视之物打造的私人博物馆。',
     authRequiredDesc: '记录、珍藏并分享定义你品味的物件。添加第一件藏品即可开始，或先浏览示例。',
     authRequiredAction: '登录',
+    collectionUnavailableTitle: '此收藏暂未展出',
+    collectionUnavailableDesc:
+      '它可能是私密收藏，或链接已更改。登录查看你自己的博物馆，或先逛逛示例展馆。',
     authLoading: '正在检查登录状态...',
     authLoadingDesc: '正在确认您的账号状态。',
     cloudRequiredTitle: '需要云端配置',

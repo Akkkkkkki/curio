@@ -1040,6 +1040,120 @@ describe('App Integration Tests', () => {
     expect(screen.queryByTestId('collection-screen-skeleton')).not.toBeInTheDocument();
   });
 
+  // CUR-144: shared collection links are the sharing pillar. A signed-out
+  // visitor opening /collection/:id must reach the content — not the generic
+  // welcome gate rendered forever under the collection URL.
+  describe('anonymous collection deep links (CUR-144)', () => {
+    const publicSample = {
+      id: 'sample-vinyl',
+      name: 'The Vinyl Vault',
+      templateId: 'vinyl',
+      icon: '🎵',
+      customFields: [],
+      items: [
+        {
+          id: 'sample-item-1',
+          collectionId: 'sample-vinyl',
+          title: 'Kind of Blue',
+          rating: 5,
+          data: {},
+          photoUrl: '',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          notes: '',
+        },
+      ],
+      isPublic: true,
+      updatedAt: new Date().toISOString(),
+    };
+
+    beforeEach(() => {
+      vi.mocked(supabaseService.isSupabaseConfigured).mockReturnValue(true);
+      vi.mocked(supabaseService.supabase!.auth.getSession).mockResolvedValue({
+        data: { session: null },
+      } as never);
+      vi.mocked(db.getLocalCollections).mockResolvedValue([]);
+      vi.mocked(db.fetchCloudCollections).mockResolvedValue([publicSample]);
+    });
+
+    it('renders the public sample collection instead of the access gate', async () => {
+      const { ThemeProvider } = await import('@/theme');
+
+      render(
+        <MemoryRouter initialEntries={['/collection/sample-vinyl']}>
+          <ThemeProvider>
+            <LanguageProvider>
+              <AppContent />
+            </LanguageProvider>
+          </ThemeProvider>
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByRole('heading', { name: 'The Vinyl Vault' })).toBeInTheDocument();
+      });
+      expect(screen.getByTestId('items-grid')).toBeInTheDocument();
+      expect(screen.queryByTestId('access-gate')).not.toBeInTheDocument();
+    });
+
+    it('shows an explanatory not-available state (not the welcome card) for a private or unknown id', async () => {
+      const { ThemeProvider } = await import('@/theme');
+
+      render(
+        <MemoryRouter initialEntries={['/collection/someone-elses-archive']}>
+          <ThemeProvider>
+            <LanguageProvider>
+              <AppContent />
+            </LanguageProvider>
+          </ThemeProvider>
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId('collection-unavailable')).toBeInTheDocument();
+      });
+      expect(screen.queryByTestId('access-gate')).not.toBeInTheDocument();
+      expect(screen.getByTestId('collection-unavailable-sign-in')).toBeInTheDocument();
+
+      // The Explore path routes onward to the resolvable public sample.
+      fireEvent.click(screen.getByTestId('collection-unavailable-explore'));
+      await waitFor(() => {
+        expect(screen.getByRole('heading', { name: 'The Vinyl Vault' })).toBeInTheDocument();
+      });
+    });
+
+    it('latches public browsing so navigating Home afterwards is not re-gated', async () => {
+      const { ThemeProvider } = await import('@/theme');
+
+      render(
+        <MemoryRouter initialEntries={['/collection/sample-vinyl']}>
+          <ThemeProvider>
+            <LanguageProvider>
+              <AppContent />
+            </LanguageProvider>
+          </ThemeProvider>
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByRole('heading', { name: 'The Vinyl Vault' })).toBeInTheDocument();
+      });
+
+      // Same contract as the Explore CTAs: once the visitor is browsing
+      // shared content, Home shows the sample-aware first-run Home, not the
+      // access gate again.
+      const bottomNav = screen.getByRole('navigation', { name: 'Primary' });
+      fireEvent.click(within(bottomNav).getByRole('link', { name: /home/i }));
+
+      await waitFor(() => {
+        expect(
+          screen.getByRole('heading', { name: /start your museum with one thing you love/i }),
+        ).toBeInTheDocument();
+      });
+      expect(screen.queryByTestId('access-gate')).not.toBeInTheDocument();
+    });
+  });
+
   // CUR-118 follow-up (Codex review on #299): when the parent collection
   // is already cached but the item is only in the pending cloud response,
   // the missing-item branch must also wait for `isLoading` to settle —
