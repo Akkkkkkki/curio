@@ -110,7 +110,11 @@ import { StatusToast, StatusTone, getStatusToastDurationMs } from './components/
 import { StatusBanner } from './components/StatusBanner';
 import { LanguageToggle } from './components/LanguageToggle';
 import { ConflictResolutionModal } from './components/ConflictResolutionModal';
-import { CURRENT_SEED_VERSION, INITIAL_COLLECTIONS } from './services/seedCollections';
+import {
+  buildSeedRepairs,
+  CURRENT_SEED_VERSION,
+  INITIAL_COLLECTIONS,
+} from './services/seedCollections';
 import { trackEvent } from './services/analytics';
 
 /**
@@ -614,33 +618,37 @@ export const AppContent: React.FC = () => {
     async ({
       user,
       isAdmin,
-      localCollections,
       cloudCollections,
     }: {
       user: { id: string } | null;
       isAdmin: boolean;
-      localCollections: UserCollection[];
       cloudCollections: UserCollection[];
     }) => {
-      if (!user || !isAdmin || cloudCollections.length > 0 || localCollections.length > 0) {
+      if (!user || !isAdmin) {
         return cloudCollections;
       }
 
+      // Reconcile the cloud copy of the master sample against the code-defined
+      // seed on every admin load, not just when the cloud is empty — a drifted
+      // copy (toggled private, missing items) could otherwise never self-heal
+      // (CUR-143). A healthy cloud copy makes this a no-op.
       const localSeedVersion = await getSeedVersion();
-      if (localSeedVersion >= CURRENT_SEED_VERSION) {
+      const seedRepairs = buildSeedRepairs(cloudCollections, user.id, {
+        force: localSeedVersion < CURRENT_SEED_VERSION,
+      });
+      if (seedRepairs.length === 0) {
         return cloudCollections;
       }
 
-      const seededCollections = INITIAL_COLLECTIONS.map((seed) => ({
-        ...seed,
-        isPublic: true,
-        ownerId: user.id,
-      }));
-      for (const seedCollection of seededCollections) {
+      for (const seedCollection of seedRepairs) {
         await saveCollection(seedCollection);
       }
       await setSeedVersion(CURRENT_SEED_VERSION);
-      return [...seededCollections];
+      const repairedIds = new Set(seedRepairs.map((collection) => collection.id));
+      return [
+        ...cloudCollections.filter((collection) => !repairedIds.has(collection.id)),
+        ...seedRepairs,
+      ];
     },
     [],
   );
@@ -756,7 +764,6 @@ export const AppContent: React.FC = () => {
       cloudCollections = await maybeSeedCollections({
         user,
         isAdmin,
-        localCollections,
         cloudCollections,
       });
 

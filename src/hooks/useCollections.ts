@@ -23,7 +23,7 @@ import {
   type SyncStatus,
 } from '../services/db';
 import type { UserCollection } from '../types';
-import { CURRENT_SEED_VERSION, INITIAL_COLLECTIONS } from '../services/seedCollections';
+import { buildSeedRepairs, CURRENT_SEED_VERSION } from '../services/seedCollections';
 import type { StatusTone } from '../components/StatusToast';
 
 type UseCollectionsArgs = {
@@ -244,19 +244,25 @@ export const useCollections = ({
       const localOnly = hasLocalOnlyData(localCollections, cloudCollections);
       setHasLocalImport(localOnly);
 
-      if (cloudCollections.length === 0 && localCollections.length === 0 && isAdmin) {
+      // Reconcile the cloud copy of the master sample against the code-defined
+      // seed on every admin load, not just when the cloud is empty — a drifted
+      // copy (toggled private, missing items) could otherwise never self-heal
+      // (CUR-143). A healthy cloud copy makes this a no-op.
+      if (isAdmin) {
         const localSeedVersion = await getSeedVersion();
-        if (localSeedVersion < CURRENT_SEED_VERSION) {
-          const seededCollections = INITIAL_COLLECTIONS.map((seed) => ({
-            ...seed,
-            isPublic: true,
-            ownerId: user.id,
-          }));
-          for (const seedCollection of seededCollections) {
+        const seedRepairs = buildSeedRepairs(cloudCollections, user.id, {
+          force: localSeedVersion < CURRENT_SEED_VERSION,
+        });
+        if (seedRepairs.length > 0) {
+          for (const seedCollection of seedRepairs) {
             await saveCollection(seedCollection);
           }
           await setSeedVersion(CURRENT_SEED_VERSION);
-          cloudCollections = [...seededCollections];
+          const repairedIds = new Set(seedRepairs.map((collection) => collection.id));
+          cloudCollections = [
+            ...cloudCollections.filter((collection) => !repairedIds.has(collection.id)),
+            ...seedRepairs,
+          ];
         }
       }
 

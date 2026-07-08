@@ -1,4 +1,4 @@
-import { UserCollection } from '../types';
+import { CollectionItem, UserCollection } from '../types';
 import { TEMPLATES } from '../constants';
 
 export const CURRENT_SEED_VERSION = 4;
@@ -123,3 +123,42 @@ export const INITIAL_COLLECTIONS: UserCollection[] = [
     updatedAt: SEED_TIMESTAMP,
   },
 ];
+
+type SeedRef = { id: string; seedKey?: string };
+
+const matchesSeed = (candidate: SeedRef, seed: SeedRef) =>
+  candidate.id === seed.id || (Boolean(candidate.seedKey) && candidate.seedKey === seed.seedKey);
+
+const hasSeedDrift = (seed: UserCollection, cloud: UserCollection | undefined): boolean => {
+  if (!cloud) return true;
+  if (!cloud.isPublic) return true;
+  return seed.items.some((seedItem) => {
+    const cloudItem = cloud.items.find((item) => matchesSeed(item, seedItem));
+    if (!cloudItem) return true;
+    // A seed item that lost its photo path (e.g. drifted to NULL in cloud)
+    // renders as a broken card on the exact surface meant to delight.
+    return Boolean(seedItem.photoUrl) && !cloudItem.photoUrl;
+  });
+};
+
+/**
+ * The master sample is code-defined; its cloud copy can drift (rows toggled
+ * private, seed items lost or stripped of photo paths outside the app).
+ * Returns the seed collections whose cloud copy must be re-upserted so the
+ * admin load path can repair drift instead of only seeding an empty cloud
+ * (CUR-143). Curator-added items already in the cloud copy are preserved.
+ * Pass `force` to re-push healthy seeds too (seed-version content upgrades).
+ */
+export const buildSeedRepairs = (
+  cloudCollections: UserCollection[],
+  ownerId: string,
+  { force = false }: { force?: boolean } = {},
+): UserCollection[] =>
+  INITIAL_COLLECTIONS.flatMap((seed) => {
+    const cloud = cloudCollections.find((collection) => matchesSeed(collection, seed));
+    if (!force && !hasSeedDrift(seed, cloud)) return [];
+    const curatorItems: CollectionItem[] = (cloud?.items ?? []).filter(
+      (item) => !seed.items.some((seedItem) => matchesSeed(item, seedItem)),
+    );
+    return [{ ...seed, ownerId, isPublic: true, items: [...seed.items, ...curatorItems] }];
+  });

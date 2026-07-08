@@ -212,6 +212,72 @@ describe('hooks/useCollections.ts (Phase 3.3)', () => {
     expect(result.current.collections).toHaveLength(INITIAL_COLLECTIONS.length);
   });
 
+  it('admin repair (CUR-143): a drifted cloud sample (private, partial) is re-upserted even when the seed version is current', async () => {
+    /**
+     * The cloud copy of the master sample can drift outside the app (toggled
+     * private, seed items lost). The old empty-cloud-only gate could never
+     * repair it. Verifies the admin load path reconciles a drifted copy.
+     */
+    const masterSeed = INITIAL_COLLECTIONS[0];
+    const driftedSample: UserCollection = {
+      ...masterSeed,
+      ownerId: 'admin-1',
+      isPublic: false, // drifted: should be public
+      items: [{ ...masterSeed.items[0] }], // drifted: only 1 of 5 seed items
+    };
+    dbMocks.fetchCloudCollections.mockResolvedValue([driftedSample]);
+    dbMocks.getSeedVersion.mockResolvedValue(CURRENT_SEED_VERSION);
+
+    const { useCollections } = await import('@/hooks/useCollections');
+    const { result } = renderHook(() =>
+      useCollections({
+        user: { id: 'admin-1' } as any,
+        isAdmin: true,
+        isSupabaseReady: true,
+        fallbackSampleCollections,
+        t,
+        showStatus,
+      }),
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(dbMocks.saveCollection).toHaveBeenCalledTimes(1);
+    const repaired = dbMocks.saveCollection.mock.calls[0]?.[0];
+    expect(repaired).toMatchObject({ id: masterSeed.id, ownerId: 'admin-1', isPublic: true });
+    expect(repaired.items).toHaveLength(masterSeed.items.length);
+    expect(dbMocks.setSeedVersion).toHaveBeenCalledWith(CURRENT_SEED_VERSION);
+  });
+
+  it('admin repair (CUR-143): a healthy cloud sample is a no-op — nothing is re-upserted on load', async () => {
+    const masterSeed = INITIAL_COLLECTIONS[0];
+    const healthySample: UserCollection = {
+      ...masterSeed,
+      ownerId: 'admin-1',
+      isPublic: true,
+      items: masterSeed.items.map((item) => ({ ...item })),
+    };
+    dbMocks.fetchCloudCollections.mockResolvedValue([healthySample]);
+    dbMocks.getSeedVersion.mockResolvedValue(CURRENT_SEED_VERSION);
+
+    const { useCollections } = await import('@/hooks/useCollections');
+    const { result } = renderHook(() =>
+      useCollections({
+        user: { id: 'admin-1' } as any,
+        isAdmin: true,
+        isSupabaseReady: true,
+        fallbackSampleCollections,
+        t,
+        showStatus,
+      }),
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(dbMocks.saveCollection).not.toHaveBeenCalled();
+    expect(dbMocks.setSeedVersion).not.toHaveBeenCalled();
+  });
+
   it('edge case: when Supabase is not ready, returns an empty collection list and does not error', async () => {
     /**
      * Verifies a boundary condition:
