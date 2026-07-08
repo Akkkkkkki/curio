@@ -1632,7 +1632,9 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
               >
                 {isSaving
                   ? t('analyzingPhoto').split('...')[0]
-                  : t('archiveArtifacts', { count: batchItems.length })}
+                  : t(batchItems.length === 1 ? 'archiveArtifact' : 'archiveArtifacts', {
+                      count: batchItems.length,
+                    })}
               </Button>
             </div>
           )}

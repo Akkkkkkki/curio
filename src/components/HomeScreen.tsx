@@ -194,8 +194,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           className={`max-w-2xl font-serif text-sm italic sm:text-base ${theme === 'vault' ? 'text-stone-300' : theme === 'atelier' ? 'text-[#6F6257]' : 'text-stone-600'}`}
         >
           {t('homeMuseumSubtitle', {
-            collections: stats.totalCollections,
-            items: stats.totalItems,
+            collections: t(stats.totalCollections === 1 ? 'collectionCount' : 'collectionsCount', {
+              n: stats.totalCollections,
+            }),
+            items: t(stats.totalItems === 1 ? 'artifactCataloged' : 'artifactsCataloged', {
+              n: stats.totalItems,
+            }),
           })}
         </p>
       </header>

@@ -406,7 +406,7 @@ describe('AddItemModal', () => {
 
     expect(await screen.findByDisplayValue('Mock Artifact')).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'Save 1 pieces' }));
+    await user.click(screen.getByRole('button', { name: 'Save 1 piece' }));
 
     await waitFor(() => {
       expect(mockOnSave).toHaveBeenCalledTimes(1);
@@ -448,7 +448,7 @@ describe('AddItemModal', () => {
       .mockResolvedValueOnce(undefined)
       .mockRejectedValueOnce(new Error('Could not save image. Please try again.'));
 
-    await user.click(screen.getByRole('button', { name: /Save \d+ pieces/ }));
+    await user.click(screen.getByRole('button', { name: /Save \d+ pieces?/ }));
 
     expect(await screen.findByText('Could not save image. Please try again.')).toBeInTheDocument();
     expect(mockOnClose).not.toHaveBeenCalled();
@@ -463,7 +463,7 @@ describe('AddItemModal', () => {
     mockOnSave.mockReset();
     mockOnSave.mockResolvedValue(undefined);
 
-    await user.click(screen.getByRole('button', { name: /Save \d+ pieces/ }));
+    await user.click(screen.getByRole('button', { name: /Save \d+ pieces?/ }));
 
     await waitFor(() => {
       expect(mockOnSave).toHaveBeenCalledTimes(1);

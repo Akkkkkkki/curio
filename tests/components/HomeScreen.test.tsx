@@ -115,6 +115,20 @@ describe('HomeScreen', () => {
     expect(screen.getAllByText('Stamps')[0]).toBeInTheDocument();
   });
 
+  it('pluralizes the museum subtitle counts (CUR-146)', () => {
+    const { unmount } = renderWithProviders(<HomeScreen {...defaultProps} />);
+    expect(screen.getByText('2 collections · 1 piece')).toBeInTheDocument();
+    unmount();
+
+    renderWithProviders(
+      <HomeScreen
+        {...defaultProps}
+        stats={{ ...defaultProps.stats, totalItems: 2, totalCollections: 1 }}
+      />,
+    );
+    expect(screen.getByText('1 collection · 2 pieces')).toBeInTheDocument();
+  });
+
   it('filters collections by search term', async () => {
     renderWithProviders(<HomeScreen {...defaultProps} />);
 
