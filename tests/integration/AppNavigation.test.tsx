@@ -615,7 +615,7 @@ describe('App Integration Tests', () => {
     expect(fieldLabel.className).toContain('text-stone-500');
     expect(fieldLabel.className).not.toContain('text-stone-300');
 
-    const fieldInput = fieldLabel.parentElement?.querySelector('input[placeholder="—"]');
+    const fieldInput = fieldLabel.parentElement?.querySelector('textarea[placeholder="—"]');
     expect(fieldInput).toBeTruthy();
     // The "—" placeholder must be visible enough to read as "empty, click to edit".
     expect(fieldInput?.className).not.toContain('placeholder:text-stone-100');
@@ -657,11 +657,83 @@ describe('App Integration Tests', () => {
     );
 
     const fieldLabel = await screen.findByText('Format');
-    const fieldInput = fieldLabel.parentElement?.querySelector('input[placeholder="—"]');
+    const fieldInput = fieldLabel.parentElement?.querySelector('textarea[placeholder="—"]');
     expect(fieldInput).toBeTruthy();
     expect(fieldInput?.className).toContain('placeholder:text-stone-400');
     expect(fieldInput?.className).not.toContain('placeholder:text-stone-500');
     expect(fieldInput?.className).not.toContain('placeholder:text-stone-100');
+  });
+
+  it('renders long Item Detail text fields as wrapping textareas and keeps other field types one-line (CUR-145)', async () => {
+    const { ThemeProvider } = await import('@/theme');
+    const longFlavorNotes =
+      'Rich, intense cocoa flavors with slight bitterness and a lingering cherry finish after the snap.';
+    const collectionWithMixedFields = {
+      ...mockCollection,
+      customFields: [
+        {
+          id: 'flavor_notes',
+          label: 'Flavor Notes',
+          type: 'text' as const,
+          displayMode: 'detail' as const,
+        },
+        {
+          id: 'abv',
+          label: 'ABV %',
+          type: 'number' as const,
+          displayMode: 'detail' as const,
+        },
+        {
+          id: 'opened_on',
+          label: 'Opened On',
+          type: 'date' as const,
+          displayMode: 'detail' as const,
+        },
+        {
+          id: 'condition',
+          label: 'Condition',
+          type: 'select' as const,
+          displayMode: 'detail' as const,
+          options: ['New', 'Opened'],
+        },
+      ],
+      items: [
+        {
+          ...mockCollection.items[0],
+          data: {
+            flavor_notes: longFlavorNotes,
+            abv: '46',
+            opened_on: '2026-07-06',
+            condition: 'Opened',
+          },
+        },
+      ],
+    };
+    vi.mocked(db.getLocalCollections).mockResolvedValue([collectionWithMixedFields]);
+
+    render(
+      <MemoryRouter initialEntries={['/collection/col1/item/item1']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    const flavorLabel = await screen.findByText('Flavor Notes');
+    const flavorTextarea = flavorLabel.parentElement?.querySelector('textarea');
+    expect(flavorTextarea).toBeInstanceOf(HTMLTextAreaElement);
+    expect(flavorTextarea).toHaveValue(longFlavorNotes);
+    expect(flavorTextarea?.className).toContain('whitespace-pre-wrap');
+    expect(flavorTextarea?.className).toContain('overflow-hidden');
+    expect(flavorLabel.parentElement?.querySelector('input')).toBeNull();
+
+    for (const labelText of ['ABV %', 'Opened On', 'Condition']) {
+      const label = screen.getByText(labelText);
+      expect(label.parentElement?.querySelector('input')).toBeInstanceOf(HTMLInputElement);
+      expect(label.parentElement?.querySelector('textarea')).toBeNull();
+    }
   });
 
   it('renders Item Detail rating stars with Vault filled and empty contrast tokens (CUR-98)', async () => {
