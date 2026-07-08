@@ -160,5 +160,19 @@ export const buildSeedRepairs = (
     const curatorItems: CollectionItem[] = (cloud?.items ?? []).filter(
       (item) => !seed.items.some((seedItem) => matchesSeed(item, seedItem)),
     );
-    return [{ ...seed, ownerId, isPublic: true, items: [...seed.items, ...curatorItems] }];
+    // Repair the row where it lives: keep the matched cloud id and owner so a
+    // re-keyed or re-owned copy is fixed in place instead of duplicated.
+    const targetId = cloud?.id ?? seed.id;
+    return [
+      {
+        ...seed,
+        id: targetId,
+        ownerId: cloud?.ownerId || ownerId,
+        isPublic: true,
+        items: [...seed.items, ...curatorItems].map((item) => ({
+          ...item,
+          collectionId: targetId,
+        })),
+      },
+    ];
   });

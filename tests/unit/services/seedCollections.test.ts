@@ -90,6 +90,24 @@ describe('seedCollections.ts — buildSeedRepairs (CUR-143)', () => {
     expect(buildSeedRepairs([rekeyed], ADMIN_ID)).toEqual([]);
   });
 
+  it('repairs a re-keyed cloud copy in place instead of duplicating it under the canonical id', () => {
+    const rekeyed = healthyCloudSeed({ id: 'legacy-id', isPublic: false });
+    rekeyed.items = rekeyed.items.map((item) => ({ ...item, collectionId: 'legacy-id' }));
+    const repairs = buildSeedRepairs([rekeyed], ADMIN_ID);
+    expect(repairs).toHaveLength(1);
+    expect(repairs[0].id).toBe('legacy-id');
+    expect(repairs[0].items.every((item) => item.collectionId === 'legacy-id')).toBe(true);
+    expect(repairs[0].items.map((item) => item.id)).toEqual(
+      masterSeed.items.map((item) => item.id),
+    );
+  });
+
+  it('preserves the existing cloud owner when repairing; assigns the caller only for missing copies', () => {
+    const drifted = healthyCloudSeed({ isPublic: false, ownerId: 'original-admin' });
+    expect(buildSeedRepairs([drifted], 'another-admin')[0].ownerId).toBe('original-admin');
+    expect(buildSeedRepairs([], 'another-admin')[0].ownerId).toBe('another-admin');
+  });
+
   it('force re-pushes healthy seeds (seed-version content upgrades)', () => {
     const repairs = buildSeedRepairs([healthyCloudSeed()], ADMIN_ID, { force: true });
     expect(repairs).toHaveLength(INITIAL_COLLECTIONS.length);

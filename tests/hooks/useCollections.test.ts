@@ -278,6 +278,40 @@ describe('hooks/useCollections.ts (Phase 3.3)', () => {
     expect(dbMocks.setSeedVersion).not.toHaveBeenCalled();
   });
 
+  it('admin repair (CUR-143): a fresh device (seed version 0) does not force-rewrite a healthy cloud sample', async () => {
+    /**
+     * getSeedVersion() is a per-device IndexedDB setting; a fresh or cleared
+     * browser reports 0 even when the cloud seed is perfectly healthy. That
+     * must not force a re-push — it only records the current version locally.
+     */
+    const masterSeed = INITIAL_COLLECTIONS[0];
+    const healthySample: UserCollection = {
+      ...masterSeed,
+      ownerId: 'admin-1',
+      isPublic: true,
+      items: masterSeed.items.map((item) => ({ ...item })),
+    };
+    dbMocks.fetchCloudCollections.mockResolvedValue([healthySample]);
+    dbMocks.getSeedVersion.mockResolvedValue(0);
+
+    const { useCollections } = await import('@/hooks/useCollections');
+    const { result } = renderHook(() =>
+      useCollections({
+        user: { id: 'admin-1' } as any,
+        isAdmin: true,
+        isSupabaseReady: true,
+        fallbackSampleCollections,
+        t,
+        showStatus,
+      }),
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(dbMocks.saveCollection).not.toHaveBeenCalled();
+    expect(dbMocks.setSeedVersion).toHaveBeenCalledWith(CURRENT_SEED_VERSION);
+  });
+
   it('edge case: when Supabase is not ready, returns an empty collection list and does not error', async () => {
     /**
      * Verifies a boundary condition:

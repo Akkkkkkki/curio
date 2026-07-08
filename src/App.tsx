@@ -632,11 +632,17 @@ export const AppContent: React.FC = () => {
       // seed on every admin load, not just when the cloud is empty — a drifted
       // copy (toggled private, missing items) could otherwise never self-heal
       // (CUR-143). A healthy cloud copy makes this a no-op.
+      // A fresh or cleared device reports seed version 0, which says nothing
+      // about the cloud — only a device that recorded an older version forces
+      // a content re-push; otherwise structural drift alone decides.
       const localSeedVersion = await getSeedVersion();
       const seedRepairs = buildSeedRepairs(cloudCollections, user.id, {
-        force: localSeedVersion < CURRENT_SEED_VERSION,
+        force: localSeedVersion > 0 && localSeedVersion < CURRENT_SEED_VERSION,
       });
       if (seedRepairs.length === 0) {
+        if (localSeedVersion < CURRENT_SEED_VERSION) {
+          await setSeedVersion(CURRENT_SEED_VERSION);
+        }
         return cloudCollections;
       }
 

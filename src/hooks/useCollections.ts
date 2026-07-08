@@ -249,9 +249,12 @@ export const useCollections = ({
       // copy (toggled private, missing items) could otherwise never self-heal
       // (CUR-143). A healthy cloud copy makes this a no-op.
       if (isAdmin) {
+        // A fresh or cleared device reports seed version 0, which says nothing
+        // about the cloud — only a device that recorded an older version forces
+        // a content re-push; otherwise structural drift alone decides.
         const localSeedVersion = await getSeedVersion();
         const seedRepairs = buildSeedRepairs(cloudCollections, user.id, {
-          force: localSeedVersion < CURRENT_SEED_VERSION,
+          force: localSeedVersion > 0 && localSeedVersion < CURRENT_SEED_VERSION,
         });
         if (seedRepairs.length > 0) {
           for (const seedCollection of seedRepairs) {
@@ -263,6 +266,8 @@ export const useCollections = ({
             ...cloudCollections.filter((collection) => !repairedIds.has(collection.id)),
             ...seedRepairs,
           ];
+        } else if (localSeedVersion < CURRENT_SEED_VERSION) {
+          await setSeedVersion(CURRENT_SEED_VERSION);
         }
       }
 
