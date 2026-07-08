@@ -1504,7 +1504,9 @@ export const AppContent: React.FC = () => {
               </h1>
               <div className="flex items-center gap-4">
                 <span className={`${typographyClasses.quote} ${labelColorClasses[theme]}`}>
-                  {t('artifactsCataloged', { n: collection.items.length })}
+                  {t(collection.items.length === 1 ? 'artifactCataloged' : 'artifactsCataloged', {
+                    n: collection.items.length,
+                  })}
                 </span>
                 {isSample && (
                   <span
