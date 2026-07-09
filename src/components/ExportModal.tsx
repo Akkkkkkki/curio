@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { X, Printer, Share2, Download, Maximize2, Minimize2, Loader2, Camera } from 'lucide-react';
 import { toBlob } from 'html-to-image';
+import { Capacitor } from '@capacitor/core';
 import { CollectionItem, FieldDefinition } from '../types';
 import { Button } from './ui/Button';
 import { extractCurioAssetPath, getAsset, getEnhancedAsset } from '../services/db';
@@ -43,6 +44,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   onStatus,
 }) => {
   const { t } = useTranslation();
+  const isNativePlatform = Capacitor.isNativePlatform();
   const [style, setStyle] = useState<TemplateStyle>('minimal');
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('3:4');
   const [imageFit, setImageFit] = useState<ImageFit>('cover');
@@ -696,18 +698,20 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           >
             {exportAction === 'share' ? t('sharing') : t('share')}
           </Button>
-          <div className="flex justify-center">
-            <Button
-              theme="gallery"
-              variant="ghost"
-              size="sm"
-              onClick={() => window.print()}
-              disabled={exportAction !== null || isLoadingImage}
-              icon={<Printer size={14} />}
-            >
-              {t('print')}
-            </Button>
-          </div>
+          {!isNativePlatform && (
+            <div className="flex justify-center">
+              <Button
+                theme="gallery"
+                variant="ghost"
+                size="sm"
+                onClick={() => window.print()}
+                disabled={exportAction !== null || isLoadingImage}
+                icon={<Printer size={14} />}
+              >
+                {t('print')}
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     </div>
