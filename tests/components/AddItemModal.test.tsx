@@ -617,6 +617,61 @@ describe('AddItemModal', () => {
     ).toBeTruthy();
   });
 
+  describe('rating value clarity (CUR-47)', () => {
+    it('shows the selected rating as a numeric value next to the stars in manual entry', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(
+        <AddItemModal
+          isOpen
+          onClose={mockOnClose}
+          collections={[createMockCollection()]}
+          onSave={mockOnSave}
+        />,
+      );
+
+      await user.click(screen.getByRole('button', { name: 'Skip and add manually' }));
+
+      // Unrated: no numeric value shown yet.
+      expect(screen.queryByText(/^\d\/5$/)).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: 'Rate 3 stars' }));
+      expect(screen.getByText('3/5')).toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: 'Rate 5 stars' }));
+      expect(screen.getByText('5/5')).toBeInTheDocument();
+      expect(screen.queryByText('3/5')).not.toBeInTheDocument();
+    });
+
+    it('shows the numeric rating value for a batch item', async () => {
+      const user = userEvent.setup();
+      mockRefreshAiEnabled.mockResolvedValue(true);
+      mockAnalyzeImage.mockResolvedValue({
+        status: 'success',
+        title: 'Mock Artifact',
+        notes: '',
+        data: {},
+      });
+
+      renderWithProviders(
+        <AddItemModal
+          isOpen
+          onClose={mockOnClose}
+          collections={[createMockCollection({ customFields: [] })]}
+          onSave={mockOnSave}
+        />,
+      );
+
+      const file = new File(['fake'], 'artifact.png', { type: 'image/png' });
+      await user.upload(screen.getByTestId('add-item-batch-input') as HTMLInputElement, file);
+      expect(await screen.findByDisplayValue('Mock Artifact')).toBeInTheDocument();
+
+      expect(screen.queryByText(/^\d\/5$/)).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: 'Rate 4 stars' }));
+      expect(screen.getByText('4/5')).toBeInTheDocument();
+    });
+  });
+
   describe('discard confirmation (CUR-80)', () => {
     it('closes immediately when the user has no work in progress on the verify step', async () => {
       const user = userEvent.setup();

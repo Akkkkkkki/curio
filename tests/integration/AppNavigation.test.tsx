@@ -701,6 +701,63 @@ describe('App Integration Tests', () => {
     expect(emptyStar?.getAttribute('class')).not.toContain('text-amber-500/20');
   });
 
+  it('shows the numeric rating value next to the Item Detail stars (CUR-47)', async () => {
+    const { ThemeProvider } = await import('@/theme');
+    const collectionWithRating = {
+      ...mockCollection,
+      items: [
+        {
+          ...mockCollection.items[0],
+          rating: 3,
+        },
+      ],
+    };
+    vi.mocked(db.getLocalCollections).mockResolvedValue([collectionWithRating]);
+
+    render(
+      <MemoryRouter initialEntries={['/collection/col1/item/item1']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    await screen.findByRole('button', { name: 'Rate 3 stars' });
+    const value = screen.getByText('3/5');
+    expect(value).toBeInTheDocument();
+    expect(value.className).toContain('font-mono');
+    expect(value.className).toContain('tabular-nums');
+  });
+
+  it('hides the numeric rating value while an item is unrated (CUR-47)', async () => {
+    const { ThemeProvider } = await import('@/theme');
+    const unratedCollection = {
+      ...mockCollection,
+      items: [
+        {
+          ...mockCollection.items[0],
+          rating: 0,
+        },
+      ],
+    };
+    vi.mocked(db.getLocalCollections).mockResolvedValue([unratedCollection]);
+
+    render(
+      <MemoryRouter initialEntries={['/collection/col1/item/item1']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    await screen.findByRole('button', { name: 'Rate 1 stars' });
+    expect(screen.queryByText(/^\d\/5$/)).not.toBeInTheDocument();
+  });
+
   it('has i18n keys for collection search empty state', async () => {
     const { translations } = await import('@/i18n');
 

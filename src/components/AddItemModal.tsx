@@ -1163,7 +1163,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
                     >
                       {t('rating')}
                     </label>
-                    <div className="flex gap-1">
+                    <div className="flex items-center gap-1">
                       {[1, 2, 3, 4, 5].map((s) => (
                         <button
                           key={s}
@@ -1182,6 +1182,13 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
                           ★
                         </button>
                       ))}
+                      {item.rating > 0 && (
+                        <span
+                          className={`ml-1 font-mono text-xs font-medium tabular-nums ${mutedText}`}
+                        >
+                          {t('ratingValue', { value: item.rating, max: 5 })}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1440,7 +1447,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
           >
             {t('rating')}
           </label>
-          <div className="flex gap-1 sm:gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
             {[1, 2, 3, 4, 5].map((s) => (
               <button
                 key={s}
@@ -1459,6 +1466,11 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
                 ★
               </button>
             ))}
+            {formData.rating > 0 && (
+              <span className={`ml-1 font-mono text-sm font-medium tabular-nums ${mutedText}`}>
+                {t('ratingValue', { value: formData.rating, max: 5 })}
+              </span>
+            )}
           </div>
         </div>
       </div>
