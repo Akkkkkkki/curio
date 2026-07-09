@@ -6,6 +6,7 @@ import type { CollectionItem, FieldDefinition } from '@/types';
 import { toBlob } from 'html-to-image';
 import { getAsset, getEnhancedAsset } from '@/services/db';
 import { trackEvent } from '@/services/analytics';
+import { Capacitor } from '@capacitor/core';
 
 vi.mock('@/services/db', () => ({
   extractCurioAssetPath: vi.fn().mockReturnValue(null),
@@ -21,12 +22,22 @@ vi.mock('@/services/analytics', () => ({
   trackEvent: vi.fn(),
 }));
 
+vi.mock('@capacitor/core', () => ({
+  Capacitor: {
+    isNativePlatform: vi.fn(() => false),
+  },
+}));
+
 vi.mock('@/theme', async () => {
   const actual = await vi.importActual('@/theme');
   return {
     ...actual,
     useTheme: () => ({ theme: 'gallery', setTheme: vi.fn() }),
   };
+});
+
+beforeEach(() => {
+  vi.mocked(Capacitor.isNativePlatform).mockReturnValue(false);
 });
 
 const LONG_TITLE = 'Karuna Pipa Barrel Aged Dark Chocolate 75%';
@@ -131,6 +142,25 @@ describe('ExportModal — CUR-83 footer CTA hierarchy', () => {
     } finally {
       window.print = originalPrint;
     }
+  });
+});
+
+describe('ExportModal — CUR-101 native Print availability', () => {
+  const baseProps = {
+    isOpen: true,
+    onClose: vi.fn(),
+    item: makeItem(),
+    fields: FIELDS,
+  };
+
+  it('hides Print on native platforms while keeping Save image and Share available', () => {
+    vi.mocked(Capacitor.isNativePlatform).mockReturnValue(true);
+
+    renderWithProviders(<ExportModal {...baseProps} />);
+
+    expect(screen.queryByRole('button', { name: /^print$/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /save image/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^share$/i })).toBeInTheDocument();
   });
 });
 
