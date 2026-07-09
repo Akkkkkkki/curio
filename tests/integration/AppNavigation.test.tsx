@@ -159,8 +159,11 @@ describe('App Integration Tests', () => {
     vi.mocked(db.syncPendingAssetUploads).mockResolvedValue(0);
     vi.mocked(db.syncPendingDeletes).mockResolvedValue(0);
     vi.mocked(db.requestPersistence).mockResolvedValue(true);
-    vi.mocked(db.saveAllCollections).mockResolvedValue(undefined);
     vi.mocked(db.saveCollection).mockResolvedValue(undefined);
+    vi.mocked(db.saveAllCollections).mockResolvedValue(undefined);
+    vi.mocked(db.deleteAsset).mockResolvedValue(undefined);
+    vi.mocked(db.deleteCloudItem).mockResolvedValue(undefined);
+    vi.mocked(db.deleteCollection).mockResolvedValue(undefined);
     vi.mocked(db.initDB).mockResolvedValue({} as never);
   });
 
@@ -191,6 +194,91 @@ describe('App Integration Tests', () => {
       },
       { timeout: 5000 },
     );
+  });
+
+  it('filters collection items and resets the query from the inline clear button', async () => {
+    const { ThemeProvider } = await import('@/theme');
+    const collectionWithSearchableItems = {
+      ...mockCollection,
+      items: [
+        mockCollection.items[0],
+        {
+          ...mockCollection.items[0],
+          id: 'item2',
+          title: 'Moon Bowl',
+          notes: 'Ceramic with a blue glaze',
+          data: { maker: 'North Kiln' },
+        },
+      ],
+    };
+    vi.mocked(db.getLocalCollections).mockResolvedValue([collectionWithSearchableItems]);
+
+    render(
+      <MemoryRouter initialEntries={['/collection/col1']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    const searchInput = (await screen.findByRole('textbox', {
+      name: /search this collection/i,
+    })) as HTMLInputElement;
+
+    fireEvent.change(searchInput, { target: { value: 'Moon' } });
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Moon Bowl')[0]).toBeInTheDocument();
+      expect(screen.queryByText('Test Item')).not.toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId('collection-search-clear'));
+
+    await waitFor(() => {
+      expect(searchInput.value).toBe('');
+      expect(screen.getAllByText('Test Item')[0]).toBeInTheDocument();
+      expect(screen.getAllByText('Moon Bowl')[0]).toBeInTheDocument();
+      expect(screen.queryByTestId('collection-search-clear')).not.toBeInTheDocument();
+    });
+  });
+
+  it('shows collection search empty copy and clears it from the empty state action', async () => {
+    const { ThemeProvider } = await import('@/theme');
+
+    render(
+      <MemoryRouter initialEntries={['/collection/col1']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    const searchInput = (await screen.findByRole('textbox', {
+      name: /search this collection/i,
+    })) as HTMLInputElement;
+
+    fireEvent.change(searchInput, { target: { value: 'zzzzz' } });
+
+    await waitFor(() => {
+      expect(screen.getByText('No matches found')).toBeInTheDocument();
+      expect(
+        screen.getByText('No items match “zzzzz”. Try a different search.'),
+      ).toBeInTheDocument();
+      expect(screen.queryByText('Test Item')).not.toBeInTheDocument();
+    });
+
+    const clearButtons = screen.getAllByRole('button', { name: /clear search/i });
+    fireEvent.click(clearButtons[clearButtons.length - 1]);
+
+    await waitFor(() => {
+      expect(searchInput.value).toBe('');
+      expect(screen.getAllByText('Test Item')[0]).toBeInTheDocument();
+      expect(screen.queryByText('No matches found')).not.toBeInTheDocument();
+    });
   });
 
   it('keeps pending deletes in the production merge and retry path', async () => {
@@ -432,11 +520,38 @@ describe('App Integration Tests', () => {
     const bottomNav = screen.getByRole('navigation', { name: 'Primary' });
     fireEvent.click(within(bottomNav).getByRole('link', { name: /explore/i }));
 
-    // Gate clears (public browsing enabled) and no extra cloud fetch fires.
+    // Gate clears (public browsing enabled), sample content loads, and no extra cloud fetch fires.
     await waitFor(() => {
       expect(screen.queryByTestId('access-gate')).not.toBeInTheDocument();
     });
+    await waitFor(
+      () => {
+        expect(screen.getByRole('heading', { name: 'The Vinyl Vault' })).toBeInTheDocument();
+      },
+      { timeout: 5000 },
+    );
     expect(vi.mocked(db.fetchCloudCollections).mock.calls.length).toBe(fetchCallsAfterLoad);
+  });
+
+  it('keeps visible focus indicators on the item detail title and story fields', async () => {
+    const { ThemeProvider } = await import('@/theme');
+
+    render(
+      <MemoryRouter initialEntries={['/collection/col1/item/item1']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    const titleField = await screen.findByDisplayValue('Test Item', undefined, { timeout: 5000 });
+    const storyField = await screen.findByDisplayValue('Test notes', undefined, { timeout: 5000 });
+
+    expect(titleField.className).toContain('focus:border-amber-500');
+    expect(storyField.className).toContain('focus:border-amber-500');
+    expect(storyField.className).toContain('focus:ring-amber-500/30');
   });
 
   it('shows cached collections instead of a blocking error when the cloud fetch fails (signed in)', async () => {
@@ -547,6 +662,100 @@ describe('App Integration Tests', () => {
     expect(fieldInput?.className).toContain('placeholder:text-stone-400');
     expect(fieldInput?.className).not.toContain('placeholder:text-stone-500');
     expect(fieldInput?.className).not.toContain('placeholder:text-stone-100');
+  });
+
+  it('renders Item Detail rating stars with Vault filled and empty contrast tokens (CUR-98)', async () => {
+    const { ThemeProvider } = await import('@/theme');
+    const collectionWithLowRating = {
+      ...mockCollection,
+      items: [
+        {
+          ...mockCollection.items[0],
+          rating: 2,
+        },
+      ],
+    };
+    vi.mocked(db.getLocalCollections).mockResolvedValue([collectionWithLowRating]);
+
+    render(
+      <MemoryRouter initialEntries={['/collection/col1/item/item1']}>
+        {/* @ts-ignore - mocked ThemeProvider accepts initialTheme */}
+        <ThemeProvider initialTheme="vault">
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    const filledButton = await screen.findByRole('button', { name: 'Rate 2 stars' });
+    const emptyButton = await screen.findByRole('button', { name: 'Rate 3 stars' });
+    const filledStar = filledButton.querySelector('svg');
+    const emptyStar = emptyButton.querySelector('svg');
+
+    expect(filledButton).toHaveAttribute('aria-pressed', 'true');
+    expect(filledStar).toHaveClass('text-[#D4A574]');
+    expect(filledStar).toHaveClass('fill-current');
+    expect(emptyStar).toHaveClass('text-[#D4A574]/30');
+    expect(emptyStar).not.toHaveClass('fill-current');
+    expect(emptyStar?.getAttribute('class')).not.toContain('text-amber-500/20');
+  });
+
+  it('shows the numeric rating value next to the Item Detail stars (CUR-47)', async () => {
+    const { ThemeProvider } = await import('@/theme');
+    const collectionWithRating = {
+      ...mockCollection,
+      items: [
+        {
+          ...mockCollection.items[0],
+          rating: 3,
+        },
+      ],
+    };
+    vi.mocked(db.getLocalCollections).mockResolvedValue([collectionWithRating]);
+
+    render(
+      <MemoryRouter initialEntries={['/collection/col1/item/item1']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    await screen.findByRole('button', { name: 'Rate 3 stars' });
+    const value = screen.getByText('3/5');
+    expect(value).toBeInTheDocument();
+    expect(value.className).toContain('font-mono');
+    expect(value.className).toContain('tabular-nums');
+  });
+
+  it('hides the numeric rating value while an item is unrated (CUR-47)', async () => {
+    const { ThemeProvider } = await import('@/theme');
+    const unratedCollection = {
+      ...mockCollection,
+      items: [
+        {
+          ...mockCollection.items[0],
+          rating: 0,
+        },
+      ],
+    };
+    vi.mocked(db.getLocalCollections).mockResolvedValue([unratedCollection]);
+
+    render(
+      <MemoryRouter initialEntries={['/collection/col1/item/item1']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    await screen.findByRole('button', { name: 'Rate 1 stars' });
+    expect(screen.queryByText(/^\d\/5$/)).not.toBeInTheDocument();
   });
 
   it('has i18n keys for collection search empty state', async () => {
@@ -679,6 +888,44 @@ describe('App Integration Tests', () => {
     const errorMessage = screen.getByRole('alert');
     expect(errorMessage).toHaveAttribute('id', 'item-detail-title-error');
     expect(errorMessage.textContent).toBe('Title is required');
+  });
+
+  it('cancels a queued item edit save before deleting that item', async () => {
+    const { ThemeProvider } = await import('@/theme');
+
+    render(
+      <MemoryRouter initialEntries={['/collection/col1/item/item1']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    const titleInput = await screen.findByRole('textbox', { name: 'Title' });
+
+    vi.useFakeTimers();
+    try {
+      fireEvent.change(titleInput, { target: { value: 'Edited before delete' } });
+      expect(db.saveCollection).not.toHaveBeenCalled();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Delete Item' }));
+      const dialog = screen.getByRole('dialog', { name: 'Delete Item' });
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Delete Item' }));
+
+      expect(db.deleteCloudItem).toHaveBeenCalledWith('col1', 'item1');
+      expect(db.saveCollection).toHaveBeenCalledTimes(1);
+      expect(vi.mocked(db.saveCollection).mock.calls[0][0].items).toEqual([]);
+
+      await act(async () => {
+        vi.advanceTimersByTime(1600);
+      });
+
+      expect(db.saveCollection).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('deep-links the access-gate "Explore sample" CTA into the sample collection (#287)', async () => {
@@ -848,6 +1095,192 @@ describe('App Integration Tests', () => {
       expect(screen.getByTestId('collections-grid')).toBeInTheDocument();
     });
     expect(screen.queryByTestId('collection-screen-skeleton')).not.toBeInTheDocument();
+  });
+
+  // CUR-144: shared collection links are the sharing pillar. A signed-out
+  // visitor opening /collection/:id must reach the content — not the generic
+  // welcome gate rendered forever under the collection URL.
+  describe('anonymous collection deep links (CUR-144)', () => {
+    const publicSample = {
+      id: 'sample-vinyl',
+      name: 'The Vinyl Vault',
+      templateId: 'vinyl',
+      icon: '🎵',
+      customFields: [],
+      items: [
+        {
+          id: 'sample-item-1',
+          collectionId: 'sample-vinyl',
+          title: 'Kind of Blue',
+          rating: 5,
+          data: {},
+          photoUrl: '',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          notes: '',
+        },
+      ],
+      isPublic: true,
+      updatedAt: new Date().toISOString(),
+    };
+
+    beforeEach(() => {
+      vi.mocked(supabaseService.isSupabaseConfigured).mockReturnValue(true);
+      vi.mocked(supabaseService.supabase!.auth.getSession).mockResolvedValue({
+        data: { session: null },
+      } as never);
+      vi.mocked(db.getLocalCollections).mockResolvedValue([]);
+      vi.mocked(db.fetchCloudCollections).mockResolvedValue([publicSample]);
+    });
+
+    it('renders the public sample collection instead of the access gate', async () => {
+      const { ThemeProvider } = await import('@/theme');
+
+      render(
+        <MemoryRouter initialEntries={['/collection/sample-vinyl']}>
+          <ThemeProvider>
+            <LanguageProvider>
+              <AppContent />
+            </LanguageProvider>
+          </ThemeProvider>
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByRole('heading', { name: 'The Vinyl Vault' })).toBeInTheDocument();
+      });
+      expect(screen.getByTestId('items-grid')).toBeInTheDocument();
+      expect(screen.queryByTestId('access-gate')).not.toBeInTheDocument();
+    });
+
+    it('shows an explanatory not-available state (not the welcome card) for a private or unknown id', async () => {
+      const { ThemeProvider } = await import('@/theme');
+
+      render(
+        <MemoryRouter initialEntries={['/collection/someone-elses-archive']}>
+          <ThemeProvider>
+            <LanguageProvider>
+              <AppContent />
+            </LanguageProvider>
+          </ThemeProvider>
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId('collection-unavailable')).toBeInTheDocument();
+      });
+      expect(screen.queryByTestId('access-gate')).not.toBeInTheDocument();
+      expect(screen.getByTestId('collection-unavailable-sign-in')).toBeInTheDocument();
+
+      // The Explore path routes onward to the resolvable public sample.
+      fireEvent.click(screen.getByTestId('collection-unavailable-explore'));
+      await waitFor(() => {
+        expect(screen.getByRole('heading', { name: 'The Vinyl Vault' })).toBeInTheDocument();
+      });
+    });
+
+    it('routes an anonymous item link with an unknown collection to the not-available state', async () => {
+      const { ThemeProvider } = await import('@/theme');
+
+      render(
+        <MemoryRouter initialEntries={['/collection/someone-elses-archive/item/some-item']}>
+          <ThemeProvider>
+            <LanguageProvider>
+              <AppContent />
+            </LanguageProvider>
+          </ThemeProvider>
+        </MemoryRouter>,
+      );
+
+      // The item route falls through to /collection/:id, where the anon
+      // not-available explanation renders — the visitor never silently loses
+      // the link to a bare Home (Codex review on #340).
+      await waitFor(() => {
+        expect(screen.getByTestId('collection-unavailable')).toBeInTheDocument();
+      });
+      expect(screen.queryByTestId('access-gate')).not.toBeInTheDocument();
+    });
+
+    it('does not latch public browsing for a signed-in collection visit (gate survives sign-out)', async () => {
+      const { ThemeProvider } = await import('@/theme');
+      // Signed-in session viewing a private collection; capture the auth
+      // listener so the test can emit SIGNED_OUT later.
+      vi.mocked(supabaseService.supabase!.auth.getSession).mockResolvedValue({
+        data: { session: { user: { id: 'user1' } } },
+      } as never);
+      vi.mocked(db.getLocalCollections).mockResolvedValue([mockCollection]);
+      vi.mocked(db.fetchCloudCollections).mockResolvedValue([mockCollection]);
+      let authCallback: ((event: string, session: unknown) => void) | null = null;
+      vi.mocked(supabaseService.supabase!.auth.onAuthStateChange).mockImplementation(((
+        cb: (event: string, session: unknown) => void,
+      ) => {
+        authCallback = cb;
+        return { data: { subscription: { unsubscribe: vi.fn() } } };
+      }) as never);
+
+      render(
+        <MemoryRouter initialEntries={['/collection/col1']}>
+          <ThemeProvider>
+            <LanguageProvider>
+              <AppContent />
+            </LanguageProvider>
+          </ThemeProvider>
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getAllByText('Test Collection')[0]).toBeInTheDocument();
+      });
+
+      // Leave the collection while still signed in, then sign out from Home.
+      const bottomNav = screen.getByRole('navigation', { name: 'Primary' });
+      fireEvent.click(within(bottomNav).getByRole('link', { name: /home/i }));
+      await waitFor(() => {
+        expect(screen.getByTestId('collections-grid')).toBeInTheDocument();
+      });
+
+      await act(async () => {
+        authCallback?.('SIGNED_OUT', null);
+      });
+
+      // The authed collection visit must not have latched public browsing —
+      // a signed-out Home still greets with the welcome gate (Codex review
+      // on #340).
+      await waitFor(() => {
+        expect(screen.getByTestId('access-gate')).toBeInTheDocument();
+      });
+    });
+
+    it('latches public browsing so navigating Home afterwards is not re-gated', async () => {
+      const { ThemeProvider } = await import('@/theme');
+
+      render(
+        <MemoryRouter initialEntries={['/collection/sample-vinyl']}>
+          <ThemeProvider>
+            <LanguageProvider>
+              <AppContent />
+            </LanguageProvider>
+          </ThemeProvider>
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByRole('heading', { name: 'The Vinyl Vault' })).toBeInTheDocument();
+      });
+
+      // Same contract as the Explore CTAs: once the visitor is browsing
+      // shared content, Home shows the sample-aware first-run Home, not the
+      // access gate again.
+      const bottomNav = screen.getByRole('navigation', { name: 'Primary' });
+      fireEvent.click(within(bottomNav).getByRole('link', { name: /home/i }));
+
+      await waitFor(() => {
+        expect(
+          screen.getByRole('heading', { name: /start your museum with one thing you love/i }),
+        ).toBeInTheDocument();
+      });
+      expect(screen.queryByTestId('access-gate')).not.toBeInTheDocument();
+    });
   });
 
   // CUR-118 follow-up (Codex review on #299): when the parent collection

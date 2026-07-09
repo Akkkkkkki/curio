@@ -13,9 +13,26 @@ export class ImageProcessingError extends Error {
   }
 }
 
-const dataUrlToBlob = async (dataUrl: string): Promise<Blob> => {
-  const res = await fetch(dataUrl);
-  return await res.blob();
+// Decoded manually because fetch(data:) counts against CSP connect-src, which
+// deliberately does not allow data: — a fetch here fails on production and
+// takes the whole "save item with photo" path down with it.
+export const dataUrlToBlob = async (dataUrl: string): Promise<Blob> => {
+  const comma = dataUrl.indexOf(',');
+  if (!dataUrl.startsWith('data:') || comma === -1) {
+    throw new ImageProcessingError('Invalid data URL');
+  }
+  const meta = dataUrl.slice(5, comma);
+  const payload = dataUrl.slice(comma + 1);
+  const mime = meta.split(';')[0] || 'application/octet-stream';
+  if (/(^|;)base64$/i.test(meta)) {
+    const binary = atob(payload);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return new Blob([bytes], { type: mime });
+  }
+  return new Blob([decodeURIComponent(payload)], { type: mime });
 };
 
 const loadImageFromBlob = async (blob: Blob): Promise<HTMLImageElement> => {

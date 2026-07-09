@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from '../i18n';
-import { ThemePicker } from './ThemePicker';
+import { ThemeQuickToggle } from './ThemeQuickToggle';
 import { useTheme, cardSurfaceClasses, dividerClasses } from '../theme';
 import { AppTheme } from '../types';
 
@@ -228,106 +228,112 @@ export const Layout: React.FC<LayoutProps> = ({
       ? location.pathname.startsWith(`/collection/${sampleCollectionId}`)
       : false);
 
+  // CUR-127: the menu was a single flat grab-bag (status, theme, legal, import,
+  // sign-out). Theme moved out to the header ThemeQuickToggle; the rest is
+  // grouped into scannable sections: Account / About / Data.
   const profileMenuBody = (
     <>
-      <div className={`p-4 border-b ${borderClass} mb-1`}>
-        <p className="text-[12px] font-bold uppercase tracking-[0.14em] opacity-70 mb-1">
-          {t('authStatus')}
-        </p>
+      <div data-testid="profile-account-section" className={`border-b ${borderClass} mb-1`}>
+        <div className="p-4">
+          <p className="text-[12px] font-bold uppercase tracking-[0.14em] opacity-70 mb-1">
+            {t('authStatus')}
+          </p>
 
-        <div className="flex items-start gap-3 mt-3">
-          <div
-            data-testid="profile-auth-chip"
-            className={`p-2 rounded-xl ${
-              !isSupabaseConfigured
-                ? authChipUnconfiguredClasses[theme]
-                : isAuthenticated
-                  ? authChipSignedInClasses[theme]
-                  : authChipSignedOutClasses[theme]
+          <div className="flex items-start gap-3 mt-3">
+            <div
+              data-testid="profile-auth-chip"
+              className={`p-2 rounded-xl ${
+                !isSupabaseConfigured
+                  ? authChipUnconfiguredClasses[theme]
+                  : isAuthenticated
+                    ? authChipSignedInClasses[theme]
+                    : authChipSignedOutClasses[theme]
+              }`}
+            >
+              {statusIcon}
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <p className="text-sm font-bold">{statusLabel}</p>
+              <p className="text-[12px] opacity-80 leading-snug">{statusDesc}</p>
+            </div>
+          </div>
+        </div>
+
+        {isAuthenticated ? (
+          <div className="px-2 pb-2">
+            <button
+              onClick={() => {
+                onSignOut();
+                closeProfile();
+              }}
+              className={`w-full flex items-center gap-2 px-4 py-3 text-sm rounded-xl transition-colors font-medium ${theme === 'vault' ? 'text-white/70 hover:text-red-200 hover:bg-white/5' : 'text-stone-400 hover:text-red-500 hover:bg-red-50'}`}
+            >
+              <LogOut size={16} />
+              {t('signOut')}
+            </button>
+          </div>
+        ) : (
+          <div className="px-2 pb-2">
+            <button
+              onClick={() => {
+                onOpenAuth();
+                closeProfile();
+              }}
+              className={`w-full flex items-center justify-between px-4 py-3 text-sm rounded-xl transition-all font-bold ${theme === 'vault' ? 'bg-amber-500 text-stone-950 hover:bg-amber-400' : 'bg-stone-900 text-white hover:bg-stone-800'}`}
+            >
+              <div className="flex items-center gap-2">
+                <Zap size={16} />
+                {t('login')}
+              </div>
+              <ArrowUpRight size={16} className="opacity-50" />
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div data-testid="profile-about-section" className="px-4 pb-3 pt-2">
+        <p className="text-[11px] font-bold uppercase tracking-[0.14em] opacity-70 mb-2">
+          {t('profileSectionAbout')}
+        </p>
+        <div
+          data-testid="profile-legal-links"
+          className={`flex items-center gap-3 text-[12px] ${
+            theme === 'vault' ? 'text-white/60' : 'text-stone-500'
+          }`}
+        >
+          <a
+            href="#/legal/terms"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={closeProfile}
+            className={`underline-offset-4 hover:underline transition-colors ${
+              theme === 'vault' ? 'hover:text-white' : 'hover:text-stone-900'
             }`}
           >
-            {statusIcon}
-          </div>
-          <div className="flex-1 overflow-hidden">
-            <p className="text-sm font-bold">{statusLabel}</p>
-            <p className="text-[12px] opacity-80 leading-snug">{statusDesc}</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="px-4 pb-3 pt-1">
-        <p className="text-[11px] font-bold uppercase tracking-[0.14em] opacity-70 mb-2">
-          {t('themeSelection')}
-        </p>
-        <div className="w-full">
-          <ThemePicker layout="stacked" />
-        </div>
-      </div>
-
-      <div
-        data-testid="profile-legal-links"
-        className={`px-4 pb-3 pt-1 flex items-center gap-3 text-[12px] ${
-          theme === 'vault' ? 'text-white/60' : 'text-stone-500'
-        }`}
-      >
-        <a
-          href="#/legal/terms"
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={closeProfile}
-          className={`underline-offset-4 hover:underline transition-colors ${
-            theme === 'vault' ? 'hover:text-white' : 'hover:text-stone-900'
-          }`}
-        >
-          {t('termsOfService')}
-        </a>
-        <span aria-hidden="true" className="opacity-40">
-          ·
-        </span>
-        <a
-          href="#/legal/privacy"
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={closeProfile}
-          className={`underline-offset-4 hover:underline transition-colors ${
-            theme === 'vault' ? 'hover:text-white' : 'hover:text-stone-900'
-          }`}
-        >
-          {t('privacyPolicy')}
-        </a>
-      </div>
-
-      {isAuthenticated ? (
-        <button
-          onClick={() => {
-            onSignOut();
-            closeProfile();
-          }}
-          className={`w-full flex items-center gap-2 px-4 py-3 text-sm rounded-xl transition-colors font-medium ${theme === 'vault' ? 'text-white/70 hover:text-red-200 hover:bg-white/5' : 'text-stone-400 hover:text-red-500 hover:bg-red-50'}`}
-        >
-          <LogOut size={16} />
-          {t('signOut')}
-        </button>
-      ) : (
-        <div className="p-2">
-          <button
-            onClick={() => {
-              onOpenAuth();
-              closeProfile();
-            }}
-            className={`w-full flex items-center justify-between px-4 py-3 text-sm rounded-xl transition-all font-bold ${theme === 'vault' ? 'bg-amber-500 text-stone-950 hover:bg-amber-400' : 'bg-stone-900 text-white hover:bg-stone-800'}`}
+            {t('termsOfService')}
+          </a>
+          <span aria-hidden="true" className="opacity-40">
+            ·
+          </span>
+          <a
+            href="#/legal/privacy"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={closeProfile}
+            className={`underline-offset-4 hover:underline transition-colors ${
+              theme === 'vault' ? 'hover:text-white' : 'hover:text-stone-900'
+            }`}
           >
-            <div className="flex items-center gap-2">
-              <Zap size={16} />
-              {t('login')}
-            </div>
-            <ArrowUpRight size={16} className="opacity-50" />
-          </button>
+            {t('privacyPolicy')}
+          </a>
         </div>
-      )}
+      </div>
 
       {hasLocalImport && isAuthenticated && onImportLocal && (
-        <div className={`p-2 border-t ${dividerClasses[theme]}`}>
+        <div data-testid="profile-data-section" className={`p-2 border-t ${dividerClasses[theme]}`}>
+          <p className="text-[11px] font-bold uppercase tracking-[0.14em] opacity-70 mb-2 px-2 pt-2">
+            {t('profileSectionData')}
+          </p>
           <div
             data-testid="profile-import-card"
             className={`p-3 rounded-xl border ${importCardSurfaceClasses[theme]}`}
@@ -386,6 +392,8 @@ export const Layout: React.FC<LayoutProps> = ({
 
           <nav className="flex items-center gap-2 justify-end">
             {headerExtras}
+
+            <ThemeQuickToggle />
 
             <div className="relative hidden sm:block" ref={profileRef}>
               <button

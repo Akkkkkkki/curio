@@ -235,6 +235,25 @@ export const mergeItems = (
   return merged;
 };
 
+export const shouldPreserveLocalOnlyCollection = (
+  collection: UserCollection,
+  options: {
+    pendingSyncIds?: string[];
+    pendingSyncIdsAtFetchStart?: string[];
+    cloudFetchStartedAt?: string;
+  } = {},
+) => {
+  const { pendingSyncIds = [], pendingSyncIdsAtFetchStart = [], cloudFetchStartedAt } = options;
+  return (
+    !collection.ownerId ||
+    pendingSyncIds.includes(collection.id) ||
+    pendingSyncIdsAtFetchStart.includes(collection.id) ||
+    (cloudFetchStartedAt
+      ? compareTimestamps(collection.updatedAt, cloudFetchStartedAt) >= 0
+      : false)
+  );
+};
+
 export const mergeCollections = (
   localCollections: UserCollection[],
   cloudCollections: UserCollection[],
@@ -471,6 +490,23 @@ const addToPendingSync = async (collectionId: string): Promise<void> => {
     existing.nextRetryAt = undefined;
   }
   await savePendingSyncEntries(pending);
+};
+
+const markPendingSync = (pending: (string | PendingSyncEntry)[], collectionId: string) => {
+  const normalized = normalizePendingSyncEntries(pending);
+  const existing = normalized.find((entry) => entry.id === collectionId);
+  if (!existing) {
+    normalized.push({
+      id: collectionId,
+      createdAt: new Date().toISOString(),
+      attemptCount: 0,
+      paused: false,
+    });
+  } else {
+    existing.paused = false;
+    existing.nextRetryAt = undefined;
+  }
+  return normalized;
 };
 
 const removeFromPendingSync = async (collectionId: string): Promise<void> => {
@@ -1306,18 +1342,36 @@ export const saveCollection = async (collection: UserCollection): Promise<void> 
   const collectionToSave = collection.updatedAt
     ? collection
     : { ...collection, updatedAt: new Date().toISOString() };
+  const shouldSyncToCloud = isSupabaseConfigured() && Boolean(supabase);
 
-  // 1. Local Persistence (IndexedDB) - always succeeds
+  // 1. Local Persistence (IndexedDB) - always succeeds. When a cloud sync will
+  // follow, mark the collection as pending in the same transaction so an
+  // overlapping cloud refresh cannot mistake this local write for a deletion.
   await new Promise<void>((resolve, reject) => {
-    const transaction = db.transaction(COLLECTIONS_STORE, 'readwrite');
-    const store = transaction.objectStore(COLLECTIONS_STORE);
-    store.put(collectionToSave);
+    const transaction = shouldSyncToCloud
+      ? db.transaction([COLLECTIONS_STORE, SETTINGS_STORE], 'readwrite')
+      : db.transaction(COLLECTIONS_STORE, 'readwrite');
+    const collectionStore = transaction.objectStore(COLLECTIONS_STORE);
+    collectionStore.put(collectionToSave);
+    if (shouldSyncToCloud) {
+      const settingsStore = transaction.objectStore(SETTINGS_STORE);
+      const pendingRequest = settingsStore.get(PENDING_SYNC_KEY);
+      pendingRequest.onsuccess = () => {
+        settingsStore.put(
+          markPendingSync(pendingRequest.result || [], collectionToSave.id),
+          PENDING_SYNC_KEY,
+        );
+      };
+      pendingRequest.onerror = () => {
+        settingsStore.put(markPendingSync([], collectionToSave.id), PENDING_SYNC_KEY);
+      };
+    }
     transaction.oncomplete = () => resolve();
     transaction.onerror = () => reject(transaction.error);
   });
 
   // 2. Cloud Sync (Supabase Normalized Mapping)
-  if (isSupabaseConfigured() && supabase) {
+  if (shouldSyncToCloud) {
     notifySyncStatus('syncing');
     try {
       await saveCollectionToCloud(collectionToSave);
@@ -1947,6 +2001,8 @@ export const loadCollections = async (): Promise<UserCollection[]> => {
       const {
         data: { user },
       } = await supabase.auth.getUser();
+      const pendingSyncIdsAtFetchStart = await getPendingSyncIds();
+      const cloudFetchStartedAt = new Date().toISOString();
       const cloudCollections = await fetchCloudCollections();
 
       // Re-read local state AFTER the (slow, network-bound) cloud fetch.
@@ -1969,7 +2025,11 @@ export const loadCollections = async (): Promise<UserCollection[]> => {
 
       const merged = mergeCollections(freshLocalCollections, cloudCollections, {
         includeLocalOnly: (collection) =>
-          !collection.ownerId || pendingSyncIds.includes(collection.id),
+          shouldPreserveLocalOnlyCollection(collection, {
+            pendingSyncIds,
+            pendingSyncIdsAtFetchStart,
+            cloudFetchStartedAt,
+          }),
         pendingDeletes,
       });
       await saveAllCollections(merged);

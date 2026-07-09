@@ -119,19 +119,13 @@ test.describe('First-Time User Experience', () => {
   test('should allow switching theme + language without authentication', async ({ page }) => {
     await ensureSampleBrowse(page);
 
-    // Open account menu → switch theme.
-    // Account button is in the header on desktop; on mobile, it's the bottom-nav Profile.
-    await page
-      .getByRole('button', { name: 'Account' })
-      .or(page.getByRole('button', { name: 'Profile', exact: true }))
-      .first()
-      .click();
+    // CUR-127: theme is a dedicated header quick toggle — no account menu needed.
+    await page.getByTestId('theme-picker').click();
     // Avoid matching the "The Vinyl Vault" collection card button.
     await page.getByRole('button', { name: 'The Vault (Moody)' }).click();
     await expect(page.locator('[data-theme="vault"]')).toBeVisible();
 
-    // Dismiss the profile menu so subsequent clicks on the header aren't intercepted
-    // by the mobile bottom-sheet backdrop.
+    // Dismiss the theme popover so subsequent clicks on the header aren't intercepted.
     await page.keyboard.press('Escape');
 
     // Toggle language button in header.
@@ -158,5 +152,20 @@ test.describe('Navigation and Routing', () => {
       return;
     }
     await expect(page).toHaveURL(/\/#\/?$/);
+  });
+
+  // CUR-144: a shared collection link opened signed-out must render the
+  // collection under its own URL — never the welcome gate.
+  test('should render the sample collection from an anonymous deep link (CUR-144)', async ({
+    page,
+  }) => {
+    await page.goto('/#/collection/sample-vinyl');
+    await waitForAppReady(page);
+
+    await expect(page.getByRole('heading', { name: 'The Vinyl Vault' })).toBeVisible({
+      timeout: 10000,
+    });
+    await expect(page).toHaveURL(/#\/collection\/sample-vinyl/);
+    await expect(page.getByTestId('access-gate')).toHaveCount(0);
   });
 });

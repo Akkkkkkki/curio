@@ -6,6 +6,7 @@ import type { CollectionItem, FieldDefinition } from '@/types';
 import { toBlob } from 'html-to-image';
 import { getAsset, getEnhancedAsset } from '@/services/db';
 import { trackEvent } from '@/services/analytics';
+import { Capacitor } from '@capacitor/core';
 
 vi.mock('@/services/db', () => ({
   extractCurioAssetPath: vi.fn().mockReturnValue(null),
@@ -21,12 +22,22 @@ vi.mock('@/services/analytics', () => ({
   trackEvent: vi.fn(),
 }));
 
+vi.mock('@capacitor/core', () => ({
+  Capacitor: {
+    isNativePlatform: vi.fn(() => false),
+  },
+}));
+
 vi.mock('@/theme', async () => {
   const actual = await vi.importActual('@/theme');
   return {
     ...actual,
     useTheme: () => ({ theme: 'gallery', setTheme: vi.fn() }),
   };
+});
+
+beforeEach(() => {
+  vi.mocked(Capacitor.isNativePlatform).mockReturnValue(false);
 });
 
 const LONG_TITLE = 'Karuna Pipa Barrel Aged Dark Chocolate 75%';
@@ -134,6 +145,25 @@ describe('ExportModal — CUR-83 footer CTA hierarchy', () => {
   });
 });
 
+describe('ExportModal — CUR-101 native Print availability', () => {
+  const baseProps = {
+    isOpen: true,
+    onClose: vi.fn(),
+    item: makeItem(),
+    fields: FIELDS,
+  };
+
+  it('hides Print on native platforms while keeping Save image and Share available', () => {
+    vi.mocked(Capacitor.isNativePlatform).mockReturnValue(true);
+
+    renderWithProviders(<ExportModal {...baseProps} />);
+
+    expect(screen.queryByRole('button', { name: /^print$/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /save image/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^share$/i })).toBeInTheDocument();
+  });
+});
+
 describe('ExportModal — CUR-100 Print disabled while photo loading', () => {
   const baseProps = {
     isOpen: true,
@@ -169,6 +199,50 @@ describe('ExportModal — CUR-100 Print disabled while photo loading', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /^print$/i })).not.toBeDisabled();
     });
+  });
+});
+
+describe('ExportModal — CUR-42 dialog semantics', () => {
+  const baseProps = {
+    isOpen: true,
+    onClose: vi.fn(),
+    item: makeItem(),
+    fields: FIELDS,
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('renders nothing when closed', () => {
+    renderWithProviders(<ExportModal {...baseProps} isOpen={false} />);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('renders as a labelled dialog', () => {
+    renderWithProviders(<ExportModal {...baseProps} />);
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toHaveAttribute('aria-modal', 'true');
+    expect(dialog).toHaveAttribute('aria-labelledby', 'export-modal-title');
+    expect(document.getElementById('export-modal-title')).toHaveTextContent(/export card/i);
+  });
+
+  it('closes on Escape', async () => {
+    renderWithProviders(<ExportModal {...baseProps} />);
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    await waitFor(() => {
+      expect(baseProps.onClose).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('gives initial focus to the Close button, not the aria-hidden tap-to-collapse overlay', async () => {
+    renderWithProviders(<ExportModal {...baseProps} />);
+
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: /close/i }));
   });
 });
 

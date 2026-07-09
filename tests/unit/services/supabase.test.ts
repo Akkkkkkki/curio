@@ -53,9 +53,10 @@ describe('services/supabase.ts - Auth Helpers (Phase 1.3)', () => {
       );
     });
 
-    it('returns a user object on success (typical sign-up flow)', async () => {
+    it('returns the user and session on success (typical sign-up flow)', async () => {
       /**
-       * Happy path: a normal sign-up should resolve with a user object from Supabase.
+       * Happy path: a normal sign-up should resolve with the user and session
+       * from Supabase so callers can tell whether the account is usable yet.
        */
       const mod = await importSupabaseModuleFresh({
         url: 'https://test.supabase.co',
@@ -68,14 +69,41 @@ describe('services/supabase.ts - Auth Helpers (Phase 1.3)', () => {
         error: null,
       });
 
+      const session = { access_token: 'access', refresh_token: 'refresh' };
       mockSupabaseClient.auth.signUp.mockResolvedValueOnce({
-        data: { user: { id: 'new-user-id', email: 'new@example.com' } },
+        data: { user: { id: 'new-user-id', email: 'new@example.com' }, session },
         error: null,
       });
 
-      const user = await mod.signUpWithEmail('new@example.com', 'StrongPassword!123');
-      expect(user).toMatchObject({ id: 'new-user-id', email: 'new@example.com' });
+      const result = await mod.signUpWithEmail('new@example.com', 'StrongPassword!123');
+      expect(result.user).toMatchObject({ id: 'new-user-id', email: 'new@example.com' });
+      expect(result.session).toBe(session);
       expect(mockSupabaseClient.auth.signUp).toHaveBeenCalledTimes(1);
+    });
+
+    it('returns a null session when email confirmation is required (CUR-66)', async () => {
+      /**
+       * With "Confirm email" enabled on the Supabase project, signUp creates the
+       * account but returns no session. The helper must surface that so the UI
+       * can show a "check your email" state instead of pretending sign-in worked.
+       */
+      const mod = await importSupabaseModuleFresh({
+        url: 'https://test.supabase.co',
+        key: 'test-key',
+      });
+
+      mockSupabaseClient.auth.getUser.mockResolvedValueOnce({
+        data: { user: null },
+        error: null,
+      });
+      mockSupabaseClient.auth.signUp.mockResolvedValueOnce({
+        data: { user: { id: 'unconfirmed-id', email: 'pending@example.com' }, session: null },
+        error: null,
+      });
+
+      const result = await mod.signUpWithEmail('pending@example.com', 'StrongPassword!123');
+      expect(result.user).toMatchObject({ id: 'unconfirmed-id' });
+      expect(result.session).toBeNull();
     });
 
     it('upgrades an anonymous user by calling updateUser and returns the upgraded user', async () => {
@@ -98,10 +126,19 @@ describe('services/supabase.ts - Auth Helpers (Phase 1.3)', () => {
         error: null,
       });
 
-      const user = await mod.signUpWithEmail('upgraded@example.com', 'StrongPassword!123');
+      // The anonymous session survives the upgrade; the helper reports it so
+      // callers treat this path as already signed in.
+      const anonSession = { access_token: 'anon-access', refresh_token: 'anon-refresh' };
+      mockSupabaseClient.auth.getSession.mockResolvedValueOnce({
+        data: { session: anonSession },
+        error: null,
+      });
+
+      const result = await mod.signUpWithEmail('upgraded@example.com', 'StrongPassword!123');
       expect(mockSupabaseClient.auth.updateUser).toHaveBeenCalledTimes(1);
       expect(mockSupabaseClient.auth.signUp).not.toHaveBeenCalled();
-      expect(user).toMatchObject({ id: 'upgraded-id', email: 'upgraded@example.com' });
+      expect(result.user).toMatchObject({ id: 'upgraded-id', email: 'upgraded@example.com' });
+      expect(result.session).toBe(anonSession);
     });
 
     it('surfaces duplicate-email errors from Supabase (throws the Supabase error)', async () => {

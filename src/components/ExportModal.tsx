@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { X, Printer, Share2, Download, Maximize2, Minimize2, Loader2, Camera } from 'lucide-react';
 import { toBlob } from 'html-to-image';
+import { Capacitor } from '@capacitor/core';
 import { CollectionItem, FieldDefinition } from '../types';
 import { Button } from './ui/Button';
 import { extractCurioAssetPath, getAsset, getEnhancedAsset } from '../services/db';
+import { useModalA11y } from '../hooks/useModalA11y';
 import { useTranslation } from '../i18n';
 import { trackEvent } from '../services/analytics';
 import type { StatusTone } from './StatusToast';
@@ -42,6 +44,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   onStatus,
 }) => {
   const { t } = useTranslation();
+  const isNativePlatform = Capacitor.isNativePlatform();
   const [style, setStyle] = useState<TemplateStyle>('minimal');
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('3:4');
   const [imageFit, setImageFit] = useState<ImageFit>('cover');
@@ -63,6 +66,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   const [exportError, setExportError] = useState<string | null>(null);
   const [dragHeight, setDragHeight] = useState<number | null>(null);
   const cardRef = useRef<HTMLDivElement | null>(null);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
   const sheetRef = useRef<HTMLDivElement | null>(null);
   const dragStateRef = useRef<{
     startY: number;
@@ -70,6 +74,9 @@ export const ExportModal: React.FC<ExportModalProps> = ({
     pointerId: number;
     moved: boolean;
   } | null>(null);
+  // CUR-42: same dialog primitive as every other modal — Escape-to-close,
+  // focus trap, initial focus, and focus restore back to the export trigger.
+  useModalA11y(dialogRef, isOpen, onClose);
   const remoteAssetPath = useMemo(() => {
     if (!item.photoUrl || item.photoUrl === 'asset') return null;
     const extracted = extractCurioAssetPath(item.photoUrl);
@@ -522,6 +529,10 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   return (
     <div
       data-export-modal
+      ref={dialogRef}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="export-modal-title"
       className={`fixed inset-0 z-50 bg-stone-950/90 backdrop-blur-md animate-in fade-in duration-200 print:bg-white print:static print:block print:inset-auto print:h-auto print:overflow-visible overflow-hidden pt-[env(safe-area-inset-top,0px)] pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)]`}
       style={
         {
@@ -574,7 +585,9 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         </div>
         <div className="px-6 pb-4 md:pt-6 border-b border-stone-100 flex justify-between items-center shrink-0">
           <div>
-            <h2 className="font-serif font-bold text-xl text-stone-900">{t('exportCard')}</h2>
+            <h2 id="export-modal-title" className="font-serif font-bold text-xl text-stone-900">
+              {t('exportCard')}
+            </h2>
           </div>
           <button
             onClick={onClose}
@@ -685,18 +698,20 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           >
             {exportAction === 'share' ? t('sharing') : t('share')}
           </Button>
-          <div className="flex justify-center">
-            <Button
-              theme="gallery"
-              variant="ghost"
-              size="sm"
-              onClick={() => window.print()}
-              disabled={exportAction !== null || isLoadingImage}
-              icon={<Printer size={14} />}
-            >
-              {t('print')}
-            </Button>
-          </div>
+          {!isNativePlatform && (
+            <div className="flex justify-center">
+              <Button
+                theme="gallery"
+                variant="ghost"
+                size="sm"
+                onClick={() => window.print()}
+                disabled={exportAction !== null || isLoadingImage}
+                icon={<Printer size={14} />}
+              >
+                {t('print')}
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     </div>

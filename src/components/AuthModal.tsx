@@ -23,7 +23,13 @@ import {
 import { useTranslation } from '../i18n';
 import { useTheme, panelSurfaceClasses, overlaySurfaceClasses, mutedTextClasses } from '../theme';
 
-export type AuthModalMode = 'signin' | 'signup' | 'reset-request' | 'reset-sent' | 'set-password';
+export type AuthModalMode =
+  | 'signin'
+  | 'signup'
+  | 'reset-request'
+  | 'reset-sent'
+  | 'confirm-email-sent'
+  | 'set-password';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -250,9 +256,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         setError(t('passwordTooShort'));
         return;
       }
-      await (mode === 'signin'
-        ? signInWithEmail(email, password)
-        : signUpWithEmail(email, password));
+      if (mode === 'signup') {
+        const { session } = await signUpWithEmail(email, password);
+        if (!session) {
+          // Email confirmation is required — the account exists but there is
+          // no session yet. Closing here would drop the user back on the
+          // access gate with no feedback, so show the check-your-email state
+          // and hold the queued post-auth action (CUR-66).
+          setSentToEmail(email);
+          setMode('confirm-email-sent');
+          return;
+        }
+      } else {
+        await signInWithEmail(email, password);
+      }
       onAuthSuccess?.();
       onClose();
     } catch (err: any) {
@@ -295,6 +312,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       case 'reset-request':
       case 'reset-sent':
         return t('resetPasswordTitle');
+      case 'confirm-email-sent':
+        return t('confirmEmailTitle');
       case 'set-password':
         return t('setPasswordTitle');
       case 'signup':
@@ -461,6 +480,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </button>
               </div>
             </div>
+          ) : mode === 'confirm-email-sent' ? (
+            <div
+              className={`p-4 rounded-2xl border flex gap-3 ${theme === 'vault' ? 'bg-white/5 border-white/10' : 'bg-emerald-50 border-emerald-100'}`}
+              data-testid="confirm-email-sent"
+            >
+              <Mail className="text-emerald-600 shrink-0 mt-0.5" size={18} />
+              <div className="space-y-1">
+                <p
+                  className={`text-[12px] font-bold ${theme === 'vault' ? 'text-white' : 'text-emerald-900'}`}
+                >
+                  {t('confirmEmailSentTitle')}
+                </p>
+                <p className={`text-[12px] ${mutedText} leading-relaxed`}>
+                  {t('confirmEmailSentDesc').replace('{email}', sentToEmail)}
+                </p>
+              </div>
+            </div>
           ) : (
             <div className="space-y-4">
               {(mode === 'signin' || mode === 'signup' || mode === 'reset-request') && (
@@ -623,7 +659,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </div>
           )}
 
-          {mode !== 'reset-sent' && (
+          {mode !== 'reset-sent' && mode !== 'confirm-email-sent' && (
             <Button
               type="submit"
               className="w-full h-14 text-lg"
@@ -706,7 +742,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               >
                 {mode === 'signin' ? t('noAccount') : t('hasAccount')}
               </button>
-            ) : mode === 'reset-request' || mode === 'reset-sent' ? (
+            ) : mode === 'reset-request' ||
+              mode === 'reset-sent' ||
+              mode === 'confirm-email-sent' ? (
               <button
                 type="button"
                 onClick={() => {

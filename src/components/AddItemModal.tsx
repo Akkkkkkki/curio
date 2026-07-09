@@ -622,7 +622,10 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
           locale: language,
         });
         if (result.status !== 'success') {
-          setError(result.status === 'error' ? result.message : t('analysisFallback'));
+          if (result.status === 'error') {
+            console.warn('AI analysis failed:', result.message);
+          }
+          setError(t('analysisFallback'));
           hadError = true;
           analyzed.push(createBatchItem(image, existingIds[idx] ? { id: existingIds[idx] } : {}));
           continue;
@@ -787,7 +790,10 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
         locale: language,
       });
       if (result.status !== 'success') {
-        setError(result.status === 'error' ? result.message : t('analysisFallback'));
+        if (result.status === 'error') {
+          console.warn('AI analysis failed:', result.message);
+        }
+        setError(t('analysisFallback'));
         setAnalysisError(true);
         setStep('verify');
         return;
@@ -1191,7 +1197,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
                     >
                       {t('rating')}
                     </label>
-                    <div className="flex gap-1">
+                    <div className="flex items-center gap-1">
                       {[1, 2, 3, 4, 5].map((s) => (
                         <button
                           key={s}
@@ -1210,6 +1216,13 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
                           ★
                         </button>
                       ))}
+                      {item.rating > 0 && (
+                        <span
+                          className={`ml-1 font-mono text-xs font-medium tabular-nums ${mutedText}`}
+                        >
+                          {t('ratingValue', { value: item.rating, max: 5 })}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1537,7 +1550,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
               >
                 {t('rating')}
               </label>
-              <div className="flex gap-1 sm:gap-2">
+              <div className="flex items-center gap-1 sm:gap-2">
                 {[1, 2, 3, 4, 5].map((s) => (
                   <button
                     key={s}
@@ -1556,6 +1569,11 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
                     ★
                   </button>
                 ))}
+                {formData.rating > 0 && (
+                  <span className={`ml-1 font-mono text-sm font-medium tabular-nums ${mutedText}`}>
+                    {t('ratingValue', { value: formData.rating, max: 5 })}
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -1594,12 +1612,16 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
             </button>
           </div>
 
-          <div className="relative flex-1 min-h-0">
+          {/* The desktop dialog is sm:h-auto (indefinite height), so percentage
+              heights inside this panel never resolve — h-full falls back to
+              content height and paints over the footer, making Save
+              unclickable (CUR-142). Size children with flex instead. */}
+          <div className="relative flex-1 min-h-0 flex flex-col">
             {confirmingDiscard ? (
               <div
                 ref={confirmRef}
                 data-testid="add-item-discard-confirm"
-                className="h-full flex flex-col items-center justify-center text-center p-6 sm:p-8"
+                className="flex-1 flex flex-col items-center justify-center text-center p-6 sm:p-8"
               >
                 <div
                   className={`p-2.5 rounded-full mb-4 ${
@@ -1650,7 +1672,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
                   ref={scrollRef}
                   data-testid="add-item-scroll"
                   onScroll={updateScrollAffordance}
-                  className="h-full overflow-y-auto p-5 pb-24 sm:p-8 sm:pb-28 overscroll-contain"
+                  className="flex-1 min-h-0 overflow-y-auto p-5 pb-6 sm:p-8 overscroll-contain"
                 >
                   <div ref={scrollContentRef} className="space-y-6">
                     {step === 'select-type' && renderCollectionSelect()}
@@ -1728,7 +1750,9 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
               >
                 {isSaving
                   ? t('analyzingPhoto').split('...')[0]
-                  : t('archiveArtifacts', { count: batchItems.length })}
+                  : t(batchItems.length === 1 ? 'archiveArtifact' : 'archiveArtifacts', {
+                      count: batchItems.length,
+                    })}
               </Button>
             </div>
           )}
