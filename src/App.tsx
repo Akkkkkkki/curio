@@ -2438,6 +2438,13 @@ export const AppContent: React.FC = () => {
                       />
                     </button>
                   ))}
+                  {item.rating > 0 && (
+                    <span
+                      className={`shrink-0 whitespace-nowrap font-mono text-sm font-medium tabular-nums ${ratingColorClasses[theme]}`}
+                    >
+                      {t('ratingValue', { value: item.rating, max: 5 })}
+                    </span>
+                  )}
                   <span
                     className={`shrink-0 whitespace-nowrap sm:ml-2 ${typographyClasses.label} ${mutedTextClasses[theme]}`}
                   >
