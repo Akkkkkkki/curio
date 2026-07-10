@@ -499,6 +499,76 @@ describe('AddItemModal', () => {
     });
   });
 
+  it('shows localized fallback copy, not raw AI errors, after single-photo analysis fails', async () => {
+    const user = userEvent.setup();
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    mockRefreshAiEnabled.mockResolvedValue(true);
+    mockAnalyzeImage.mockResolvedValue({
+      status: 'error',
+      message: '413 Payload Too Large',
+    });
+    mockGetPhoto.mockResolvedValue({
+      dataUrl: 'data:image/png;base64,ZmFrZQ==',
+      format: 'png',
+    });
+
+    renderWithProviders(
+      <AddItemModal
+        isOpen
+        onClose={mockOnClose}
+        collections={[createMockCollection({ customFields: [] })]}
+        onSave={mockOnSave}
+      />,
+    );
+
+    await user.click(screen.getAllByRole('button', { name: /upload photo/i })[0]);
+
+    expect(
+      await screen.findByText('Analysis failed. Continue with manual entry.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('413 Payload Too Large')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Retry analysis' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Enter manually' })).toBeInTheDocument();
+    expect(warnSpy).toHaveBeenCalledWith('AI analysis failed:', '413 Payload Too Large');
+
+    warnSpy.mockRestore();
+  });
+
+  it('shows localized fallback copy, not raw AI errors, after batch analysis fails', async () => {
+    const user = userEvent.setup();
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    mockRefreshAiEnabled.mockResolvedValue(true);
+    mockAnalyzeImage.mockResolvedValue({
+      status: 'error',
+      message: 'HTTP 503 from /api/gemini/analyze',
+    });
+
+    renderWithProviders(
+      <AddItemModal
+        isOpen
+        onClose={mockOnClose}
+        collections={[createMockCollection({ name: 'Artifacts', customFields: [] })]}
+        onSave={mockOnSave}
+      />,
+    );
+
+    const file = new File(['fake'], 'artifact.png', { type: 'image/png' });
+    const input = screen.getByTestId('add-item-batch-input') as HTMLInputElement;
+    await user.upload(input, file);
+
+    expect(
+      await screen.findByText('Analysis failed. Continue with manual entry.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('HTTP 503 from /api/gemini/analyze')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Retry analysis' })).toBeInTheDocument();
+    expect(warnSpy).toHaveBeenCalledWith(
+      'AI analysis failed:',
+      'HTTP 503 from /api/gemini/analyze',
+    );
+
+    warnSpy.mockRestore();
+  });
+
   it('does not re-save already-saved items when a batch save fails partway and is retried', async () => {
     const user = userEvent.setup();
     mockRefreshAiEnabled.mockResolvedValue(true);
