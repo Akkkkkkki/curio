@@ -134,6 +134,16 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({
     [filteredItems, sortBy],
   );
 
+  // CUR-149: the screen keeps its identity across /collection/:id param
+  // changes now (it used to remount), so collection-specific search and
+  // filter state must be cleared explicitly when the route id changes —
+  // a stale filter keyed to a field id the next collection lacks would
+  // otherwise hide every item. Background re-renders leave both intact.
+  useEffect(() => {
+    setFilterInput('');
+    setActiveFilters({});
+  }, [id]);
+
   useEffect(() => {
     if (!collection) return;
     setVisibleCount(PAGE_SIZE);

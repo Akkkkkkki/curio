@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useNavigate } from 'react-router-dom';
 import { AppContent } from '@/App';
 import { LanguageProvider } from '@/i18n';
 import React from 'react';
@@ -173,7 +173,18 @@ describe('Typing stability across app re-renders (CUR-149)', () => {
     vi.mocked(db.initDB).mockResolvedValue({} as never);
   });
 
-  const renderApp = async (initialEntry: string) => {
+  // Sibling inside the router so tests can change the route without
+  // unmounting AppContent — mirrors an in-app collection→collection link.
+  const NavigateTo = ({ to }: { to: string }) => {
+    const navigate = useNavigate();
+    return (
+      <button type="button" onClick={() => navigate(to)}>
+        test-navigate
+      </button>
+    );
+  };
+
+  const renderApp = async (initialEntry: string, navigateTarget?: string) => {
     const { ThemeProvider } = await import('@/theme');
     render(
       <MemoryRouter initialEntries={[initialEntry]}>
@@ -182,6 +193,7 @@ describe('Typing stability across app re-renders (CUR-149)', () => {
             <AppContent />
           </LanguageProvider>
         </ThemeProvider>
+        {navigateTarget ? <NavigateTo to={navigateTarget} /> : null}
       </MemoryRouter>,
     );
   };
@@ -238,6 +250,45 @@ describe('Typing stability across app re-renders (CUR-149)', () => {
     const searchAfter = screen.getByRole('textbox', { name: /search this collection/i });
     expect(searchAfter).toHaveValue('violin');
     expect(document.activeElement).toBe(searchAfter);
+  });
+
+  it('clears search and field filters when navigating to a different collection', async () => {
+    const secondCollection = {
+      ...mockCollection,
+      id: 'col2',
+      name: 'Second Collection',
+      customFields: [],
+      items: [
+        {
+          ...mockCollection.items[0],
+          id: 'item2',
+          collectionId: 'col2',
+          title: 'Moon Bowl',
+          notes: '',
+        },
+      ],
+    };
+    vi.mocked(db.getLocalCollections).mockResolvedValue([
+      mockCollection,
+      secondCollection,
+    ] as never);
+
+    const user = userEvent.setup();
+    await renderApp('/collection/col1', '/collection/col2');
+
+    const searchInput = await screen.findByRole('textbox', {
+      name: /search this collection/i,
+    });
+    await user.click(searchInput);
+    await user.keyboard('violin');
+
+    // The screen stays mounted across /collection/:id param changes, so the
+    // collection-specific query must be reset explicitly on arrival.
+    await user.click(screen.getByRole('button', { name: 'test-navigate' }));
+
+    expect(await screen.findByText('Second Collection')).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: /search this collection/i })).toHaveValue('');
+    expect(screen.getAllByText('Moon Bowl')[0]).toBeInTheDocument();
   });
 
   it('preserves screen-local view mode when a background sync completes', async () => {
