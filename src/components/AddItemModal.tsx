@@ -95,6 +95,8 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
   const [promptsOpen, setPromptsOpen] = useState(false);
   const [promptsLoading, setPromptsLoading] = useState(false);
   const [storyPrompts, setStoryPrompts] = useState<string[]>([]);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [aiFieldSuggestions, setAiFieldSuggestions] = useState<Record<string, string>>({});
   // Cache key for storyPrompts. We refetch when the prompt-relevant context
   // changes (title or AI observation) and never cache empty results, so a
   // 400/empty response doesn't permanently silence the affordance.
@@ -348,6 +350,8 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     setPromptsLoading(false);
     setStoryPrompts([]);
     setPromptsFetchedFor(null);
+    setDetailsOpen(false);
+    setAiFieldSuggestions({});
     analysisRunId.current += 1;
     // Reacting to `collections` here would wipe the in-flight form whenever the
     // parent re-renders with a new array reference (cloud sync, etc.) — CUR-44.
@@ -510,6 +514,8 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     setError(null);
     setAnalysisError(false);
     setAnalysisNeedsReview(false);
+    setDetailsOpen(false);
+    setAiFieldSuggestions({});
     setStep('verify');
   };
 
@@ -526,6 +532,8 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
         setError(null);
         setAnalysisError(false);
         setAnalysisNeedsReview(false);
+        setDetailsOpen(false);
+        setAiFieldSuggestions({});
         setFormData(createEmptyForm());
         setImagePreview(image.dataUrl);
         analyze(image.dataUrl);
@@ -549,6 +557,8 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
         setError(null);
         setAnalysisError(false);
         setAnalysisNeedsReview(false);
+        setDetailsOpen(false);
+        setAiFieldSuggestions({});
         setFormData(createEmptyForm());
         setImagePreview(image.dataUrl);
         analyze(image.dataUrl);
@@ -748,6 +758,8 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     setAnalysisNeedsReview(false);
     setLowConfidence(false);
     setTitleError(null);
+    setDetailsOpen(false);
+    setAiFieldSuggestions({});
     setFormData(createEmptyForm());
     const aiEnabled = await refreshAiEnabled();
     if (analysisRunId.current !== runId) return;
@@ -789,16 +801,21 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
       if (analysisRunId.current !== runId) return;
 
       const cleanedData = cleanAiData(result.data || {});
+      const suggestedData = Object.fromEntries(
+        Object.entries(cleanedData)
+          .filter(([key]) => currentCollection.customFields.some((field) => field.id === key))
+          .map(([key, value]) => [key, String(value)]),
+      );
       const isGeneric =
         (result.title === 'New Item' || !result.title) && Object.keys(cleanedData).length < 2;
       setLowConfidence(isGeneric);
+      setAiFieldSuggestions(suggestedData);
 
       setFormData({
         title: result.title || '',
         // notes (Story) is now user-authored only — never AI-filled.
         notes: '',
         data: {
-          ...cleanedData,
           ...(result.aiDescription ? { _aiDescription: result.aiDescription } : {}),
         },
         rating: 0,
@@ -847,6 +864,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
   const handleApplyImageEdit = (edited: string) => {
     setImagePreview(edited);
     setIsImageEditorOpen(false);
+    setAiFieldSuggestions({});
     if (step === 'upload' || step === 'analyzing') {
       setError(null);
       setAnalysisError(false);
@@ -855,6 +873,22 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
       return;
     }
     setAnalysisNeedsReview(true);
+  };
+
+  const visibleAiSuggestions = Object.entries(aiFieldSuggestions).filter(([fieldId]) =>
+    currentCollection?.customFields.some((field) => field.id === fieldId),
+  );
+
+  const acceptFieldSuggestion = (fieldId: string, value: string) => {
+    setFormData({
+      ...formData,
+      data: { ...formData.data, [fieldId]: value },
+    });
+    setAiFieldSuggestions((prev) => {
+      const next = { ...prev };
+      delete next[fieldId];
+      return next;
+    });
   };
 
   const recoverMissingCollection = () => {
@@ -1305,56 +1339,98 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
           {t('retryAnalysis')}
         </Button>
       )}
-      <div className="flex gap-4 sm:gap-6 items-start">
-        <div className="flex flex-col items-center gap-2 shrink-0">
-          <div
-            className={`w-16 h-16 sm:w-24 sm:h-24 rounded-xl overflow-hidden border ${imageTileClass}`}
-          >
-            {imagePreview ? (
-              <img
-                src={imagePreview}
-                alt={t('photoPreview')}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <CameraIcon className={`w-full h-full p-4 sm:p-6 ${imageTilePlaceholderClass}`} />
-            )}
-          </div>
+      <div className="space-y-3">
+        <div
+          data-testid="add-item-photo-hero"
+          className={`relative w-full aspect-[4/3] min-h-[220px] overflow-hidden rounded-2xl border ${imageTileClass}`}
+        >
+          {imagePreview ? (
+            <img
+              src={imagePreview}
+              alt={t('photoPreview')}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center">
+              <CameraIcon className={`h-24 w-24 ${imageTilePlaceholderClass}`} />
+            </div>
+          )}
           {imagePreview && (
             <button
               onClick={() => setIsImageEditorOpen(true)}
-              className="text-[11px] font-semibold text-amber-700 hover:text-amber-900"
+              className={`absolute bottom-3 right-3 rounded-full px-3 py-1.5 text-[11px] font-semibold shadow-sm transition-colors ${
+                theme === 'vault'
+                  ? 'bg-stone-950/90 text-white hover:bg-stone-900'
+                  : 'bg-white/95 text-amber-800 hover:bg-white'
+              }`}
             >
               {t('editPhoto')}
             </button>
           )}
         </div>
-        <div className="flex-1">
-          <label
-            className={`block text-[11px] font-semibold uppercase tracking-[0.12em] ${mutedText} mb-0.5 sm:mb-1`}
-          >
-            {t('title')}
-          </label>
-          <input
-            type="text"
-            ref={titleInputRef}
-            className={`w-full text-lg sm:text-xl font-bold bg-transparent border-b ${titleError ? 'border-red-400 focus:border-red-500' : borderClass} focus:border-amber-500 outline-none pb-1 transition-colors ${theme === 'vault' ? 'text-white placeholder:text-stone-400' : 'text-stone-900'}`}
-            value={formData.title}
-            onChange={(e) => {
-              setFormData({ ...formData, title: e.target.value });
-              if (titleError && e.target.value.trim()) {
-                setTitleError(null);
-              }
-            }}
-          />
-          {titleError && (
-            <p id="add-item-title-error" className="mt-1 text-[10px] text-red-500 font-semibold">
-              {titleError}
-            </p>
-          )}
-          <p className={`mt-1 text-[11px] sm:text-xs ${mutedText}`}>{t('titleGuidance')}</p>
-        </div>
+        <p className={`text-xs ${mutedText}`}>{t('photoFirstHint')}</p>
       </div>
+
+      <div>
+        <label
+          className={`block text-[11px] font-semibold uppercase tracking-[0.12em] ${mutedText} mb-0.5 sm:mb-1`}
+        >
+          {t('title')}
+        </label>
+        <input
+          type="text"
+          ref={titleInputRef}
+          className={`w-full text-lg sm:text-xl font-bold bg-transparent border-b ${titleError ? 'border-red-400 focus:border-red-500' : borderClass} focus:border-amber-500 outline-none pb-1 transition-colors ${theme === 'vault' ? 'text-white placeholder:text-stone-400' : 'text-stone-900'}`}
+          value={formData.title}
+          onChange={(e) => {
+            setFormData({ ...formData, title: e.target.value });
+            if (titleError && e.target.value.trim()) {
+              setTitleError(null);
+            }
+          }}
+        />
+        {titleError && (
+          <p id="add-item-title-error" className="mt-1 text-[10px] text-red-500 font-semibold">
+            {titleError}
+          </p>
+        )}
+        <p className={`mt-1 text-[11px] sm:text-xs ${mutedText}`}>{t('titleGuidance')}</p>
+      </div>
+
+      {visibleAiSuggestions.length > 0 && (
+        <div
+          data-testid="add-item-ai-suggestions"
+          className={`rounded-2xl border ${borderClass} p-3 sm:p-4 ${theme === 'vault' ? 'bg-white/5' : 'bg-amber-50/40'}`}
+        >
+          <p className={`mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] ${mutedText}`}>
+            {t('suggestedDetails')}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {visibleAiSuggestions.map(([fieldId, value]) => {
+              const field = currentCollection?.customFields.find((f) => f.id === fieldId);
+              const label = getFieldLabel(fieldId, field?.label || fieldId);
+              return (
+                <button
+                  key={fieldId}
+                  type="button"
+                  onClick={() => acceptFieldSuggestion(fieldId, value)}
+                  className={`inline-flex max-w-full items-center gap-1.5 rounded-full border px-3 py-1.5 text-left text-xs font-semibold transition-colors ${
+                    theme === 'vault'
+                      ? 'border-amber-300/30 bg-amber-300/10 text-amber-100 hover:bg-amber-300/20'
+                      : 'border-amber-200 bg-white text-amber-900 hover:bg-amber-100'
+                  }`}
+                  aria-label={t('acceptSuggestion', { field: label, value })}
+                >
+                  <Sparkles size={12} aria-hidden />
+                  <span className="truncate">
+                    {label}: {value}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="space-y-3 sm:space-y-4 px-1">
         <div>
@@ -1422,57 +1498,86 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
             </div>
           )}
         </div>
-        {currentCollection?.customFields.map((field) => (
-          <div key={field.id}>
-            <label
-              className={`block text-[11px] font-semibold uppercase tracking-[0.12em] ${mutedText} mb-0.5 sm:mb-1`}
-            >
-              {getFieldLabel(field.id, field.label)}
-            </label>
-            <input
-              className={`w-full p-2 sm:p-2.5 rounded-lg sm:rounded-xl text-sm ${inputSurface}`}
-              value={formData.data?.[field.id] || ''}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  data: { ...formData.data, [field.id]: e.target.value },
-                })
-              }
-            />
-          </div>
-        ))}
-        <div>
-          <label
-            className={`block text-[11px] font-semibold uppercase tracking-[0.12em] ${mutedText} mb-0.5 sm:mb-1`}
-          >
-            {t('rating')}
-          </label>
-          <div className="flex items-center gap-1 sm:gap-2">
-            {[1, 2, 3, 4, 5].map((s) => (
-              <button
-                key={s}
-                onClick={() => setFormData({ ...formData, rating: s })}
-                aria-label={t('rateStars', { count: s })}
-                aria-pressed={formData.rating === s}
-                title={t('rateStars', { count: s })}
-                className={`w-12 h-12 rounded-xl border flex items-center justify-center transition-all text-base ${
-                  s <= formData.rating
-                    ? 'bg-amber-400 border-amber-500 text-white shadow-sm'
-                    : theme === 'vault'
-                      ? 'bg-white/5 border-white/10 text-white/60'
-                      : 'bg-white border-stone-200 text-stone-300'
-                }`}
-              >
-                ★
-              </button>
+        <button
+          type="button"
+          data-testid="add-item-more-details-toggle"
+          onClick={() => setDetailsOpen((open) => !open)}
+          aria-expanded={detailsOpen}
+          className={`flex w-full items-center justify-between rounded-xl border ${borderClass} px-3 py-3 text-sm font-semibold transition-colors ${
+            theme === 'vault'
+              ? 'bg-white/5 text-stone-100 hover:bg-white/10'
+              : 'bg-stone-50 text-stone-800 hover:bg-stone-100'
+          }`}
+        >
+          <span>{detailsOpen ? t('collapseDetails') : t('moreDetails')}</span>
+          <ArrowRight
+            size={16}
+            className={`transition-transform ${detailsOpen ? 'rotate-90' : ''}`}
+            aria-hidden
+          />
+        </button>
+
+        {detailsOpen && (
+          <div data-testid="add-item-more-details" className="space-y-3 sm:space-y-4">
+            {currentCollection?.customFields.map((field) => (
+              <div key={field.id}>
+                <label
+                  className={`block text-[11px] font-semibold uppercase tracking-[0.12em] ${mutedText} mb-0.5 sm:mb-1`}
+                >
+                  {getFieldLabel(field.id, field.label)}
+                </label>
+                <input
+                  className={`w-full p-2 sm:p-2.5 rounded-lg sm:rounded-xl text-sm ${inputSurface}`}
+                  value={formData.data?.[field.id] || ''}
+                  onChange={(e) => {
+                    setFormData({
+                      ...formData,
+                      data: { ...formData.data, [field.id]: e.target.value },
+                    });
+                    setAiFieldSuggestions((prev) => {
+                      if (!(field.id in prev)) return prev;
+                      const next = { ...prev };
+                      delete next[field.id];
+                      return next;
+                    });
+                  }}
+                />
+              </div>
             ))}
-            {formData.rating > 0 && (
-              <span className={`ml-1 font-mono text-sm font-medium tabular-nums ${mutedText}`}>
-                {t('ratingValue', { value: formData.rating, max: 5 })}
-              </span>
-            )}
+            <div>
+              <label
+                className={`block text-[11px] font-semibold uppercase tracking-[0.12em] ${mutedText} mb-0.5 sm:mb-1`}
+              >
+                {t('rating')}
+              </label>
+              <div className="flex items-center gap-1 sm:gap-2">
+                {[1, 2, 3, 4, 5].map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => setFormData({ ...formData, rating: s })}
+                    aria-label={t('rateStars', { count: s })}
+                    aria-pressed={formData.rating === s}
+                    title={t('rateStars', { count: s })}
+                    className={`w-12 h-12 rounded-xl border flex items-center justify-center transition-all text-base ${
+                      s <= formData.rating
+                        ? 'bg-amber-400 border-amber-500 text-white shadow-sm'
+                        : theme === 'vault'
+                          ? 'bg-white/5 border-white/10 text-white/60'
+                          : 'bg-white border-stone-200 text-stone-300'
+                    }`}
+                  >
+                    ★
+                  </button>
+                ))}
+                {formData.rating > 0 && (
+                  <span className={`ml-1 font-mono text-sm font-medium tabular-nums ${mutedText}`}>
+                    {t('ratingValue', { value: formData.rating, max: 5 })}
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
@@ -1593,10 +1698,11 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
                 ? t('analyzingPhoto').split('...')[0]
                 : storyEmpty
                   ? t('storySaveWithout')
-                  : t('addToCollection');
+                  : t('saveToMuseum');
               return (
                 <div
-                  className={`border-t ${borderClass} p-4 sm:p-5 ${theme === 'vault' ? 'bg-stone-950' : 'bg-white'}`}
+                  data-testid="add-item-save-footer"
+                  className={`sticky bottom-0 z-10 border-t ${borderClass} p-4 sm:p-5 ${theme === 'vault' ? 'bg-stone-950' : 'bg-white'}`}
                 >
                   <Button
                     className="w-full"

@@ -90,6 +90,7 @@ describe('AddItemModal', () => {
     mockOnClose.mockClear();
     mockOnSave.mockReset();
     mockOnSave.mockResolvedValue(undefined);
+    mockRefreshAiEnabled.mockReset();
     mockRefreshAiEnabled.mockResolvedValue(false);
     mockAnalyzeImage.mockReset();
     mockTrackEvent.mockClear();
@@ -329,6 +330,85 @@ describe('AddItemModal', () => {
 
     expect(await screen.findByText('Could not save image. Please try again.')).toBeInTheDocument();
     expect(mockOnClose).not.toHaveBeenCalled();
+  });
+
+  it('makes the single-item verify step photo-first with details collapsed by default (CUR-125)', async () => {
+    const user = userEvent.setup();
+
+    renderWithProviders(
+      <AddItemModal
+        isOpen
+        onClose={mockOnClose}
+        collections={[createMockCollection()]}
+        onSave={mockOnSave}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Skip and add manually' }));
+
+    expect(screen.getByTestId('add-item-photo-hero')).toBeInTheDocument();
+    expect(screen.getByTestId('add-item-save-footer')).toHaveClass('sticky');
+    expect(
+      screen.getByText('Start with the photo. Details can stay tucked away until you need them.'),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId('add-item-more-details-toggle')).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+    expect(screen.queryByRole('button', { name: 'Rate 4 stars' })).not.toBeInTheDocument();
+    expect(screen.queryByDisplayValue('Miles Davis')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'More details' }));
+
+    expect(screen.getByTestId('add-item-more-details')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Rate 4 stars' })).toBeInTheDocument();
+  });
+
+  it('keeps AI metadata as accepted suggestion chips instead of hidden prefilled fields (CUR-125)', async () => {
+    const user = userEvent.setup();
+    mockRefreshAiEnabled.mockResolvedValue(true);
+    mockAnalyzeImage.mockResolvedValue({
+      status: 'success',
+      title: 'Kind of Blue',
+      notes: 'AI-generated description',
+      aiDescription: 'A blue jazz record sleeve.',
+      data: {
+        artist: 'Miles Davis',
+        year: '1959',
+      },
+    });
+    mockGetPhoto.mockResolvedValue({
+      dataUrl: 'data:image/png;base64,ZmFrZQ==',
+      format: 'png',
+    });
+
+    const collection = createMockCollection();
+    renderWithProviders(
+      <AddItemModal isOpen onClose={mockOnClose} collections={[collection]} onSave={mockOnSave} />,
+    );
+
+    await user.click(screen.getAllByRole('button', { name: /upload photo/i })[0]);
+
+    expect(await screen.findByDisplayValue('Kind of Blue')).toBeInTheDocument();
+    expect(screen.getByTestId('add-item-ai-suggestions')).toBeInTheDocument();
+    expect(screen.queryByDisplayValue('Miles Davis')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Accept Artist: Miles Davis' }));
+    await user.click(screen.getByRole('button', { name: 'More details' }));
+
+    expect(screen.getByDisplayValue('Miles Davis')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Save without story' }));
+
+    await waitFor(() => {
+      expect(mockOnSave).toHaveBeenCalledWith(
+        collection.id,
+        expect.objectContaining({
+          title: 'Kind of Blue',
+          data: expect.objectContaining({ artist: 'Miles Davis' }),
+        }),
+      );
+    });
   });
 
   it('shows picker on reopen when stale default and multiple collections remain', async () => {
@@ -631,6 +711,9 @@ describe('AddItemModal', () => {
 
       await user.click(screen.getByRole('button', { name: 'Skip and add manually' }));
 
+      // Rating lives behind the More details disclosure (CUR-125).
+      await user.click(screen.getByRole('button', { name: 'More details' }));
+
       // Unrated: no numeric value shown yet.
       expect(screen.queryByText(/^\d\/5$/)).not.toBeInTheDocument();
 
@@ -743,6 +826,7 @@ describe('AddItemModal', () => {
       );
 
       await user.click(screen.getByRole('button', { name: 'Skip and add manually' }));
+      await user.click(screen.getByRole('button', { name: 'More details' }));
       await user.click(screen.getByRole('button', { name: 'Rate 4 stars' }));
 
       await user.click(screen.getByRole('button', { name: 'Close' }));
@@ -769,6 +853,7 @@ describe('AddItemModal', () => {
       );
 
       await user.click(screen.getByRole('button', { name: 'Skip and add manually' }));
+      await user.click(screen.getByRole('button', { name: 'More details' }));
 
       // Verify step textboxes are: [0] title, [1] story textarea, [2] first
       // custom field (Artist in the mock vinyl template).
