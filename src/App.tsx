@@ -5,6 +5,7 @@ import {
   Routes,
   Route,
   useNavigate,
+  useNavigationType,
   useParams,
   useLocation,
   Link,
@@ -3304,12 +3305,27 @@ const LocalizedErrorBoundary: React.FC<{ children: React.ReactNode }> = ({ child
   );
 };
 
+// Reset scroll on forward navigation so a new screen opens at the top, while
+// leaving POP (browser back/forward) alone to preserve the list position the
+// user is returning to.
+const ScrollToTop: React.FC = () => {
+  const { pathname } = useLocation();
+  const navigationType = useNavigationType();
+  useEffect(() => {
+    if (navigationType !== 'POP') {
+      window.scrollTo(0, 0);
+    }
+  }, [pathname, navigationType]);
+  return null;
+};
+
 export const App: React.FC = () => {
   return (
     <ThemeProvider>
       <LanguageProvider>
         <LocalizedErrorBoundary>
           <HashRouter>
+            <ScrollToTop />
             <AppContent />
           </HashRouter>
           <SpeedInsights />
