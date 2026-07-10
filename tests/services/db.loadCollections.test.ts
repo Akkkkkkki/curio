@@ -57,15 +57,17 @@ function createSupabaseMock({
   userId = 'user-123',
   itemsOnAwait,
   collectionsUpsert,
+  itemsUpsert,
 }: {
   collections: any[];
   items: any[];
   userId?: string | null;
   itemsOnAwait?: () => Promise<void>;
   collectionsUpsert?: (payload: any) => Promise<{ error: Error | null }>;
+  itemsUpsert?: (payload: any) => Promise<{ error: Error | null }>;
 }) {
   const collectionsQuery = makeQuery(collections, undefined, collectionsUpsert);
-  const itemsQuery = makeQuery(items, itemsOnAwait);
+  const itemsQuery = makeQuery(items, itemsOnAwait, itemsUpsert);
   const from = vi.fn((table: string) => (table === 'collections' ? collectionsQuery : itemsQuery));
   return {
     supabase: {
@@ -399,6 +401,57 @@ describe('Phase 2.1 — services/db.ts loadCollections merge behavior', () => {
 
     releaseUpsert();
     await savePromise;
+  });
+
+  it('does not upsert an item removed locally while an older cloud save is in flight', async () => {
+    let releaseCollectionUpsert!: () => void;
+    const collectionUpsertReleased = new Promise<{ error: Error | null }>((resolve) => {
+      releaseCollectionUpsert = () => resolve({ error: null });
+    });
+    let markCollectionUpsertStarted!: () => void;
+    const collectionUpsertStarted = new Promise<void>((resolve) => {
+      markCollectionUpsertStarted = resolve;
+    });
+    const itemsUpsert = vi.fn(async () => ({ error: null }));
+
+    const { supabase } = createSupabaseMock({
+      collections: [],
+      items: [],
+      collectionsUpsert: async () => {
+        markCollectionUpsertStarted();
+        return collectionUpsertReleased;
+      },
+      itemsUpsert,
+    });
+    const dbMod = await importDbModuleFresh(supabase);
+
+    const db = await dbMod.initDB();
+    openDb = db;
+    await clearStores(db, ['collections', 'assets', 'display', 'settings']);
+
+    const staleCollection = baseCollection({
+      id: 'col-1',
+      ownerId: 'user-123',
+      items: [baseItem({ id: 'item-deleted-mid-save', title: 'Deleted During Save' })],
+      updatedAt: new Date('2024-06-01T00:00:00Z').toISOString(),
+    });
+
+    const savePromise = dbMod.saveCollection(staleCollection);
+    await collectionUpsertStarted;
+
+    await dbMod.saveAllCollections([
+      baseCollection({
+        id: 'col-1',
+        ownerId: 'user-123',
+        items: [],
+        updatedAt: new Date('2024-06-02T00:00:00Z').toISOString(),
+      }),
+    ]);
+
+    releaseCollectionUpsert();
+    await savePromise;
+
+    expect(itemsUpsert).not.toHaveBeenCalled();
   });
 
   it('preserves an owner-backed collection saved while a stale cloud fetch is in flight', async () => {
