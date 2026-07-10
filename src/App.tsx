@@ -1888,6 +1888,7 @@ export const AppContent: React.FC = () => {
     const isApplyingHistoryRef = useRef(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const titleTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+    const detailFieldTextareaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
 
     const collection = collections.find((c) => c.id === id);
     const item = collection?.items.find((i) => i.id === itemId);
@@ -2102,6 +2103,15 @@ export const AppContent: React.FC = () => {
       setDetailStoryPrompts([]);
       setDetailPromptsFetchedFor(null);
     }, [item.id]);
+
+    useEffect(() => {
+      collection.customFields.forEach((field) => {
+        const textarea = detailFieldTextareaRefs.current[field.id];
+        if (!textarea) return;
+        textarea.style.height = 'auto';
+        textarea.style.height = `${textarea.scrollHeight}px`;
+      });
+    }, [collection.customFields, item.data]);
 
     // CUR-135: Cmd/Ctrl+Z, Cmd/Ctrl+Shift+Z, Ctrl+Y drive the app-level
     // undo/redo stacks that the on-screen buttons already use. Text-field
@@ -2673,6 +2683,19 @@ export const AppContent: React.FC = () => {
                   {collection.customFields.map((field) => {
                     const val = item.data[field.id];
                     const label = getLabel(field.id);
+                    const isMultilineText = field.type === 'text' || field.type === 'long_text';
+                    const fieldValue = val || '';
+                    const fieldBaseClass = `${typographyClasses.title} w-full bg-transparent border-none p-0 outline-none focus:text-amber-900 focus:ring-0 transition-colors ${theme === 'vault' ? 'text-white placeholder:text-stone-400' : theme === 'atelier' ? 'text-stone-900 placeholder:text-[#8C7B6B]' : 'text-stone-900 placeholder:text-stone-500'} ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`;
+                    const handleFieldChange = (
+                      e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+                    ) => {
+                      const newData = {
+                        ...item.data,
+                        [field.id]: e.target.value,
+                      };
+                      applyItemUpdate({ data: newData });
+                    };
+
                     return (
                       <div key={field.id} className="group">
                         <dt
@@ -2680,19 +2703,31 @@ export const AppContent: React.FC = () => {
                         >
                           {label}
                         </dt>
-                        <input
-                          className={`${typographyClasses.title} w-full bg-transparent border-none p-0 outline-none focus:text-amber-900 focus:ring-0 transition-colors ${theme === 'vault' ? 'text-white placeholder:text-stone-400' : theme === 'atelier' ? 'text-stone-900 placeholder:text-[#8C7B6B]' : 'text-stone-900 placeholder:text-stone-500'} ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
-                          value={val || ''}
-                          placeholder="—"
-                          onChange={(e) => {
-                            const newData = {
-                              ...item.data,
-                              [field.id]: e.target.value,
-                            };
-                            applyItemUpdate({ data: newData });
-                          }}
-                          disabled={isReadOnly}
-                        />
+                        {isMultilineText ? (
+                          <textarea
+                            ref={(node) => {
+                              detailFieldTextareaRefs.current[field.id] = node;
+                            }}
+                            className={`${fieldBaseClass} min-h-[1.75rem] resize-none overflow-hidden leading-snug break-words whitespace-pre-wrap`}
+                            value={fieldValue}
+                            placeholder="—"
+                            rows={1}
+                            onChange={(e) => {
+                              e.currentTarget.style.height = 'auto';
+                              e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
+                              handleFieldChange(e);
+                            }}
+                            disabled={isReadOnly}
+                          />
+                        ) : (
+                          <input
+                            className={fieldBaseClass}
+                            value={fieldValue}
+                            placeholder="—"
+                            onChange={handleFieldChange}
+                            disabled={isReadOnly}
+                          />
+                        )}
                       </div>
                     );
                   })}
