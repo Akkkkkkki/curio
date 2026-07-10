@@ -193,7 +193,10 @@ Add or derive public presentation fields:
 ### Generated Assets
 
 Generated OG cards and share images should store enough metadata to invalidate and regenerate when
-profile theme, cover, curator identity, collection cover, field selection, or privacy state changes.
+their public-safe source projection changes. That source fingerprint must include profile theme,
+cover and curator identity; selected collection/item IDs and ordering; selected public field IDs and
+their visible values; public story text or excerpts; image asset revisions; and the current privacy
+state. Any fingerprint change invalidates the dependent generated asset.
 
 Implementation may choose database columns, a public read model, or computed views. The required
 contract is that anonymous public routes read only public-safe presentation fields after privacy
@@ -228,7 +231,12 @@ Featured collections
 Required behavior:
 
 - Private collections can appear in the owner settings list but cannot be selected as featured.
-- Preview must render through the same anonymous public read path used by public visitors.
+- Preview uses an owner-authenticated preview request that is authorized against the draft owner and
+  then passed through the same public-safe projection and serializer used by anonymous routes. It
+  may bypass only the live profile/collection gate; field, story, photo, and hidden-item privacy
+  filters still apply.
+- Preview responses are private, non-cacheable, and non-indexable. They do not make canonical public
+  URLs resolve and do not generate persistent share assets before publish.
 - Saving a draft is allowed; publishing still requires the username/profile gates from CUR-1.
 
 ### Collection Publishing
