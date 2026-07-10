@@ -1162,12 +1162,12 @@ export const AppContent: React.FC = () => {
     fields: string[];
     pinnedFields: string[];
     description?: string;
-  }): boolean => {
+  }): string | null => {
     if (!isAuthenticated) {
       setPendingAuthAction('create-collection');
       setIsAuthModalOpen(true);
       setIsCreateCollectionOpen(false);
-      return false;
+      return null;
     }
     pendingSyncToastRef.current = true;
     if (!isSupabaseReady) pendingSyncToastRef.current = false;
@@ -1201,7 +1201,7 @@ export const AppContent: React.FC = () => {
       return updated;
     });
     showStatus(t('statusSaved'), 'success');
-    return true;
+    return newCol.id;
   };
 
   const deleteItem = (collectionId: string, itemId: string) => {
@@ -3248,8 +3248,8 @@ export const AppContent: React.FC = () => {
               isOpen={isCreateCollectionOpen}
               onClose={() => setIsCreateCollectionOpen(false)}
               onCreate={handleCreateCollection}
-              onAddFirstItem={() => {
-                setAddModalDefaultCollectionId(undefined);
+              onAddFirstItem={(collectionId) => {
+                setAddModalDefaultCollectionId(collectionId);
                 setIsAddModalOpen(true);
               }}
             />

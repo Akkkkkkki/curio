@@ -28,11 +28,11 @@ interface CreateCollectionPayload {
 interface CreateCollectionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCreate: (payload: CreateCollectionPayload) => boolean;
-  onAddFirstItem: () => void;
+  onCreate: (payload: CreateCollectionPayload) => string | null;
+  onAddFirstItem: (collectionId: string) => void;
 }
 
-type CreateStep = 'entry' | 'loading' | 'fields' | 'preview' | 'success';
+type CreateStep = 'entry' | 'loading' | 'fields' | 'preview';
 
 const DESCRIPTION_MAX_LENGTH = 100;
 const SUGGESTION_TIMEOUT_MS = 15000;
@@ -165,9 +165,15 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
     }
   };
 
-  const initializeSelectedFields = (fields: string[]) => {
-    setSelectedFields(fields);
-    setPinnedFields(fields.slice(0, PINNED_MAX_COUNT));
+  const getDefaultPinnedFields = (fields: string[], preferredFields?: string[]) => {
+    const candidates = preferredFields && preferredFields.length > 0 ? preferredFields : fields;
+    return candidates.slice(0, PINNED_MAX_COUNT);
+  };
+
+  const initializeSelectedFields = (fields: string[], preferredFields?: string[]) => {
+    const defaultPinned = getDefaultPinnedFields(fields, preferredFields);
+    setSelectedFields(defaultPinned);
+    setPinnedFields(defaultPinned);
   };
 
   const sanitizeSuggestions = (fields: string[]) => {
@@ -281,7 +287,7 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
   const handleCreate = () => {
     if (!displayName.trim()) return;
     const templateId = selectedTemplate?.id;
-    const created = onCreate({
+    const createdCollectionId = onCreate({
       name: displayName.trim(),
       icon: icon || selectedTemplate?.icon || TEMPLATES[0].icon,
       templateId,
@@ -289,8 +295,9 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
       fields: selectedFields,
       pinnedFields,
     });
-    if (!created) return;
-    setStep('success');
+    if (!createdCollectionId) return;
+    handleClose();
+    onAddFirstItem(createdCollectionId);
   };
 
   const handleContinueFromEntry = () => {
@@ -305,8 +312,7 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
           ? pinnedFromTemplate.slice(0, PINNED_MAX_COUNT)
           : templateFields.slice(0, PINNED_MAX_COUNT);
       setSuggestedFields(templateFields);
-      setSelectedFields(templateFields);
-      setPinnedFields(pinnedSelection);
+      initializeSelectedFields(templateFields, pinnedSelection);
       setStep('fields');
       return;
     }
@@ -474,23 +480,33 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
         <p className={`text-[11px] font-semibold uppercase tracking-[0.2em] ${mutedText} mb-2`}>
           {t('orChoosePreset')}
         </p>
-        <div className="relative">
-          <select
-            value={selectedTemplateId}
-            onChange={(e) => handleTemplateSelect(e.target.value)}
-            data-testid="collection-preset-select"
-            className={`w-full p-3 rounded-xl appearance-none outline-none focus:ring-2 focus:ring-amber-200 font-medium pr-10 ${inputSurface}`}
-          >
-            <option value="">{t('choosePreset')}</option>
-            {TEMPLATES.map((temp) => (
-              <option key={temp.id} value={temp.id}>
-                {temp.name}
-              </option>
-            ))}
-          </select>
-          <div className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none">
-            <ChevronDown size={18} />
-          </div>
+        <div className="grid grid-cols-2 gap-2">
+          {TEMPLATES.map((temp) => {
+            const isSelected = selectedTemplateId === temp.id;
+            return (
+              <button
+                key={temp.id}
+                type="button"
+                onClick={() => handleTemplateSelect(temp.id)}
+                data-testid={`collection-preset-${temp.id}`}
+                aria-pressed={isSelected}
+                className={`min-h-20 rounded-2xl border p-3 text-left transition-colors focus:outline-none focus:ring-2 focus:ring-amber-200 ${
+                  isSelected
+                    ? theme === 'vault'
+                      ? 'border-amber-400 bg-amber-400/10 text-amber-100'
+                      : 'border-amber-300 bg-amber-50 text-amber-950'
+                    : theme === 'vault'
+                      ? 'border-white/10 bg-white/5 text-white hover:bg-white/10'
+                      : 'border-stone-200 bg-white text-stone-800 hover:bg-stone-50'
+                }`}
+              >
+                <span className="mb-2 block text-xl" aria-hidden="true">
+                  {temp.icon}
+                </span>
+                <span className="block text-sm font-semibold leading-tight">{temp.name}</span>
+              </button>
+            );
+          })}
         </div>
         {selectedTemplate && (
           <div
@@ -678,6 +694,7 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
                 return (
                   <div
                     key={`${field}-${index}`}
+                    data-testid="selected-field-row"
                     className={`flex items-center gap-2 p-3 rounded-xl border ${
                       theme === 'vault' ? 'border-white/10 bg-white/5' : 'border-stone-200 bg-white'
                     }`}
@@ -830,35 +847,9 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
           {t('back')}
         </Button>
         <Button onClick={handleCreate} icon={<Check size={16} />}>
-          {t('createCollection')}
+          {t('createAndAddFirst')}
         </Button>
       </div>
-    </div>
-  );
-
-  const renderSuccess = () => (
-    <div className="space-y-6 text-center py-6">
-      <div>
-        <h3
-          className={`text-xl font-serif font-bold ${theme === 'vault' ? 'text-white' : 'text-stone-800'}`}
-        >
-          {t('collectionCreated')}
-        </h3>
-        <p className={`text-sm ${mutedText}`}>{displayName}</p>
-      </div>
-      <Button
-        className="w-full"
-        size="lg"
-        onClick={() => {
-          handleClose();
-          onAddFirstItem();
-        }}
-      >
-        {t('ctaAddFirst')}
-      </Button>
-      <Button variant="ghost" size="sm" onClick={handleClose}>
-        {t('close')}
-      </Button>
     </div>
   );
 
@@ -895,7 +886,6 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
           {step === 'loading' && renderLoading()}
           {step === 'fields' && renderFields()}
           {step === 'preview' && renderPreview()}
-          {step === 'success' && renderSuccess()}
         </div>
       </div>
     </div>
