@@ -445,6 +445,69 @@ describe('App Integration Tests', () => {
     expect(screen.getByTestId('cta-secondary-explore-sample')).toBeInTheDocument();
   });
 
+  it('opens the auth modal in sign-up mode from the first-run "Add your first item" CTA (CUR-152)', async () => {
+    const { ThemeProvider } = await import('@/theme');
+    vi.mocked(supabaseService.supabase!.auth.getSession).mockResolvedValue({
+      data: { session: null },
+    } as never);
+
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('access-gate')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId('cta-primary-add-first'));
+
+    // The likeliest person clicking a first-run CTA has no account yet, so
+    // the modal greets them with sign-up, not "Welcome Back".
+    const modal = await screen.findByTestId('auth-modal');
+    expect(within(modal).getByRole('heading', { name: /join the museum/i })).toBeInTheDocument();
+    expect(within(modal).getByRole('button', { name: /create account/i })).toBeInTheDocument();
+
+    // The manual escape hatch to sign-in stays available.
+    fireEvent.click(within(modal).getByText(/Already have an account/i));
+    expect(within(modal).getByRole('heading', { name: /welcome back/i })).toBeInTheDocument();
+  });
+
+  it('keeps the header Sign In entry point in sign-in mode (CUR-152)', async () => {
+    const { ThemeProvider } = await import('@/theme');
+    vi.mocked(supabaseService.supabase!.auth.getSession).mockResolvedValue({
+      data: { session: null },
+    } as never);
+
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('access-gate')).toBeInTheDocument();
+    });
+
+    const header = screen.getByRole('banner');
+    fireEvent.click(within(header).getByRole('button', { name: 'Sign In' }));
+
+    const modal = await screen.findByTestId('auth-modal');
+    expect(within(modal).getByRole('heading', { name: /welcome back/i })).toBeInTheDocument();
+    expect(
+      within(modal).queryByRole('heading', { name: /join the museum/i }),
+    ).not.toBeInTheDocument();
+  });
+
   it('hides the bottom-nav Explore tab when no sample collection is loaded (no dead link)', async () => {
     const { ThemeProvider } = await import('@/theme');
     // Authenticated user whose only collection is private and cloud returns no
