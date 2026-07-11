@@ -233,6 +233,10 @@ export const AppContent: React.FC = () => {
   const [adminCheckedFor, setAdminCheckedFor] = useState<string | null>(null);
   const [refreshedForKey, setRefreshedForKey] = useState<string | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  // CUR-152: the auth modal opens in the mode matching the triggering intent.
+  // First-run CTAs ("Add your first item", "Start a collection") greet a
+  // brand-new user with sign-up; header/profile entry points keep sign-in.
+  const [authModalMode, setAuthModalMode] = useState<'signin' | 'signup'>('signin');
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
   const [allowPublicBrowse, setAllowPublicBrowse] = useState(false);
   const [hasLocalImport, setHasLocalImport] = useState(false);
@@ -266,6 +270,10 @@ export const AppContent: React.FC = () => {
   const [authActionQueue, setAuthActionQueue] = useState<'add-item' | 'create-collection' | null>(
     null,
   );
+  const openAuthModal = useCallback((mode: 'signin' | 'signup') => {
+    setAuthModalMode(mode);
+    setIsAuthModalOpen(true);
+  }, []);
   const saveTimeoutRef = useRef<Record<string, any>>({});
   const pendingEditedFieldsRef = useRef<Record<string, Set<string>>>({});
   const pendingEditedItemIdsRef = useRef<Record<string, Set<string>>>({});
@@ -1165,7 +1173,7 @@ export const AppContent: React.FC = () => {
   }): boolean => {
     if (!isAuthenticated) {
       setPendingAuthAction('create-collection');
-      setIsAuthModalOpen(true);
+      openAuthModal('signup');
       setIsCreateCollectionOpen(false);
       return false;
     }
@@ -1455,7 +1463,7 @@ export const AppContent: React.FC = () => {
               </p>
               <div className="space-y-2">
                 <Button
-                  onClick={() => setIsAuthModalOpen(true)}
+                  onClick={() => openAuthModal('signin')}
                   size="lg"
                   className="w-full"
                   data-testid="collection-unavailable-sign-in"
@@ -2986,7 +2994,7 @@ export const AppContent: React.FC = () => {
   const handleAddAction = useCallback(() => {
     if (!isAuthenticated) {
       setPendingAuthAction('add-item');
-      setIsAuthModalOpen(true);
+      openAuthModal('signup');
       return;
     }
     if (editableCollections.length === 0) {
@@ -3006,16 +3014,16 @@ export const AppContent: React.FC = () => {
         : undefined;
     setAddModalDefaultCollectionId(presetCollectionId);
     setIsAddModalOpen(true);
-  }, [editableCollections, isAuthenticated, location.pathname]);
+  }, [editableCollections, isAuthenticated, location.pathname, openAuthModal]);
 
   const handleCreateCollectionAction = useCallback(() => {
     if (!isAuthenticated) {
       setPendingAuthAction('create-collection');
-      setIsAuthModalOpen(true);
+      openAuthModal('signup');
       return;
     }
     setIsCreateCollectionOpen(true);
-  }, [isAuthenticated]);
+  }, [isAuthenticated, openAuthModal]);
 
   const handleSignOut = async () => {
     await signOutUser();
@@ -3149,7 +3157,7 @@ export const AppContent: React.FC = () => {
       data-ready={appReady ? 'true' : 'false'}
     >
       <Layout
-        onOpenAuth={() => setIsAuthModalOpen(true)}
+        onOpenAuth={() => openAuthModal('signin')}
         onSignOut={handleSignOut}
         sampleCollectionId={sampleCollectionId}
         user={user}
@@ -3179,7 +3187,7 @@ export const AppContent: React.FC = () => {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setIsAuthModalOpen(true)}
+                onClick={() => openAuthModal('signin')}
                 className="hidden sm:inline-flex motion-fade"
               >
                 {t('login')}
@@ -3275,7 +3283,7 @@ export const AppContent: React.FC = () => {
         isOpen={isAuthModalOpen}
         onClose={handleAuthClose}
         onAuthSuccess={handleAuthSuccess}
-        initialMode={isPasswordRecovery ? 'set-password' : undefined}
+        initialMode={isPasswordRecovery ? 'set-password' : authModalMode}
       />
       <ConflictResolutionModal
         isOpen={isConflictModalOpen}

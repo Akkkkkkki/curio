@@ -35,7 +35,11 @@ interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAuthSuccess?: () => void;
-  /** Forces the modal to open in a specific mode. Used for the password-recovery redirect. */
+  /**
+   * Mode the modal opens in. First-run CTAs pass 'signup' so new users are
+   * greeted with account creation (CUR-152); the password-recovery redirect
+   * passes 'set-password'. Defaults to 'signin'.
+   */
   initialMode?: AuthModalMode;
 }
 
@@ -80,7 +84,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setShowConfirmPassword(false);
     setResendStatus('idle');
     setResendCooldown(0);
-    if (!initialMode) setEmail('');
+    // Keep the email only across the password-recovery redirect; ordinary
+    // sign-in / sign-up opens always start with a blank form.
+    if (initialMode !== 'set-password') setEmail('');
   }, [isOpen, initialMode]);
 
   // Tick the resend cooldown down to zero. Effect cleans itself up when
