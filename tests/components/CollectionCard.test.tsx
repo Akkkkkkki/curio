@@ -391,4 +391,34 @@ describe('CollectionCard Component', () => {
       expect(card.className).toContain('cursor-pointer');
     });
   });
+
+  describe('Full-Name Tooltip Reveal', () => {
+    const getTooltip = () => {
+      const heading = screen.getByRole('heading', { name: 'My Vinyl Collection' });
+      return heading.nextElementSibling as HTMLElement;
+    };
+
+    it('only reveals on hover for hover-capable pointers (no sticky tap tooltip)', () => {
+      const collection = createMockCollection();
+
+      renderWithProviders(<CollectionCard collection={collection} onClick={vi.fn()} />);
+
+      const tooltip = getTooltip();
+      expect(tooltip.className).toContain('[@media(hover:hover)]:group-hover:opacity-100');
+      // Bare group-hover / group-active reveals stick open after tap on touch devices
+      expect(tooltip.className).not.toMatch(/(^|\s)group-hover:/);
+      expect(tooltip.className).not.toContain('group-active:');
+    });
+
+    it('still reveals on keyboard focus via focus-visible', () => {
+      const collection = createMockCollection();
+
+      renderWithProviders(<CollectionCard collection={collection} onClick={vi.fn()} />);
+
+      const tooltip = getTooltip();
+      expect(tooltip.className).toContain('group-focus-visible:opacity-100');
+      // Plain focus-within would also match tap-focus on the card
+      expect(tooltip.className).not.toContain('group-focus-within:');
+    });
+  });
 });
