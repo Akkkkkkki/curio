@@ -1076,6 +1076,64 @@ describe('Layout Component', () => {
     });
   });
 
+  // CUR-153: the header status badge used to hang at -bottom-1/-right-1 —
+  // half outside the account button, poking below the header edge — with no
+  // accessible name, so it read as a rendering glitch instead of a trust cue.
+  // Pin containment inside the button bounds and the accessible name/tooltip
+  // (same status vocabulary as the profile menu chip) in every auth state.
+  describe('CUR-153 Header status badge', () => {
+    const authenticatedUser = { id: 'user-1', email: 'test@example.com' };
+
+    it.each([
+      { state: 'signed out', props: { user: null }, label: 'Signed Out' },
+      { state: 'signed in', props: { user: authenticatedUser }, label: 'Signed In' },
+      {
+        state: 'unconfigured',
+        props: { user: null, isSupabaseConfigured: false },
+        label: 'Cloud Required',
+      },
+    ])('has an accessible name and tooltip when $state', ({ props, label }) => {
+      renderWithProviders(<Layout {...defaultProps} {...props} />);
+
+      const badge = screen.getByTestId('header-status-badge');
+      expect(badge).toHaveAttribute('aria-label', label);
+      expect(badge).toHaveAttribute('title', label);
+    });
+
+    // Screen readers flatten a button's descendants, so the badge's own
+    // aria-label is not reliably announced; the status must reach the
+    // account button itself as its accessible description.
+    it.each([
+      { state: 'signed out', props: { user: null }, label: 'Signed Out' },
+      { state: 'signed in', props: { user: authenticatedUser }, label: 'Signed In' },
+      {
+        state: 'unconfigured',
+        props: { user: null, isSupabaseConfigured: false },
+        label: 'Cloud Required',
+      },
+    ])('describes the account button with the status when $state', ({ props, label }) => {
+      renderWithProviders(<Layout {...defaultProps} {...props} />);
+
+      const accountButton = screen.getByRole('button', { name: /account/i });
+      expect(accountButton).toHaveAttribute('aria-describedby', 'header-status-badge');
+      expect(accountButton).toHaveAccessibleDescription(label);
+    });
+
+    it.each([
+      { state: 'signed out', props: { user: null } },
+      { state: 'signed in', props: { user: authenticatedUser } },
+      { state: 'unconfigured', props: { user: null, isSupabaseConfigured: false } },
+    ])('stays inside the account button bounds when $state', ({ props }) => {
+      renderWithProviders(<Layout {...defaultProps} {...props} />);
+
+      const badge = screen.getByTestId('header-status-badge');
+      expect(badge.className).toContain('bottom-0');
+      expect(badge.className).toContain('right-0');
+      expect(badge.className).not.toContain('-bottom-1');
+      expect(badge.className).not.toContain('-right-1');
+    });
+  });
+
   describe('Accessibility', () => {
     it('has accessible account button with aria-label', () => {
       renderWithProviders(<Layout {...defaultProps} />);
