@@ -656,6 +656,62 @@ describe('AuthModal', () => {
     });
   });
 
+  describe('CUR-152: intent-based initial mode', () => {
+    it('opens in sign-up mode when initialMode is "signup"', () => {
+      renderWithProviders(<AuthModal {...defaultProps} initialMode="signup" />);
+
+      expect(screen.getByRole('heading', { name: /join the museum/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /create account/i })).toBeInTheDocument();
+      expect(screen.queryByText(/welcome back/i)).not.toBeInTheDocument();
+    });
+
+    it('opens in sign-in mode when initialMode is "signin"', () => {
+      renderWithProviders(<AuthModal {...defaultProps} initialMode="signin" />);
+
+      expect(screen.getByRole('heading', { name: /welcome back/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument();
+    });
+
+    it('still lets the user switch from sign-up to sign-in and back', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(<AuthModal {...defaultProps} initialMode="signup" />);
+
+      await user.click(screen.getByText(/Already have an account/i));
+      expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument();
+
+      await user.click(screen.getByText(/Don't have an account/i));
+      expect(screen.getByRole('button', { name: /create account/i })).toBeInTheDocument();
+    });
+
+    it('re-applies the requested mode when the modal reopens with a different intent', async () => {
+      const user = userEvent.setup();
+      const { rerender } = renderWithProviders(
+        <AuthModal {...defaultProps} initialMode="signup" />,
+      );
+
+      // The user wanders off to sign-in, closes, then reopens via a
+      // returning-user entry point — the modal must not remember sign-up.
+      await user.click(screen.getByText(/Already have an account/i));
+      rerender(<AuthModal {...defaultProps} isOpen={false} initialMode="signup" />);
+      rerender(<AuthModal {...defaultProps} isOpen={true} initialMode="signin" />);
+
+      expect(screen.getByRole('heading', { name: /welcome back/i })).toBeInTheDocument();
+    });
+
+    it('clears a previously typed email when reopening in sign-in or sign-up mode', async () => {
+      const user = userEvent.setup();
+      const { rerender } = renderWithProviders(
+        <AuthModal {...defaultProps} initialMode="signin" />,
+      );
+
+      await user.type(screen.getByPlaceholderText(/curator@museum.com/i), 'stale@example.com');
+      rerender(<AuthModal {...defaultProps} isOpen={false} initialMode="signin" />);
+      rerender(<AuthModal {...defaultProps} isOpen={true} initialMode="signup" />);
+
+      expect(screen.getByPlaceholderText(/curator@museum.com/i)).toHaveValue('');
+    });
+  });
+
   describe('Set Password Mode (recovery redirect)', () => {
     it('opens in set-password mode when initialMode is set', () => {
       renderWithProviders(<AuthModal {...defaultProps} initialMode="set-password" />);

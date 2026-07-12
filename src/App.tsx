@@ -5,6 +5,7 @@ import {
   Routes,
   Route,
   useNavigate,
+  useNavigationType,
   useLocation,
   Link,
   Navigate,
@@ -98,6 +99,10 @@ export const AppContent: React.FC = () => {
   const [adminCheckedFor, setAdminCheckedFor] = useState<string | null>(null);
   const [refreshedForKey, setRefreshedForKey] = useState<string | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  // CUR-152: the auth modal opens in the mode matching the triggering intent.
+  // First-run CTAs ("Add your first item", "Start a collection") greet a
+  // brand-new user with sign-up; header/profile entry points keep sign-in.
+  const [authModalMode, setAuthModalMode] = useState<'signin' | 'signup'>('signin');
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
   const [allowPublicBrowse, setAllowPublicBrowse] = useState(false);
   const [hasLocalImport, setHasLocalImport] = useState(false);
@@ -131,6 +136,10 @@ export const AppContent: React.FC = () => {
   const [authActionQueue, setAuthActionQueue] = useState<'add-item' | 'create-collection' | null>(
     null,
   );
+  const openAuthModal = useCallback((mode: 'signin' | 'signup') => {
+    setAuthModalMode(mode);
+    setIsAuthModalOpen(true);
+  }, []);
   const saveTimeoutRef = useRef<Record<string, any>>({});
   const pendingEditedFieldsRef = useRef<Record<string, Set<string>>>({});
   const pendingEditedItemIdsRef = useRef<Record<string, Set<string>>>({});
@@ -887,8 +896,6 @@ export const AppContent: React.FC = () => {
     [clearPendingCollectionSave],
   );
 
-  const openAuthModal = useCallback(() => setIsAuthModalOpen(true), []);
-
   const openAddItemModal = useCallback((collectionId: string) => {
     setAddModalDefaultCollectionId(collectionId);
     setIsAddModalOpen(true);
@@ -1075,7 +1082,7 @@ export const AppContent: React.FC = () => {
   }): boolean => {
     if (!isAuthenticated) {
       setPendingAuthAction('create-collection');
-      setIsAuthModalOpen(true);
+      openAuthModal('signup');
       setIsCreateCollectionOpen(false);
       return false;
     }
@@ -1384,7 +1391,7 @@ export const AppContent: React.FC = () => {
   const handleAddAction = useCallback(() => {
     if (!isAuthenticated) {
       setPendingAuthAction('add-item');
-      setIsAuthModalOpen(true);
+      openAuthModal('signup');
       return;
     }
     if (editableCollections.length === 0) {
@@ -1404,16 +1411,16 @@ export const AppContent: React.FC = () => {
         : undefined;
     setAddModalDefaultCollectionId(presetCollectionId);
     setIsAddModalOpen(true);
-  }, [editableCollections, isAuthenticated, location.pathname]);
+  }, [editableCollections, isAuthenticated, location.pathname, openAuthModal]);
 
   const handleCreateCollectionAction = useCallback(() => {
     if (!isAuthenticated) {
       setPendingAuthAction('create-collection');
-      setIsAuthModalOpen(true);
+      openAuthModal('signup');
       return;
     }
     setIsCreateCollectionOpen(true);
-  }, [isAuthenticated]);
+  }, [isAuthenticated, openAuthModal]);
 
   const handleSignOut = async () => {
     await signOutUser();
@@ -1547,7 +1554,7 @@ export const AppContent: React.FC = () => {
       data-ready={appReady ? 'true' : 'false'}
     >
       <Layout
-        onOpenAuth={() => setIsAuthModalOpen(true)}
+        onOpenAuth={() => openAuthModal('signin')}
         onSignOut={handleSignOut}
         sampleCollectionId={sampleCollectionId}
         user={user}
@@ -1577,7 +1584,7 @@ export const AppContent: React.FC = () => {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setIsAuthModalOpen(true)}
+                onClick={() => openAuthModal('signin')}
                 className="hidden sm:inline-flex motion-fade"
               >
                 {t('login')}
@@ -1695,7 +1702,7 @@ export const AppContent: React.FC = () => {
         isOpen={isAuthModalOpen}
         onClose={handleAuthClose}
         onAuthSuccess={handleAuthSuccess}
-        initialMode={isPasswordRecovery ? 'set-password' : undefined}
+        initialMode={isPasswordRecovery ? 'set-password' : authModalMode}
       />
       <ConflictResolutionModal
         isOpen={isConflictModalOpen}
@@ -1725,12 +1732,27 @@ const LocalizedErrorBoundary: React.FC<{ children: React.ReactNode }> = ({ child
   );
 };
 
+// Reset scroll on forward navigation so a new screen opens at the top, while
+// leaving POP (browser back/forward) alone to preserve the list position the
+// user is returning to.
+const ScrollToTop: React.FC = () => {
+  const { pathname } = useLocation();
+  const navigationType = useNavigationType();
+  useEffect(() => {
+    if (navigationType !== 'POP') {
+      window.scrollTo(0, 0);
+    }
+  }, [pathname, navigationType]);
+  return null;
+};
+
 export const App: React.FC = () => {
   return (
     <ThemeProvider>
       <LanguageProvider>
         <LocalizedErrorBoundary>
           <HashRouter>
+            <ScrollToTop />
             <AppContent />
           </HashRouter>
           <SpeedInsights />

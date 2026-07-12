@@ -66,7 +66,7 @@ interface CollectionScreenProps {
   isAuthenticated: boolean;
   isSupabaseReady: boolean;
   sampleCollectionId?: string;
-  openAuthModal: () => void;
+  openAuthModal: (mode: 'signin' | 'signup') => void;
   openAddItemModal: (collectionId: string) => void;
   deleteItem: (collectionId: string, itemId: string) => boolean;
   removeCollection: (collection: UserCollection) => Promise<void>;
@@ -251,7 +251,7 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({
             </p>
             <div className="space-y-2">
               <Button
-                onClick={openAuthModal}
+                onClick={() => openAuthModal('signin')}
                 size="lg"
                 className="w-full"
                 data-testid="collection-unavailable-sign-in"

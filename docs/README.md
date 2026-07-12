@@ -26,6 +26,9 @@ or `docs/plan/`.
 - `plan/DESIGN_public_privacy_model.md`: active forward-looking spec for Phase 1 public profile,
   collection, item, and share-surface privacy. Delete once shipped and move enduring behavior into
   the canonical docs above.
+- `plan/DESIGN_public_customization_system_CUR-7.md`: active forward-looking spec for Phase 1
+  public profile and share-surface customization. Delete once shipped and move enduring behavior
+  into the canonical docs above.
 - `plan/DESIGN_shareable_urls_and_og_tags.md`: active forward-looking spec for Phase 1 public
   sharing URLs and Open Graph metadata. Delete once shipped and move enduring behavior into the
   canonical docs above.
