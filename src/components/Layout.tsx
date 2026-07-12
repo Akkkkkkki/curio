@@ -399,6 +399,7 @@ export const Layout: React.FC<LayoutProps> = ({
               <button
                 onClick={() => setProfileSource((prev) => (prev === 'header' ? null : 'header'))}
                 aria-label={t('account')}
+                aria-describedby="header-status-badge"
                 title={showSignInAffordance ? t('login') : statusLabel}
                 aria-haspopup="menu"
                 aria-expanded={profileSource === 'header'}
@@ -415,11 +416,13 @@ export const Layout: React.FC<LayoutProps> = ({
                 )}
                 {/* CUR-153: the badge must stay inside the button bounds (it
                     used to hang at -bottom-1/-right-1, poking below the header
-                    edge and reading as a stray glyph) and needs its own
-                    accessible name — it reuses the profile menu's status
-                    vocabulary so hover and screen readers get one consistent
-                    term. */}
+                    edge and reading as a stray glyph). Screen readers flatten
+                    a button's descendants, so the status reaches them via the
+                    button's aria-describedby -> this badge's aria-label; the
+                    title covers hover. Both reuse the profile menu's status
+                    vocabulary so every surface uses one consistent term. */}
                 <span
+                  id="header-status-badge"
                   data-testid="header-status-badge"
                   role="img"
                   aria-label={statusLabel}

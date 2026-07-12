@@ -1100,6 +1100,25 @@ describe('Layout Component', () => {
       expect(badge).toHaveAttribute('title', label);
     });
 
+    // Screen readers flatten a button's descendants, so the badge's own
+    // aria-label is not reliably announced; the status must reach the
+    // account button itself as its accessible description.
+    it.each([
+      { state: 'signed out', props: { user: null }, label: 'Signed Out' },
+      { state: 'signed in', props: { user: authenticatedUser }, label: 'Signed In' },
+      {
+        state: 'unconfigured',
+        props: { user: null, isSupabaseConfigured: false },
+        label: 'Cloud Required',
+      },
+    ])('describes the account button with the status when $state', ({ props, label }) => {
+      renderWithProviders(<Layout {...defaultProps} {...props} />);
+
+      const accountButton = screen.getByRole('button', { name: /account/i });
+      expect(accountButton).toHaveAttribute('aria-describedby', 'header-status-badge');
+      expect(accountButton).toHaveAccessibleDescription(label);
+    });
+
     it.each([
       { state: 'signed out', props: { user: null } },
       { state: 'signed in', props: { user: authenticatedUser } },
