@@ -413,8 +413,18 @@ export const Layout: React.FC<LayoutProps> = ({
                     {t('login')}
                   </span>
                 )}
+                {/* CUR-153: the badge must stay inside the button bounds (it
+                    used to hang at -bottom-1/-right-1, poking below the header
+                    edge and reading as a stray glyph) and needs its own
+                    accessible name — it reuses the profile menu's status
+                    vocabulary so hover and screen readers get one consistent
+                    term. */}
                 <span
-                  className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border flex items-center justify-center ${statusBadgeSurface}`}
+                  data-testid="header-status-badge"
+                  role="img"
+                  aria-label={statusLabel}
+                  title={statusLabel}
+                  className={`absolute bottom-0 right-0 w-4 h-4 rounded-full border flex items-center justify-center ${statusBadgeSurface}`}
                 >
                   <span className={statusColor}>{statusBadgeIcon}</span>
                 </span>
