@@ -265,6 +265,73 @@ describe('Phase 2.2 — services/db.ts dual-write operations', () => {
     consoleError.mockRestore();
   });
 
+  it('saveAllCollections: preserves pending local writes missing from a stale snapshot', async () => {
+    const { supabase, collectionsUpsert } = createSupabaseMock();
+    collectionsUpsert.mockRejectedValueOnce(new Error('offline'));
+
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const dbMod = await importDbModuleFreshWithSupabaseMock(supabase);
+
+    const db = await dbMod.initDB();
+    openDb = db;
+    await clearStores(db, ['collections', 'assets', 'display', 'enhanced', 'settings']);
+
+    const pendingItem: CollectionItem = {
+      id: 'item-pending',
+      collectionId: 'col-pending',
+      photoUrl: 'asset',
+      title: 'Unsynced item',
+      rating: 4,
+      data: {},
+      createdAt: '2026-07-13T00:00:00.000Z',
+      updatedAt: '2026-07-13T00:00:00.000Z',
+      notes: '',
+    };
+    const pendingCollection: UserCollection = {
+      id: 'col-pending',
+      templateId: 'vinyl',
+      name: 'Queued local collection',
+      icon: 'C',
+      customFields: [],
+      items: [pendingItem],
+      ownerId: 'test-user-id',
+      updatedAt: '2026-07-13T00:00:00.000Z',
+    };
+
+    await dbMod.saveCollection(pendingCollection);
+    await dbMod.saveAsset(
+      'col-pending',
+      'item-pending',
+      new Blob(['orig'], { type: 'image/jpeg' }),
+      new Blob(['display'], { type: 'image/jpeg' }),
+    );
+
+    const pendingSync = await readFromStore<any[]>(db, 'settings', 'pending_sync_ids');
+    expect(pendingSync?.map((entry) => (typeof entry === 'string' ? entry : entry.id))).toContain(
+      'col-pending',
+    );
+
+    await dbMod.saveAllCollections([
+      {
+        id: 'col-cloud',
+        templateId: 'vinyl',
+        name: 'Older cloud snapshot',
+        icon: 'S',
+        customFields: [],
+        items: [],
+        ownerId: 'test-user-id',
+        updatedAt: '2026-07-12T00:00:00.000Z',
+      },
+    ]);
+
+    const localIds = (await dbMod.getLocalCollections()).map((collection) => collection.id);
+    expect(localIds).toEqual(expect.arrayContaining(['col-cloud', 'col-pending']));
+    expect(await readFromStore<Blob>(db, 'assets', 'item-pending')).toBeTruthy();
+    expect(await readFromStore<Blob>(db, 'display', 'item-pending')).toBeTruthy();
+
+    consoleError.mockRestore();
+  });
+
   it('saveCollection: invalid collection object (missing id) rejects and does not attempt cloud writes', async () => {
     /**
      * Error case: IndexedDB keyPath is `id`; objects without `id` should fail local persistence,
