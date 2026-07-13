@@ -17,6 +17,7 @@ type ItemImageStatus = 'none' | 'processing' | 'ready' | 'failed';
 // Keys for pending sync tracking
 const PENDING_SYNC_KEY = 'pending_sync_ids';
 const PENDING_ASSET_UPLOADS_KEY = 'pending_asset_uploads';
+const PENDING_IMAGE_RECORDS_KEY = 'pending_image_records';
 const PENDING_DELETE_KEY = 'pending_deletes';
 const PENDING_DELETE_JOURNAL_KEY = 'curio_pending_delete_journal';
 
@@ -138,6 +139,21 @@ const notifyAssetSyncStatus = (
 type PendingAssetUpload = {
   collectionId: string;
   itemId: string;
+  createdAt?: string;
+  attemptCount?: number;
+  lastError?: string;
+  nextRetryAt?: string;
+};
+
+// item_images registry rows that could not be upserted yet — typically because
+// the owning `items` row had not synced when the asset finished uploading (new
+// items upload their photos before the collection save lands in Supabase).
+// Flushed by syncPendingImageRecords once the item row exists.
+type PendingImageRecord = {
+  collectionId: string;
+  itemId: string;
+  role: ItemImageRole;
+  storagePath: string;
   createdAt?: string;
   attemptCount?: number;
   lastError?: string;
@@ -656,6 +672,77 @@ const removeFromPendingAssetUploads = async (
   tx.objectStore(SETTINGS_STORE).put(filtered, PENDING_ASSET_UPLOADS_KEY);
 };
 
+const getPendingImageRecords = async (): Promise<PendingImageRecord[]> => {
+  const db = await initDB();
+  return new Promise((resolve) => {
+    const tx = db.transaction(SETTINGS_STORE, 'readonly');
+    const req = tx.objectStore(SETTINGS_STORE).get(PENDING_IMAGE_RECORDS_KEY);
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => resolve([]);
+  });
+};
+
+const savePendingImageRecords = async (records: PendingImageRecord[]): Promise<void> => {
+  const db = await initDB();
+  const tx = db.transaction(SETTINGS_STORE, 'readwrite');
+  tx.objectStore(SETTINGS_STORE).put(records, PENDING_IMAGE_RECORDS_KEY);
+};
+
+const addToPendingImageRecords = async (
+  collectionId: string,
+  itemId: string,
+  records: { role: ItemImageRole; storagePath: string }[],
+): Promise<void> => {
+  if (records.length === 0) return;
+  const pending = await getPendingImageRecords();
+  const now = new Date().toISOString();
+  for (const record of records) {
+    const existing = pending.find((entry) => entry.itemId === itemId && entry.role === record.role);
+    if (existing) {
+      existing.storagePath = record.storagePath;
+    } else {
+      pending.push({
+        collectionId,
+        itemId,
+        role: record.role,
+        storagePath: record.storagePath,
+        createdAt: now,
+        attemptCount: 0,
+      });
+    }
+  }
+  await savePendingImageRecords(pending);
+};
+
+const removeFromPendingImageRecords = async (
+  itemId: string,
+  role: ItemImageRole,
+): Promise<void> => {
+  const pending = await getPendingImageRecords();
+  const filtered = pending.filter((entry) => !(entry.itemId === itemId && entry.role === role));
+  await savePendingImageRecords(filtered);
+};
+
+const markPendingImageRecordFailure = async (
+  itemId: string,
+  role: ItemImageRole,
+  errorMessage?: string,
+): Promise<void> => {
+  const pending = await getPendingImageRecords();
+  const now = Date.now();
+  const updated = pending.map((entry) => {
+    if (entry.itemId !== itemId || entry.role !== role) return entry;
+    const nextAttempt = (entry.attemptCount ?? 0) + 1;
+    return {
+      ...entry,
+      attemptCount: nextAttempt,
+      lastError: errorMessage || entry.lastError,
+      nextRetryAt: new Date(now + getAssetUploadBackoffMs(nextAttempt)).toISOString(),
+    };
+  });
+  await savePendingImageRecords(updated);
+};
+
 export const hasPendingSyncs = async (): Promise<boolean> => {
   const pending = await getPendingSyncEntries();
   return pending.length > 0;
@@ -762,23 +849,113 @@ const uploadAssetToCloud = async (
     throw new Error(`Storage upload failed: ${originalUpload?.error || displayUpload?.error}`);
   }
 
-  await recordItemImage({
-    itemId,
-    role: 'original',
-    storagePath: originalPath,
-    isCurrent: true,
+  await recordItemImagesOrDefer(collectionId, itemId, [
+    { role: 'original', storagePath: originalPath },
+    { role: 'display', storagePath: displayPath },
+  ]);
+};
+
+const cloudItemRowExists = async (itemId: string): Promise<boolean> => {
+  if (!isSupabaseConfigured() || !supabase) return false;
+  const { data, error } = await supabase.from('items').select('id').eq('id', itemId).maybeSingle();
+  if (error) {
+    throw new Error(`Item lookup failed: ${error.message}`);
+  }
+  return Boolean(data);
+};
+
+const recordItemImagesOrDefer = async (
+  collectionId: string,
+  itemId: string,
+  records: { role: ItemImageRole; storagePath: string }[],
+): Promise<void> => {
+  let itemSynced = false;
+  try {
+    itemSynced = await cloudItemRowExists(itemId);
+  } catch {
+    itemSynced = false;
+  }
+  if (!itemSynced) {
+    // Brand-new items upload their photos before the `items` row syncs with the
+    // collection save. Upserting item_images now would hit the DB trigger's
+    // 'Invalid item_id' — queue the rows and flush once the item row lands.
+    await addToPendingImageRecords(collectionId, itemId, records);
+    return;
+  }
+  const failed: { role: ItemImageRole; storagePath: string }[] = [];
+  for (const record of records) {
+    const recorded = await recordItemImage({
+      itemId,
+      role: record.role,
+      storagePath: record.storagePath,
+      isCurrent: true,
+    });
+    if (!recorded) failed.push(record);
+  }
+  await addToPendingImageRecords(collectionId, itemId, failed);
+};
+
+// Flush deferred item_images rows whose `items` row has since synced. Never
+// throws — callers run it opportunistically after item syncs.
+export const syncPendingImageRecords = async (): Promise<number> => {
+  if (!isSupabaseConfigured() || !supabase) return 0;
+  const pending = await getPendingImageRecords();
+  if (pending.length === 0) return 0;
+
+  const now = Date.now();
+  const dueRecords = pending.filter((entry) => {
+    if (!entry.nextRetryAt) return true;
+    const retryAt = new Date(entry.nextRetryAt).getTime();
+    return Number.isNaN(retryAt) || retryAt <= now;
   });
-  await recordItemImage({
-    itemId,
-    role: 'display',
-    storagePath: displayPath,
-    isCurrent: true,
-  });
+  if (dueRecords.length === 0) return 0;
+
+  let recorded = 0;
+  const itemRowSynced = new Map<string, boolean>();
+  for (const entry of dueRecords) {
+    try {
+      // The display blob is the item's canonical local asset; if it is gone,
+      // the item was deleted before its registry rows could sync — drop them.
+      const display = await readAssetFromStore(DISPLAY_STORE, entry.itemId);
+      if (!display) {
+        await removeFromPendingImageRecords(entry.itemId, entry.role);
+        continue;
+      }
+      let itemExists = itemRowSynced.get(entry.itemId);
+      if (itemExists === undefined) {
+        itemExists = await cloudItemRowExists(entry.itemId);
+        itemRowSynced.set(entry.itemId, itemExists);
+      }
+      if (!itemExists) {
+        await markPendingImageRecordFailure(entry.itemId, entry.role, 'Item row not yet synced');
+        continue;
+      }
+      const ok = await recordItemImage({
+        itemId: entry.itemId,
+        role: entry.role,
+        storagePath: entry.storagePath,
+        isCurrent: true,
+      });
+      if (ok) {
+        await removeFromPendingImageRecords(entry.itemId, entry.role);
+        recorded++;
+      } else {
+        await markPendingImageRecordFailure(entry.itemId, entry.role, 'item_images upsert failed');
+      }
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : 'Unknown error';
+      await markPendingImageRecordFailure(entry.itemId, entry.role, errorMessage).catch(() => {});
+    }
+  }
+  return recorded;
 };
 
 export const syncPendingAssetUploads = async (): Promise<number> => {
   return withSyncLock(async () => {
     if (!isSupabaseConfigured() || !supabase) return 0;
+    // Registry rows deferred while their item row was in flight can usually be
+    // recorded by now (syncPendingChanges runs before this in the app flow).
+    await syncPendingImageRecords();
     const pendingUploads = await getPendingAssetUploads();
     if (pendingUploads.length === 0) return 0;
 
@@ -1417,6 +1594,9 @@ export const saveCollection = async (collection: UserCollection): Promise<void> 
       await saveCollectionToCloud(collectionToSave);
       // Success - remove from pending queue if it was there
       await removeFromPendingSync(collectionToSave.id);
+      // The items rows just landed — record any item_images registry rows that
+      // were deferred because the asset upload raced this sync (new items).
+      await syncPendingImageRecords();
       notifySyncStatus('synced');
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : 'Sync failed';
@@ -1446,15 +1626,15 @@ const recordItemImage = async ({
   recipe?: Record<string, any>;
   isCurrent?: boolean;
   sourceImageId?: string | null;
-}): Promise<void> => {
-  if (!isSupabaseConfigured() || !supabase) return;
+}): Promise<boolean> => {
+  if (!isSupabaseConfigured() || !supabase) return true;
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return;
+  if (!user) return false;
 
   const normalizedPath = normalizeStoragePath(storagePath);
-  if (!normalizedPath) return;
+  if (!normalizedPath) return true;
 
   if (isCurrent) {
     await supabase
@@ -1481,7 +1661,9 @@ const recordItemImage = async ({
   const { error } = await supabase.from('item_images').upsert(payload);
   if (error) {
     console.warn('Cloud item image sync failed:', error);
+    return false;
   }
+  return true;
 };
 
 export const saveAsset = async (
