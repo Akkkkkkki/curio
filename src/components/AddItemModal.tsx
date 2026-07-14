@@ -147,6 +147,19 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     vault: 'text-amber-100 hover:text-white',
     atelier: 'text-[#A86F3C] hover:text-[#8B5A2B]',
   }[theme];
+  // CUR-110: the batch-mode info card shares the warn-banner surface; its
+  // title and icon need their own amber steps so the hierarchy survives on
+  // Vault/Atelier instead of flipping back to the Gallery pastel card.
+  const batchInfoTitleClass = {
+    gallery: 'text-amber-900',
+    vault: 'text-amber-100',
+    atelier: 'text-amber-950',
+  }[theme];
+  const batchInfoIconClass = {
+    gallery: 'text-amber-600',
+    vault: 'text-amber-300',
+    atelier: 'text-amber-700',
+  }[theme];
   const lowConfidenceSurfaceClass = {
     gallery: 'bg-stone-100 text-stone-700 border-stone-200',
     vault: 'bg-white/5 text-stone-300 border-white/10',
@@ -1112,17 +1125,20 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     const hasMoreBatchItems = batchVisibleCount < batchItems.length;
     return (
       <div className="space-y-6">
-        <div className="bg-amber-50 p-4 rounded-2xl flex gap-3 border border-amber-100">
-          <Zap className="text-amber-600 shrink-0" size={20} />
+        <div
+          data-testid="add-item-batch-info"
+          className={`p-4 rounded-2xl flex gap-3 border ${warnBannerClass}`}
+        >
+          <Zap className={`shrink-0 ${batchInfoIconClass}`} size={20} />
           <div>
-            <h4 className="text-sm font-bold text-amber-900">{t('batchMode')}</h4>
-            <p className="text-[11px] text-amber-700">{t('batchModeDesc')}</p>
+            <h4 className={`text-sm font-bold ${batchInfoTitleClass}`}>{t('batchMode')}</h4>
+            <p className="text-[11px]">{t('batchModeDesc')}</p>
           </div>
         </div>
         {error && (
           <div
             id="add-item-error"
-            className="p-3 bg-amber-50 text-amber-700 text-xs rounded-xl border border-amber-100 font-medium"
+            className={`p-3 text-xs rounded-xl border font-medium ${warnBannerClass}`}
           >
             {error}
           </div>

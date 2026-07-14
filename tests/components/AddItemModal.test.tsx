@@ -1113,4 +1113,86 @@ describe('AddItemModal', () => {
       expect(tile).toHaveClass('border-stone-100');
     });
   });
+
+  describe('Batch surfaces theme contrast (CUR-110)', () => {
+    const uploadBatchFile = async (user: ReturnType<typeof userEvent.setup>) => {
+      const file = new File(['fake'], 'artifact.png', { type: 'image/png' });
+      const input = screen.getByTestId('add-item-batch-input') as HTMLInputElement;
+      await user.upload(input, file);
+      return screen.findByTestId('add-item-batch-info');
+    };
+
+    beforeEach(() => {
+      mockRefreshAiEnabled.mockResolvedValue(true);
+      mockAnalyzeImage.mockResolvedValue({
+        status: 'success',
+        title: 'Mock Artifact',
+        notes: '',
+        data: {},
+      });
+    });
+
+    it('renders the batch info card with Vault warn tones, not the Gallery pastel', async () => {
+      setMockTheme('vault');
+      const user = userEvent.setup();
+      renderWithProviders(
+        <AddItemModal
+          isOpen
+          onClose={mockOnClose}
+          collections={[createMockCollection({ name: 'Artifacts', customFields: [] })]}
+          onSave={mockOnSave}
+        />,
+      );
+
+      const infoCard = await uploadBatchFile(user);
+      // The Gallery-only pastel card collapses against Vault's dark panel.
+      expect(infoCard).not.toHaveClass('bg-amber-50');
+      expect(infoCard).toHaveClass('bg-amber-500/10');
+      expect(infoCard).toHaveClass('border-amber-400/20');
+      const title = infoCard.querySelector('h4');
+      expect(title).not.toBeNull();
+      expect(title!.className).toMatch(/text-amber-100/);
+      expect(title!.className).not.toMatch(/text-amber-900/);
+    });
+
+    it('renders the batch error banner with Vault warn tones after a failed save', async () => {
+      setMockTheme('vault');
+      const user = userEvent.setup();
+      renderWithProviders(
+        <AddItemModal
+          isOpen
+          onClose={mockOnClose}
+          collections={[createMockCollection({ name: 'Artifacts', customFields: [] })]}
+          onSave={mockOnSave}
+        />,
+      );
+
+      await uploadBatchFile(user);
+      mockOnSave.mockReset();
+      mockOnSave.mockRejectedValueOnce(new Error('Could not save image. Please try again.'));
+      await user.click(screen.getByRole('button', { name: /Save \d+ pieces?/ }));
+
+      const banner = await screen.findByText('Could not save image. Please try again.');
+      expect(banner).not.toHaveClass('bg-amber-50');
+      expect(banner).toHaveClass('bg-amber-500/10');
+      expect(banner).toHaveClass('text-amber-200');
+    });
+
+    it('preserves the Gallery tones for the batch info card on the default theme', async () => {
+      setMockTheme('gallery');
+      const user = userEvent.setup();
+      renderWithProviders(
+        <AddItemModal
+          isOpen
+          onClose={mockOnClose}
+          collections={[createMockCollection({ name: 'Artifacts', customFields: [] })]}
+          onSave={mockOnSave}
+        />,
+      );
+
+      const infoCard = await uploadBatchFile(user);
+      expect(infoCard).toHaveClass('bg-amber-50');
+      expect(infoCard).toHaveClass('border-amber-100');
+    });
+  });
 });
