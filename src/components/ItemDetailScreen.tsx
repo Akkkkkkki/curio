@@ -721,7 +721,7 @@ export const ItemDetailScreen: React.FC<ItemDetailScreenProps> = ({
                 <span
                   className={`shrink-0 whitespace-nowrap sm:ml-2 ${typographyClasses.label} ${mutedTextClasses[theme]}`}
                 >
-                  {t('registryQuality')}
+                  {t('yourRating')}
                 </span>
                 {isReadOnly && (
                   <span className="shrink-0 whitespace-nowrap text-[12px] text-amber-500 font-semibold">

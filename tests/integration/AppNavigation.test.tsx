@@ -684,9 +684,9 @@ describe('App Integration Tests', () => {
     expect(fieldInput?.className).not.toContain('placeholder:text-stone-100');
     expect(fieldInput?.className).toContain('placeholder:text-stone-500');
 
-    const registryCaption = screen.getByText(/registry quality/i);
-    expect(registryCaption.className).toContain('text-stone-500');
-    expect(registryCaption.className).not.toContain('text-stone-300');
+    const ratingCaption = screen.getByText(/your rating/i);
+    expect(ratingCaption.className).toContain('text-stone-500');
+    expect(ratingCaption.className).not.toContain('text-stone-300');
   });
 
   it('keeps Item Detail field placeholder visible on the Vault dark theme (CUR-85)', async () => {
