@@ -154,14 +154,17 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
   };
 
   const handleTemplateSelect = (templateId: string) => {
-    setSelectedTemplateId(templateId);
+    // Tapping the already-selected preset clears it, returning the user to
+    // the free-text suggestion flow without closing the modal.
+    const nextTemplateId = selectedTemplateId === templateId ? '' : templateId;
+    setSelectedTemplateId(nextTemplateId);
     setSuggestedFields([]);
     setSelectedFields([]);
     setPinnedFields([]);
     setStatusMessage(null);
-    const template = TEMPLATES.find((temp) => temp.id === templateId);
-    if (template && !hasCustomIcon) {
-      setIcon(template.icon);
+    if (!hasCustomIcon) {
+      const template = TEMPLATES.find((temp) => temp.id === nextTemplateId);
+      setIcon(template ? template.icon : DEFAULT_ICON);
     }
   };
 
