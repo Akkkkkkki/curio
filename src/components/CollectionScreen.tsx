@@ -435,7 +435,7 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({
               </div>
               <Button
                 variant={activeFilterCount > 0 ? 'primary' : 'outline'}
-                className={`w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center p-0 rounded-xl ${theme === 'vault' ? 'bg-stone-900 border-white/10' : activeFilterCount > 0 ? '' : 'bg-white'}`}
+                className={`w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center !p-0 rounded-xl ${theme === 'vault' ? 'bg-stone-900 border-white/10' : activeFilterCount > 0 ? '' : 'bg-white'}`}
                 onClick={() => setIsFilterModalOpen(true)}
                 aria-label={t('filterCollection')}
                 title={t('filterCollection')}
