@@ -71,6 +71,10 @@ async function clearStores(db: IDBDatabase, storeNames: string[]) {
 function createSupabaseMock() {
   const collectionsUpsert = vi.fn().mockResolvedValue({ error: null });
   const itemsUpsert = vi.fn().mockResolvedValue({ error: null });
+  const itemImagesUpsert = vi.fn().mockResolvedValue({ error: null });
+  // Asset uploads check whether the item row has synced before recording
+  // item_images rows; default to "row exists" so happy paths record inline.
+  const itemsMaybeSingle = vi.fn().mockResolvedValue({ data: { id: 'exists' }, error: null });
   const upload = vi.fn().mockResolvedValue({ data: { path: 'ok' }, error: null });
   const update = vi.fn(() => {
     const chain: any = {};
@@ -79,11 +83,18 @@ function createSupabaseMock() {
   });
 
   const from = vi.fn((table: string) => {
+    const upsertForTable =
+      table === 'collections'
+        ? collectionsUpsert
+        : table === 'item_images'
+          ? itemImagesUpsert
+          : itemsUpsert;
     return {
-      upsert: table === 'collections' ? collectionsUpsert : itemsUpsert,
+      upsert: upsertForTable,
       update,
-      // present for completeness; not used directly by these tests
-      select: vi.fn().mockReturnThis(),
+      select: vi.fn(() => ({
+        eq: vi.fn(() => ({ maybeSingle: itemsMaybeSingle })),
+      })),
       or: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
       in: vi.fn().mockReturnThis(),
@@ -102,6 +113,8 @@ function createSupabaseMock() {
     },
     collectionsUpsert,
     itemsUpsert,
+    itemImagesUpsert,
+    itemsMaybeSingle,
     upload,
     from,
   };
@@ -380,6 +393,152 @@ describe('Phase 2.2 — services/db.ts dual-write operations', () => {
     const pendingAfterSync = await readFromStore<any[]>(db, 'settings', 'pending_asset_uploads');
     expect(pendingAfterSync).toEqual([]);
     expect(upload).toHaveBeenCalledTimes(2);
+  });
+
+  it('saveAsset: defers item_images rows for a brand-new item until its items row syncs (CUR-155)', async () => {
+    /**
+     * New items upload their photos before the `items` row syncs with the
+     * collection save. Upserting item_images at that point always fails with
+     * the DB trigger's "Invalid item_id" — instead the rows must be queued and
+     * recorded right after the collection sync lands the item row.
+     */
+    const { supabase, itemImagesUpsert, itemsMaybeSingle, upload } = createSupabaseMock();
+    // The items row has not synced yet.
+    itemsMaybeSingle.mockResolvedValue({ data: null, error: null });
+    const dbMod = await importDbModuleFreshWithSupabaseMock(supabase);
+
+    const db = await dbMod.initDB();
+    openDb = db;
+    await clearStores(db, ['collections', 'assets', 'display', 'settings']);
+
+    const original = new Blob(['orig'], { type: 'image/jpeg' });
+    const display = new Blob(['disp'], { type: 'image/jpeg' });
+
+    await expect(
+      dbMod.saveAsset('col-1', 'item-new-1', original, display),
+    ).resolves.toBeUndefined();
+
+    // Files are uploaded, but no item_images upsert is attempted (it would 400).
+    expect(upload).toHaveBeenCalledTimes(2);
+    expect(itemImagesUpsert).not.toHaveBeenCalled();
+
+    const queued = await readFromStore<any[]>(db, 'settings', 'pending_image_records');
+    expect(queued).toEqual([
+      expect.objectContaining({ collectionId: 'col-1', itemId: 'item-new-1', role: 'original' }),
+      expect.objectContaining({ collectionId: 'col-1', itemId: 'item-new-1', role: 'display' }),
+    ]);
+
+    // The collection save now syncs the items row; the deferred registry rows
+    // must be recorded in the same flow.
+    itemsMaybeSingle.mockResolvedValue({ data: { id: 'item-new-1' }, error: null });
+    const collection: UserCollection = {
+      id: 'col-1',
+      templateId: 'vinyl',
+      name: 'My Collection',
+      icon: '🎵',
+      customFields: [],
+      items: [
+        {
+          id: 'item-new-1',
+          collectionId: 'col-1',
+          photoUrl: 'asset',
+          title: 'New item',
+          rating: 0,
+          data: {},
+          createdAt: new Date('2024-01-01T00:00:00Z').toISOString(),
+          updatedAt: new Date('2024-01-01T00:00:00Z').toISOString(),
+          notes: '',
+        },
+      ],
+      ownerId: 'test-user-id',
+      updatedAt: new Date('2024-01-01T00:00:00Z').toISOString(),
+    };
+    await expect(dbMod.saveCollection(collection)).resolves.toBeUndefined();
+
+    expect(itemImagesUpsert).toHaveBeenCalledTimes(2);
+    const payloads = itemImagesUpsert.mock.calls.map((c) => c[0]);
+    expect(payloads).toEqual([
+      expect.objectContaining({
+        item_id: 'item-new-1',
+        role: 'original',
+        storage_path: 'test-user-id/collections/col-1/item-new-1/original.jpg',
+        is_current: true,
+      }),
+      expect.objectContaining({
+        item_id: 'item-new-1',
+        role: 'display',
+        storage_path: 'test-user-id/collections/col-1/item-new-1/display.jpg',
+        is_current: true,
+      }),
+    ]);
+
+    const drained = await readFromStore<any[]>(db, 'settings', 'pending_image_records');
+    expect(drained).toEqual([]);
+  });
+
+  it('syncPendingImageRecords: retries a transient item_images failure after backoff', async () => {
+    const { supabase, itemImagesUpsert } = createSupabaseMock();
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const dbMod = await importDbModuleFreshWithSupabaseMock(supabase);
+
+    const db = await dbMod.initDB();
+    openDb = db;
+    await clearStores(db, ['collections', 'assets', 'display', 'settings']);
+
+    const original = new Blob(['orig'], { type: 'image/jpeg' });
+    const display = new Blob(['disp'], { type: 'image/jpeg' });
+
+    // Item row exists (mock default), but the first registry upsert fails.
+    itemImagesUpsert.mockResolvedValueOnce({ error: { message: 'transient' } });
+    await dbMod.saveAsset('col-1', 'item-retry-1', original, display);
+
+    const queued = await readFromStore<any[]>(db, 'settings', 'pending_image_records');
+    expect(queued).toEqual([
+      expect.objectContaining({
+        itemId: 'item-retry-1',
+        role: 'original',
+        attemptCount: 0,
+      }),
+    ]);
+
+    // A fresh queue entry is immediately due; the flush retries and succeeds.
+    itemImagesUpsert.mockClear();
+    await expect(dbMod.syncPendingImageRecords()).resolves.toBe(1);
+    expect(itemImagesUpsert).toHaveBeenCalledTimes(1);
+
+    const drained = await readFromStore<any[]>(db, 'settings', 'pending_image_records');
+    expect(drained).toEqual([]);
+
+    consoleWarn.mockRestore();
+  });
+
+  it('syncPendingImageRecords: drops queued rows for items deleted before the registry synced', async () => {
+    const { supabase, itemImagesUpsert, itemsMaybeSingle, upload } = createSupabaseMock();
+    itemsMaybeSingle.mockResolvedValue({ data: null, error: null });
+    // deleteAsset's cloud cleanup exercises chains this mock does not model.
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const dbMod = await importDbModuleFreshWithSupabaseMock(supabase);
+
+    const db = await dbMod.initDB();
+    openDb = db;
+    await clearStores(db, ['collections', 'assets', 'display', 'settings']);
+
+    const original = new Blob(['orig'], { type: 'image/jpeg' });
+    const display = new Blob(['disp'], { type: 'image/jpeg' });
+    await dbMod.saveAsset('col-1', 'item-deleted-1', original, display);
+    expect(upload).toHaveBeenCalledTimes(2);
+
+    // The user deletes the item before its rows are recorded.
+    await dbMod.deleteAsset('col-1', 'item-deleted-1');
+
+    itemsMaybeSingle.mockResolvedValue({ data: { id: 'item-deleted-1' }, error: null });
+    await expect(dbMod.syncPendingImageRecords()).resolves.toBe(0);
+
+    expect(itemImagesUpsert).not.toHaveBeenCalled();
+    const drained = await readFromStore<any[]>(db, 'settings', 'pending_image_records');
+    expect(drained).toEqual([]);
+
+    consoleWarn.mockRestore();
   });
 
   it.todo('exports saveItem(item, session) as a function (roadmap API - not yet implemented)');
