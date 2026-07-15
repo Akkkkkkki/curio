@@ -395,6 +395,43 @@ describe('Phase 2.2 — services/db.ts dual-write operations', () => {
     expect(upload).toHaveBeenCalledTimes(2);
   });
 
+  it('syncPendingAssetUploads: repeated failures surface as stalled and force retry bypasses backoff (#149)', async () => {
+    const { supabase, upload } = createSupabaseMock();
+    upload.mockResolvedValue({ data: null, error: new Error('Upload failed') });
+    const dbMod = await importDbModuleFreshWithSupabaseMock(supabase);
+
+    const db = await dbMod.initDB();
+    openDb = db;
+    await clearStores(db, ['collections', 'assets', 'display', 'settings']);
+
+    const original = new Blob(['orig'], { type: 'image/jpeg' });
+    const display = new Blob(['disp'], { type: 'image/jpeg' });
+
+    // Attempt 1 fails during save and queues the upload with a backoff window.
+    await expect(
+      dbMod.saveAsset('col-1', 'item-asset-stalled', original, display),
+    ).resolves.toBeUndefined();
+    await expect(dbMod.getPendingAssetUploadSummary()).resolves.toEqual({ total: 1, stalled: 0 });
+
+    // A scheduled pass respects the backoff window and attempts nothing.
+    upload.mockClear();
+    await expect(dbMod.syncPendingAssetUploads()).resolves.toBe(0);
+    expect(upload).not.toHaveBeenCalled();
+
+    // A user-initiated retry runs immediately; attempts 2 and 3 fail too.
+    await expect(dbMod.syncPendingAssetUploads({ force: true })).resolves.toBe(0);
+    expect(upload).toHaveBeenCalled();
+    await expect(dbMod.syncPendingAssetUploads({ force: true })).resolves.toBe(0);
+
+    // Three consecutive failures cross the stalled threshold.
+    await expect(dbMod.getPendingAssetUploadSummary()).resolves.toEqual({ total: 1, stalled: 1 });
+
+    // A later forced retry that succeeds clears the queue and the stalled state.
+    upload.mockResolvedValue({ data: { path: 'ok' }, error: null });
+    await expect(dbMod.syncPendingAssetUploads({ force: true })).resolves.toBe(1);
+    await expect(dbMod.getPendingAssetUploadSummary()).resolves.toEqual({ total: 0, stalled: 0 });
+  });
+
   it('saveAsset: defers item_images rows for a brand-new item until its items row syncs (CUR-155)', async () => {
     /**
      * New items upload their photos before the `items` row syncs with the

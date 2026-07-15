@@ -162,6 +162,9 @@ type PendingImageRecord = {
 
 const ASSET_UPLOAD_BACKOFF_BASE_MS = 30_000;
 const ASSET_UPLOAD_BACKOFF_MAX_MS = 10 * 60_000;
+// After this many consecutive failures an upload is surfaced to the UI as
+// failing rather than merely pending. Retries still continue in the background.
+const ASSET_UPLOAD_STALLED_ATTEMPTS = 3;
 
 // Exported for testing
 export const compareTimestamps = (a?: string, b?: string) => {
@@ -541,9 +544,19 @@ const getPendingAssetUploads = async (): Promise<PendingAssetUpload[]> => {
   });
 };
 
-export const getPendingAssetUploadCount = async (): Promise<number> => {
+export type PendingAssetUploadSummary = {
+  total: number;
+  /** Uploads that have failed ASSET_UPLOAD_STALLED_ATTEMPTS or more times in a row. */
+  stalled: number;
+};
+
+export const getPendingAssetUploadSummary = async (): Promise<PendingAssetUploadSummary> => {
   const pending = await getPendingAssetUploads();
-  return pending.length;
+  return {
+    total: pending.length,
+    stalled: pending.filter((entry) => (entry.attemptCount ?? 0) >= ASSET_UPLOAD_STALLED_ATTEMPTS)
+      .length,
+  };
 };
 
 const addToPendingAssetUploads = async (collectionId: string, itemId: string): Promise<void> => {
@@ -950,7 +963,7 @@ export const syncPendingImageRecords = async (): Promise<number> => {
   return recorded;
 };
 
-export const syncPendingAssetUploads = async (): Promise<number> => {
+export const syncPendingAssetUploads = async (options?: { force?: boolean }): Promise<number> => {
   return withSyncLock(async () => {
     if (!isSupabaseConfigured() || !supabase) return 0;
     // Registry rows deferred while their item row was in flight can usually be
@@ -960,11 +973,14 @@ export const syncPendingAssetUploads = async (): Promise<number> => {
     if (pendingUploads.length === 0) return 0;
 
     const now = Date.now();
-    const dueUploads = pendingUploads.filter((entry) => {
-      if (!entry.nextRetryAt) return true;
-      const retryAt = new Date(entry.nextRetryAt).getTime();
-      return Number.isNaN(retryAt) || retryAt <= now;
-    });
+    // A user-initiated retry skips the backoff window; scheduled passes respect it.
+    const dueUploads = options?.force
+      ? pendingUploads
+      : pendingUploads.filter((entry) => {
+          if (!entry.nextRetryAt) return true;
+          const retryAt = new Date(entry.nextRetryAt).getTime();
+          return Number.isNaN(retryAt) || retryAt <= now;
+        });
     if (dueUploads.length === 0) {
       return 0;
     }

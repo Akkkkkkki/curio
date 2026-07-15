@@ -69,7 +69,7 @@ vi.mock('@/components/AddItemModal', async () => {
 vi.mock('@/services/db', () => ({
   getLocalCollections: vi.fn(),
   fetchCloudCollections: vi.fn(),
-  getPendingAssetUploadCount: vi.fn(),
+  getPendingAssetUploadSummary: vi.fn(),
   getPendingDeletes: vi.fn(),
   getPendingSyncIds: vi.fn(),
   hasLocalOnlyData: vi.fn(),
@@ -192,7 +192,7 @@ describe('App read-only save handling', () => {
     vi.mocked(db.getPendingSyncIds).mockResolvedValue([]);
     vi.mocked(db.getPendingDeletes).mockResolvedValue([]);
     vi.mocked(db.hasLocalOnlyData).mockReturnValue(false);
-    vi.mocked(db.getPendingAssetUploadCount).mockResolvedValue(0);
+    vi.mocked(db.getPendingAssetUploadSummary).mockResolvedValue({ total: 0, stalled: 0 });
     vi.mocked(db.syncPendingChanges).mockResolvedValue(0);
     vi.mocked(db.syncPendingAssetUploads).mockResolvedValue(0);
     vi.mocked(db.syncPendingDeletes).mockResolvedValue(0);

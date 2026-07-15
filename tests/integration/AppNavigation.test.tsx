@@ -11,7 +11,7 @@ import * as supabaseService from '@/services/supabase';
 vi.mock('@/services/db', () => ({
   getLocalCollections: vi.fn(),
   fetchCloudCollections: vi.fn(),
-  getPendingAssetUploadCount: vi.fn(),
+  getPendingAssetUploadSummary: vi.fn(),
   getPendingDeletes: vi.fn(),
   getPendingSyncIds: vi.fn(),
   hasLocalOnlyData: vi.fn(),
@@ -154,7 +154,7 @@ describe('App Integration Tests', () => {
     vi.mocked(db.mergeCollections).mockImplementation((local, cloud) =>
       cloud.length ? cloud : local,
     );
-    vi.mocked(db.getPendingAssetUploadCount).mockResolvedValue(0);
+    vi.mocked(db.getPendingAssetUploadSummary).mockResolvedValue({ total: 0, stalled: 0 });
     vi.mocked(db.syncPendingChanges).mockResolvedValue(0);
     vi.mocked(db.syncPendingAssetUploads).mockResolvedValue(0);
     vi.mocked(db.syncPendingDeletes).mockResolvedValue(0);
@@ -316,6 +316,58 @@ describe('App Integration Tests', () => {
     await waitFor(() => {
       expect(db.syncPendingDeletes).toHaveBeenCalled();
     });
+  });
+
+  // #149: photo uploads that keep failing must escalate from the calm
+  // "pending" notice to an explicit error state — an eternal "will retry"
+  // is fake certainty about photos that are not backed up.
+  it('escalates the pending-uploads banner to an error once uploads have repeatedly failed (#149)', async () => {
+    const { ThemeProvider } = await import('@/theme');
+    vi.mocked(db.getPendingAssetUploadSummary).mockResolvedValue({ total: 3, stalled: 2 });
+
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('2 photo(s) could not be backed up')).toBeInTheDocument();
+    });
+    expect(screen.getByText(/photos are safe on this device/i)).toBeInTheDocument();
+    // The stalled state outranks the calm pending copy.
+    expect(screen.queryByText('3 upload(s) pending')).not.toBeInTheDocument();
+
+    // The banner's Retry must force an immediate attempt — stalled entries
+    // sit behind a backoff window that a scheduled pass would skip.
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    await waitFor(() => {
+      expect(db.syncPendingAssetUploads).toHaveBeenCalledWith({ force: true });
+    });
+  });
+
+  it('keeps the calm pending-uploads notice while uploads are only queued (#149)', async () => {
+    const { ThemeProvider } = await import('@/theme');
+    vi.mocked(db.getPendingAssetUploadSummary).mockResolvedValue({ total: 2, stalled: 0 });
+
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('2 upload(s) pending')).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/could not be backed up/)).not.toBeInTheDocument();
   });
 
   it('shows the first-run Home with a sample path instead of a dead-end gate when cloud is not configured', async () => {

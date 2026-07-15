@@ -249,6 +249,9 @@ export const translations = {
     statusSaved: 'Saved',
     pendingUploadsTitle: '{count} upload(s) pending',
     pendingUploadsDesc: 'Photos will sync automatically when you are back online.',
+    pendingUploadsErrorTitle: '{count} photo(s) could not be backed up',
+    pendingUploadsErrorDesc:
+      'Your photos are safe on this device. We will keep retrying, or you can retry now.',
     statusSynced: 'Saved & backed up',
     itemSaveStatusSaving: 'Saving…',
     itemSaveStatusSaved: 'Saved & backed up',
@@ -771,6 +774,8 @@ export const translations = {
     statusSaved: '已保存',
     pendingUploadsTitle: '{count} 个上传待处理',
     pendingUploadsDesc: '照片会在网络恢复后自动同步。',
+    pendingUploadsErrorTitle: '{count} 张照片尚未备份成功',
+    pendingUploadsErrorDesc: '照片已安全保存在本设备上。我们会继续重试，你也可以立即重试。',
     statusSynced: '已保存并备份',
     itemSaveStatusSaving: '保存中…',
     itemSaveStatusSaved: '已保存并备份',
