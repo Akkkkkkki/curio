@@ -19,7 +19,7 @@ import * as supabaseService from '@/services/supabase';
 vi.mock('@/services/db', () => ({
   getLocalCollections: vi.fn(),
   fetchCloudCollections: vi.fn(),
-  getPendingAssetUploadCount: vi.fn(),
+  getPendingAssetUploadSummary: vi.fn(),
   getPendingDeletes: vi.fn(),
   getPendingSyncIds: vi.fn(),
   hasLocalOnlyData: vi.fn(),
@@ -160,7 +160,7 @@ describe('Typing stability across app re-renders (CUR-149)', () => {
     vi.mocked(db.mergeCollections).mockImplementation((local, cloud) =>
       cloud.length ? cloud : local,
     );
-    vi.mocked(db.getPendingAssetUploadCount).mockResolvedValue(0);
+    vi.mocked(db.getPendingAssetUploadSummary).mockResolvedValue({ total: 0, stalled: 0 });
     vi.mocked(db.syncPendingChanges).mockResolvedValue(0);
     vi.mocked(db.syncPendingAssetUploads).mockResolvedValue(0);
     vi.mocked(db.syncPendingDeletes).mockResolvedValue(0);

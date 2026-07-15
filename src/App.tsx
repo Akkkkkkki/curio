@@ -27,7 +27,7 @@ import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import {
   fetchCloudCollections,
   getLocalCollections,
-  getPendingAssetUploadCount,
+  getPendingAssetUploadSummary,
   getPendingDeletes,
   getPendingSyncIds,
   hasLocalOnlyData,
@@ -49,6 +49,7 @@ import {
   syncPendingChanges,
   syncPendingAssetUploads,
   syncPendingDeletes,
+  type PendingAssetUploadSummary,
   type SyncStatus,
 } from './services/db';
 import { processImage } from './services/imageProcessor';
@@ -124,7 +125,10 @@ export const AppContent: React.FC = () => {
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
   const [syncError, setSyncError] = useState<string | null>(null);
   const [itemSaveStates, setItemSaveStates] = useState<Record<string, ItemSaveState>>({});
-  const [pendingAssetUploads, setPendingAssetUploads] = useState(0);
+  const [pendingAssetUploads, setPendingAssetUploads] = useState<PendingAssetUploadSummary>({
+    total: 0,
+    stalled: 0,
+  });
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [conflicts, setConflicts] = useState<ReturnType<typeof detectConflicts>>([]);
   const [isConflictModalOpen, setIsConflictModalOpen] = useState(false);
@@ -187,8 +191,8 @@ export const AppContent: React.FC = () => {
 
   const refreshPendingAssetUploads = useCallback(async () => {
     try {
-      const count = await getPendingAssetUploadCount();
-      setPendingAssetUploads(count);
+      const summary = await getPendingAssetUploadSummary();
+      setPendingAssetUploads(summary);
     } catch (error) {
       console.warn('Pending upload count check failed:', error);
     }
@@ -236,7 +240,7 @@ export const AppContent: React.FC = () => {
   const handleRetrySync = useCallback(async () => {
     try {
       const synced = await syncPendingChanges({ force: true });
-      const assetsSynced = await syncPendingAssetUploads();
+      const assetsSynced = await syncPendingAssetUploads({ force: true });
       const deletesSynced = await syncPendingDeletes();
       void refreshPendingAssetUploads();
       const dataSynced = synced + deletesSynced;
@@ -1335,11 +1339,22 @@ export const AppContent: React.FC = () => {
     if (isOffline || syncStatus === 'offline') {
       return <StatusBanner title={t('offlineTitle')} message={t('offlineDesc')} tone="warning" />;
     }
-    if (pendingAssetUploads > 0) {
+    if (pendingAssetUploads.stalled > 0) {
       return (
         <StatusBanner
-          title={t('pendingUploadsTitle', { count: pendingAssetUploads })}
-          message={t('pendingUploadsDesc', { count: pendingAssetUploads })}
+          title={t('pendingUploadsErrorTitle', { count: pendingAssetUploads.stalled })}
+          message={t('pendingUploadsErrorDesc')}
+          tone="error"
+          actionLabel={t('actionRetry')}
+          onAction={handleRetrySync}
+        />
+      );
+    }
+    if (pendingAssetUploads.total > 0) {
+      return (
+        <StatusBanner
+          title={t('pendingUploadsTitle', { count: pendingAssetUploads.total })}
+          message={t('pendingUploadsDesc', { count: pendingAssetUploads.total })}
           tone="warning"
           actionLabel={t('actionRetry')}
           onAction={handleRetrySync}
