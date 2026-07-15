@@ -6,13 +6,13 @@ import { describe, expect, it } from 'vitest';
 // destroyed by a binary-as-UTF-8 round trip (every byte ≥ 0x80 replaced with
 // the EF BF BD replacement character), so every Public Sample Gallery card
 // rendered "IMAGE ERROR" pre-login. Guard every committed binary image under
-// public/ by checking it starts with a real image signature, so a
-// text-mangled binary cannot ship again.
+// public/ by checking it starts with the image signature its extension
+// promises, so a text-mangled or mislabeled binary cannot ship again.
 //
-// Note: the check accepts any known signature rather than the one implied by
-// the file extension because the committed icon .webp files are actually
-// PNGs (mislabeled but decodable — browsers content-sniff). Corruption, not
-// naming, is what this guard is for.
+// Regression: CUR-148 — the icon .webp files were actually PNGs with a .webp
+// extension (browsers content-sniffed them into working). Those files are
+// gone; the signature check is now strict about extension/format agreement
+// so a mislabeled binary cannot come back.
 
 const REPO_ROOT = resolve(__dirname, '../..');
 const PUBLIC_DIR = resolve(REPO_ROOT, 'public');
@@ -29,13 +29,21 @@ const IMAGE_SIGNATURES: Record<string, Buffer> = {
   ico: Buffer.from([0x00, 0x00, 0x01, 0x00]),
 };
 
-const BINARY_IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.ico']);
+const EXTENSION_TO_SIGNATURE: Record<string, Buffer> = {
+  '.jpg': IMAGE_SIGNATURES.jpeg,
+  '.jpeg': IMAGE_SIGNATURES.jpeg,
+  '.png': IMAGE_SIGNATURES.png,
+  '.gif': IMAGE_SIGNATURES.gif,
+  '.webp': IMAGE_SIGNATURES.webp,
+  '.ico': IMAGE_SIGNATURES.ico,
+};
 
-const startsWithKnownSignature = (filePath: string) => {
-  const head = readFileSync(filePath).subarray(0, 8);
-  return Object.values(IMAGE_SIGNATURES).some((signature) =>
-    head.subarray(0, signature.length).equals(signature),
-  );
+const BINARY_IMAGE_EXTENSIONS = new Set(Object.keys(EXTENSION_TO_SIGNATURE));
+
+const matchesExtensionSignature = (filePath: string) => {
+  const signature = EXTENSION_TO_SIGNATURE[extname(filePath).toLowerCase()];
+  const head = readFileSync(filePath).subarray(0, signature.length);
+  return head.equals(signature);
 };
 
 const listFilesRecursively = (dir: string): string[] =>
@@ -54,9 +62,9 @@ describe('public/ binary image integrity (CUR-141)', () => {
   });
 
   it.each(binaryImages.map((filePath) => [relative(REPO_ROOT, filePath), filePath]))(
-    '%s starts with a real image signature',
+    '%s starts with the image signature its extension promises',
     (_label, filePath) => {
-      expect(startsWithKnownSignature(filePath)).toBe(true);
+      expect(matchesExtensionSignature(filePath)).toBe(true);
     },
   );
 
