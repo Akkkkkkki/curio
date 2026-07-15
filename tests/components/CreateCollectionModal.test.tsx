@@ -99,6 +99,36 @@ describe('CreateCollectionModal', () => {
       expect(screen.getByTestId('suggested-field-3')).toHaveTextContent('Genre');
     });
 
+    it('clears a selected preset when the same card is tapped again', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(<CreateCollectionModal {...defaultProps} />);
+
+      const vinylCard = screen.getByTestId('collection-preset-vinyl');
+      await user.click(vinylCard);
+      expect(vinylCard).toHaveAttribute('aria-pressed', 'true');
+      expect(screen.getByTestId('collection-continue-btn')).toBeEnabled();
+
+      await user.click(vinylCard);
+      expect(vinylCard).toHaveAttribute('aria-pressed', 'false');
+      // With no preset and no description, Continue is disabled again.
+      expect(screen.getByTestId('collection-continue-btn')).toBeDisabled();
+    });
+
+    it('follows the free-text suggestion flow after deselecting a preset', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(<CreateCollectionModal {...defaultProps} />);
+
+      await user.type(screen.getByTestId('collection-description-input'), 'fountain pens');
+      const vinylCard = screen.getByTestId('collection-preset-vinyl');
+      await user.click(vinylCard);
+      await user.click(vinylCard);
+      await user.click(screen.getByTestId('collection-continue-btn'));
+
+      // Free-text path shows the suggestion loading state, not the template fields.
+      expect(screen.getByTestId('collection-loading-spinner')).toBeInTheDocument();
+      expect(screen.queryByText('Artist')).not.toBeInTheDocument();
+    });
+
     it('creates the collection and launches Add Item for the new collection', async () => {
       const user = userEvent.setup();
       renderWithProviders(<CreateCollectionModal {...defaultProps} />);
