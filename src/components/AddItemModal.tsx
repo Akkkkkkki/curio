@@ -1315,9 +1315,13 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
           </p>
         )}
         {/* Wrapper stays mounted so the live region exists before the notice
-            lands and screen readers announce it. */}
+            lands and screen readers announce it. Single-item analysis only:
+            the notice promises the manual path, and during a batch run
+            switchToManual is a dead-end (loadBatch keeps going and forces
+            batch-verify when it lands). Batch already shows its own per-item
+            progress line above. */}
         <div role="status">
-          {analysisSlow && (
+          {analysisSlow && !batchProgress && (
             <p
               data-testid="analysis-slow-notice"
               className={`text-xs sm:text-sm mt-3 ${mutedText}`}

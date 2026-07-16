@@ -719,11 +719,12 @@ describe('AddItemModal', () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-      const file = new File(['a'], 'a.png', { type: 'image/png' });
-      const input = screen.getByTestId('add-item-batch-input') as HTMLInputElement;
-      await user.upload(input, file);
+      // Single-photo path (Camera.getPhoto → analyze) — the notice is gated
+      // to it because batch analyzing has no working manual escape.
+      mockGetPhoto.mockResolvedValue({ dataUrl: 'data:image/png;base64,ZmFrZQ==' });
+      await user.click(screen.getAllByRole('button', { name: 'Upload Photo' })[0]);
 
-      screen.getByRole('heading', { name: 'Analyzing photo...' });
+      await screen.findByRole('heading', { name: 'Analyzing photo...' });
       expect(screen.queryByTestId('analysis-slow-notice')).not.toBeInTheDocument();
 
       act(() => {
@@ -743,6 +744,41 @@ describe('AddItemModal', () => {
       await waitFor(() => {
         expect(screen.queryByTestId('analysis-slow-notice')).not.toBeInTheDocument();
       });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('keeps the slow-analysis notice out of batch analyzing, which has no manual escape (#73)', async () => {
+    mockRefreshAiEnabled.mockResolvedValue(true);
+    mockAnalyzeImage.mockReturnValue(new Promise<never>(() => {}));
+
+    const collection = createMockCollection({ name: 'Artifacts', customFields: [] });
+    renderWithProviders(
+      <AddItemModal isOpen onClose={mockOnClose} collections={[collection]} onSave={mockOnSave} />,
+    );
+
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      const files = [
+        new File(['a'], 'a.png', { type: 'image/png' }),
+        new File(['b'], 'b.png', { type: 'image/png' }),
+      ];
+      const input = screen.getByTestId('add-item-batch-input') as HTMLInputElement;
+      await user.upload(input, files);
+
+      await screen.findByRole('heading', { name: 'Analyzing photo...' });
+      // Batch has its own honest progress line…
+      await screen.findByText('Analyzing 1 of 2');
+
+      act(() => {
+        vi.advanceTimersByTime(10_000);
+      });
+      // …but must not show the notice: its "enter the details yourself"
+      // promise is a dead-end while loadBatch is still running (it forces
+      // batch-verify when it resolves).
+      expect(screen.queryByTestId('analysis-slow-notice')).not.toBeInTheDocument();
     } finally {
       vi.useRealTimers();
     }
