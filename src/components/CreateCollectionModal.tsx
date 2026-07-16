@@ -5,6 +5,7 @@ import { Button } from './ui/Button';
 import { useTranslation } from '../i18n';
 import { useTheme, panelSurfaceClasses, overlaySurfaceClasses, mutedTextClasses } from '../theme';
 import { suggestCollectionFields } from '../services/geminiService';
+import { useModalA11y } from '../hooks/useModalA11y';
 import {
   FIELD_LABEL_MAX_LENGTH,
   FIELD_MAX_COUNT,
@@ -85,6 +86,8 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
   const suggestRunRef = useRef(0);
   const iconPickerRef = useRef<HTMLDivElement | null>(null);
   const iconButtonRef = useRef<HTMLButtonElement | null>(null);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const descriptionInputRef = useRef<HTMLInputElement | null>(null);
 
   const selectedTemplate = useMemo(
     () => (selectedTemplateId ? TEMPLATES.find((temp) => temp.id === selectedTemplateId) : null),
@@ -152,6 +155,20 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
     resetState();
     onClose();
   };
+
+  // The icon picker owns Escape while open, so the first Escape collapses it
+  // and only the next one dismisses the modal.
+  const handleDismissRequest = () => {
+    if (isIconPickerOpen) {
+      setIsIconPickerOpen(false);
+      return;
+    }
+    handleClose();
+  };
+
+  useModalA11y(dialogRef, isOpen, handleDismissRequest, {
+    initialFocusRef: descriptionInputRef,
+  });
 
   const handleTemplateSelect = (templateId: string) => {
     // Tapping the already-selected preset clears it, returning the user to
@@ -368,16 +385,9 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
       }
       setIsIconPickerOpen(false);
     };
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setIsIconPickerOpen(false);
-      }
-    };
     document.addEventListener('mousedown', handlePointerDown);
-    document.addEventListener('keydown', handleKeyDown);
     return () => {
       document.removeEventListener('mousedown', handlePointerDown);
-      document.removeEventListener('keydown', handleKeyDown);
     };
   }, [isIconPickerOpen]);
 
@@ -387,21 +397,6 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
       setIsIconPickerOpen(false);
     }
   }, [step, isIconPickerOpen]);
-
-  // The icon-picker effect above owns Escape while the picker is open, so this
-  // top-level handler stays unregistered in that state to preserve picker-only dismissal.
-  useEffect(() => {
-    if (!isOpen) return;
-    if (isIconPickerOpen) return;
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return;
-      event.preventDefault();
-      handleClose();
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, isIconPickerOpen]);
 
   if (!isOpen) return null;
 
@@ -414,6 +409,7 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
           {t('collectionPrompt')}
         </label>
         <input
+          ref={descriptionInputRef}
           type="text"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
@@ -421,7 +417,6 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
           maxLength={DESCRIPTION_MAX_LENGTH}
           data-testid="collection-description-input"
           className={`w-full p-3.5 rounded-xl focus:ring-2 focus:ring-amber-200 outline-none font-medium ${inputSurface}`}
-          autoFocus
         />
       </div>
 
@@ -861,6 +856,7 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
       className={`fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 ${overlayClass} backdrop-blur-sm`}
     >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="create-collection-title"

@@ -73,6 +73,48 @@ describe('CreateCollectionModal', () => {
     });
   });
 
+  // #79: modal a11y baseline — focus is trapped inside the dialog and
+  // restored to the trigger on close, matching the other modals.
+  describe('focus management (#79)', () => {
+    it('moves initial focus to the collector prompt input', async () => {
+      renderWithProviders(<CreateCollectionModal {...defaultProps} />);
+
+      await waitFor(() => {
+        expect(document.activeElement).toBe(screen.getByTestId('collection-description-input'));
+      });
+    });
+
+    it('wraps Tab from the last control back to the first instead of escaping the dialog', async () => {
+      renderWithProviders(<CreateCollectionModal {...defaultProps} />);
+
+      // Continue starts disabled on a fresh entry step, so Cancel is the last
+      // focusable control.
+      const cancelButton = screen.getByRole('button', { name: 'Cancel' });
+      cancelButton.focus();
+
+      fireEvent.keyDown(document, { key: 'Tab' });
+
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Close' }));
+    });
+
+    it('restores focus to the previously focused element when the modal closes', async () => {
+      const trigger = document.createElement('button');
+      document.body.appendChild(trigger);
+      trigger.focus();
+
+      const { rerender } = renderWithProviders(<CreateCollectionModal {...defaultProps} />);
+
+      await waitFor(() => {
+        expect(document.activeElement).not.toBe(trigger);
+      });
+
+      rerender(<CreateCollectionModal {...defaultProps} isOpen={false} />);
+
+      expect(document.activeElement).toBe(trigger);
+      trigger.remove();
+    });
+  });
+
   describe('CUR-126 collection setup flow', () => {
     it('starts with the collector prompt and preset shelf instead of field rows', () => {
       renderWithProviders(<CreateCollectionModal {...defaultProps} />);
