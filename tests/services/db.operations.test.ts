@@ -58,6 +58,21 @@ async function readFromStore<T>(
   });
 }
 
+async function writeToStore(
+  db: IDBDatabase,
+  storeName: string,
+  key: IDBValidKey,
+  value: unknown,
+): Promise<void> {
+  return await new Promise((resolve) => {
+    const tx = db.transaction(storeName, 'readwrite');
+    tx.objectStore(storeName).put(value, key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => resolve();
+    tx.onabort = () => resolve();
+  });
+}
+
 async function clearStores(db: IDBDatabase, storeNames: string[]) {
   return await new Promise<void>((resolve) => {
     const tx = db.transaction(storeNames, 'readwrite');
@@ -547,6 +562,64 @@ describe('Phase 2.2 — services/db.ts dual-write operations', () => {
     expect(drained).toEqual([]);
 
     consoleWarn.mockRestore();
+  });
+
+  it('syncPendingImageRecords: ignores malformed persisted queue values', async () => {
+    const { supabase, itemImagesUpsert } = createSupabaseMock();
+    const dbMod = await importDbModuleFreshWithSupabaseMock(supabase);
+
+    const db = await dbMod.initDB();
+    openDb = db;
+    await clearStores(db, ['collections', 'assets', 'display', 'settings']);
+    await writeToStore(db, 'settings', 'pending_image_records', { stale: true });
+
+    await expect(dbMod.syncPendingImageRecords()).resolves.toBe(0);
+
+    expect(itemImagesUpsert).not.toHaveBeenCalled();
+    await expect(readFromStore(db, 'settings', 'pending_image_records')).resolves.toEqual([]);
+  });
+
+  it('syncPendingImageRecords: drops malformed queued rows while syncing valid rows', async () => {
+    const { supabase, itemImagesUpsert } = createSupabaseMock();
+    const dbMod = await importDbModuleFreshWithSupabaseMock(supabase);
+
+    const db = await dbMod.initDB();
+    openDb = db;
+    await clearStores(db, ['collections', 'assets', 'display', 'settings']);
+    await writeToStore(db, 'display', 'item-valid-1', new Blob(['disp'], { type: 'image/jpeg' }));
+    await writeToStore(db, 'settings', 'pending_image_records', [
+      null,
+      {
+        collectionId: 'col-1',
+        itemId: 'item-invalid-role',
+        role: 'avatar',
+        storagePath: 'bad.jpg',
+      },
+      { collectionId: 'col-1', itemId: 'item-missing-path', role: 'display' },
+      {
+        collectionId: 'col-1',
+        itemId: 'item-valid-1',
+        role: 'display',
+        storagePath: 'test-user-id/collections/col-1/item-valid-1/display.jpg',
+        createdAt: new Date('2024-01-01T00:00:00Z').toISOString(),
+        attemptCount: 2,
+        lastError: 'previous failure',
+        nextRetryAt: new Date(Date.now() - 1000).toISOString(),
+      },
+    ]);
+
+    await expect(dbMod.syncPendingImageRecords()).resolves.toBe(1);
+
+    expect(itemImagesUpsert).toHaveBeenCalledTimes(1);
+    expect(itemImagesUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        item_id: 'item-valid-1',
+        role: 'display',
+        storage_path: 'test-user-id/collections/col-1/item-valid-1/display.jpg',
+        is_current: true,
+      }),
+    );
+    await expect(readFromStore(db, 'settings', 'pending_image_records')).resolves.toEqual([]);
   });
 
   it('syncPendingImageRecords: drops queued rows for items deleted before the registry synced', async () => {
