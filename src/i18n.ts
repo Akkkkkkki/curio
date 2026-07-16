@@ -108,6 +108,8 @@ export const translations = {
     keepEditing: 'Keep editing',
     analyzingPhoto: 'Analyzing photo...',
     geminiExtracting: 'Gemini is extracting details for your collection.',
+    analysisTakingLong:
+      'Taking longer than usual. You can skip the wait and enter the details yourself.',
     takePhoto: 'Take Photo',
     uploadPhoto: 'Upload Photo',
     changePhoto: 'Change Photo',
@@ -633,6 +635,7 @@ export const translations = {
     keepEditing: '继续编辑',
     analyzingPhoto: '正在分析照片...',
     geminiExtracting: 'Gemini 正在为您提取馆藏细节。',
+    analysisTakingLong: '比平时慢一些。您可以跳过等待，改为手动填写。',
     takePhoto: '拍摄照片',
     uploadPhoto: '上传照片',
     changePhoto: '更换照片',

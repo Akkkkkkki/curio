@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
-import { screen, waitFor, fireEvent } from '@testing-library/react';
+import { act, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders, setMockTheme } from '../utils/test-utils';
 import { AddItemModal } from '@/components/AddItemModal';
@@ -696,6 +696,56 @@ describe('AddItemModal', () => {
     const pill = sparklesIcon?.parentElement;
     expect(pill?.className).not.toContain('bg-white');
     expect(pill?.className).not.toContain('border-stone-100');
+  });
+
+  it('surfaces a calm slow-analysis notice after 10s while keeping the manual path (#73)', async () => {
+    mockRefreshAiEnabled.mockResolvedValue(true);
+    let resolveAnalysis: (value: unknown) => void = () => {};
+    mockAnalyzeImage.mockReturnValue(
+      new Promise((resolve) => {
+        resolveAnalysis = resolve;
+      }),
+    );
+
+    const collection = createMockCollection({ name: 'Artifacts', customFields: [] });
+    renderWithProviders(
+      <AddItemModal isOpen onClose={mockOnClose} collections={[collection]} onSave={mockOnSave} />,
+    );
+
+    // Fake timers must be active before the analyzing step mounts, or the
+    // notice timeout is scheduled on the real clock and can't be advanced.
+    // shouldAdvanceTime keeps userEvent's internal micro-delays flowing so
+    // the upload interaction doesn't dead-lock on the mocked clock.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      const file = new File(['a'], 'a.png', { type: 'image/png' });
+      const input = screen.getByTestId('add-item-batch-input') as HTMLInputElement;
+      await user.upload(input, file);
+
+      screen.getByRole('heading', { name: 'Analyzing photo...' });
+      expect(screen.queryByTestId('analysis-slow-notice')).not.toBeInTheDocument();
+
+      act(() => {
+        vi.advanceTimersByTime(10_000);
+      });
+      const notice = screen.getByTestId('analysis-slow-notice');
+      expect(notice).toHaveTextContent(
+        'Taking longer than usual. You can skip the wait and enter the details yourself.',
+      );
+      // Announced politely for screen readers, with the escape hatch intact.
+      expect(notice.parentElement).toHaveAttribute('role', 'status');
+      expect(screen.getByRole('button', { name: 'Enter manually' })).toBeInTheDocument();
+
+      // A late result still lands, and the notice leaves with the step.
+      vi.useRealTimers();
+      resolveAnalysis({ status: 'success', title: 'Late Artifact', data: {} });
+      await waitFor(() => {
+        expect(screen.queryByTestId('analysis-slow-notice')).not.toBeInTheDocument();
+      });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('fades the verify-step scroll edge while fields remain below the fold (CUR-45)', async () => {
