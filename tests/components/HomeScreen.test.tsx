@@ -90,6 +90,7 @@ describe('HomeScreen', () => {
       totalCollections: 2,
       featured: mockCollections[0].items[0],
       historyItems: [],
+      historyMatchType: 'anniversary' as const,
     },
     isLoading: false,
     loadError: null,
@@ -404,6 +405,47 @@ describe('HomeScreen', () => {
       expect(within(list()).getByText('Fifth memory')).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /See all/i })).not.toBeInTheDocument();
       expect(screen.queryByText(/And \d+ more/)).not.toBeInTheDocument();
+    });
+
+    it('shows the anniversary header and year badges for true prior-year matches', () => {
+      const historyItems = [makeHistoryItem('h1', 'Remembered ticket', 2020)];
+      renderWithProviders(
+        <HomeScreen
+          {...defaultProps}
+          stats={{ ...defaultProps.stats, historyItems, historyMatchType: 'anniversary' }}
+        />,
+      );
+
+      expect(screen.getByText('On This Day')).toBeInTheDocument();
+      expect(screen.getByText('2020')).toBeInTheDocument();
+    });
+
+    it('labels prior-week fallback items honestly and hides the year badge (#371)', () => {
+      const currentYear = new Date().getFullYear();
+      const historyItems = [makeHistoryItem('h1', 'Added last week', currentYear)];
+      renderWithProviders(
+        <HomeScreen
+          {...defaultProps}
+          stats={{ ...defaultProps.stats, historyItems, historyMatchType: 'lastWeek' }}
+        />,
+      );
+
+      expect(screen.getByText('One Week Ago')).toBeInTheDocument();
+      expect(screen.queryByText('On This Day')).not.toBeInTheDocument();
+      expect(screen.queryByText(String(currentYear))).not.toBeInTheDocument();
+    });
+
+    it('labels prior-month fallback items honestly and hides the year badge (#371)', () => {
+      const historyItems = [makeHistoryItem('h1', 'Added last month', new Date().getFullYear())];
+      renderWithProviders(
+        <HomeScreen
+          {...defaultProps}
+          stats={{ ...defaultProps.stats, historyItems, historyMatchType: 'lastMonth' }}
+        />,
+      );
+
+      expect(screen.getByText('One Month Ago')).toBeInTheDocument();
+      expect(screen.queryByText('On This Day')).not.toBeInTheDocument();
     });
   });
 });

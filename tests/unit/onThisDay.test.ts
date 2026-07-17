@@ -22,7 +22,7 @@ describe('On This Day Logic', () => {
   it('returns empty when there are no matching items', () => {
     const items: CollectionItem[] = [];
     const result = getOnThisDayItems(items, makeLocalDate(2026, 0, 17));
-    expect(result).toEqual([]);
+    expect(result.items).toEqual([]);
   });
 
   it('excludes items that do not match the current month/day', () => {
@@ -35,10 +35,10 @@ describe('On This Day Logic', () => {
     ];
 
     const result = getOnThisDayItems(items, now);
-    expect(result).toEqual([]);
+    expect(result.items).toEqual([]);
   });
 
-  it('includes items created on the same month/day in previous years', () => {
+  it('includes items created on the same month/day in previous years as anniversaries', () => {
     const now = makeLocalDate(2026, 0, 17);
     const items = [
       makeItem({
@@ -48,7 +48,8 @@ describe('On This Day Logic', () => {
     ];
 
     const result = getOnThisDayItems(items, now);
-    expect(result.map((item) => item.id)).toEqual(['item-1']);
+    expect(result.matchType).toBe('anniversary');
+    expect(result.items.map((item) => item.id)).toEqual(['item-1']);
   });
 
   it('excludes items created on the same month/day in the current year', () => {
@@ -61,7 +62,7 @@ describe('On This Day Logic', () => {
     ];
 
     const result = getOnThisDayItems(items, now);
-    expect(result).toEqual([]);
+    expect(result.items).toEqual([]);
   });
 
   it('falls back to prior month when no prior year matches (day <= 28)', () => {
@@ -75,7 +76,8 @@ describe('On This Day Logic', () => {
     ];
 
     const result = getOnThisDayItems(items, now);
-    expect(result.map((item) => item.id)).toEqual(['item-prior-month']);
+    expect(result.matchType).toBe('lastMonth');
+    expect(result.items.map((item) => item.id)).toEqual(['item-prior-month']);
   });
 
   it('falls back to prior week when prior year and month are empty', () => {
@@ -89,7 +91,26 @@ describe('On This Day Logic', () => {
     ];
 
     const result = getOnThisDayItems(items, now);
-    expect(result.map((item) => item.id)).toEqual(['item-prior-week']);
+    expect(result.matchType).toBe('lastWeek');
+    expect(result.items.map((item) => item.id)).toEqual(['item-prior-week']);
+  });
+
+  it('labels anniversary matches as anniversary even when fallbacks also match', () => {
+    const now = makeLocalDate(2026, 0, 17);
+    const items = [
+      makeItem({
+        id: 'item-anniversary',
+        createdAt: makeLocalDate(2025, 0, 17).toISOString(),
+      }),
+      makeItem({
+        id: 'item-prior-week',
+        createdAt: makeLocalDate(2026, 0, 10).toISOString(),
+      }),
+    ];
+
+    const result = getOnThisDayItems(items, now);
+    expect(result.matchType).toBe('anniversary');
+    expect(result.items.map((item) => item.id)).toEqual(['item-anniversary']);
   });
 
   it('skips prior month fallback for days after 28', () => {
@@ -103,7 +124,7 @@ describe('On This Day Logic', () => {
     ];
 
     const result = getOnThisDayItems(items, now);
-    expect(result).toEqual([]);
+    expect(result.items).toEqual([]);
   });
 
   it('orders matches by newest year, then newest timestamp', () => {
@@ -127,7 +148,7 @@ describe('On This Day Logic', () => {
     ];
 
     const result = getOnThisDayItems(items, now);
-    expect(result.map((item) => item.id)).toEqual(['item-3', 'item-2', 'item-1']);
+    expect(result.items.map((item) => item.id)).toEqual(['item-3', 'item-2', 'item-1']);
   });
 
   it('uses a stable tie-breaker for identical timestamps', () => {
@@ -136,7 +157,7 @@ describe('On This Day Logic', () => {
     const items = [makeItem({ id: 'item-b', createdAt }), makeItem({ id: 'item-a', createdAt })];
 
     const result = getOnThisDayItems(items, now);
-    expect(result.map((item) => item.id)).toEqual(['item-a', 'item-b']);
+    expect(result.items.map((item) => item.id)).toEqual(['item-a', 'item-b']);
   });
 
   it('handles times near midnight without rolling the day', () => {
@@ -157,6 +178,6 @@ describe('On This Day Logic', () => {
     ];
 
     const result = getOnThisDayItems(items, now);
-    expect(result.map((item) => item.id)).toEqual(['item-late', 'item-early']);
+    expect(result.items.map((item) => item.id)).toEqual(['item-late', 'item-early']);
   });
 });
