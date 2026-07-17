@@ -108,6 +108,12 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
   // True while the scroll area has more content below the fold, so we can fade
   // the bottom edge as an affordance that more fields exist (CUR-45).
   const [canScrollDown, setCanScrollDown] = useState(false);
+  // #366: set when the user chooses manual entry while a batch is analyzing.
+  // runBatchAnalysis reads the ref between photos so the run stops early; the
+  // state swaps the analyzing step's escape copy for an honest "wrapping up"
+  // acknowledgment while the in-flight photo finishes.
+  const [batchManualRequested, setBatchManualRequested] = useState(false);
+  const batchManualRef = useRef(false);
 
   const batchInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -359,6 +365,8 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     setAnalysisNeedsReview(false);
     setLowConfidence(false);
     setBatchProgress(null);
+    batchManualRef.current = false;
+    setBatchManualRequested(false);
     setTitleError(null);
     setBatchTitleErrors({});
     setIsImageEditorOpen(false);
@@ -548,6 +556,15 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     setStep('verify');
   };
 
+  // #366: during a batch run, "Enter manually" stops the remaining analysis
+  // instead of jumping to the single-item form. The in-flight photo still
+  // finishes (the request can't be aborted mid-flight), then the batch lands
+  // on batch-verify where every photo is manually editable.
+  const switchBatchToManual = () => {
+    batchManualRef.current = true;
+    setBatchManualRequested(true);
+  };
+
   const takePicture = async () => {
     try {
       const image = await Camera.getPhoto({
@@ -610,10 +627,19 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     ...overrides,
   });
 
-  const runBatchAnalysis = async (images: string[], existingIds: string[] = []) => {
+  const runBatchAnalysis = async (
+    images: string[],
+    existingIds: string[] = [],
+    // #366: ties the run to the analysis session it started in. A reset
+    // (close/reopen, switch to single manual) abandons the run silently; a
+    // manual-entry request stops the loop and leaves the unreached photos to
+    // the caller, which decides what those rows should hold.
+    runId = analysisRunId.current,
+  ) => {
     if (!currentCollection) return images.map((image) => createBatchItem(image));
     const collection = currentCollection;
     const aiEnabled = await refreshAiEnabled();
+    if (analysisRunId.current !== runId) return [];
     if (!aiEnabled) {
       setError(t('aiUnavailableManual'));
       setAnalysisError(true);
@@ -624,6 +650,8 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     const analyzed: BatchItem[] = [];
     let hadError = false;
     for (let idx = 0; idx < images.length; idx += 1) {
+      if (analysisRunId.current !== runId) return analyzed;
+      if (batchManualRef.current) break;
       const image = images[idx];
       setBatchProgress((prev) =>
         prev
@@ -678,7 +706,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
         analyzed.push(createBatchItem(image, existingIds[idx] ? { id: existingIds[idx] } : {}));
       }
     }
-    setAnalysisError(hadError);
+    if (analysisRunId.current === runId) setAnalysisError(hadError);
     return analyzed;
   };
 
@@ -702,12 +730,21 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
       });
 
     const loadBatch = async () => {
+      // #366: capture the analysis session so a late-finishing batch can't
+      // touch state after the modal was reset or the user navigated away.
+      const runId = analysisRunId.current;
+      batchManualRef.current = false;
+      setBatchManualRequested(false);
       setError(null);
       setAnalysisError(false);
       setBatchTitleErrors({});
       setStep('analyzing');
+      // Show batch progress immediately so the analyzing step reads as a
+      // batch run (and offers the batch escape) even while files are reading.
+      setBatchProgress({ current: 0, total: files.length });
       try {
         const results = await Promise.allSettled(Array.from(files).map(readFileAsDataUrl));
+        if (analysisRunId.current !== runId) return;
         const images = results
           .filter(
             (result): result is PromiseFulfilledResult<string> => result.status === 'fulfilled',
@@ -725,16 +762,28 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
           return;
         }
         setBatchProgress({ current: 0, total: images.length });
-        const newItems = await runBatchAnalysis(images);
+        const analyzed = await runBatchAnalysis(images, [], runId);
+        if (analysisRunId.current !== runId) return;
+        // Photos the run never reached (manual-entry escape) become blank,
+        // manually editable rows — the user keeps every photo they picked.
+        const newItems = [
+          ...analyzed,
+          ...images.slice(analyzed.length).map((image) => createBatchItem(image)),
+        ];
         setBatchItems((prev) => [...prev, ...newItems]);
         setStep('batch-verify');
       } catch (err) {
         console.error(err);
+        if (analysisRunId.current !== runId) return;
         setError(t('analysisFailedManual'));
         setAnalysisError(true);
         setStep('batch-verify');
       } finally {
-        setBatchProgress(null);
+        if (analysisRunId.current === runId) {
+          setBatchProgress(null);
+          batchManualRef.current = false;
+          setBatchManualRequested(false);
+        }
         e.target.value = '';
       }
     };
@@ -869,6 +918,9 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
 
   const retryBatchAnalysis = async () => {
     if (!currentCollection || batchItems.length === 0) return;
+    const runId = analysisRunId.current;
+    batchManualRef.current = false;
+    setBatchManualRequested(false);
     setError(null);
     setAnalysisError(false);
     setBatchTitleErrors({});
@@ -877,16 +929,24 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     try {
       const images = batchItems.map((item) => item.image);
       const ids = batchItems.map((item) => item.id);
-      const updatedItems = await runBatchAnalysis(images, ids);
-      setBatchItems(updatedItems);
+      const updatedItems = await runBatchAnalysis(images, ids, runId);
+      if (analysisRunId.current !== runId) return;
+      // Items the retry never reached (manual-entry escape) keep their
+      // previous titles and edits instead of being re-blanked.
+      setBatchItems((prev) => [...updatedItems, ...prev.slice(updatedItems.length)]);
       setStep('batch-verify');
     } catch (err) {
       console.error(err);
+      if (analysisRunId.current !== runId) return;
       setError(t('analysisFallback'));
       setAnalysisError(true);
       setStep('batch-verify');
     } finally {
-      setBatchProgress(null);
+      if (analysisRunId.current === runId) {
+        setBatchProgress(null);
+        batchManualRef.current = false;
+        setBatchManualRequested(false);
+      }
     }
   };
 
@@ -1315,24 +1375,37 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
           </p>
         )}
         {/* Wrapper stays mounted so the live region exists before the notice
-            lands and screen readers announce it. Single-item analysis only:
-            the notice promises the manual path, and during a batch run
-            switchToManual is a dead-end (loadBatch keeps going and forces
-            batch-verify when it lands). Batch already shows its own per-item
-            progress line above. */}
+            lands and screen readers announce it. Batch runs have a real
+            manual escape now (#366), so the slow notice shows for them too.
+            Once the user has asked for manual entry, the "wrapping up" line
+            replaces it — we shouldn't offer a skip that already happened. */}
         <div role="status">
-          {analysisSlow && !batchProgress && (
+          {batchManualRequested ? (
             <p
-              data-testid="analysis-slow-notice"
+              data-testid="batch-manual-pending"
               className={`text-xs sm:text-sm mt-3 ${mutedText}`}
             >
-              {t('analysisTakingLong')}
+              {t('batchManualPending')}
             </p>
+          ) : (
+            analysisSlow && (
+              <p
+                data-testid="analysis-slow-notice"
+                className={`text-xs sm:text-sm mt-3 ${mutedText}`}
+              >
+                {t('analysisTakingLong')}
+              </p>
+            )
           )}
         </div>
       </div>
       <div className="flex justify-center">
-        <Button variant="ghost" size="sm" onClick={switchToManual}>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={batchProgress ? switchBatchToManual : switchToManual}
+          disabled={batchManualRequested}
+        >
           {t('enterManually')}
         </Button>
       </div>
