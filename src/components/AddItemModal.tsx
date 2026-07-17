@@ -46,6 +46,9 @@ interface BatchItem {
 }
 
 type FlowStep = 'select-type' | 'upload' | 'analyzing' | 'verify' | 'batch-verify';
+// #73: past this wait the analyzing spinner needs words — surface a calm
+// notice naming the delay and pointing at the manual path.
+const SLOW_ANALYSIS_NOTICE_MS = 10000;
 const createEmptyForm = () => ({
   title: '',
   notes: '',
@@ -83,6 +86,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [analysisError, setAnalysisError] = useState(false);
+  const [analysisSlow, setAnalysisSlow] = useState(false);
   const [analysisNeedsReview, setAnalysisNeedsReview] = useState(false);
   const [lowConfidence, setLowConfidence] = useState(false);
   const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(
@@ -452,6 +456,18 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
       setBatchVisibleCount(8);
     }
   }, [isOpen]);
+
+  // #73: analysis has no client-side upper bound, and a spinner that stays
+  // silent past ~10s reads as stuck. Say so plainly and point at the manual
+  // path rather than implying progress we cannot verify.
+  useEffect(() => {
+    if (step !== 'analyzing') {
+      setAnalysisSlow(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setAnalysisSlow(true), SLOW_ANALYSIS_NOTICE_MS);
+    return () => window.clearTimeout(timer);
+  }, [step]);
 
   useEffect(() => {
     if (step !== 'batch-verify') return;
@@ -1298,6 +1314,22 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
             })}
           </p>
         )}
+        {/* Wrapper stays mounted so the live region exists before the notice
+            lands and screen readers announce it. Single-item analysis only:
+            the notice promises the manual path, and during a batch run
+            switchToManual is a dead-end (loadBatch keeps going and forces
+            batch-verify when it lands). Batch already shows its own per-item
+            progress line above. */}
+        <div role="status">
+          {analysisSlow && !batchProgress && (
+            <p
+              data-testid="analysis-slow-notice"
+              className={`text-xs sm:text-sm mt-3 ${mutedText}`}
+            >
+              {t('analysisTakingLong')}
+            </p>
+          )}
+        </div>
       </div>
       <div className="flex justify-center">
         <Button variant="ghost" size="sm" onClick={switchToManual}>
