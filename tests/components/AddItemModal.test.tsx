@@ -719,8 +719,7 @@ describe('AddItemModal', () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-      // Single-photo path (Camera.getPhoto → analyze) — the notice is gated
-      // to it because batch analyzing has no working manual escape.
+      // Single-photo path (Camera.getPhoto → analyze).
       mockGetPhoto.mockResolvedValue({ dataUrl: 'data:image/png;base64,ZmFrZQ==' });
       await user.click(screen.getAllByRole('button', { name: 'Upload Photo' })[0]);
 
@@ -749,7 +748,7 @@ describe('AddItemModal', () => {
     }
   });
 
-  it('keeps the slow-analysis notice out of batch analyzing, which has no manual escape (#73)', async () => {
+  it('shows the slow-analysis notice during batch analyzing now that the escape is real (#366)', async () => {
     mockRefreshAiEnabled.mockResolvedValue(true);
     mockAnalyzeImage.mockReturnValue(new Promise<never>(() => {}));
 
@@ -775,13 +774,113 @@ describe('AddItemModal', () => {
       act(() => {
         vi.advanceTimersByTime(10_000);
       });
-      // …but must not show the notice: its "enter the details yourself"
-      // promise is a dead-end while loadBatch is still running (it forces
-      // batch-verify when it resolves).
+      // …and the notice's "enter the details yourself" promise is now kept
+      // during batch runs (#366), so it shows here too.
+      expect(screen.getByTestId('analysis-slow-notice')).toBeInTheDocument();
+
+      // Asking for manual entry replaces the notice with the wrapping-up
+      // acknowledgment — we shouldn't offer a skip that already happened.
+      await user.click(screen.getByRole('button', { name: 'Enter manually' }));
       expect(screen.queryByTestId('analysis-slow-notice')).not.toBeInTheDocument();
+      expect(screen.getByTestId('batch-manual-pending')).toBeInTheDocument();
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('cancels the rest of a batch when the user enters manually during analyzing (#366)', async () => {
+    const user = userEvent.setup();
+    mockRefreshAiEnabled.mockResolvedValue(true);
+    let resolveFirst: (value: unknown) => void = () => {};
+    mockAnalyzeImage.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveFirst = resolve;
+        }),
+    );
+
+    const collection = createMockCollection({ name: 'Artifacts', customFields: [] });
+    renderWithProviders(
+      <AddItemModal isOpen onClose={mockOnClose} collections={[collection]} onSave={mockOnSave} />,
+    );
+
+    const files = [
+      new File(['a'], 'a.png', { type: 'image/png' }),
+      new File(['b'], 'b.png', { type: 'image/png' }),
+    ];
+    const input = screen.getByTestId('add-item-batch-input') as HTMLInputElement;
+    await user.upload(input, files);
+
+    // First photo is in flight.
+    await screen.findByRole('heading', { name: 'Analyzing photo...' });
+    await waitFor(() => expect(mockAnalyzeImage).toHaveBeenCalledTimes(1));
+
+    // Escape during the batch: acknowledged immediately, button disarmed.
+    const escape = screen.getByRole('button', { name: 'Enter manually' });
+    await user.click(escape);
+    expect(screen.getByTestId('batch-manual-pending')).toBeInTheDocument();
+    expect(escape).toBeDisabled();
+
+    // The in-flight photo finishes; the batch must stop there and land on
+    // batch-verify with the second photo as a blank, manually editable row.
+    resolveFirst({ status: 'success', title: 'First Artifact', data: {} });
+    await screen.findByTestId('add-item-batch-info');
+    expect(await screen.findByDisplayValue('First Artifact')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save 2 pieces' })).toBeInTheDocument();
+    // The second photo was never sent to analysis.
+    expect(mockAnalyzeImage).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not let a late-finishing batch replace the step after the modal was reset (#366)', async () => {
+    const user = userEvent.setup();
+    mockRefreshAiEnabled.mockResolvedValue(true);
+    let resolveFirst: (value: unknown) => void = () => {};
+    mockAnalyzeImage.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveFirst = resolve;
+        }),
+    );
+
+    const collection = createMockCollection({ name: 'Artifacts', customFields: [] });
+    const { rerender } = renderWithProviders(
+      <AddItemModal isOpen onClose={mockOnClose} collections={[collection]} onSave={mockOnSave} />,
+    );
+
+    const files = [
+      new File(['a'], 'a.png', { type: 'image/png' }),
+      new File(['b'], 'b.png', { type: 'image/png' }),
+    ];
+    const input = screen.getByTestId('add-item-batch-input') as HTMLInputElement;
+    await user.upload(input, files);
+    await screen.findByRole('heading', { name: 'Analyzing photo...' });
+    await waitFor(() => expect(mockAnalyzeImage).toHaveBeenCalledTimes(1));
+
+    // Close and reopen: the reset claims a new analysis session.
+    rerender(
+      <AddItemModal
+        isOpen={false}
+        onClose={mockOnClose}
+        collections={[collection]}
+        onSave={mockOnSave}
+      />,
+    );
+    rerender(
+      <AddItemModal isOpen onClose={mockOnClose} collections={[collection]} onSave={mockOnSave} />,
+    );
+    await screen.findByRole('heading', { name: 'Upload Photo' });
+
+    // The stale batch resolves late — it must not yank the user to
+    // batch-verify or leak its items into the fresh session.
+    resolveFirst({ status: 'success', title: 'Stale Artifact', data: {} });
+    // Let the abandoned loadBatch chain fully settle before asserting.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(mockAnalyzeImage).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('heading', { name: 'Upload Photo' })).toBeInTheDocument();
+    expect(screen.queryByTestId('add-item-batch-info')).not.toBeInTheDocument();
+    expect(screen.queryByDisplayValue('Stale Artifact')).not.toBeInTheDocument();
   });
 
   it('fades the verify-step scroll edge while fields remain below the fold (CUR-45)', async () => {
