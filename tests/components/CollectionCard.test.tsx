@@ -92,6 +92,35 @@ describe('CollectionCard Component', () => {
         screen.getByText('Track terroir, cocoa percentages, and nuanced flavor profiles.'),
       ).toBeInTheDocument();
     });
+
+    it('displays a custom collection description', () => {
+      const collection = createMockCollection({
+        templateId: 'chocolate',
+        collectionDescription: 'Bars from every trip abroad.',
+      });
+      const onClick = vi.fn();
+
+      renderWithProviders(<CollectionCard collection={collection} onClick={onClick} />);
+
+      expect(screen.getByText('Bars from every trip abroad.')).toBeInTheDocument();
+    });
+
+    it('does not repeat the collection name when the description duplicates it', () => {
+      const collection = createMockCollection({
+        templateId: 'chocolate',
+        name: 'Supplement',
+        collectionDescription: 'Supplement',
+      });
+      const onClick = vi.fn();
+
+      renderWithProviders(<CollectionCard collection={collection} onClick={onClick} />);
+
+      // Name renders as the heading (plus its hover tooltip), never as the description.
+      expect(screen.queryAllByText('Supplement')).toHaveLength(2);
+      expect(
+        screen.getByText('Track terroir, cocoa percentages, and nuanced flavor profiles.'),
+      ).toBeInTheDocument();
+    });
   });
 
   describe('Item Count Display', () => {

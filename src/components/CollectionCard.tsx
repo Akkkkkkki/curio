@@ -63,8 +63,12 @@ export const CollectionCard: React.FC<CollectionCardProps> = React.memo(function
         .join(' • ')
     : '';
   const trimmedDescription = collection.collectionDescription?.trim();
-  const descriptionText = trimmedDescription
-    ? trimmedDescription
+  // The create flow can persist the collection name as its description; showing
+  // it would repeat the name directly under the card title.
+  const meaningfulDescription =
+    trimmedDescription && trimmedDescription !== collection.name.trim() ? trimmedDescription : '';
+  const descriptionText = meaningfulDescription
+    ? meaningfulDescription
     : tagPreview
       ? `${t('fieldsLabel')}: ${tagPreview}`
       : template.description;
