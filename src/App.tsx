@@ -1204,15 +1204,17 @@ export const AppContent: React.FC = () => {
     const featured =
       allItems.length > 0 ? allItems[Math.floor(Math.random() * allItems.length)] : null;
 
-    // Archeology: Find items created on this day in prior years (local date)
-    const historyItems = getOnThisDayItems(allItems);
+    // Archeology: Find items created on this day in prior years (local date),
+    // falling back to last-month/last-week additions when no anniversary exists
+    const history = getOnThisDayItems(allItems);
 
     return {
       totalItems,
       avgRating,
       totalCollections: statCollections.length,
       featured,
-      historyItems,
+      historyItems: history.items,
+      historyMatchType: history.matchType,
     };
   }, [collections]);
 

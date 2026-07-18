@@ -1,5 +1,12 @@
 import { CollectionItem } from '@/types';
 
+export type OnThisDayMatchType = 'anniversary' | 'lastMonth' | 'lastWeek';
+
+export interface OnThisDayResult {
+  matchType: OnThisDayMatchType;
+  items: CollectionItem[];
+}
+
 const compareHistoryItems = (a: CollectionItem, b: CollectionItem) => {
   const dateA = new Date(a.createdAt);
   const dateB = new Date(b.createdAt);
@@ -13,7 +20,7 @@ const compareHistoryItems = (a: CollectionItem, b: CollectionItem) => {
 export const getOnThisDayItems = (
   items: CollectionItem[],
   now: Date = new Date(),
-): CollectionItem[] => {
+): OnThisDayResult => {
   const targetMonth = now.getMonth();
   const targetDate = now.getDate();
   const targetYear = now.getFullYear();
@@ -30,7 +37,7 @@ export const getOnThisDayItems = (
       .sort(compareHistoryItems);
 
   const priorYearMatches = matchesForDate(targetYear, targetMonth, targetDate, true);
-  if (priorYearMatches.length > 0) return priorYearMatches;
+  if (priorYearMatches.length > 0) return { matchType: 'anniversary', items: priorYearMatches };
 
   if (targetDate <= 28) {
     const priorMonth = new Date(now);
@@ -40,10 +47,13 @@ export const getOnThisDayItems = (
       priorMonth.getMonth(),
       targetDate,
     );
-    if (priorMonthMatches.length > 0) return priorMonthMatches;
+    if (priorMonthMatches.length > 0) return { matchType: 'lastMonth', items: priorMonthMatches };
   }
 
   const priorWeek = new Date(now);
   priorWeek.setDate(now.getDate() - 7);
-  return matchesForDate(priorWeek.getFullYear(), priorWeek.getMonth(), priorWeek.getDate());
+  return {
+    matchType: 'lastWeek',
+    items: matchesForDate(priorWeek.getFullYear(), priorWeek.getMonth(), priorWeek.getDate()),
+  };
 };

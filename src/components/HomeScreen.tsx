@@ -10,6 +10,7 @@ import {
   matSurfaceClasses,
 } from '../theme';
 import { UserCollection } from '../types';
+import { OnThisDayMatchType } from '../utils/onThisDay';
 import { Button } from './ui/Button';
 import { CollectionCardSkeleton } from './ui/Skeleton';
 import { CollectionCard } from './CollectionCard';
@@ -23,6 +24,7 @@ interface HomeScreenProps {
     totalCollections: number;
     featured: any;
     historyItems: any[];
+    historyMatchType: OnThisDayMatchType;
   };
   isLoading: boolean;
   loadError: string | null;
@@ -58,6 +60,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       c.items.some((i) => i.title.toLowerCase().includes(normalizedSearch)),
   );
   const historyItems = stats.historyItems;
+  // Fallback matches (recent additions, not anniversaries) get honest header copy
+  // and no year badge — a current-year badge would fake an anniversary (#371).
+  const historyHeaderKey =
+    stats.historyMatchType === 'lastMonth'
+      ? 'onThisDayLastMonth'
+      : stats.historyMatchType === 'lastWeek'
+        ? 'onThisDayLastWeek'
+        : 'onThisDay';
+  const showHistoryYearBadge = stats.historyMatchType === 'anniversary';
   const historyPreview = historyItems.slice(0, 3);
   const historyOverflow = historyItems.length - historyPreview.length;
   const primaryHistoryItem = historyItems[0];
@@ -257,7 +268,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                   <Calendar size={18} />
                 </div>
                 <span className={`${typographyClasses.labelSmall} ${labelColorClasses[theme]}`}>
-                  {t('onThisDay')}
+                  {t(historyHeaderKey)}
                 </span>
               </div>
               <div>
@@ -268,33 +279,30 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               </div>
               <div className="space-y-3">
                 <ul id="on-this-day-list" className="space-y-2">
-                  {visibleHistoryItems.map((item) => {
-                    const itemYear = new Date(item.createdAt).getFullYear();
-                    return (
-                      <li key={item.id}>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            navigate(`/collection/${item.collectionId}/item/${item.id}`)
-                          }
-                          className={`w-full text-left rounded-xl border px-3 py-2 text-xs sm:text-sm shadow-sm transition ${theme === 'vault' ? 'border-white/10 bg-white/5 hover:border-[#D4A574]/30 hover:bg-white/10' : theme === 'atelier' ? 'border-[#D4C9B8]/60 bg-[#EDE4D3]/70 hover:border-[#A86F3C]/30 hover:bg-[#EDE4D3]' : 'border-stone-200/60 bg-white/70 hover:border-amber-200 hover:bg-amber-50/60'}`}
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <span
-                              className={`truncate font-medium ${theme === 'vault' ? 'text-white' : theme === 'atelier' ? 'text-[#3D3530]' : 'text-stone-700'}`}
-                            >
-                              {item.title}
-                            </span>
+                  {visibleHistoryItems.map((item) => (
+                    <li key={item.id}>
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/collection/${item.collectionId}/item/${item.id}`)}
+                        className={`w-full text-left rounded-xl border px-3 py-2 text-xs sm:text-sm shadow-sm transition ${theme === 'vault' ? 'border-white/10 bg-white/5 hover:border-[#D4A574]/30 hover:bg-white/10' : theme === 'atelier' ? 'border-[#D4C9B8]/60 bg-[#EDE4D3]/70 hover:border-[#A86F3C]/30 hover:bg-[#EDE4D3]' : 'border-stone-200/60 bg-white/70 hover:border-amber-200 hover:bg-amber-50/60'}`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span
+                            className={`truncate font-medium ${theme === 'vault' ? 'text-white' : theme === 'atelier' ? 'text-[#3D3530]' : 'text-stone-700'}`}
+                          >
+                            {item.title}
+                          </span>
+                          {showHistoryYearBadge && (
                             <span
                               className={`text-[11px] uppercase tracking-wide ${theme === 'vault' ? 'text-stone-500' : theme === 'atelier' ? 'text-[#8C7B6B]' : 'text-stone-400'}`}
                             >
-                              {itemYear}
+                              {new Date(item.createdAt).getFullYear()}
                             </span>
-                          </div>
-                        </button>
-                      </li>
-                    );
-                  })}
+                          )}
+                        </div>
+                      </button>
+                    </li>
+                  ))}
                 </ul>
                 {historyOverflow > 0 && !historyExpanded && (
                   <>
