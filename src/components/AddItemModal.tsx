@@ -378,6 +378,12 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     setDetailsOpen(false);
     setAiFieldSuggestions({});
     analysisRunId.current += 1;
+    return () => {
+      // Closing/unmounting the modal must invalidate any batch still between
+      // photos; otherwise it keeps sending analysis requests in the background.
+      analysisRunId.current += 1;
+      batchManualRef.current = false;
+    };
     // Reacting to `collections` here would wipe the in-flight form whenever the
     // parent re-renders with a new array reference (cloud sync, etc.) — CUR-44.
     // eslint-disable-next-line react-hooks/exhaustive-deps

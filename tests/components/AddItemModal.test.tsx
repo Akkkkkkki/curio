@@ -883,6 +883,50 @@ describe('AddItemModal', () => {
     expect(screen.queryByDisplayValue('Stale Artifact')).not.toBeInTheDocument();
   });
 
+  it('stops a closed batch before analyzing the next photo (#366)', async () => {
+    const user = userEvent.setup();
+    mockRefreshAiEnabled.mockResolvedValue(true);
+    let resolveFirst: (value: unknown) => void = () => {};
+    mockAnalyzeImage.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveFirst = resolve;
+        }),
+    );
+
+    const collection = createMockCollection({ name: 'Artifacts', customFields: [] });
+    const { rerender } = renderWithProviders(
+      <AddItemModal isOpen onClose={mockOnClose} collections={[collection]} onSave={mockOnSave} />,
+    );
+
+    const files = [
+      new File(['a'], 'a.png', { type: 'image/png' }),
+      new File(['b'], 'b.png', { type: 'image/png' }),
+    ];
+    const input = screen.getByTestId('add-item-batch-input') as HTMLInputElement;
+    await user.upload(input, files);
+    await screen.findByRole('heading', { name: 'Analyzing photo...' });
+    await waitFor(() => expect(mockAnalyzeImage).toHaveBeenCalledTimes(1));
+
+    // Closing without reopening used to leave the run id unchanged, so the
+    // hidden batch continued into the second photo and kept spending AI calls.
+    rerender(
+      <AddItemModal
+        isOpen={false}
+        onClose={mockOnClose}
+        collections={[collection]}
+        onSave={mockOnSave}
+      />,
+    );
+
+    resolveFirst({ status: 'success', title: 'Closed Artifact', data: {} });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(mockAnalyzeImage).toHaveBeenCalledTimes(1);
+  });
+
   it('fades the verify-step scroll edge while fields remain below the fold (CUR-45)', async () => {
     const user = userEvent.setup();
     renderWithProviders(
