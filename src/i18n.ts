@@ -107,6 +107,7 @@ export const translations = {
     discardItemAction: 'Discard',
     keepEditing: 'Keep editing',
     analyzingPhoto: 'Analyzing photo...',
+    geminiWillExtract: 'Add a photo and Gemini will suggest the details.',
     geminiExtracting: 'Gemini is extracting details for your collection.',
     analysisTakingLong:
       'Taking longer than usual. You can skip the wait and enter the details yourself.',
@@ -637,6 +638,7 @@ export const translations = {
     discardItemAction: '舍弃',
     keepEditing: '继续编辑',
     analyzingPhoto: '正在分析照片...',
+    geminiWillExtract: '添加照片，Gemini 会为您推荐馆藏细节。',
     geminiExtracting: 'Gemini 正在为您提取馆藏细节。',
     analysisTakingLong: '比平时慢一些。您可以跳过等待，改为手动填写。',
     batchManualPending: '正在完成当前照片，其余的交给您手动填写。',

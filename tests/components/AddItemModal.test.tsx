@@ -179,6 +179,29 @@ describe('AddItemModal', () => {
     expect(screen.queryByText('Start a collection')).not.toBeInTheDocument();
   });
 
+  it('describes AI in the future tense on the idle upload step, before any photo (#374)', () => {
+    const c1 = createMockCollection({ id: 'c1', name: 'Vinyl Vault' });
+
+    renderWithProviders(
+      <AddItemModal
+        isOpen
+        onClose={mockOnClose}
+        collections={[c1]}
+        defaultCollectionId="c1"
+        onSave={mockOnSave}
+      />,
+    );
+
+    // Idle upload state: nothing is being extracted yet, so the copy must
+    // promise the future rather than claim analysis is already running.
+    expect(
+      screen.getByText('Add a photo and Gemini will suggest the details.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('Gemini is extracting details for your collection.'),
+    ).not.toBeInTheDocument();
+  });
+
   it('falls back to collection picker when defaultCollectionId does not match any collection', async () => {
     const c1 = createMockCollection({ id: 'c1', name: 'Vinyl Vault' });
     const c2 = createMockCollection({ id: 'c2', name: 'Chocolate Vault' });

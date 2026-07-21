@@ -1149,7 +1149,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
           {t('uploadPhoto')}
         </h3>
         <p className={`text-sm sm:text-base ${mutedText} max-w-xs mx-auto`}>
-          {t('geminiExtracting')}
+          {t('geminiWillExtract')}
         </p>
       </div>
       <div className="flex flex-col gap-2 sm:gap-3">
