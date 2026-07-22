@@ -461,13 +461,12 @@ export const Layout: React.FC<LayoutProps> = ({
 
       {statusBanner && <div className="max-w-4xl mx-auto px-4 pt-4 sm:pt-5">{statusBanner}</div>}
 
+      {/* CUR-97: reserve clearance for the bottom nav only where it actually
+          renders (< sm). On desktop the nav is `sm:hidden`, so `sm:pb-8` drops
+          the ~5.5rem of dead space back to the standard `py-8` rhythm. */}
       <main
         id="main-content"
-        className="max-w-4xl mx-auto px-4 py-8"
-        style={{
-          paddingBottom:
-            'calc(var(--bottom-nav-height, 5.5rem) + env(safe-area-inset-bottom, 0px))',
-        }}
+        className="max-w-4xl mx-auto px-4 py-8 pb-[calc(var(--bottom-nav-height,5.5rem)+env(safe-area-inset-bottom,0px))] sm:pb-8"
       >
         {children}
       </main>
@@ -565,8 +564,10 @@ export const Layout: React.FC<LayoutProps> = ({
         </div>
       )}
 
+      {/* CUR-97: the fade only reads as intentional above the bottom nav, so it
+          rides the same `sm:hidden` breakpoint and is not drawn on desktop. */}
       <footer
-        className={`fixed bottom-0 left-0 w-full bg-gradient-to-t ${footerGradient} pointer-events-none h-12 z-10`}
+        className={`fixed bottom-0 left-0 w-full bg-gradient-to-t ${footerGradient} pointer-events-none h-12 z-10 sm:hidden`}
       />
     </div>
   );
