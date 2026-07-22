@@ -184,6 +184,10 @@ body {
     left: 50% !important;
     top: 10mm !important;
     transform: translateX(-50%) !important;
+    /* CUR-102: single source of truth for the printed card width. ~80mm (≈3.1")
+       keeps the keepsake card centered with generous margins on A4/Letter and
+       leaves the tallest 9:16 ratio comfortably within one page. Do not re-add a
+       competing `print:w-*` utility in ExportModal — the ID selector wins here. */
     width: 80mm !important;
     max-width: none !important;
     max-height: none !important;

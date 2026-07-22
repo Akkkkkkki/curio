@@ -390,10 +390,14 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       // ratio whenever the container is shorter than the natural card height
       // — most visibly when the bottom sheet is expanded on a phone, where
       // it also baked the squash into `renderCardToBlob()`'s export.
+      // CUR-102: the printed card width lives solely in the `#card-preview` print
+      // rule in index.css. A `print:!w-[100mm]` utility used to sit here but was
+      // dead code — the ID selector outspecifies the Tailwind class, so it never
+      // applied. Don't re-add a `print:w-*` utility; edit index.css instead.
       <div
         id="card-preview"
         ref={cardRef}
-        className={`isolate shadow-2xl transition-all duration-300 overflow-hidden relative group select-none mx-auto print:h-auto print:!w-[100mm]`}
+        className={`isolate shadow-2xl transition-all duration-300 overflow-hidden relative group select-none mx-auto print:h-auto`}
         style={{
           aspectRatio: `${ratioW} / ${ratioH}`,
           height: '100%',

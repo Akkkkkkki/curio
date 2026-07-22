@@ -145,6 +145,29 @@ describe('ExportModal — CUR-83 footer CTA hierarchy', () => {
   });
 });
 
+describe('ExportModal — CUR-102 single source of truth for print width', () => {
+  const baseProps = {
+    isOpen: true,
+    onClose: vi.fn(),
+    item: makeItem(),
+    fields: FIELDS,
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('does not carry a competing print-width utility on the card node', () => {
+    const { container } = renderWithProviders(<ExportModal {...baseProps} />);
+    const card = container.querySelector('#card-preview');
+    expect(card).not.toBeNull();
+    // The printed width is defined once, in the `#card-preview` print rule in
+    // index.css (80mm). A `print:w-*` utility here would be dead code (the ID
+    // selector outspecifies it) and a second, misleading source of truth.
+    expect(card!.className).not.toMatch(/print:.*w-\[/);
+  });
+});
+
 describe('ExportModal — CUR-101 native Print availability', () => {
   const baseProps = {
     isOpen: true,
