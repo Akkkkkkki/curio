@@ -152,6 +152,28 @@ body {
   animation: float 6s ease-in-out infinite;
 }
 
+/* CUR-32: Exhibition auto-play countdown. The bar fills across the interval
+   and is re-mounted (keyed) on each advance to restart cleanly. Duration is
+   set inline from the selected interval. */
+@keyframes exhibitionProgress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+.animate-exhibition-progress {
+  transform-origin: left center;
+  animation: exhibitionProgress linear forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-exhibition-progress {
+    animation: none;
+    transform: scaleX(1);
+  }
+}
+
 /* Print styles */
 /* CUR-103: scope the card-only print rules to when the Export modal is open.
    `#card-preview` only exists while `<ExportModal data-export-modal>` is

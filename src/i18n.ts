@@ -62,6 +62,10 @@ export const translations = {
     add: 'Add',
     exhibitNo: 'Exhibit No. {n} of {total}',
     exhibitionJumpTo: 'Jump to exhibit {n}',
+    exhibitionAutoplayStart: 'Start auto-play',
+    exhibitionAutoplayPause: 'Pause auto-play',
+    exhibitionAutoplayInterval: 'Auto-advance every {n} seconds',
+    exhibitionAutoplaySeconds: '{n}s',
     updatePhoto: 'Update photo',
     exportCard: 'Export Card',
     archiveNarrative: 'Story', // alias kept for one release; storyLabel is canonical
@@ -595,6 +599,10 @@ export const translations = {
     add: '添加',
     exhibitNo: '展品 第 {n} 件 / 共 {total} 件',
     exhibitionJumpTo: '跳转到第 {n} 件展品',
+    exhibitionAutoplayStart: '开始自动播放',
+    exhibitionAutoplayPause: '暂停自动播放',
+    exhibitionAutoplayInterval: '每 {n} 秒自动切换',
+    exhibitionAutoplaySeconds: '{n}秒',
     updatePhoto: '更新照片',
     exportCard: '导出馆藏卡片',
     archiveNarrative: '故事', // alias kept for one release; story is canonical
