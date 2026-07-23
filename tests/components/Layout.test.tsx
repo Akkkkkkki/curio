@@ -645,6 +645,29 @@ describe('Layout Component', () => {
     });
   });
 
+  describe('CUR-97 desktop bottom clearance', () => {
+    it('gates the bottom-nav padding to mobile with a desktop override', () => {
+      renderWithProviders(<Layout {...defaultProps} />);
+
+      const main = document.getElementById('main-content')!;
+      // Mobile reserves clearance for the bottom nav; desktop drops back to py-8.
+      expect(main.className).toContain(
+        'pb-[calc(var(--bottom-nav-height,5.5rem)+env(safe-area-inset-bottom,0px))]',
+      );
+      expect(main.className).toContain('sm:pb-8');
+      // The reservation must not leak in as an unconditional inline style.
+      expect(main.style.paddingBottom).toBe('');
+    });
+
+    it('does not draw the decorative footer fade on desktop', () => {
+      renderWithProviders(<Layout {...defaultProps} />);
+
+      const footer = document.querySelector('footer')!;
+      expect(footer).not.toBeNull();
+      expect(footer.className).toContain('sm:hidden');
+    });
+  });
+
   describe('Theme Support', () => {
     describe.each([
       { theme: 'gallery' as const, bgPattern: /bg-white/, description: 'light background' },
