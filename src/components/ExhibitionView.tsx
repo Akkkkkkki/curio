@@ -1,10 +1,15 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, ChevronLeft, ChevronRight, Star } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Star, Play, Pause } from 'lucide-react';
 import { UserCollection } from '../types';
 import { ItemImage } from './ItemImage';
 import { useTranslation, getFieldTranslation } from '../i18n';
 import { useModalA11y } from '../hooks/useModalA11y';
+
+// CUR-32: optional auto-advance for ambient / passive display. Off by default;
+// the exhibition stays a manual, deliberate walk unless the user opts in.
+const AUTOPLAY_INTERVALS_MS = [5000, 10000, 30000] as const;
+const DEFAULT_AUTOPLAY_INTERVAL_MS = 10000;
 
 interface ExhibitionViewProps {
   collection: UserCollection;
@@ -22,19 +27,67 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
   const { t } = useTranslation();
   const [index, setIndex] = useState(initialIndex);
   const [showInfo, setShowInfo] = useState(true);
+  // CUR-32: auto-play state. `interactionNonce` restarts the countdown whenever
+  // the user takes over (nav / dot / swipe / toggle) so a manual move never
+  // triggers an immediate auto-advance and the progress indicator resets.
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [intervalMs, setIntervalMs] = useState<number>(DEFAULT_AUTOPLAY_INTERVAL_MS);
+  const [interactionNonce, setInteractionNonce] = useState(0);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const getFieldLabel = (fieldId: string, fallback: string) =>
     getFieldTranslation(t, fieldId, fallback);
 
-  const next = useCallback(
-    () => setIndex((i) => (i + 1) % collection.items.length),
-    [collection.items.length],
+  const registerInteraction = useCallback(() => setInteractionNonce((n) => n + 1), []);
+
+  const next = useCallback(() => {
+    registerInteraction();
+    setIndex((i) => (i + 1) % collection.items.length);
+  }, [collection.items.length, registerInteraction]);
+  const prev = useCallback(() => {
+    registerInteraction();
+    setIndex((i) => (i - 1 + collection.items.length) % collection.items.length);
+  }, [collection.items.length, registerInteraction]);
+  const jumpTo = useCallback(
+    (target: number) => {
+      registerInteraction();
+      setIndex(target);
+    },
+    [registerInteraction],
   );
-  const prev = useCallback(
-    () => setIndex((i) => (i - 1 + collection.items.length) % collection.items.length),
-    [collection.items.length],
+
+  const canAutoplay = collection.items.length > 1;
+
+  const toggleAutoplay = useCallback(() => {
+    registerInteraction();
+    setIsPlaying((p) => !p);
+  }, [registerInteraction]);
+
+  const selectInterval = useCallback(
+    (ms: number) => {
+      registerInteraction();
+      setIntervalMs(ms);
+      setIsPlaying(true);
+    },
+    [registerInteraction],
   );
+
+  // Advance on a timer while playing. The timer reschedules from scratch on any
+  // interaction (via `interactionNonce`) or interval change, so it never fires
+  // right after the user has just moved. Auto-advance itself uses `setIndex`
+  // directly (not `next`) so it doesn't reset its own countdown.
+  useEffect(() => {
+    if (!isOpen || !isPlaying || !canAutoplay) return;
+    const id = window.setInterval(() => {
+      setIndex((i) => (i + 1) % collection.items.length);
+    }, intervalMs);
+    return () => window.clearInterval(id);
+  }, [isOpen, isPlaying, canAutoplay, intervalMs, interactionNonce, collection.items.length]);
+
+  // Closing the exhibition stops playback so re-opening always starts calm.
+  useEffect(() => {
+    if (!isOpen) setIsPlaying(false);
+  }, [isOpen]);
 
   // Esc-to-close, focus trap and focus restore live in the shared modal a11y
   // primitive; only arrow-key navigation is bespoke to the exhibition view.
@@ -71,6 +124,57 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
 
   const dialogLabel = `${collection.name} — ${t('exhibitNo', { n: index + 1, total: collection.items.length })}`;
 
+  // CUR-32: the auto-play cluster (play/pause + interval pills) lives in both
+  // the mobile and desktop layouts, mirroring how the close button, arrows and
+  // dots are duplicated per breakpoint. `variant` only tweaks sizing.
+  const renderAutoplayControls = (variant: 'mobile' | 'desktop') => {
+    if (!canAutoplay) return null;
+    const btnSize = variant === 'desktop' ? 'w-10 h-10' : 'w-9 h-9';
+    return (
+      <div className="flex items-center justify-center gap-2">
+        <button
+          type="button"
+          onClick={toggleAutoplay}
+          aria-pressed={isPlaying}
+          aria-label={isPlaying ? t('exhibitionAutoplayPause') : t('exhibitionAutoplayStart')}
+          className={`${btnSize} rounded-full flex items-center justify-center transition-all active:scale-90 ${
+            isPlaying ? 'bg-amber-500 text-stone-950' : 'bg-white/10 text-white hover:bg-white/20'
+          }`}
+        >
+          {isPlaying ? (
+            <Pause size={16} fill="currentColor" />
+          ) : (
+            <Play size={16} fill="currentColor" />
+          )}
+        </button>
+        {isPlaying && (
+          <div className="flex items-center gap-1">
+            {AUTOPLAY_INTERVALS_MS.map((ms) => {
+              const seconds = ms / 1000;
+              const active = intervalMs === ms;
+              return (
+                <button
+                  key={ms}
+                  type="button"
+                  onClick={() => selectInterval(ms)}
+                  aria-pressed={active}
+                  aria-label={t('exhibitionAutoplayInterval', { n: seconds })}
+                  className={`px-2 py-1 rounded-full text-[10px] font-mono tracking-wider transition-all ${
+                    active
+                      ? 'bg-amber-500 text-stone-950'
+                      : 'bg-white/10 text-white/70 hover:bg-white/20'
+                  }`}
+                >
+                  {t('exhibitionAutoplaySeconds', { n: seconds })}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const content = (
     <div
       ref={dialogRef}
@@ -81,6 +185,22 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
+      {/* CUR-32: countdown to the next auto-advance. Decorative (position is
+          already announced via the dialog's accessible name), keyed so the
+          fill restarts cleanly on every advance, interaction or interval
+          change. */}
+      {isPlaying && canAutoplay && (
+        <div
+          className="absolute top-0 inset-x-0 h-0.5 bg-white/10 z-20 print:hidden"
+          aria-hidden="true"
+        >
+          <div
+            key={`${index}-${interactionNonce}-${intervalMs}`}
+            className="h-full bg-amber-500 animate-exhibition-progress"
+            style={{ animationDuration: `${intervalMs}ms` }}
+          />
+        </div>
+      )}
       {/* ── MOBILE LAYOUT (< sm) ── */}
       <div className="flex flex-col h-full sm:hidden">
         {/* Image: hero, fills most of the screen */}
@@ -177,22 +297,25 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
           </div>
         </div>
 
-        {/* Pagination dots */}
-        <div className="flex justify-center items-center gap-1.5 py-2.5">
-          {collection.items.slice(0, 10).map((_, i) => (
-            <button
-              key={i}
-              onClick={() => setIndex(i)}
-              aria-label={t('exhibitionJumpTo', { n: i + 1 })}
-              aria-current={i === index ? 'true' : undefined}
-              className={`h-1 rounded-full transition-all ${
-                i === index ? 'w-6 bg-amber-500' : 'w-1.5 bg-white/20 hover:bg-white/30'
-              }`}
-            />
-          ))}
-          {collection.items.length > 10 && (
-            <span className="text-[10px] opacity-40 ml-1">+{collection.items.length - 10}</span>
-          )}
+        {/* Auto-play + pagination dots */}
+        <div className="flex flex-col items-center gap-2 py-2.5">
+          {renderAutoplayControls('mobile')}
+          <div className="flex justify-center items-center gap-1.5">
+            {collection.items.slice(0, 10).map((_, i) => (
+              <button
+                key={i}
+                onClick={() => jumpTo(i)}
+                aria-label={t('exhibitionJumpTo', { n: i + 1 })}
+                aria-current={i === index ? 'true' : undefined}
+                className={`h-1 rounded-full transition-all ${
+                  i === index ? 'w-6 bg-amber-500' : 'w-1.5 bg-white/20 hover:bg-white/30'
+                }`}
+              />
+            ))}
+            {collection.items.length > 10 && (
+              <span className="text-[10px] opacity-40 ml-1">+{collection.items.length - 10}</span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -293,13 +416,14 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
           </button>
         </div>
 
-        {/* Footer pagination */}
-        <footer className="py-6 px-8 flex justify-center">
+        {/* Footer: auto-play + pagination */}
+        <footer className="py-6 px-8 flex flex-col items-center gap-3">
+          {renderAutoplayControls('desktop')}
           <div className="flex gap-2 items-center">
             {collection.items.slice(0, 10).map((_, i) => (
               <button
                 key={i}
-                onClick={() => setIndex(i)}
+                onClick={() => jumpTo(i)}
                 aria-label={t('exhibitionJumpTo', { n: i + 1 })}
                 aria-current={i === index ? 'true' : undefined}
                 className={`h-1.5 rounded-full transition-all ${

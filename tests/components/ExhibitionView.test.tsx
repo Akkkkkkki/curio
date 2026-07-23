@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { renderWithProviders, setMockTheme } from '../utils/test-utils';
 import { ExhibitionView } from '@/components/ExhibitionView';
 import { UserCollection } from '@/types';
@@ -154,6 +154,104 @@ describe('ExhibitionView', () => {
         expect(screen.getByRole('dialog')).toHaveAccessibleName(/1.*2/);
       });
       expect(onClose).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('auto-play (CUR-32)', () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('offers no auto-play controls for a single-item collection', () => {
+      const single: UserCollection = { ...collection, items: [collection.items[0]] };
+      renderWithProviders(<ExhibitionView collection={single} isOpen={true} onClose={vi.fn()} />);
+      expect(screen.queryByRole('button', { name: 'Start auto-play' })).not.toBeInTheDocument();
+    });
+
+    it('advances on the selected interval and stops when paused', () => {
+      vi.useFakeTimers();
+      renderWithProviders(
+        <ExhibitionView collection={collection} isOpen={true} onClose={vi.fn()} />,
+      );
+
+      // Both layouts mount, so the toggle exists twice; either drives shared state.
+      const play = screen.getAllByRole('button', { name: 'Start auto-play' });
+      expect(play).toHaveLength(2);
+      act(() => {
+        fireEvent.click(play[0]);
+      });
+
+      // Default cadence is 10s; nothing should advance before it elapses.
+      act(() => {
+        vi.advanceTimersByTime(9000);
+      });
+      expect(screen.getByRole('dialog')).toHaveAccessibleName(/1.*2/);
+
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+      expect(screen.getByRole('dialog')).toHaveAccessibleName(/2.*2/);
+
+      // Pausing halts the timer.
+      const pause = screen.getAllByRole('button', { name: 'Pause auto-play' });
+      act(() => {
+        fireEvent.click(pause[0]);
+      });
+      act(() => {
+        vi.advanceTimersByTime(20000);
+      });
+      expect(screen.getByRole('dialog')).toHaveAccessibleName(/2.*2/);
+    });
+
+    it('honors a shorter selected interval', () => {
+      vi.useFakeTimers();
+      renderWithProviders(
+        <ExhibitionView collection={collection} isOpen={true} onClose={vi.fn()} />,
+      );
+
+      act(() => {
+        fireEvent.click(screen.getAllByRole('button', { name: 'Start auto-play' })[0]);
+      });
+      act(() => {
+        fireEvent.click(screen.getAllByRole('button', { name: 'Auto-advance every 5 seconds' })[0]);
+      });
+
+      act(() => {
+        vi.advanceTimersByTime(5000);
+      });
+      expect(screen.getByRole('dialog')).toHaveAccessibleName(/2.*2/);
+    });
+
+    it('restarts the countdown when the user navigates manually', () => {
+      vi.useFakeTimers();
+      renderWithProviders(
+        <ExhibitionView collection={collection} isOpen={true} onClose={vi.fn()} />,
+      );
+
+      act(() => {
+        fireEvent.click(screen.getAllByRole('button', { name: 'Start auto-play' })[0]);
+      });
+      // Part-way through the interval, the user jumps ahead themselves.
+      act(() => {
+        vi.advanceTimersByTime(6000);
+      });
+      act(() => {
+        fireEvent.click(screen.getAllByRole('button', { name: 'Jump to exhibit 2' })[0]);
+      });
+      expect(screen.getByRole('dialog')).toHaveAccessibleName(/2.*2/);
+
+      // The remaining 4s of the old countdown must not trigger an advance —
+      // the timer restarts from the interaction.
+      act(() => {
+        vi.advanceTimersByTime(4000);
+      });
+      expect(screen.getByRole('dialog')).toHaveAccessibleName(/2.*2/);
+
+      // A full interval after the interaction does advance (wrapping to 1).
+      act(() => {
+        vi.advanceTimersByTime(6000);
+      });
+      expect(screen.getByRole('dialog')).toHaveAccessibleName(/1.*2/);
     });
   });
 });
