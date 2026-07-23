@@ -377,6 +377,11 @@ export const translations = {
     label_age: 'Age',
     label_abv: 'ABV %',
     label_region: 'Region',
+    // Collection template preset names/descriptions are authored in English in
+    // constants.ts (the single source of truth). Only non-English overrides are
+    // added below in each locale; getTemplateName/getTemplateDescription fall
+    // back to the constants string when no override exists (e.g. English, or a
+    // future custom template).
     // Image Enhancement
     enhanceImage: 'Enhance Image',
     enhanceImageDesc: 'Improve photo quality with AI',
@@ -907,6 +912,19 @@ export const translations = {
     label_age: '年份/年份',
     label_abv: '酒精度 %',
     label_region: '产区',
+    // Chinese overrides for the template presets authored in constants.ts.
+    template_general_name: '综合收藏',
+    template_general_desc: '收藏门票、邮票以及各种有趣的珍奇之物。',
+    template_chocolate_name: '巧克力典藏',
+    template_chocolate_desc: '记录产地风土、可可含量与细腻的风味层次。',
+    template_vinyl_name: '黑胶收藏',
+    template_vinyl_desc: '按艺术家、压制版本与品相整理你的黑胶唱片。',
+    template_perfume_name: '香水典藏',
+    template_perfume_desc: '管理你的香水、香调与香水屋。',
+    template_sneakers_name: '球鞋收藏',
+    template_sneakers_desc: '策展你的球鞋轮换与限量配色。',
+    template_spirits_name: '烈酒收藏',
+    template_spirits_desc: '记录珍稀酒款、年份与蒸馏细节。',
     // Image Enhancement
     enhanceImage: '优化图片',
     enhanceImageDesc: '用 AI 提升照片质量',
@@ -1099,6 +1117,35 @@ export const getFieldTranslation = (
   if (translated === key) return fallbackLabel ?? fieldId;
   return translated;
 };
+
+/**
+ * Look up a collection template's localized name / description
+ * (`template_<id>_name`, `template_<id>_desc`). Falls back to the template's
+ * built-in English string so custom or future templates render unchanged.
+ */
+const getTemplateString = (
+  t: (key: TranslationKey | (string & {}), params?: Record<string, string | number>) => string,
+  templateId: string,
+  kind: 'name' | 'desc',
+  fallback?: string,
+): string => {
+  const key = `template_${templateId}_${kind}`;
+  const translated = t(key);
+  if (translated === key) return fallback ?? '';
+  return translated;
+};
+
+export const getTemplateName = (
+  t: (key: TranslationKey | (string & {}), params?: Record<string, string | number>) => string,
+  templateId: string,
+  fallbackName?: string,
+): string => getTemplateString(t, templateId, 'name', fallbackName);
+
+export const getTemplateDescription = (
+  t: (key: TranslationKey | (string & {}), params?: Record<string, string | number>) => string,
+  templateId: string,
+  fallbackDesc?: string,
+): string => getTemplateString(t, templateId, 'desc', fallbackDesc);
 
 interface LanguageContextType {
   language: Language;
