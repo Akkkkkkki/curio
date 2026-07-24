@@ -70,9 +70,9 @@ Primary stores:
 - `display`: downsampled display blobs
 - `settings`: preferences and retry queue metadata
 
-Known remaining gap:
+Storage quota handling:
 
-- storage quota warnings are still not implemented and remain tracked in issue [#83](https://github.com/Akkkkkkki/curio/issues/83)
+- `App.tsx` polls `navigator.storage.estimate()` and surfaces a near-limit warning toast (`statusStorageNearLimit`); a write that still fails with `QuotaExceededError` is caught and reported honestly via `statusStorageFull` rather than a generic retry prompt (see `isQuotaExceededError` in `services/db.ts`).
 
 ## 3. Asset Pipeline
 
@@ -321,7 +321,6 @@ Key columns added for the public sample flow:
 
 These are known gaps that should be closed before a full production launch. They are tracked in GitHub Issues.
 
-- **Storage quota warnings** for large local caches.
 - **AI gateway hardening** (CORS restrictions, auth/signed requests, rate limiting).
 - **Operational monitoring** for the AI gateway and sync error rates (metrics + alerting).
 - **Documentation alignment** so testing status reflects actual E2E coverage.
