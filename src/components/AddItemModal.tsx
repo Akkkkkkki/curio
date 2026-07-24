@@ -22,6 +22,7 @@ import { compressImageForAi } from '../services/imageProcessor';
 import { trackEvent, storyLengthBucket } from '../services/analytics';
 import { Button } from './ui/Button';
 import { useTranslation, getFieldTranslation, getFieldHint } from '../i18n';
+import { isBuiltInTemplateField } from '../constants';
 import { useTheme, panelSurfaceClasses, overlaySurfaceClasses, mutedTextClasses } from '../theme';
 import { ImageEditModal } from './ImageEditModal';
 
@@ -1641,8 +1642,19 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
         {detailsOpen && (
           <div data-testid="add-item-more-details" className="space-y-3 sm:space-y-4">
             {currentCollection?.customFields.map((field) => {
-              const value = formData.data?.[field.id] || '';
-              const hint = getFieldHint(t, field.id, field.hint);
+              const rawValue = formData.data?.[field.id];
+              const value = rawValue || '';
+              // Explicit empty check so a stored `false`/`0` still counts as
+              // filled; built-in hints are scoped to real template fields so a
+              // custom field whose id happens to match never inherits domain copy.
+              const isEmpty = rawValue === undefined || rawValue === null || rawValue === '';
+              const hint =
+                (isBuiltInTemplateField(currentCollection?.templateId, field.id)
+                  ? getFieldHint(t, field.id)
+                  : '') ||
+                field.hint ||
+                '';
+              const showHint = Boolean(hint) && isEmpty;
               return (
                 <div key={field.id}>
                   <label
@@ -1655,7 +1667,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
                     id={`add-item-field-${field.id}`}
                     className={`w-full p-2 sm:p-2.5 rounded-lg sm:rounded-xl text-sm ${inputSurface}`}
                     value={value}
-                    aria-describedby={hint && !value ? `add-item-hint-${field.id}` : undefined}
+                    aria-describedby={showHint ? `add-item-hint-${field.id}` : undefined}
                     onChange={(e) => {
                       setFormData({
                         ...formData,
@@ -1669,7 +1681,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
                       });
                     }}
                   />
-                  {hint && !value && (
+                  {showHint && (
                     <p
                       id={`add-item-hint-${field.id}`}
                       className={`mt-1 text-[11px] leading-snug ${mutedText}`}

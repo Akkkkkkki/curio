@@ -10,6 +10,7 @@
 import { describe, it, expect } from 'vitest';
 import { translations, getFieldHint } from '@/i18n';
 import type { Language, TranslationKey } from '@/i18n';
+import { isBuiltInTemplateField } from '@/constants';
 
 // Minimal stand-in for the provider's `t`: same dict → fallback → key lookup,
 // which is all `getFieldHint` depends on (it detects "missing" via `t(key) === key`).
@@ -72,5 +73,24 @@ describe('CUR-52 — getFieldHint', () => {
     expect(getFieldHint(tEn, 'made_up_field')).toBe('');
     // A plain label field with no hint copy stays hintless.
     expect(getFieldHint(tEn, 'category')).toBe('');
+  });
+});
+
+describe('CUR-52 — isBuiltInTemplateField (built-in hint scoping)', () => {
+  it('is true for a genuine field of that template', () => {
+    expect(isBuiltInTemplateField('chocolate', 'origin')).toBe(true);
+    expect(isBuiltInTemplateField('spirits', 'abv')).toBe(true);
+  });
+
+  it('is false for custom collections whose slugified field id collides', () => {
+    // A user field named "Origin" slugs to `origin` (see buildFieldId); it must
+    // not inherit the chocolate-origin hint.
+    expect(isBuiltInTemplateField('custom', 'origin')).toBe(false);
+    expect(isBuiltInTemplateField(undefined, 'condition')).toBe(false);
+  });
+
+  it('is false for a template that does not own the field', () => {
+    // Vinyl has no `origin` field, so a vinyl collection must not show it.
+    expect(isBuiltInTemplateField('vinyl', 'origin')).toBe(false);
   });
 });
