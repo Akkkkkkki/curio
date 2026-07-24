@@ -17,6 +17,12 @@ export interface FieldDefinition {
   options?: string[]; // For select types
   required?: boolean;
   displayMode: FieldDisplayMode; // Where this field appears in the UI
+  // Optional one-line help shown under an empty input while capturing or editing
+  // (e.g. "Cocoa %" → "usually printed on the wrapper"). For the built-in
+  // templates the copy lives in i18n as `hint_<id>` (keyed by field id, like
+  // `label_<id>`); this field is the source for custom/flexible-template fields
+  // and the fallback for `getFieldHint`.
+  hint?: string;
 }
 
 export interface CollectionTemplate {

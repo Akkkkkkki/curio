@@ -15,7 +15,7 @@ import {
   Trash2,
   Undo2,
 } from 'lucide-react';
-import { useTranslation, getFieldTranslation } from '../i18n';
+import { useTranslation, getFieldTranslation, getFieldHint } from '../i18n';
 import {
   useTheme,
   typographyClasses,
@@ -933,6 +933,10 @@ export const ItemDetailScreen: React.FC<ItemDetailScreenProps> = ({
                   const label = getLabel(field.id);
                   const isMultilineText = field.type === 'text' || field.type === 'long_text';
                   const fieldValue = val || '';
+                  // Guide an empty, editable field; hide once filled or read-only so
+                  // the museum placard stays uncluttered (beauty before bureaucracy).
+                  const hint = getFieldHint(t, field.id, field.hint);
+                  const showHint = Boolean(hint) && !isReadOnly && !fieldValue;
                   const fieldBaseClass = `${typographyClasses.title} w-full bg-transparent border-none p-0 outline-none focus:text-amber-900 focus:ring-0 transition-colors ${theme === 'vault' ? 'text-white placeholder:text-stone-400' : theme === 'atelier' ? 'text-stone-900 placeholder:text-[#8C7B6B]' : 'text-stone-900 placeholder:text-stone-500'} ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`;
                   const handleFieldChange = (
                     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -960,6 +964,7 @@ export const ItemDetailScreen: React.FC<ItemDetailScreenProps> = ({
                           value={fieldValue}
                           placeholder="—"
                           rows={1}
+                          aria-describedby={showHint ? `item-field-hint-${field.id}` : undefined}
                           onChange={(e) => {
                             e.currentTarget.style.height = 'auto';
                             e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
@@ -972,9 +977,18 @@ export const ItemDetailScreen: React.FC<ItemDetailScreenProps> = ({
                           className={fieldBaseClass}
                           value={fieldValue}
                           placeholder="—"
+                          aria-describedby={showHint ? `item-field-hint-${field.id}` : undefined}
                           onChange={handleFieldChange}
                           disabled={isReadOnly}
                         />
+                      )}
+                      {showHint && (
+                        <p
+                          id={`item-field-hint-${field.id}`}
+                          className={`mt-1 text-[11px] leading-snug ${mutedTextClasses[theme]}`}
+                        >
+                          {hint}
+                        </p>
                       )}
                     </div>
                   );
