@@ -360,7 +360,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         ref={collectionsRef}
         id="collections-grid"
         tabIndex={-1}
-        className="grid grid-cols-1 md:grid-cols-2 gap-8 scroll-mt-24 outline-none"
+        className="grid grid-cols-1 md:grid-cols-2 gap-8 scroll-mt-24 rounded-[2rem] outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
         data-testid="collections-grid"
       >
         {filteredCollections.map((col) => {

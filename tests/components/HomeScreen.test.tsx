@@ -138,6 +138,9 @@ describe('HomeScreen', () => {
       renderWithProviders(<HomeScreen {...defaultProps} />);
 
       const grid = screen.getByTestId('collections-grid');
+      // Keyboard users are focused into the grid, so it must keep a visible
+      // focus-visible indicator rather than only suppressing the outline.
+      expect(grid.className).toMatch(/focus-visible:ring/);
       const focusMock = vi.spyOn(grid, 'focus');
 
       const statsButton = screen.getByRole('button', { name: /jump to your collections/i });
