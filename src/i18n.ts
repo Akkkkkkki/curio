@@ -274,6 +274,8 @@ export const translations = {
     statusImportComplete: 'Imported from local storage',
     statusImportFailed: 'Import failed',
     statusStorageNearLimit: 'Storage is almost full. Sync, remove items, or reduce image sizes.',
+    statusStorageFull:
+      'Your device storage is full, so this photo could not be saved. Remove some items or free up space, then try again.',
     showingItems: 'Showing {shown} of {total} items',
     loadMore: 'Load more',
     allItemsLoaded: 'All items loaded',
@@ -393,6 +395,11 @@ export const translations = {
     hint_abv: 'Alcohol by volume — the percentage listed on the bottle.',
     hint_age: 'Years matured, if the bottle states one.',
     hint_region: 'Where it was made — e.g. Islay, Kentucky, or Jalisco.',
+    // Collection template preset names/descriptions are authored in English in
+    // constants.ts (the single source of truth). Only non-English overrides are
+    // added below in each locale; getTemplateName/getTemplateDescription fall
+    // back to the constants string when no override exists (e.g. English, or a
+    // future custom template).
     // Image Enhancement
     enhanceImage: 'Enhance Image',
     enhanceImageDesc: 'Improve photo quality with AI',
@@ -823,6 +830,7 @@ export const translations = {
     statusImportComplete: '本地数据已导入',
     statusImportFailed: '导入失败，请重试。',
     statusStorageNearLimit: '存储空间接近用尽。请同步、清理藏品或缩小图片。',
+    statusStorageFull: '设备存储空间已满，无法保存此照片。请清理部分藏品或释放空间后重试。',
     showingItems: '已显示 {shown} / {total} 件',
     loadMore: '加载更多',
     allItemsLoaded: '已加载全部',
@@ -939,6 +947,19 @@ export const translations = {
     hint_abv: '酒精体积含量——瓶身标注的百分比。',
     hint_age: '陈酿年数（若瓶身有标注）。',
     hint_region: '产地——如艾雷岛、肯塔基或哈利斯科。',
+    // Chinese overrides for the template presets authored in constants.ts.
+    template_general_name: '综合收藏',
+    template_general_desc: '收藏门票、邮票以及各种有趣的珍奇之物。',
+    template_chocolate_name: '巧克力典藏',
+    template_chocolate_desc: '记录产地风土、可可含量与细腻的风味层次。',
+    template_vinyl_name: '黑胶收藏',
+    template_vinyl_desc: '按艺术家、压制版本与品相整理你的黑胶唱片。',
+    template_perfume_name: '香水典藏',
+    template_perfume_desc: '管理你的香水、香调与香水屋。',
+    template_sneakers_name: '球鞋收藏',
+    template_sneakers_desc: '策展你的球鞋轮换与限量配色。',
+    template_spirits_name: '烈酒收藏',
+    template_spirits_desc: '记录珍稀酒款、年份与蒸馏细节。',
     // Image Enhancement
     enhanceImage: '优化图片',
     enhanceImageDesc: '用 AI 提升照片质量',
@@ -1148,6 +1169,35 @@ export const getFieldHint = (
   if (translated === key) return fallbackHint ?? '';
   return translated;
 };
+
+/**
+ * Look up a collection template's localized name / description
+ * (`template_<id>_name`, `template_<id>_desc`). Falls back to the template's
+ * built-in English string so custom or future templates render unchanged.
+ */
+const getTemplateString = (
+  t: (key: TranslationKey | (string & {}), params?: Record<string, string | number>) => string,
+  templateId: string,
+  kind: 'name' | 'desc',
+  fallback?: string,
+): string => {
+  const key = `template_${templateId}_${kind}`;
+  const translated = t(key);
+  if (translated === key) return fallback ?? '';
+  return translated;
+};
+
+export const getTemplateName = (
+  t: (key: TranslationKey | (string & {}), params?: Record<string, string | number>) => string,
+  templateId: string,
+  fallbackName?: string,
+): string => getTemplateString(t, templateId, 'name', fallbackName);
+
+export const getTemplateDescription = (
+  t: (key: TranslationKey | (string & {}), params?: Record<string, string | number>) => string,
+  templateId: string,
+  fallbackDesc?: string,
+): string => getTemplateString(t, templateId, 'desc', fallbackDesc);
 
 interface LanguageContextType {
   language: Language;

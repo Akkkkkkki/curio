@@ -37,6 +37,7 @@ import {
   shouldPreserveLocalOnlyCollection,
   saveAllCollections,
   saveAsset,
+  isQuotaExceededError,
   deleteAsset,
   deleteCloudItem,
   deleteCollection,
@@ -946,12 +947,17 @@ export const AppContent: React.FC = () => {
         hasPhoto = true;
       } catch (e) {
         console.error('Image processing failed', e);
+        // CUR-38: a full device disk (IndexedDB quota) never recovers on retry,
+        // so surface an honest "free up space" message instead of the generic
+        // "please try again" — the latter implies a transient failure.
+        const storageFull = isQuotaExceededError(e);
         trackEvent('upload_failed', {
           operation: 'local_image_processing',
-          retryable: true,
+          retryable: !storageFull,
         });
-        showStatus(t('saveImageFailed'), 'error');
-        throw new Error(t('saveImageFailed'));
+        const message = storageFull ? t('statusStorageFull') : t('saveImageFailed');
+        showStatus(message, 'error');
+        throw new Error(message);
       }
     }
 

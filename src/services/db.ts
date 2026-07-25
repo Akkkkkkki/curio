@@ -1682,6 +1682,23 @@ const recordItemImage = async ({
   return true;
 };
 
+/**
+ * CUR-38: A full device disk surfaces an IndexedDB write as a DOMException named
+ * `QuotaExceededError` (legacy code 22) — or Firefox's `NS_ERROR_DOM_QUOTA_REACHED`
+ * (code 1014). Detect every form so callers can show an honest, actionable message
+ * ("free up space") instead of a generic "try again" that never succeeds.
+ */
+export const isQuotaExceededError = (error: unknown): boolean => {
+  if (!error || typeof error !== 'object') return false;
+  const err = error as { name?: string; code?: number };
+  return (
+    err.name === 'QuotaExceededError' ||
+    err.name === 'NS_ERROR_DOM_QUOTA_REACHED' ||
+    err.code === 22 ||
+    err.code === 1014
+  );
+};
+
 export const saveAsset = async (
   collectionId: string,
   id: string,

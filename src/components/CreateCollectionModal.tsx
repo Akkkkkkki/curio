@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Check, ChevronDown, GripVertical, Loader2, Pin, X } from 'lucide-react';
 import { TEMPLATES } from '../constants';
 import { Button } from './ui/Button';
-import { useTranslation } from '../i18n';
+import { useTranslation, getTemplateName, getTemplateDescription } from '../i18n';
 import { useTheme, panelSurfaceClasses, overlaySurfaceClasses, mutedTextClasses } from '../theme';
 import { suggestCollectionFields } from '../services/geminiService';
 import { useModalA11y } from '../hooks/useModalA11y';
@@ -148,7 +148,9 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
     if (!isOpen) resetState();
   }, [isOpen]);
 
-  const nameFallback = selectedTemplate?.name || t('newArchive');
+  const nameFallback = selectedTemplate
+    ? getTemplateName(t, selectedTemplate.id, selectedTemplate.name)
+    : t('newArchive');
   const displayName = collectionName.trim() || description.trim() || nameFallback;
 
   const handleClose = () => {
@@ -362,11 +364,11 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
       return;
     }
     if (selectedTemplate) {
-      setCollectionName(selectedTemplate.name);
+      setCollectionName(getTemplateName(t, selectedTemplate.id, selectedTemplate.name));
       return;
     }
     setCollectionName('');
-  }, [description, selectedTemplate, hasEditedName, isOpen]);
+  }, [description, selectedTemplate, hasEditedName, isOpen, t]);
 
   useEffect(() => {
     if (step !== 'loading') return;
@@ -501,7 +503,9 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
                 <span className="mb-2 block text-xl" aria-hidden="true">
                   {temp.icon}
                 </span>
-                <span className="block text-sm font-semibold leading-tight">{temp.name}</span>
+                <span className="block text-sm font-semibold leading-tight">
+                  {getTemplateName(t, temp.id, temp.name)}
+                </span>
               </button>
             );
           })}
@@ -520,10 +524,10 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
                 <p
                   className={`text-sm font-semibold ${theme === 'vault' ? 'text-white' : 'text-stone-800'}`}
                 >
-                  {selectedTemplate.name}
+                  {getTemplateName(t, selectedTemplate.id, selectedTemplate.name)}
                 </p>
                 <p className={`text-[12px] ${mutedText} leading-snug`}>
-                  {selectedTemplate.description}
+                  {getTemplateDescription(t, selectedTemplate.id, selectedTemplate.description)}
                 </p>
               </div>
             </div>

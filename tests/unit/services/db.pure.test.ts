@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { compareTimestamps, normalizePhotoPaths, getSyncBackoffMs } from '@/services/db';
+import {
+  compareTimestamps,
+  normalizePhotoPaths,
+  getSyncBackoffMs,
+  isQuotaExceededError,
+} from '@/services/db';
 
 describe('db.ts - Pure Functions', () => {
   describe('compareTimestamps', () => {
@@ -512,6 +517,33 @@ describe('db.ts - Pure Functions', () => {
 
     it('caps backoff at max delay', () => {
       expect(getSyncBackoffMs(10)).toBe(600000);
+    });
+  });
+
+  describe('isQuotaExceededError', () => {
+    it('detects a DOMException named QuotaExceededError', () => {
+      expect(isQuotaExceededError(new DOMException('full', 'QuotaExceededError'))).toBe(true);
+    });
+
+    it('detects the legacy numeric code 22', () => {
+      expect(isQuotaExceededError({ name: 'SomethingElse', code: 22 })).toBe(true);
+    });
+
+    it("detects Firefox's NS_ERROR_DOM_QUOTA_REACHED (name and code 1014)", () => {
+      expect(isQuotaExceededError({ name: 'NS_ERROR_DOM_QUOTA_REACHED' })).toBe(true);
+      expect(isQuotaExceededError({ code: 1014 })).toBe(true);
+    });
+
+    it('does not misclassify unrelated errors', () => {
+      expect(isQuotaExceededError(new Error('network down'))).toBe(false);
+      expect(isQuotaExceededError(new DOMException('aborted', 'AbortError'))).toBe(false);
+      expect(isQuotaExceededError({ name: 'TypeError', code: 5 })).toBe(false);
+    });
+
+    it('is safe on null / non-object inputs', () => {
+      expect(isQuotaExceededError(null)).toBe(false);
+      expect(isQuotaExceededError(undefined)).toBe(false);
+      expect(isQuotaExceededError('QuotaExceededError')).toBe(false);
     });
   });
 });

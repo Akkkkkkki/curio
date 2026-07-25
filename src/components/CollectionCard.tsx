@@ -2,7 +2,7 @@ import React from 'react';
 import { UserCollection } from '../types';
 import { ChevronRight, Search } from 'lucide-react';
 import { TEMPLATES } from '../constants';
-import { useTranslation, getFieldTranslation } from '../i18n';
+import { useTranslation, getFieldTranslation, getTemplateDescription } from '../i18n';
 import {
   useTheme,
   cardSurfaceClasses,
@@ -71,7 +71,7 @@ export const CollectionCard: React.FC<CollectionCardProps> = React.memo(function
     ? meaningfulDescription
     : tagPreview
       ? `${t('fieldsLabel')}: ${tagPreview}`
-      : template.description;
+      : getTemplateDescription(t, template.id, template.description);
 
   return (
     <div
