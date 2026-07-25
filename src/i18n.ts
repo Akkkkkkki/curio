@@ -274,6 +274,8 @@ export const translations = {
     statusImportComplete: 'Imported from local storage',
     statusImportFailed: 'Import failed',
     statusStorageNearLimit: 'Storage is almost full. Sync, remove items, or reduce image sizes.',
+    statusStorageFull:
+      'Your device storage is full, so this photo could not be saved. Remove some items or free up space, then try again.',
     showingItems: 'Showing {shown} of {total} items',
     loadMore: 'Load more',
     allItemsLoaded: 'All items loaded',
@@ -812,6 +814,7 @@ export const translations = {
     statusImportComplete: '本地数据已导入',
     statusImportFailed: '导入失败，请重试。',
     statusStorageNearLimit: '存储空间接近用尽。请同步、清理藏品或缩小图片。',
+    statusStorageFull: '设备存储空间已满，无法保存此照片。请清理部分藏品或释放空间后重试。',
     showingItems: '已显示 {shown} / {total} 件',
     loadMore: '加载更多',
     allItemsLoaded: '已加载全部',
