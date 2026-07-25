@@ -49,6 +49,8 @@ export const translations = {
     homeMuseumTitle: 'Your museum',
     // Params arrive pre-pluralized via the collectionCount / artifactCataloged key pairs.
     homeMuseumSubtitle: '{collections} · {items}',
+    // Accessible name for the tappable stat line; {stats} is the visible subtitle.
+    homeStatsJumpAria: '{stats} — jump to your collections',
     collectionCount: '{n} collection',
     collectionsCount: '{n} collections',
     catalogFirst: 'Add first piece',
@@ -609,6 +611,7 @@ export const translations = {
     homeWelcome: '欢迎回来',
     homeMuseumTitle: '你的博物馆',
     homeMuseumSubtitle: '{collections} · {items}',
+    homeStatsJumpAria: '{stats} — 跳转到你的收藏集',
     collectionCount: '{n} 个收藏集',
     collectionsCount: '{n} 个收藏集',
     catalogFirst: '添加首件藏品',
