@@ -21,7 +21,8 @@ import { analyzeImage, fetchStoryPrompts, refreshAiEnabled } from '../services/g
 import { compressImageForAi } from '../services/imageProcessor';
 import { trackEvent, storyLengthBucket } from '../services/analytics';
 import { Button } from './ui/Button';
-import { useTranslation, getFieldTranslation } from '../i18n';
+import { useTranslation, getFieldTranslation, getFieldHint } from '../i18n';
+import { isBuiltInTemplateField } from '../constants';
 import { useTheme, panelSurfaceClasses, overlaySurfaceClasses, mutedTextClasses } from '../theme';
 import { ImageEditModal } from './ImageEditModal';
 
@@ -1640,31 +1641,57 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
 
         {detailsOpen && (
           <div data-testid="add-item-more-details" className="space-y-3 sm:space-y-4">
-            {currentCollection?.customFields.map((field) => (
-              <div key={field.id}>
-                <label
-                  className={`block text-[11px] font-semibold uppercase tracking-[0.12em] ${mutedText} mb-0.5 sm:mb-1`}
-                >
-                  {getFieldLabel(field.id, field.label)}
-                </label>
-                <input
-                  className={`w-full p-2 sm:p-2.5 rounded-lg sm:rounded-xl text-sm ${inputSurface}`}
-                  value={formData.data?.[field.id] || ''}
-                  onChange={(e) => {
-                    setFormData({
-                      ...formData,
-                      data: { ...formData.data, [field.id]: e.target.value },
-                    });
-                    setAiFieldSuggestions((prev) => {
-                      if (!(field.id in prev)) return prev;
-                      const next = { ...prev };
-                      delete next[field.id];
-                      return next;
-                    });
-                  }}
-                />
-              </div>
-            ))}
+            {currentCollection?.customFields.map((field) => {
+              const rawValue = formData.data?.[field.id];
+              const value = rawValue || '';
+              // Explicit empty check so a stored `false`/`0` still counts as
+              // filled; built-in hints are scoped to real template fields so a
+              // custom field whose id happens to match never inherits domain copy.
+              const isEmpty = rawValue === undefined || rawValue === null || rawValue === '';
+              const hint =
+                (isBuiltInTemplateField(currentCollection?.templateId, field.id)
+                  ? getFieldHint(t, field.id)
+                  : '') ||
+                field.hint ||
+                '';
+              const showHint = Boolean(hint) && isEmpty;
+              return (
+                <div key={field.id}>
+                  <label
+                    htmlFor={`add-item-field-${field.id}`}
+                    className={`block text-[11px] font-semibold uppercase tracking-[0.12em] ${mutedText} mb-0.5 sm:mb-1`}
+                  >
+                    {getFieldLabel(field.id, field.label)}
+                  </label>
+                  <input
+                    id={`add-item-field-${field.id}`}
+                    className={`w-full p-2 sm:p-2.5 rounded-lg sm:rounded-xl text-sm ${inputSurface}`}
+                    value={value}
+                    aria-describedby={showHint ? `add-item-hint-${field.id}` : undefined}
+                    onChange={(e) => {
+                      setFormData({
+                        ...formData,
+                        data: { ...formData.data, [field.id]: e.target.value },
+                      });
+                      setAiFieldSuggestions((prev) => {
+                        if (!(field.id in prev)) return prev;
+                        const next = { ...prev };
+                        delete next[field.id];
+                        return next;
+                      });
+                    }}
+                  />
+                  {showHint && (
+                    <p
+                      id={`add-item-hint-${field.id}`}
+                      className={`mt-1 text-[11px] leading-snug ${mutedText}`}
+                    >
+                      {hint}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
             <div>
               <label
                 className={`block text-[11px] font-semibold uppercase tracking-[0.12em] ${mutedText} mb-0.5 sm:mb-1`}

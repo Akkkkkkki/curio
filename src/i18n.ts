@@ -379,6 +379,22 @@ export const translations = {
     label_age: 'Age',
     label_abv: 'ABV %',
     label_region: 'Region',
+    // Field Hints (optional one-liners shown under an empty input; keyed by field id)
+    hint_cocoa_percent: 'The share of cocoa solids — usually printed on the wrapper.',
+    hint_origin: 'Where the beans were grown — a country, region, or single estate.',
+    hint_batch: "The maker's batch or lot number, often on the back label.",
+    hint_concentration: 'How concentrated the scent is — e.g. EDT, EDP, or Parfum.',
+    hint_notes_top: 'The first impression — what you smell in the opening minutes.',
+    hint_notes_heart: 'The scent at its core, once the opening settles.',
+    hint_notes_base: 'What lingers hours later — the dry-down.',
+    hint_style_code: "The maker's style or SKU code, usually on the box label.",
+    hint_colorway: 'The official name of this colour combination.',
+    hint_deadstock: 'Never worn, still in original condition.',
+    hint_speed: 'Playback speed in RPM — 33⅓, 45, or 78.',
+    hint_condition: 'Record grading — e.g. Mint, VG+, or Good.',
+    hint_abv: 'Alcohol by volume — the percentage listed on the bottle.',
+    hint_age: 'Years matured, if the bottle states one.',
+    hint_region: 'Where it was made — e.g. Islay, Kentucky, or Jalisco.',
     // Collection template preset names/descriptions are authored in English in
     // constants.ts (the single source of truth). Only non-English overrides are
     // added below in each locale; getTemplateName/getTemplateDescription fall
@@ -915,6 +931,22 @@ export const translations = {
     label_age: '年份/年份',
     label_abv: '酒精度 %',
     label_region: '产区',
+    // Field Hints (optional one-liners shown under an empty input; keyed by field id)
+    hint_cocoa_percent: '可可固形物的比例——通常印在包装上。',
+    hint_origin: '可可豆的种植地——国家、地区或单一庄园。',
+    hint_batch: '制作者的批次或批号，通常在背标上。',
+    hint_concentration: '香水的浓度——如淡香水（EDT）、浓香水（EDP）或香精（Parfum）。',
+    hint_notes_top: '最初的印象——喷洒后几分钟内闻到的气息。',
+    hint_notes_heart: '前调散去后，香气的核心。',
+    hint_notes_base: '数小时后留下的余韵——尾调。',
+    hint_style_code: '制作者的款式或 SKU 代码，通常在鞋盒标签上。',
+    hint_colorway: '这一配色的官方名称。',
+    hint_deadstock: '全新未穿着，保持原始状态。',
+    hint_speed: '播放转速（RPM）——33⅓、45 或 78。',
+    hint_condition: '唱片品相评级——如 Mint、VG+ 或 Good。',
+    hint_abv: '酒精体积含量——瓶身标注的百分比。',
+    hint_age: '陈酿年数（若瓶身有标注）。',
+    hint_region: '产地——如艾雷岛、肯塔基或哈利斯科。',
     // Chinese overrides for the template presets authored in constants.ts.
     template_general_name: '综合收藏',
     template_general_desc: '收藏门票、邮票以及各种有趣的珍奇之物。',
@@ -1118,6 +1150,23 @@ export const getFieldTranslation = (
   const key = `label_${fieldId}`;
   const translated = t(key);
   if (translated === key) return fallbackLabel ?? fieldId;
+  return translated;
+};
+
+/**
+ * Look up an optional one-line field hint like `hint_cocoa_percent`.
+ * Mirrors {@link getFieldTranslation}: returns the localized hint when one
+ * exists, otherwise the field's own `hint` (for custom fields), otherwise ''.
+ * An empty string means "no hint" so callers can render conditionally.
+ */
+export const getFieldHint = (
+  t: (key: TranslationKey | (string & {}), params?: Record<string, string | number>) => string,
+  fieldId: string,
+  fallbackHint?: string,
+): string => {
+  const key = `hint_${fieldId}`;
+  const translated = t(key);
+  if (translated === key) return fallbackHint ?? '';
   return translated;
 };
 

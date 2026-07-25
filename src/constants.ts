@@ -153,3 +153,15 @@ export const TEMPLATES: CollectionTemplate[] = [
     ],
   },
 ];
+
+/**
+ * True only when `fieldId` is a genuine field of the given built-in template.
+ * Custom fields are slugified from their label (see `buildFieldId` in App.tsx),
+ * so a user-created field named "Origin", "Condition", "Batch", etc. can collide
+ * with a built-in `hint_<id>` key. This scopes built-in field hints to real
+ * template fields so a custom collection never inherits domain-specific copy.
+ */
+export const isBuiltInTemplateField = (templateId: string | undefined, fieldId: string): boolean =>
+  TEMPLATES.some(
+    (template) => template.id === templateId && template.fields.some((f) => f.id === fieldId),
+  );
