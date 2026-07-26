@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { AlertCircle, Sparkles, Calendar, Search, Plus, Loader2, X } from 'lucide-react';
 import { useTranslation } from '../i18n';
@@ -74,6 +74,30 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const primaryHistoryItem = historyItems[0];
   const [historyExpanded, setHistoryExpanded] = useState(false);
   const visibleHistoryItems = historyExpanded ? historyItems : historyPreview;
+
+  // CUR-30: the museum stat line ("N collections · M pieces") jumps to the
+  // collections grid — a meaningful, honest drilldown to your archives without
+  // adding a separate all-items view (identity before inventory). Most useful on
+  // mobile, where the grid sits well below the search and On This Day sections.
+  const collectionsRef = useRef<HTMLDivElement>(null);
+  const scrollToCollections = () => {
+    const node = collectionsRef.current;
+    if (!node) return;
+    const reduceMotion =
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    node.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+    // Move focus so keyboard users continue from the grid, not the page top.
+    node.focus({ preventScroll: true });
+  };
+  const statsSummary = t('homeMuseumSubtitle', {
+    collections: t(stats.totalCollections === 1 ? 'collectionCount' : 'collectionsCount', {
+      n: stats.totalCollections,
+    }),
+    items: t(stats.totalItems === 1 ? 'artifactCataloged' : 'artifactsCataloged', {
+      n: stats.totalItems,
+    }),
+  });
 
   if (isLoading)
     return (
@@ -201,18 +225,21 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           {t('homeWelcome')}
         </p>
         <h1 className={`${typographyClasses.titleHero} leading-tight`}>{t('homeMuseumTitle')}</h1>
-        <p
-          className={`max-w-2xl font-serif text-sm italic sm:text-base ${theme === 'vault' ? 'text-stone-300' : theme === 'atelier' ? 'text-[#6F6257]' : 'text-stone-600'}`}
+        <button
+          type="button"
+          onClick={scrollToCollections}
+          aria-controls="collections-grid"
+          aria-label={t('homeStatsJumpAria', { stats: statsSummary })}
+          className={`group -mx-1 inline-flex max-w-2xl items-center rounded-md px-1 font-serif text-sm italic underline decoration-dotted decoration-1 underline-offset-4 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-amber-500/40 sm:text-base ${
+            theme === 'vault'
+              ? 'text-stone-300 decoration-white/25 hover:text-[#D4A574] hover:decoration-[#D4A574]/60'
+              : theme === 'atelier'
+                ? 'text-[#6F6257] decoration-[#8C7B6B]/40 hover:text-[#A86F3C] hover:decoration-[#A86F3C]/60'
+                : 'text-stone-600 decoration-stone-300 hover:text-amber-700 hover:decoration-amber-500/60'
+          }`}
         >
-          {t('homeMuseumSubtitle', {
-            collections: t(stats.totalCollections === 1 ? 'collectionCount' : 'collectionsCount', {
-              n: stats.totalCollections,
-            }),
-            items: t(stats.totalItems === 1 ? 'artifactCataloged' : 'artifactsCataloged', {
-              n: stats.totalItems,
-            }),
-          })}
-        </p>
+          {statsSummary}
+        </button>
       </header>
 
       <div className="relative max-w-xl mx-auto px-4">
@@ -329,7 +356,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         </section>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8" data-testid="collections-grid">
+      <div
+        ref={collectionsRef}
+        id="collections-grid"
+        tabIndex={-1}
+        className="grid grid-cols-1 md:grid-cols-2 gap-8 scroll-mt-24 rounded-[2rem] outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+        data-testid="collections-grid"
+      >
         {filteredCollections.map((col) => {
           const matchesName = hasSearch && col.name.toLowerCase().includes(normalizedSearch);
           const matchesItems =

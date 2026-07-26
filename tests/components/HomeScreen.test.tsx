@@ -130,6 +130,32 @@ describe('HomeScreen', () => {
     expect(screen.getByText('1 collection · 2 pieces')).toBeInTheDocument();
   });
 
+  it('jumps to the collections grid when the museum stats are activated (CUR-30)', () => {
+    const scrollSpy = vi.fn();
+    const original = (HTMLElement.prototype as any).scrollIntoView;
+    (HTMLElement.prototype as any).scrollIntoView = scrollSpy;
+    try {
+      renderWithProviders(<HomeScreen {...defaultProps} />);
+
+      const grid = screen.getByTestId('collections-grid');
+      // Keyboard users are focused into the grid, so it must keep a visible
+      // focus-visible indicator rather than only suppressing the outline.
+      expect(grid.className).toMatch(/focus-visible:ring/);
+      const focusMock = vi.spyOn(grid, 'focus');
+
+      const statsButton = screen.getByRole('button', { name: /jump to your collections/i });
+      // The visible label is still the plain stat line, so it stays legible.
+      expect(statsButton).toHaveTextContent('2 collections · 1 piece');
+
+      fireEvent.click(statsButton);
+
+      expect(scrollSpy).toHaveBeenCalledTimes(1);
+      expect(focusMock).toHaveBeenCalledTimes(1);
+    } finally {
+      (HTMLElement.prototype as any).scrollIntoView = original;
+    }
+  });
+
   it('filters collections by search term', async () => {
     renderWithProviders(<HomeScreen {...defaultProps} />);
 
