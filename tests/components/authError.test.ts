@@ -19,11 +19,19 @@ describe('mapAuthErrorMessage', () => {
     );
   });
 
-  it('maps other network phrasings (Load failed / NetworkError) to the network message', () => {
+  it('maps other network phrasings (Load failed / NetworkError / Network request failed) to the network message', () => {
     expect(mapAuthErrorMessage('Load failed', makeT('en'))).toBe(translations.en.authNetworkError);
     expect(
       mapAuthErrorMessage('NetworkError when attempting to fetch resource.', makeT('en')),
     ).toBe(translations.en.authNetworkError);
+    // Supabase transport failures throw an Error("Network request failed")
+    // (see tests/unit/services/supabase.test.ts), common on mobile clients.
+    expect(mapAuthErrorMessage('Network request failed', makeT('en'))).toBe(
+      translations.en.authNetworkError,
+    );
+    expect(mapAuthErrorMessage('Network request failed', makeT('zh'))).toBe(
+      translations.zh.authNetworkError,
+    );
   });
 
   it('maps Supabase "Invalid login credentials" to friendly localized copy', () => {

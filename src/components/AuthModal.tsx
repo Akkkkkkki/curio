@@ -35,7 +35,11 @@ type Translate = (
 // authFailed message for anything unexpected. Exported for unit testing.
 export const mapAuthErrorMessage = (raw: string, t: Translate): string => {
   const message = (raw || '').trim();
-  if (/failed to fetch|networkerror|network error|load failed|fetch failed/i.test(message)) {
+  if (
+    /failed to fetch|networkerror|network (error|request failed)|load failed|fetch failed/i.test(
+      message,
+    )
+  ) {
     return t('authNetworkError');
   }
   if (/invalid login credentials|invalid.*(email|password)|incorrect.*password/i.test(message)) {
