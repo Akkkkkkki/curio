@@ -492,6 +492,9 @@ export const translations = {
     authFastTitle: 'Fast',
     authFastDesc: 'Optimized for speed & offline.',
     authFailed: 'Authentication failed',
+    authNetworkError: "Can't reach the server. Check your connection and try again.",
+    authInvalidCredentials:
+      "That email or password doesn't match. Try again or reset your password.",
     forgotPassword: 'Forgot password?',
     resetPasswordTitle: 'Reset your password',
     resetPasswordDesc: 'Enter the email you signed up with. We will send you a reset link.',
@@ -1052,6 +1055,8 @@ export const translations = {
     authFastTitle: '快速',
     authFastDesc: '为速度和离线体验优化。',
     authFailed: '身份验证失败',
+    authNetworkError: '无法连接服务器，请检查网络后重试。',
+    authInvalidCredentials: '邮箱或密码不正确，请重试或重置密码。',
     forgotPassword: '忘记密码？',
     resetPasswordTitle: '重置密码',
     resetPasswordDesc: '请输入注册时使用的邮箱，我们将向您发送重置链接。',
