@@ -1183,6 +1183,67 @@ describe('AddItemModal', () => {
       expect(mockOnClose).not.toHaveBeenCalled();
     });
 
+    it('confirms before closing while a selected photo is still being analyzed', async () => {
+      const user = userEvent.setup();
+      mockRefreshAiEnabled.mockResolvedValue(true);
+      mockAnalyzeImage.mockReturnValue(new Promise<never>(() => {}));
+      mockGetPhoto.mockResolvedValue({
+        dataUrl: 'data:image/png;base64,ZmFrZQ==',
+        format: 'png',
+      });
+
+      renderWithProviders(
+        <AddItemModal
+          isOpen
+          onClose={mockOnClose}
+          collections={[createMockCollection({ customFields: [] })]}
+          onSave={mockOnSave}
+        />,
+      );
+
+      await user.click(screen.getAllByRole('button', { name: /upload photo/i })[0]);
+      await screen.findByRole('heading', { name: 'Analyzing photo...' });
+
+      await user.click(screen.getByRole('button', { name: 'Close' }));
+
+      expect(mockOnClose).not.toHaveBeenCalled();
+      expect(screen.getByTestId('add-item-discard-confirm')).toBeInTheDocument();
+    });
+
+    it('confirms before closing while queued batch rows are being reanalyzed', async () => {
+      const user = userEvent.setup();
+      mockRefreshAiEnabled.mockResolvedValue(true);
+      mockAnalyzeImage.mockResolvedValueOnce({
+        status: 'error',
+        message: 'Temporary analyzer failure',
+      });
+
+      renderWithProviders(
+        <AddItemModal
+          isOpen
+          onClose={mockOnClose}
+          collections={[createMockCollection({ customFields: [] })]}
+          onSave={mockOnSave}
+        />,
+      );
+
+      const file = new File(['fake'], 'a.png', { type: 'image/png' });
+      const input = screen.getByTestId('add-item-batch-input') as HTMLInputElement;
+      await user.upload(input, file);
+
+      const retry = await screen.findByRole('button', { name: 'Retry analysis' });
+      mockAnalyzeImage.mockReset();
+      mockAnalyzeImage.mockReturnValue(new Promise<never>(() => {}));
+
+      await user.click(retry);
+      await screen.findByRole('heading', { name: 'Analyzing photo...' });
+
+      await user.click(screen.getByRole('button', { name: 'Close' }));
+
+      expect(mockOnClose).not.toHaveBeenCalled();
+      expect(screen.getByTestId('add-item-discard-confirm')).toBeInTheDocument();
+    });
+
     it('yields Escape to the nested ImageEditModal — child closes alone, parent stays open (CUR-86)', async () => {
       const user = userEvent.setup();
       mockRefreshAiEnabled.mockResolvedValue(true);

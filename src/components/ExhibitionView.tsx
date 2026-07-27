@@ -35,28 +35,33 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
   const [interactionNonce, setInteractionNonce] = useState(0);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const itemCount = collection.items.length;
+  const safeIndex = itemCount > 0 ? Math.min(Math.max(index, 0), itemCount - 1) : 0;
   const getFieldLabel = (fieldId: string, fallback: string) =>
     getFieldTranslation(t, fieldId, fallback);
 
   const registerInteraction = useCallback(() => setInteractionNonce((n) => n + 1), []);
 
   const next = useCallback(() => {
+    if (itemCount === 0) return;
     registerInteraction();
-    setIndex((i) => (i + 1) % collection.items.length);
-  }, [collection.items.length, registerInteraction]);
+    setIndex((i) => (Math.min(Math.max(i, 0), itemCount - 1) + 1) % itemCount);
+  }, [itemCount, registerInteraction]);
   const prev = useCallback(() => {
+    if (itemCount === 0) return;
     registerInteraction();
-    setIndex((i) => (i - 1 + collection.items.length) % collection.items.length);
-  }, [collection.items.length, registerInteraction]);
+    setIndex((i) => (Math.min(Math.max(i, 0), itemCount - 1) - 1 + itemCount) % itemCount);
+  }, [itemCount, registerInteraction]);
   const jumpTo = useCallback(
     (target: number) => {
+      if (itemCount === 0) return;
       registerInteraction();
-      setIndex(target);
+      setIndex(Math.min(Math.max(target, 0), itemCount - 1));
     },
-    [registerInteraction],
+    [itemCount, registerInteraction],
   );
 
-  const canAutoplay = collection.items.length > 1;
+  const canAutoplay = itemCount > 1;
 
   const toggleAutoplay = useCallback(() => {
     registerInteraction();
@@ -79,10 +84,18 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
   useEffect(() => {
     if (!isOpen || !isPlaying || !canAutoplay) return;
     const id = window.setInterval(() => {
-      setIndex((i) => (i + 1) % collection.items.length);
+      setIndex((i) => (Math.min(Math.max(i, 0), itemCount - 1) + 1) % itemCount);
     }, intervalMs);
     return () => window.clearInterval(id);
-  }, [isOpen, isPlaying, canAutoplay, intervalMs, interactionNonce, collection.items.length]);
+  }, [isOpen, isPlaying, canAutoplay, intervalMs, interactionNonce, itemCount]);
+
+  // Collection contents can change while the portal stays mounted (bulk delete
+  // or cloud sync). Clamp the retained slide index before it can point past the
+  // new end of the collection on later interactions.
+  useEffect(() => {
+    if (!isOpen || itemCount === 0) return;
+    setIndex((i) => Math.min(Math.max(i, 0), itemCount - 1));
+  }, [isOpen, itemCount]);
 
   // Closing the exhibition stops playback so re-opening always starts calm.
   useEffect(() => {
@@ -102,9 +115,9 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
     return () => window.removeEventListener('keydown', handler);
   }, [isOpen, next, prev]);
 
-  if (!isOpen || collection.items.length === 0) return null;
+  if (!isOpen || itemCount === 0) return null;
 
-  const item = collection.items[index];
+  const item = collection.items[safeIndex];
 
   // Touch handlers for swipe navigation
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -122,7 +135,7 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
     touchStartRef.current = null;
   };
 
-  const dialogLabel = `${collection.name} — ${t('exhibitNo', { n: index + 1, total: collection.items.length })}`;
+  const dialogLabel = `${collection.name} — ${t('exhibitNo', { n: safeIndex + 1, total: itemCount })}`;
 
   // CUR-32: the auto-play cluster (play/pause + interval pills) lives in both
   // the mobile and desktop layouts, mirroring how the close button, arrows and
@@ -195,7 +208,7 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
           aria-hidden="true"
         >
           <div
-            key={`${index}-${interactionNonce}-${intervalMs}`}
+            key={`${safeIndex}-${interactionNonce}-${intervalMs}`}
             className="h-full bg-amber-500 animate-exhibition-progress"
             style={{ animationDuration: `${intervalMs}ms` }}
           />
@@ -223,7 +236,7 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
                 {collection.name}
               </h2>
               <p className="text-sm font-serif italic text-amber-500">
-                {t('exhibitNo', { n: index + 1, total: collection.items.length })}
+                {t('exhibitNo', { n: safeIndex + 1, total: itemCount })}
               </p>
             </div>
             <button
@@ -306,9 +319,9 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
                 key={i}
                 onClick={() => jumpTo(i)}
                 aria-label={t('exhibitionJumpTo', { n: i + 1 })}
-                aria-current={i === index ? 'true' : undefined}
+                aria-current={i === safeIndex ? 'true' : undefined}
                 className={`h-1 rounded-full transition-all ${
-                  i === index ? 'w-6 bg-amber-500' : 'w-1.5 bg-white/20 hover:bg-white/30'
+                  i === safeIndex ? 'w-6 bg-amber-500' : 'w-1.5 bg-white/20 hover:bg-white/30'
                 }`}
               />
             ))}
@@ -328,7 +341,7 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
               {collection.name}
             </h2>
             <p className="text-xl font-serif italic text-amber-500">
-              {t('exhibitNo', { n: index + 1, total: collection.items.length })}
+              {t('exhibitNo', { n: safeIndex + 1, total: itemCount })}
             </p>
           </div>
           <button
@@ -425,9 +438,9 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
                 key={i}
                 onClick={() => jumpTo(i)}
                 aria-label={t('exhibitionJumpTo', { n: i + 1 })}
-                aria-current={i === index ? 'true' : undefined}
+                aria-current={i === safeIndex ? 'true' : undefined}
                 className={`h-1.5 rounded-full transition-all ${
-                  i === index ? 'w-10 bg-amber-500' : 'w-3 bg-white/20 hover:bg-white/30'
+                  i === safeIndex ? 'w-10 bg-amber-500' : 'w-3 bg-white/20 hover:bg-white/30'
                 }`}
               />
             ))}

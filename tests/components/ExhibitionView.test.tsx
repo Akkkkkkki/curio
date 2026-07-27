@@ -46,6 +46,16 @@ const collection: UserCollection = {
   ],
 };
 
+const makeCollectionWithItems = (count: number): UserCollection => ({
+  ...collection,
+  items: Array.from({ length: count }, (_, index) => ({
+    ...collection.items[index % collection.items.length],
+    id: `item-${index + 1}`,
+    title: `Exhibit ${index + 1}`,
+    createdAt: `2026-01-${String(index + 1).padStart(2, '0')}T00:00:00.000Z`,
+  })),
+});
+
 describe('ExhibitionView', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -58,6 +68,30 @@ describe('ExhibitionView', () => {
       <ExhibitionView collection={collection} isOpen={false} onClose={vi.fn()} />,
     );
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('clamps a retained slide index when the collection shrinks before reopening', async () => {
+    const expanded = makeCollectionWithItems(5);
+    const shrunken = { ...expanded, items: expanded.items.slice(0, 2) };
+    const onClose = vi.fn();
+
+    const { rerender } = renderWithProviders(
+      <ExhibitionView collection={expanded} isOpen={true} onClose={onClose} />,
+    );
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Jump to exhibit 5' })[0]);
+
+    await waitFor(() => {
+      expect(screen.getByRole('dialog')).toHaveAccessibleName(/5.*5/);
+    });
+
+    rerender(<ExhibitionView collection={expanded} isOpen={false} onClose={onClose} />);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+    rerender(<ExhibitionView collection={shrunken} isOpen={true} onClose={onClose} />);
+
+    expect(screen.getByRole('dialog')).toHaveAccessibleName(/2.*2/);
+    expect(screen.getAllByText('Exhibit 2').length).toBeGreaterThan(0);
   });
 
   describe('accessibility (CUR-131)', () => {
