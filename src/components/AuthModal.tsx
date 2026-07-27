@@ -20,8 +20,29 @@ import {
   resetPasswordForEmail,
   updateUserPassword,
 } from '../services/supabase';
-import { useTranslation } from '../i18n';
+import { useTranslation, TranslationKey } from '../i18n';
 import { useTheme, panelSurfaceClasses, overlaySurfaceClasses, mutedTextClasses } from '../theme';
+
+type Translate = (
+  key: TranslationKey | (string & {}),
+  params?: Record<string, string | number>,
+) => string;
+
+// Auth calls surface raw provider/browser strings on failure — a network drop
+// yields the literal "Failed to fetch" and bad credentials yield Supabase's
+// untranslated "Invalid login credentials". Neither is friendly or localized,
+// so map the ones we recognize to translated copy and fall back to the generic
+// authFailed message for anything unexpected. Exported for unit testing.
+export const mapAuthErrorMessage = (raw: string, t: Translate): string => {
+  const message = (raw || '').trim();
+  if (/failed to fetch|networkerror|network error|load failed|fetch failed/i.test(message)) {
+    return t('authNetworkError');
+  }
+  if (/invalid login credentials|invalid.*(email|password)|incorrect.*password/i.test(message)) {
+    return t('authInvalidCredentials');
+  }
+  return message || t('authFailed');
+};
 
 export type AuthModalMode =
   | 'signin'
@@ -285,7 +306,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       if (mode === 'signup' && /password.*(short|characters)/i.test(raw)) {
         setError(t('passwordTooShort'));
       } else {
-        setError(raw || t('authFailed'));
+        setError(mapAuthErrorMessage(raw, t));
       }
     } finally {
       setLoading(false);
