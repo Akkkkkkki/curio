@@ -74,9 +74,8 @@ const ANONYMOUS_ADMIN_SCOPE = 'anonymous';
 
 import {
   getEnvValidationErrors,
+  isStorageNearLimit,
   STORAGE_QUOTA_CHECK_INTERVAL_MS,
-  STORAGE_QUOTA_WARNING_THRESHOLD_BYTES,
-  STORAGE_QUOTA_WARNING_THRESHOLD_RATIO,
 } from './config';
 import { detectConflicts } from './utils/conflictDetection';
 import { HomeScreen } from './components/HomeScreen';
@@ -217,14 +216,7 @@ export const AppContent: React.FC = () => {
   const checkStorageQuota = useCallback(async () => {
     if (!navigator.storage?.estimate) return;
     try {
-      const { quota, usage } = await navigator.storage.estimate();
-      if (typeof quota !== 'number' || typeof usage !== 'number') return;
-      if (quota <= 0) return;
-      const remaining = quota - usage;
-      const remainingRatio = remaining / quota;
-      const isLow =
-        remaining <= STORAGE_QUOTA_WARNING_THRESHOLD_BYTES ||
-        remainingRatio <= STORAGE_QUOTA_WARNING_THRESHOLD_RATIO;
+      const isLow = isStorageNearLimit(await navigator.storage.estimate());
       if (isLow && !hasQuotaWarningRef.current) {
         showStatus(t('statusStorageNearLimit'), 'warning');
         hasQuotaWarningRef.current = true;

@@ -18,6 +18,28 @@ export const STORAGE_QUOTA_CHECK_INTERVAL_MS = parseEnvNumber(
   10 * 60 * 1000,
 );
 
+/**
+ * Decide whether IndexedDB storage is close enough to its quota that we should
+ * warn the user before writes start failing silently (CUR-20). A device that
+ * fills up loses writes with no visible signal, so an over-eager false alarm is
+ * far cheaper than a missed one — but a flaky `navigator.storage.estimate()`
+ * must never produce a warning either. Unusable estimates (missing or
+ * non-finite numbers, non-positive quota) therefore return `false`.
+ */
+export const isStorageNearLimit = (
+  estimate: { quota?: number; usage?: number },
+  bytesThreshold: number = STORAGE_QUOTA_WARNING_THRESHOLD_BYTES,
+  ratioThreshold: number = STORAGE_QUOTA_WARNING_THRESHOLD_RATIO,
+): boolean => {
+  const { quota, usage } = estimate;
+  if (typeof quota !== 'number' || typeof usage !== 'number') return false;
+  if (!Number.isFinite(quota) || !Number.isFinite(usage)) return false;
+  if (quota <= 0) return false;
+  const remaining = quota - usage;
+  const remainingRatio = remaining / quota;
+  return remaining <= bytesThreshold || remainingRatio <= ratioThreshold;
+};
+
 export const getEnvValidationErrors = (): string[] => {
   const errors: string[] = [];
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
