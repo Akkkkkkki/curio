@@ -3,6 +3,7 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '../utils/test-utils';
 import { AuthModal } from '@/components/AuthModal';
+import { translations } from '@/i18n';
 
 // Mock the supabase module
 vi.mock('@/services/supabase', () => ({
@@ -48,6 +49,7 @@ describe('AuthModal', () => {
   };
 
   beforeEach(() => {
+    window.localStorage.clear();
     vi.clearAllMocks();
     mockIsSupabaseConfigured.mockReturnValue(true);
     mockSignIn.mockResolvedValue({ user: { id: 'test-user' } });
@@ -149,8 +151,8 @@ describe('AuthModal', () => {
       });
     });
 
-    it('displays error message on sign in failure', async () => {
-      mockSignIn.mockRejectedValue(new Error('Invalid credentials'));
+    it('maps invalid credential failures to friendly copy during sign in', async () => {
+      mockSignIn.mockRejectedValue(new Error('Invalid login credentials'));
       const user = userEvent.setup();
       renderWithProviders(<AuthModal {...defaultProps} />);
 
@@ -159,8 +161,25 @@ describe('AuthModal', () => {
       await user.click(screen.getByRole('button', { name: /sign in/i }));
 
       await waitFor(() => {
-        expect(screen.getByText(/Invalid credentials/i)).toBeInTheDocument();
+        expect(screen.getByRole('alert')).toHaveTextContent(translations.en.authInvalidCredentials);
       });
+      expect(screen.queryByText(/Invalid login credentials/i)).not.toBeInTheDocument();
+    });
+
+    it('maps network failures to localized copy during sign in', async () => {
+      window.localStorage.setItem('curio_language', 'zh');
+      mockSignIn.mockRejectedValue(new Error('Network request failed'));
+      const user = userEvent.setup();
+      renderWithProviders(<AuthModal {...defaultProps} />);
+
+      await user.type(screen.getByPlaceholderText(/curator@museum.com/i), 'test@example.com');
+      await user.type(screen.getByPlaceholderText(/••••••••/), 'password123');
+      await user.click(screen.getByRole('button', { name: translations.zh.login }));
+
+      await waitFor(() => {
+        expect(screen.getByRole('alert')).toHaveTextContent(translations.zh.authNetworkError);
+      });
+      expect(screen.queryByText(/Network request failed/i)).not.toBeInTheDocument();
     });
   });
 
