@@ -108,6 +108,41 @@ describe('CUR-16 — getAsset cloud download concurrency', () => {
     expect(results.every((b) => b instanceof Blob)).toBe(true);
   });
 
+  it('shares one budget across getAsset and getEnhancedAsset (enhanced grid path)', async () => {
+    // ItemCard renders ItemImage with type="enhanced", which routes through
+    // getEnhancedAsset first. Both it and getAsset hit the same storage, so they
+    // must draw from the same 3-slot budget rather than each getting their own.
+    let inFlight = 0;
+    let peak = 0;
+    const { supabase, downloadFn } = createStorageMock(async () => {
+      inFlight++;
+      peak = Math.max(peak, inFlight);
+      await new Promise((r) => setTimeout(r, 5));
+      inFlight--;
+      return { data: new Blob(['x'], { type: 'image/jpeg' }), error: null };
+    });
+
+    const dbMod = await importDbFresh(supabase);
+
+    const calls = [
+      ...Array.from({ length: 6 }, (_, i) =>
+        dbMod.getAsset(`plain-${i}`, 'display', undefined, 'col-1'),
+      ),
+      ...Array.from({ length: 6 }, (_, i) =>
+        dbMod.getEnhancedAsset(`enh-${i}`, {
+          enhancedPath: `test-user-id/collections/col-1/enh-${i}/enhanced/v1.jpg`,
+          collectionId: 'col-1',
+        }),
+      ),
+    ];
+    const results = await Promise.all(calls);
+
+    expect(downloadFn).toHaveBeenCalledTimes(12);
+    expect(peak).toBeGreaterThan(1);
+    expect(peak).toBeLessThanOrEqual(3);
+    expect(results.every((b) => b instanceof Blob)).toBe(true);
+  });
+
   it('releases the slot when a download throws, so the queue never deadlocks', async () => {
     // Every download rejects. If the limiter leaked slots on failure, the 4th+
     // getAsset call would wait forever and this test would time out.

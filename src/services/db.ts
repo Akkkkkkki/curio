@@ -1953,7 +1953,12 @@ export const getEnhancedAsset = async (
       const enhancedPath = normalizedEnhancedPath || fallbackPath;
       if (!enhancedPath) return null;
 
-      const { data, error } = await supabase.storage.from('curio-assets').download(enhancedPath);
+      // Share the same download budget as getAsset (CUR-16): a grid of enhanced
+      // items renders ItemImage with type="enhanced", so without this the
+      // enhanced downloads would bypass the cap entirely.
+      const { data, error } = await withAssetDownloadSlot(() =>
+        supabase.storage.from('curio-assets').download(enhancedPath),
+      );
 
       if (data && !error) {
         // Cache back to local for performance next time
