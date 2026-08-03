@@ -10,6 +10,10 @@ import { useModalA11y } from '../hooks/useModalA11y';
 // the exhibition stays a manual, deliberate walk unless the user opts in.
 const AUTOPLAY_INTERVALS_MS = [5000, 10000, 30000] as const;
 const DEFAULT_AUTOPLAY_INTERVAL_MS = 10000;
+const clampIndex = (target: number, itemCount: number) => {
+  if (itemCount <= 0) return 0;
+  return Math.min(Math.max(target, 0), itemCount - 1);
+};
 
 interface ExhibitionViewProps {
   collection: UserCollection;
@@ -35,28 +39,32 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
   const [interactionNonce, setInteractionNonce] = useState(0);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const itemCount = collection.items.length;
+  const safeIndex = clampIndex(index, itemCount);
   const getFieldLabel = (fieldId: string, fallback: string) =>
     getFieldTranslation(t, fieldId, fallback);
 
   const registerInteraction = useCallback(() => setInteractionNonce((n) => n + 1), []);
 
   const next = useCallback(() => {
+    if (itemCount === 0) return;
     registerInteraction();
-    setIndex((i) => (i + 1) % collection.items.length);
-  }, [collection.items.length, registerInteraction]);
+    setIndex((i) => (clampIndex(i, itemCount) + 1) % itemCount);
+  }, [itemCount, registerInteraction]);
   const prev = useCallback(() => {
+    if (itemCount === 0) return;
     registerInteraction();
-    setIndex((i) => (i - 1 + collection.items.length) % collection.items.length);
-  }, [collection.items.length, registerInteraction]);
+    setIndex((i) => (clampIndex(i, itemCount) - 1 + itemCount) % itemCount);
+  }, [itemCount, registerInteraction]);
   const jumpTo = useCallback(
     (target: number) => {
       registerInteraction();
-      setIndex(target);
+      setIndex(clampIndex(target, itemCount));
     },
-    [registerInteraction],
+    [itemCount, registerInteraction],
   );
 
-  const canAutoplay = collection.items.length > 1;
+  const canAutoplay = itemCount > 1;
 
   const toggleAutoplay = useCallback(() => {
     registerInteraction();
@@ -79,10 +87,14 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
   useEffect(() => {
     if (!isOpen || !isPlaying || !canAutoplay) return;
     const id = window.setInterval(() => {
-      setIndex((i) => (i + 1) % collection.items.length);
+      setIndex((i) => (clampIndex(i, itemCount) + 1) % itemCount);
     }, intervalMs);
     return () => window.clearInterval(id);
-  }, [isOpen, isPlaying, canAutoplay, intervalMs, interactionNonce, collection.items.length]);
+  }, [isOpen, isPlaying, canAutoplay, intervalMs, interactionNonce, itemCount]);
+
+  useEffect(() => {
+    setIndex((i) => clampIndex(i, itemCount));
+  }, [itemCount]);
 
   // Closing the exhibition stops playback so re-opening always starts calm.
   useEffect(() => {
@@ -102,9 +114,9 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
     return () => window.removeEventListener('keydown', handler);
   }, [isOpen, next, prev]);
 
-  if (!isOpen || collection.items.length === 0) return null;
+  if (!isOpen || itemCount === 0) return null;
 
-  const item = collection.items[index];
+  const item = collection.items[safeIndex];
 
   // Touch handlers for swipe navigation
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -122,7 +134,8 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
     touchStartRef.current = null;
   };
 
-  const dialogLabel = `${collection.name} — ${t('exhibitNo', { n: index + 1, total: collection.items.length })}`;
+  const exhibitLabel = t('exhibitNo', { n: safeIndex + 1, total: itemCount });
+  const dialogLabel = `${collection.name} — ${exhibitLabel}`;
 
   // CUR-32: the auto-play cluster (play/pause + interval pills) lives in both
   // the mobile and desktop layouts, mirroring how the close button, arrows and
@@ -195,7 +208,7 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
           aria-hidden="true"
         >
           <div
-            key={`${index}-${interactionNonce}-${intervalMs}`}
+            key={`${safeIndex}-${interactionNonce}-${intervalMs}`}
             className="h-full bg-amber-500 animate-exhibition-progress"
             style={{ animationDuration: `${intervalMs}ms` }}
           />
@@ -223,7 +236,7 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
                 {collection.name}
               </h2>
               <p className="text-sm font-serif italic text-amber-500">
-                {t('exhibitNo', { n: index + 1, total: collection.items.length })}
+                {exhibitLabel}
               </p>
             </div>
             <button
@@ -306,14 +319,14 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
                 key={i}
                 onClick={() => jumpTo(i)}
                 aria-label={t('exhibitionJumpTo', { n: i + 1 })}
-                aria-current={i === index ? 'true' : undefined}
+                aria-current={i === safeIndex ? 'true' : undefined}
                 className={`h-1 rounded-full transition-all ${
-                  i === index ? 'w-6 bg-amber-500' : 'w-1.5 bg-white/20 hover:bg-white/30'
+                  i === safeIndex ? 'w-6 bg-amber-500' : 'w-1.5 bg-white/20 hover:bg-white/30'
                 }`}
               />
             ))}
-            {collection.items.length > 10 && (
-              <span className="text-[10px] opacity-40 ml-1">+{collection.items.length - 10}</span>
+            {itemCount > 10 && (
+              <span className="text-[10px] opacity-40 ml-1">+{itemCount - 10}</span>
             )}
           </div>
         </div>
@@ -328,7 +341,7 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
               {collection.name}
             </h2>
             <p className="text-xl font-serif italic text-amber-500">
-              {t('exhibitNo', { n: index + 1, total: collection.items.length })}
+              {exhibitLabel}
             </p>
           </div>
           <button
@@ -425,14 +438,14 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
                 key={i}
                 onClick={() => jumpTo(i)}
                 aria-label={t('exhibitionJumpTo', { n: i + 1 })}
-                aria-current={i === index ? 'true' : undefined}
+                aria-current={i === safeIndex ? 'true' : undefined}
                 className={`h-1.5 rounded-full transition-all ${
-                  i === index ? 'w-10 bg-amber-500' : 'w-3 bg-white/20 hover:bg-white/30'
+                  i === safeIndex ? 'w-10 bg-amber-500' : 'w-3 bg-white/20 hover:bg-white/30'
                 }`}
               />
             ))}
-            {collection.items.length > 10 && (
-              <span className="text-[10px] opacity-40 ml-1">+{collection.items.length - 10}</span>
+            {itemCount > 10 && (
+              <span className="text-[10px] opacity-40 ml-1">+{itemCount - 10}</span>
             )}
           </div>
         </footer>

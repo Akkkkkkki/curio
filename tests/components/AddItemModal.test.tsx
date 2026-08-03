@@ -1144,6 +1144,60 @@ describe('AddItemModal', () => {
       expect(screen.getByTestId('add-item-discard-confirm')).toBeInTheDocument();
     });
 
+    it('confirms before discarding a single selected photo while analysis is running', async () => {
+      const user = userEvent.setup();
+      mockRefreshAiEnabled.mockResolvedValue(true);
+      mockAnalyzeImage.mockReturnValue(new Promise<never>(() => {}));
+      mockGetPhoto.mockResolvedValue({
+        dataUrl: 'data:image/png;base64,ZmFrZQ==',
+        format: 'png',
+      });
+
+      renderWithProviders(
+        <AddItemModal
+          isOpen
+          onClose={mockOnClose}
+          collections={[createMockCollection({ customFields: [] })]}
+          onSave={mockOnSave}
+        />,
+      );
+
+      await user.click(screen.getAllByRole('button', { name: /upload photo/i })[0]);
+      await screen.findByRole('heading', { name: 'Analyzing photo...' });
+      await user.click(screen.getByRole('button', { name: 'Close' }));
+
+      expect(mockOnClose).not.toHaveBeenCalled();
+      expect(screen.getByTestId('add-item-discard-confirm')).toBeInTheDocument();
+    });
+
+    it('confirms before discarding a selected batch while analysis is running', async () => {
+      const user = userEvent.setup();
+      mockRefreshAiEnabled.mockResolvedValue(true);
+      mockAnalyzeImage.mockReturnValue(new Promise<never>(() => {}));
+
+      renderWithProviders(
+        <AddItemModal
+          isOpen
+          onClose={mockOnClose}
+          collections={[createMockCollection({ customFields: [] })]}
+          onSave={mockOnSave}
+        />,
+      );
+
+      const files = [
+        new File(['a'], 'a.png', { type: 'image/png' }),
+        new File(['b'], 'b.png', { type: 'image/png' }),
+      ];
+      const input = screen.getByTestId('add-item-batch-input') as HTMLInputElement;
+      await user.upload(input, files);
+
+      await screen.findByRole('heading', { name: 'Analyzing photo...' });
+      await user.click(screen.getByRole('button', { name: 'Close' }));
+
+      expect(mockOnClose).not.toHaveBeenCalled();
+      expect(screen.getByTestId('add-item-discard-confirm')).toBeInTheDocument();
+    });
+
     it('confirms on Esc when a batch is queued for save', async () => {
       const user = userEvent.setup();
       mockRefreshAiEnabled.mockResolvedValue(true);
