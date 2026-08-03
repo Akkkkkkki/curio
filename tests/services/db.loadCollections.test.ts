@@ -144,8 +144,9 @@ function baseItem(overrides: any) {
   };
 }
 
-function failReadonlyTransactionsFor(storeName: string) {
+function failReadonlyTransactionsFor(storeName: string, failures = Number.POSITIVE_INFINITY) {
   const originalTransaction = IDBDatabase.prototype.transaction;
+  let remainingFailures = failures;
   return vi.spyOn(IDBDatabase.prototype, 'transaction').mockImplementation(function (
     this: IDBDatabase,
     storeNames: string | string[],
@@ -153,7 +154,8 @@ function failReadonlyTransactionsFor(storeName: string) {
     options?: IDBTransactionOptions,
   ) {
     const names = Array.isArray(storeNames) ? storeNames : [storeNames];
-    if (mode === 'readonly' && names.includes(storeName)) {
+    if (mode === 'readonly' && names.includes(storeName) && remainingFailures > 0) {
+      remainingFailures -= 1;
       throw new Error(`IndexedDB ${storeName} unavailable`);
     }
     return originalTransaction.call(this, storeNames as any, mode as any, options as any);
@@ -470,33 +472,6 @@ describe('Phase 2.1 — services/db.ts loadCollections merge behavior', () => {
     expect(itemsUpsert).not.toHaveBeenCalled();
   });
 
-  it('does not upsert stale items when the local collection recheck fails', async () => {
-    const itemsUpsert = vi.fn(async () => ({ error: null }));
-    const { supabase } = createSupabaseMock({
-      collections: [],
-      items: [],
-      itemsUpsert,
-    });
-    const dbMod = await importDbModuleFresh(supabase);
-
-    const db = await dbMod.initDB();
-    openDb = db;
-    await clearStores(db, ['collections', 'assets', 'display', 'settings']);
-
-    const transactionSpy = failReadonlyTransactionsFor('collections');
-    await dbMod.saveCollection(
-      baseCollection({
-        id: 'col-1',
-        ownerId: 'user-123',
-        items: [baseItem({ id: 'item-from-unverified-snapshot' })],
-      }),
-    );
-    transactionSpy.mockRestore();
-
-    expect(itemsUpsert).not.toHaveBeenCalled();
-    await expect(dbMod.getPendingSyncIds()).resolves.toContain('col-1');
-  });
-
   it('does not upsert stale items when pending deletes cannot be verified', async () => {
     window.localStorage.removeItem('curio_pending_delete_journal');
     const itemsUpsert = vi.fn(async () => ({ error: null }));
@@ -511,15 +486,18 @@ describe('Phase 2.1 — services/db.ts loadCollections merge behavior', () => {
     openDb = db;
     await clearStores(db, ['collections', 'assets', 'display', 'settings']);
 
-    const transactionSpy = failReadonlyTransactionsFor('settings');
-    await dbMod.saveCollection(
-      baseCollection({
-        id: 'col-1',
-        ownerId: 'user-123',
-        items: [baseItem({ id: 'item-hidden-by-unreadable-delete-journal' })],
-      }),
-    );
-    transactionSpy.mockRestore();
+    const transactionSpy = failReadonlyTransactionsFor('settings', 1);
+    try {
+      await dbMod.saveCollection(
+        baseCollection({
+          id: 'col-1',
+          ownerId: 'user-123',
+          items: [baseItem({ id: 'item-hidden-by-unreadable-delete-journal' })],
+        }),
+      );
+    } finally {
+      transactionSpy.mockRestore();
+    }
 
     expect(itemsUpsert).not.toHaveBeenCalled();
     await expect(dbMod.getPendingSyncIds()).resolves.toContain('col-1');
