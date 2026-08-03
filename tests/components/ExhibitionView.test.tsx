@@ -158,12 +158,7 @@ describe('ExhibitionView', () => {
 
     it('clamps the active exhibit when live sync removes later items', async () => {
       const { rerender } = renderWithProviders(
-        <ExhibitionView
-          collection={collection}
-          initialIndex={1}
-          isOpen={true}
-          onClose={vi.fn()}
-        />,
+        <ExhibitionView collection={collection} initialIndex={1} isOpen={true} onClose={vi.fn()} />,
       );
       expect(screen.getByRole('dialog')).toHaveAccessibleName(/2.*2/);
 

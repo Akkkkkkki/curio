@@ -235,9 +235,7 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
               <h2 className="text-[10px] font-mono tracking-[0.2em] uppercase opacity-40">
                 {collection.name}
               </h2>
-              <p className="text-sm font-serif italic text-amber-500">
-                {exhibitLabel}
-              </p>
+              <p className="text-sm font-serif italic text-amber-500">{exhibitLabel}</p>
             </div>
             <button
               onClick={onClose}
@@ -340,9 +338,7 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
             <h2 className="text-[10px] font-mono tracking-[0.2em] uppercase opacity-40 mb-0.5">
               {collection.name}
             </h2>
-            <p className="text-xl font-serif italic text-amber-500">
-              {exhibitLabel}
-            </p>
+            <p className="text-xl font-serif italic text-amber-500">{exhibitLabel}</p>
           </div>
           <button
             onClick={onClose}
