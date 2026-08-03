@@ -1698,10 +1698,16 @@ export const AppContent: React.FC = () => {
           </>
         )}
       </Layout>
+      {/* On mobile the bottom nav (var(--bottom-nav-height)) is fixed to the
+          viewport bottom; a plain bottom-6 toast lands on top of it, hiding the
+          nav and letting the pointer-events-auto toast intercept nav taps. Lift
+          the toast above the nav (+ safe-area) on mobile; the nav is sm:hidden,
+          so revert to bottom-6 from sm up. Mirrors the content-padding pattern
+          in Layout.tsx / ItemDetailScreen.tsx. */}
       <div
         role="status"
         aria-live="polite"
-        className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none"
+        className="fixed bottom-[calc(var(--bottom-nav-height,5.5rem)+1rem+env(safe-area-inset-bottom,0px))] sm:bottom-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none"
       >
         {status && (
           <StatusToast
