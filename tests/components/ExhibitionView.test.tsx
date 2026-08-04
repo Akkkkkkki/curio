@@ -46,6 +46,20 @@ const collection: UserCollection = {
   ],
 };
 
+const buildCollection = (count: number): UserCollection => ({
+  ...collection,
+  items: Array.from({ length: count }, (_, i) => ({
+    id: `item-${i + 1}`,
+    collectionId: 'col-1',
+    photoUrl: 'asset',
+    title: `Exhibit ${i + 1}`,
+    rating: 0,
+    data: {},
+    notes: '',
+    createdAt: '2026-01-01T00:00:00.000Z',
+  })),
+});
+
 describe('ExhibitionView', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -154,6 +168,48 @@ describe('ExhibitionView', () => {
         expect(screen.getByRole('dialog')).toHaveAccessibleName(/1.*2/);
       });
       expect(onClose).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('large-collection navigation (CUR-51)', () => {
+    it('jumps to the last and first exhibit with End / Home keys', async () => {
+      renderWithProviders(
+        <ExhibitionView collection={buildCollection(3)} isOpen={true} onClose={vi.fn()} />,
+      );
+      expect(screen.getByRole('dialog')).toHaveAccessibleName(/1.*3/);
+
+      fireEvent.keyDown(window, { key: 'End' });
+      await waitFor(() => {
+        expect(screen.getByRole('dialog')).toHaveAccessibleName(/3.*3/);
+      });
+
+      fireEvent.keyDown(window, { key: 'Home' });
+      await waitFor(() => {
+        expect(screen.getByRole('dialog')).toHaveAccessibleName(/1.*3/);
+      });
+    });
+
+    it('windows the jump-to dots around the current exhibit so every item stays reachable', async () => {
+      renderWithProviders(
+        <ExhibitionView collection={buildCollection(15)} isOpen={true} onClose={vi.fn()} />,
+      );
+
+      // Windowed to the first ten exhibits on open: the last is out of range,
+      // where the old rail stranded everything past the tenth behind a count.
+      expect(screen.queryAllByRole('button', { name: 'Jump to exhibit 15' })).toHaveLength(0);
+      expect(screen.getAllByRole('button', { name: 'Jump to exhibit 1' })).toHaveLength(2);
+
+      fireEvent.keyDown(window, { key: 'End' });
+
+      await waitFor(() => {
+        const lastDots = screen.getAllByRole('button', { name: 'Jump to exhibit 15' });
+        expect(lastDots).toHaveLength(2);
+        for (const dot of lastDots) {
+          expect(dot).toHaveAttribute('aria-current', 'true');
+        }
+      });
+      // The window has slid forward, so the first exhibit's dot is gone.
+      expect(screen.queryAllByRole('button', { name: 'Jump to exhibit 1' })).toHaveLength(0);
     });
   });
 
