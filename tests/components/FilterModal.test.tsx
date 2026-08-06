@@ -73,14 +73,15 @@ describe('FilterModal', () => {
     });
   });
 
+  const selectField: FieldDefinition = {
+    id: 'genre',
+    label: 'Genre',
+    type: 'select',
+    options: ['Jazz', 'Funk'],
+    displayMode: 'primary',
+  };
+
   describe('typed field rendering (CUR-134)', () => {
-    const selectField: FieldDefinition = {
-      id: 'genre',
-      label: 'Genre',
-      type: 'select',
-      options: ['Jazz', 'Funk'],
-      displayMode: 'primary',
-    };
     const numberField: FieldDefinition = {
       id: 'year',
       label: 'Year',
@@ -138,6 +139,18 @@ describe('FilterModal', () => {
       const input = screen.getByLabelText(/Artist/i);
       expect(input.tagName).toBe('INPUT');
       expect(input).not.toHaveAttribute('inputmode');
+    });
+  });
+
+  describe('dropdown touch targets', () => {
+    it('keeps select chevrons pointer-transparent so taps reach the select control', () => {
+      renderWithProviders(<FilterModal {...defaultProps} fields={[selectField]} />);
+
+      const ratingChevron = screen.getByLabelText(/Rating/i).parentElement?.querySelector('svg');
+      const genreChevron = screen.getByLabelText(/Genre/i).parentElement?.querySelector('svg');
+
+      expect(ratingChevron).toHaveClass('pointer-events-none');
+      expect(genreChevron).toHaveClass('pointer-events-none');
     });
   });
 });
