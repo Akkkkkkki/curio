@@ -1540,7 +1540,7 @@ export const AppContent: React.FC = () => {
           ) : null}
         </div>
         <p
-          className={`text-[12px] mt-5 leading-relaxed ${theme === 'vault' ? 'text-stone-500' : theme === 'atelier' ? 'text-[#8C7B6B]' : 'text-stone-400'}`}
+          className={`text-[12px] mt-5 leading-relaxed ${theme === 'vault' ? 'text-stone-500' : theme === 'atelier' ? 'text-[#8C7B6B]' : 'text-stone-500'}`}
         >
           {t('ctaPromise')}
         </p>
