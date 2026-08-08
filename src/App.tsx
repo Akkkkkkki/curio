@@ -1595,16 +1595,10 @@ export const AppContent: React.FC = () => {
                 </Button>
               </Link>
             )}
-            {!isAuthenticated && isSupabaseReady && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => openAuthModal('signin')}
-                className="hidden sm:inline-flex motion-fade"
-              >
-                {t('login')}
-              </Button>
-            )}
+            {/* CUR-157: the signed-out sign-in entry point lives on the header
+                account pill (label + status badge + dropdown). A second ghost
+                "Sign In" button here read as a duplicate CTA and worked against
+                the single-path first-run principle, so it was removed. */}
             <LanguageToggle />
           </div>
         }

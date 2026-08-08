@@ -530,7 +530,7 @@ describe('App Integration Tests', () => {
     expect(within(modal).getByRole('heading', { name: /welcome back/i })).toBeInTheDocument();
   });
 
-  it('keeps the header Sign In entry point in sign-in mode (CUR-152)', async () => {
+  it('shows one desktop sign-in control that opens sign-in mode (CUR-157, CUR-152)', async () => {
     const { ThemeProvider } = await import('@/theme');
     vi.mocked(supabaseService.supabase!.auth.getSession).mockResolvedValue({
       data: { session: null },
@@ -550,8 +550,16 @@ describe('App Integration Tests', () => {
       expect(screen.getByTestId('access-gate')).toBeInTheDocument();
     });
 
+    // CUR-157: the header no longer carries a standalone ghost "Sign In" button
+    // beside the account pill — the pill (aria-label "Account") is the single
+    // desktop sign-in entry point.
     const header = screen.getByRole('banner');
-    fireEvent.click(within(header).getByRole('button', { name: 'Sign In' }));
+    expect(within(header).queryByRole('button', { name: 'Sign In' })).not.toBeInTheDocument();
+
+    // CUR-152: that single control opens the auth modal in sign-in mode.
+    fireEvent.click(within(header).getByRole('button', { name: 'Account' }));
+    const dropdown = await screen.findByTestId('profile-dropdown');
+    fireEvent.click(within(dropdown).getByRole('button', { name: 'Sign In' }));
 
     const modal = await screen.findByTestId('auth-modal');
     expect(within(modal).getByRole('heading', { name: /welcome back/i })).toBeInTheDocument();
