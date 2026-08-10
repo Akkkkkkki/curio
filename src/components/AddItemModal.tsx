@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 // Added Plus icon to the lucide-react imports
 import {
   Camera as CameraIcon,
@@ -16,6 +16,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { Capacitor } from '@capacitor/core';
 import { UserCollection, CollectionItem } from '../types';
 import { analyzeImage, fetchStoryPrompts, refreshAiEnabled } from '../services/geminiService';
 import { compressImageForAi } from '../services/imageProcessor';
@@ -25,6 +26,18 @@ import { useTranslation, getFieldTranslation, getFieldHint } from '../i18n';
 import { isBuiltInTemplateField } from '../constants';
 import { useTheme, panelSurfaceClasses, overlaySurfaceClasses, mutedTextClasses } from '../theme';
 import { ImageEditModal } from './ImageEditModal';
+
+// CUR-161: "Take Photo" only means something where a camera capture is real —
+// the Capacitor native shell, or a touch device whose primary pointer is coarse
+// (phones/tablets). In a desktop browser, Capacitor's Camera falls back to the
+// same file picker as "Upload Photo", so the two buttons become redundant CTAs.
+// Gate it so desktop keeps a single upload action (the first-run "single primary
+// action" constraint) while mobile/native still get real camera capture.
+const supportsCameraCapture = (): boolean => {
+  if (Capacitor.isNativePlatform()) return true;
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
+  return window.matchMedia('(pointer: coarse)').matches;
+};
 
 interface AddItemModalProps {
   isOpen: boolean;
@@ -78,6 +91,8 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
 }) => {
   const { t, language } = useTranslation();
   const { theme } = useTheme();
+  // Device capability is stable for the session, so probe it once per mount.
+  const cameraCaptureAvailable = useMemo(() => supportsCameraCapture(), []);
   const [step, setStep] = useState<FlowStep>('select-type');
   const [selectedCollectionId, setSelectedCollectionId] = useState<string>('');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -1154,9 +1169,16 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
         </p>
       </div>
       <div className="flex flex-col gap-2 sm:gap-3">
-        <Button variant="secondary" onClick={takePicture} size="lg" icon={<CameraIcon size={18} />}>
-          {t('takePhoto')}
-        </Button>
+        {cameraCaptureAvailable && (
+          <Button
+            variant="secondary"
+            onClick={takePicture}
+            size="lg"
+            icon={<CameraIcon size={18} />}
+          >
+            {t('takePhoto')}
+          </Button>
+        )}
         <Button onClick={pickFromGallery} size="lg" icon={<Upload size={18} />}>
           {imagePreview ? t('changePhoto') : t('uploadPhoto')}
         </Button>

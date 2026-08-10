@@ -1423,4 +1423,67 @@ describe('AddItemModal', () => {
       expect(titleInput).toHaveAttribute('id', 'add-item-title');
     });
   });
+
+  describe('Camera capture gating (CUR-161)', () => {
+    const setPointer = (coarse: boolean) => {
+      const original = window.matchMedia;
+      window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+        matches: query.includes('pointer: coarse') ? coarse : false,
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })) as unknown as typeof window.matchMedia;
+      return () => {
+        window.matchMedia = original;
+      };
+    };
+
+    it('hides "Take Photo" on desktop (fine pointer) so upload is the single action', async () => {
+      const restore = setPointer(false);
+      try {
+        renderWithProviders(
+          <AddItemModal
+            isOpen
+            onClose={mockOnClose}
+            collections={[createMockCollection()]}
+            onSave={mockOnSave}
+          />,
+        );
+
+        await screen.findByRole('heading', { name: 'Upload Photo' });
+
+        expect(screen.queryByRole('button', { name: /take photo/i })).not.toBeInTheDocument();
+        // The upload action itself stays available (tile + explicit CTA).
+        expect(
+          screen.getAllByRole('button', { name: 'Upload Photo' }).length,
+        ).toBeGreaterThanOrEqual(1);
+      } finally {
+        restore();
+      }
+    });
+
+    it('shows "Take Photo" on a touch device (coarse pointer)', async () => {
+      const restore = setPointer(true);
+      try {
+        renderWithProviders(
+          <AddItemModal
+            isOpen
+            onClose={mockOnClose}
+            collections={[createMockCollection()]}
+            onSave={mockOnSave}
+          />,
+        );
+
+        await screen.findByRole('heading', { name: 'Upload Photo' });
+
+        expect(screen.getByRole('button', { name: /take photo/i })).toBeInTheDocument();
+      } finally {
+        restore();
+      }
+    });
+  });
 });

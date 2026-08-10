@@ -1563,10 +1563,11 @@ describe('App Integration Tests', () => {
     const bottomNav = screen.getByRole('navigation', { name: 'Primary' });
     fireEvent.click(within(bottomNav).getByTestId('bottom-nav-add-pill'));
 
-    // Upload step renders the "Take Photo" CTA; the collection picker would
-    // show the "Start a collection" heading instead. Asserting the upload
-    // affordance proves the modal skipped the redundant pick step.
-    expect(await screen.findByRole('button', { name: /take photo/i })).toBeInTheDocument();
+    // Upload step renders the upload tile; the collection picker would show the
+    // "Start a collection" heading instead. Asserting the upload affordance
+    // proves the modal skipped the redundant pick step. (The tile is device-
+    // independent, unlike "Take Photo", which is gated to camera devices — CUR-161.)
+    expect(await screen.findByTestId('add-item-upload-empty')).toBeInTheDocument();
     expect(screen.queryByText('Start a collection')).not.toBeInTheDocument();
   });
 
@@ -1597,7 +1598,7 @@ describe('App Integration Tests', () => {
     const bottomNav = screen.getByRole('navigation', { name: 'Primary' });
     fireEvent.click(within(bottomNav).getByTestId('bottom-nav-add-pill'));
 
-    expect(await screen.findByRole('button', { name: /take photo/i })).toBeInTheDocument();
+    expect(await screen.findByTestId('add-item-upload-empty')).toBeInTheDocument();
     expect(screen.queryByText('Start a collection')).not.toBeInTheDocument();
   });
 
