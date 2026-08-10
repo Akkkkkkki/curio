@@ -495,6 +495,13 @@ describe('App Integration Tests', () => {
     // Both first-run CTAs remain available
     expect(screen.getByTestId('cta-primary-add-first')).toBeInTheDocument();
     expect(screen.getByTestId('cta-secondary-explore-sample')).toBeInTheDocument();
+
+    // The reassurance promise line must use the AA-compliant Gallery muted
+    // token (stone-500, per DESIGN.md), not the too-faint stone-400 that
+    // failed WCAG AA at 2.5:1 on the light surface (CUR-159).
+    const promise = await screen.findByText(/Guided capture in under 5 minutes/i);
+    expect(promise.className).toContain('text-stone-500');
+    expect(promise.className).not.toContain('text-stone-400');
   });
 
   it('opens the auth modal in sign-up mode from the first-run "Add your first item" CTA (CUR-152)', async () => {
