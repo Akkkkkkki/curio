@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 // Added Plus icon to the lucide-react imports
 import {
   Camera as CameraIcon,
@@ -91,8 +91,20 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
 }) => {
   const { t, language } = useTranslation();
   const { theme } = useTheme();
-  // Device capability is stable for the session, so probe it once per mount.
-  const cameraCaptureAvailable = useMemo(() => supportsCameraCapture(), []);
+  // The primary pointer can change at runtime — a convertible entering tablet
+  // mode, or DevTools device emulation toggled after load — and this modal stays
+  // mounted across opens (App.tsx toggles `isOpen`, never unmounts). So track the
+  // media query live instead of probing once, or the button state can go stale.
+  const [cameraCaptureAvailable, setCameraCaptureAvailable] = useState(supportsCameraCapture);
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) return;
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
+    const query = window.matchMedia('(pointer: coarse)');
+    const sync = () => setCameraCaptureAvailable(supportsCameraCapture());
+    sync();
+    query.addEventListener('change', sync);
+    return () => query.removeEventListener('change', sync);
+  }, []);
   const [step, setStep] = useState<FlowStep>('select-type');
   const [selectedCollectionId, setSelectedCollectionId] = useState<string>('');
   const [imagePreview, setImagePreview] = useState<string | null>(null);

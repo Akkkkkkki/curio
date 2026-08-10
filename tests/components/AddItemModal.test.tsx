@@ -1425,25 +1425,39 @@ describe('AddItemModal', () => {
   });
 
   describe('Camera capture gating (CUR-161)', () => {
-    const setPointer = (coarse: boolean) => {
+    // Controllable `(pointer: coarse)` mock: every matchMedia() call shares one
+    // `coarse` flag + listener set, so flipping the pointer notifies the
+    // component's live subscription — mirroring a convertible entering tablet
+    // mode or DevTools device emulation being toggled after load.
+    const installMatchMedia = (initialCoarse: boolean) => {
       const original = window.matchMedia;
+      let coarse = initialCoarse;
+      const listeners = new Set<() => void>();
       window.matchMedia = vi.fn().mockImplementation((query: string) => ({
-        matches: query.includes('pointer: coarse') ? coarse : false,
+        get matches() {
+          return query.includes('pointer: coarse') ? coarse : false;
+        },
         media: query,
         onchange: null,
-        addListener: vi.fn(),
-        removeListener: vi.fn(),
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn(),
+        addListener: (cb: () => void) => listeners.add(cb),
+        removeListener: (cb: () => void) => listeners.delete(cb),
+        addEventListener: (_: string, cb: () => void) => listeners.add(cb),
+        removeEventListener: (_: string, cb: () => void) => listeners.delete(cb),
         dispatchEvent: vi.fn(),
       })) as unknown as typeof window.matchMedia;
-      return () => {
-        window.matchMedia = original;
+      return {
+        setCoarse(value: boolean) {
+          coarse = value;
+          listeners.forEach((cb) => cb());
+        },
+        restore() {
+          window.matchMedia = original;
+        },
       };
     };
 
     it('hides "Take Photo" on desktop (fine pointer) so upload is the single action', async () => {
-      const restore = setPointer(false);
+      const mql = installMatchMedia(false);
       try {
         renderWithProviders(
           <AddItemModal
@@ -1462,12 +1476,12 @@ describe('AddItemModal', () => {
           screen.getAllByRole('button', { name: 'Upload Photo' }).length,
         ).toBeGreaterThanOrEqual(1);
       } finally {
-        restore();
+        mql.restore();
       }
     });
 
     it('shows "Take Photo" on a touch device (coarse pointer)', async () => {
-      const restore = setPointer(true);
+      const mql = installMatchMedia(true);
       try {
         renderWithProviders(
           <AddItemModal
@@ -1482,7 +1496,32 @@ describe('AddItemModal', () => {
 
         expect(screen.getByRole('button', { name: /take photo/i })).toBeInTheDocument();
       } finally {
-        restore();
+        mql.restore();
+      }
+    });
+
+    it('reveals "Take Photo" live when the pointer switches to coarse without a remount', async () => {
+      const mql = installMatchMedia(false);
+      try {
+        renderWithProviders(
+          <AddItemModal
+            isOpen
+            onClose={mockOnClose}
+            collections={[createMockCollection()]}
+            onSave={mockOnSave}
+          />,
+        );
+
+        await screen.findByRole('heading', { name: 'Upload Photo' });
+        expect(screen.queryByRole('button', { name: /take photo/i })).not.toBeInTheDocument();
+
+        // Same mounted instance — the modal never unmounts in App.tsx — so a
+        // stale one-shot probe would keep the button hidden here.
+        act(() => mql.setCoarse(true));
+
+        expect(await screen.findByRole('button', { name: /take photo/i })).toBeInTheDocument();
+      } finally {
+        mql.restore();
       }
     });
   });
