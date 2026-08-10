@@ -406,11 +406,13 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
     <div className="space-y-6">
       <div>
         <label
+          htmlFor="create-collection-description"
           className={`block text-[12px] font-semibold uppercase tracking-[0.12em] ${mutedText} mb-2`}
         >
           {t('collectionPrompt')}
         </label>
         <input
+          id="create-collection-description"
           ref={descriptionInputRef}
           type="text"
           value={description}
@@ -658,11 +660,15 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
         </div>
 
         <div>
-          <p className={`text-[12px] font-semibold uppercase tracking-[0.12em] ${mutedText} mb-2`}>
+          <label
+            htmlFor="create-collection-custom-field"
+            className={`block text-[12px] font-semibold uppercase tracking-[0.12em] ${mutedText} mb-2`}
+          >
             {t('addYourOwn')}
-          </p>
+          </label>
           <div className="flex gap-2">
             <input
+              id="create-collection-custom-field"
               type="text"
               value={customFieldInput}
               onChange={(e) => setCustomFieldInput(e.target.value)}
@@ -826,11 +832,13 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
 
       <div>
         <label
+          htmlFor="create-collection-name"
           className={`block text-[12px] font-semibold uppercase tracking-[0.12em] ${mutedText} mb-2`}
         >
           {t('collectionName')}
         </label>
         <input
+          id="create-collection-name"
           type="text"
           value={collectionName}
           onChange={(e) => {

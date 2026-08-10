@@ -1403,4 +1403,24 @@ describe('AddItemModal', () => {
       expect(infoCard).toHaveClass('border-amber-100');
     });
   });
+
+  describe('Accessibility - label associations (CUR-62)', () => {
+    it('associates the manual Title input with its label', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(
+        <AddItemModal
+          isOpen
+          onClose={mockOnClose}
+          collections={[createMockCollection()]}
+          onSave={mockOnSave}
+        />,
+      );
+
+      await user.click(screen.getByRole('button', { name: 'Skip and add manually' }));
+
+      // Resolves only when the Title <label> is associated with its input.
+      const titleInput = await screen.findByLabelText('Title');
+      expect(titleInput).toHaveAttribute('id', 'add-item-title');
+    });
+  });
 });

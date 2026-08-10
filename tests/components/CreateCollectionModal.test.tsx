@@ -193,4 +193,29 @@ describe('CreateCollectionModal', () => {
       expect(defaultProps.onAddFirstItem).toHaveBeenCalledWith('new-collection-id');
     });
   });
+
+  describe('Accessibility - label associations (CUR-62)', () => {
+    it('associates the prompt, custom-field, and name inputs with their labels', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(<CreateCollectionModal {...defaultProps} />);
+
+      // Entry step: the collector prompt input. getByLabelText resolves only
+      // when the label is htmlFor/id-associated with its input.
+      expect(screen.getByLabelText('What do you collect?')).toBe(
+        screen.getByTestId('collection-description-input'),
+      );
+
+      await user.click(screen.getByTestId('collection-preset-vinyl'));
+      await user.click(screen.getByTestId('collection-continue-btn'));
+
+      // Fields step: the "add your own" custom-field input.
+      expect(screen.getByLabelText('Add your own')).toBe(screen.getByTestId('custom-field-input'));
+
+      await user.click(screen.getByTestId('suggested-field-3'));
+      await user.click(screen.getByRole('button', { name: 'Next' }));
+
+      // Preview step: the collection name input.
+      expect(screen.getByLabelText('Name')).toHaveAttribute('id', 'create-collection-name');
+    });
+  });
 });

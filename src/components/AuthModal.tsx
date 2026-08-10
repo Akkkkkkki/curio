@@ -533,6 +533,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               {(mode === 'signin' || mode === 'signup' || mode === 'reset-request') && (
                 <div>
                   <label
+                    htmlFor="auth-email"
                     className={`block text-[11px] font-semibold uppercase tracking-[0.12em] ${mutedText} mb-1.5`}
                   >
                     {t('email')}
@@ -543,6 +544,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       size={16}
                     />
                     <input
+                      id="auth-email"
                       type="email"
                       required
                       disabled={loading}
@@ -561,6 +563,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 <div>
                   <div className="flex items-baseline justify-between mb-1.5">
                     <label
+                      htmlFor="auth-password"
                       className={`block text-[11px] font-semibold uppercase tracking-[0.12em] ${mutedText}`}
                     >
                       {t('password')}
@@ -584,6 +587,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       size={16}
                     />
                     <input
+                      id="auth-password"
                       type={showPassword ? 'text' : 'password'}
                       required
                       disabled={loading}
