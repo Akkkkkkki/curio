@@ -1495,11 +1495,13 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
 
       <div>
         <label
+          htmlFor="add-item-title"
           className={`block text-[11px] font-semibold uppercase tracking-[0.12em] ${mutedText} mb-0.5 sm:mb-1`}
         >
           {t('title')}
         </label>
         <input
+          id="add-item-title"
           type="text"
           ref={titleInputRef}
           className={`w-full text-lg sm:text-xl font-bold bg-transparent border-b ${titleError ? 'border-red-400 focus:border-red-500' : borderClass} focus:border-amber-500 outline-none pb-1 transition-colors ${theme === 'vault' ? 'text-white placeholder:text-stone-400' : 'text-stone-900'}`}

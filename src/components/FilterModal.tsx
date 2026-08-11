@@ -129,7 +129,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
               </select>
               <ChevronDown
                 size={16}
-                className={`absolute right-3 top-1/2 -translate-y-1/2 ${theme === 'vault' ? 'text-white/50' : 'text-stone-400'}`}
+                className={`absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none ${theme === 'vault' ? 'text-white/50' : 'text-stone-400'}`}
               />
             </div>
           </div>

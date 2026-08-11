@@ -1540,7 +1540,7 @@ export const AppContent: React.FC = () => {
           ) : null}
         </div>
         <p
-          className={`text-[12px] mt-5 leading-relaxed ${theme === 'vault' ? 'text-stone-500' : theme === 'atelier' ? 'text-[#8C7B6B]' : 'text-stone-400'}`}
+          className={`text-[12px] mt-5 leading-relaxed ${theme === 'vault' ? 'text-stone-500' : theme === 'atelier' ? 'text-[#8C7B6B]' : 'text-stone-500'}`}
         >
           {t('ctaPromise')}
         </p>
@@ -1595,16 +1595,10 @@ export const AppContent: React.FC = () => {
                 </Button>
               </Link>
             )}
-            {!isAuthenticated && isSupabaseReady && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => openAuthModal('signin')}
-                className="hidden sm:inline-flex motion-fade"
-              >
-                {t('login')}
-              </Button>
-            )}
+            {/* CUR-157: the signed-out sign-in entry point lives on the header
+                account pill (label + status badge + dropdown). A second ghost
+                "Sign In" button here read as a duplicate CTA and worked against
+                the single-path first-run principle, so it was removed. */}
             <LanguageToggle />
           </div>
         }
@@ -1698,10 +1692,19 @@ export const AppContent: React.FC = () => {
           </>
         )}
       </Layout>
+      {/* On mobile the bottom nav is fixed to the viewport bottom with a fixed
+          height of var(--bottom-nav-height); a plain bottom-6 toast lands on top
+          of it, hiding the nav and letting the pointer-events-auto toast
+          intercept nav taps. Lift the toast one gap above the nav's top edge on
+          mobile; the nav is sm:hidden, so revert to bottom-6 from sm up. The
+          nav's safe-area inset is padded inside its fixed height (Layout.tsx),
+          so its top edge sits exactly var(--bottom-nav-height) above the
+          viewport bottom — do not add the inset again here or the gap grows by
+          the inset on notched devices. */}
       <div
         role="status"
         aria-live="polite"
-        className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none"
+        className="fixed bottom-[calc(var(--bottom-nav-height,5.5rem)+1rem)] sm:bottom-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none"
       >
         {status && (
           <StatusToast

@@ -891,4 +891,19 @@ describe('AuthModal', () => {
       expect(screen.getByPlaceholderText(/••••••••/)).toHaveAttribute('type', 'password');
     });
   });
+
+  describe('Accessibility - label associations (CUR-62)', () => {
+    it('associates the sign-in email and password inputs with their labels', () => {
+      renderWithProviders(<AuthModal {...defaultProps} />);
+
+      // getByLabelText only resolves when the <label> is programmatically
+      // associated with its input (htmlFor/id). Before CUR-62 these labels
+      // sat above unassociated inputs, so this query would have thrown.
+      const email = screen.getByLabelText('Email Address', { selector: 'input' });
+      expect(email).toHaveAttribute('id', 'auth-email');
+
+      const password = screen.getByLabelText('Password', { selector: 'input' });
+      expect(password).toHaveAttribute('id', 'auth-password');
+    });
+  });
 });

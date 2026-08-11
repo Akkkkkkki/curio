@@ -1743,6 +1743,39 @@ export const saveAsset = async (
   }
 };
 
+// Cap concurrent Supabase Storage downloads (CUR-16). A collection grid mounts
+// one ItemImage per item, and every uncached one calls getAsset(), which then
+// hits the network. Without a limit, a 50-item collection fires 50 parallel
+// downloads on first open after a cache clear — they contend for bandwidth and
+// each individual thumbnail can stall for 10+ seconds. Serving three at a time
+// lets the top (visible) rows arrive quickly while the rest queue behind them.
+// Local IndexedDB hits never enter this queue: getAsset returns before reaching
+// it whenever the blob is already cached.
+const MAX_CONCURRENT_ASSET_DOWNLOADS = 3;
+let activeAssetDownloads = 0;
+const assetDownloadQueue: Array<() => void> = [];
+
+const withAssetDownloadSlot = async <T>(run: () => Promise<T>): Promise<T> => {
+  if (activeAssetDownloads >= MAX_CONCURRENT_ASSET_DOWNLOADS) {
+    await new Promise<void>((resolve) => assetDownloadQueue.push(resolve));
+  } else {
+    activeAssetDownloads++;
+  }
+  try {
+    return await run();
+  } finally {
+    // Hand the slot straight to the next waiter so the active count stays put;
+    // only decrement when nobody is waiting. `finally` guarantees the slot is
+    // released even if the download throws, so the queue can never deadlock.
+    const next = assetDownloadQueue.shift();
+    if (next) {
+      next();
+    } else {
+      activeAssetDownloads--;
+    }
+  }
+};
+
 export const getAsset = async (
   id: string,
   type: 'original' | 'display' = 'display',
@@ -1785,7 +1818,9 @@ export const getAsset = async (
 
       const path = normalizedRemotePath || fallbackPath;
       if (!path) return null;
-      const { data, error } = await supabase.storage.from('curio-assets').download(path);
+      const { data, error } = await withAssetDownloadSlot(() =>
+        supabase.storage.from('curio-assets').download(path),
+      );
 
       if (data && !error) {
         // Cache back to local for performance next time
@@ -1930,7 +1965,12 @@ export const getEnhancedAsset = async (
       const enhancedPath = normalizedEnhancedPath || fallbackPath;
       if (!enhancedPath) return null;
 
-      const { data, error } = await supabase.storage.from('curio-assets').download(enhancedPath);
+      // Share the same download budget as getAsset (CUR-16): a grid of enhanced
+      // items renders ItemImage with type="enhanced", so without this the
+      // enhanced downloads would bypass the cap entirely.
+      const { data, error } = await withAssetDownloadSlot(() =>
+        supabase.storage.from('curio-assets').download(enhancedPath),
+      );
 
       if (data && !error) {
         // Cache back to local for performance next time

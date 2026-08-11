@@ -15,6 +15,11 @@ const clampIndex = (target: number, itemCount: number) => {
   return Math.min(Math.max(target, 0), itemCount - 1);
 };
 
+// CUR-51: the pagination rail shows at most this many jump-to dots at once. For
+// larger collections it windows around the current exhibit so every item stays
+// reachable, instead of stranding everything past the tenth behind a dead count.
+const MAX_PAGINATION_DOTS = 10;
+
 interface ExhibitionViewProps {
   collection: UserCollection;
   initialIndex?: number;
@@ -109,10 +114,17 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'ArrowRight') next();
       else if (e.key === 'ArrowLeft') prev();
+      else if (e.key === 'Home') {
+        e.preventDefault();
+        jumpTo(0);
+      } else if (e.key === 'End') {
+        e.preventDefault();
+        jumpTo(collection.items.length - 1);
+      }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [isOpen, next, prev]);
+  }, [isOpen, next, prev, jumpTo, collection.items.length]);
 
   if (!isOpen || itemCount === 0) return null;
 
@@ -184,6 +196,48 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
             })}
           </div>
         )}
+      </div>
+    );
+  };
+
+  // CUR-51: jump-to pagination shared by both breakpoints. Small collections
+  // render one dot per exhibit (unchanged); larger ones window the rail around
+  // the current exhibit and flag how many items sit before / after the window,
+  // so every item is reachable by tapping rather than only the first ten.
+  const renderPaginationDots = (variant: 'mobile' | 'desktop') => {
+    const total = itemCount;
+    const height = variant === 'desktop' ? 'h-1.5' : 'h-1';
+    const activeWidth = variant === 'desktop' ? 'w-10' : 'w-6';
+    const inactiveWidth = variant === 'desktop' ? 'w-3' : 'w-1.5';
+    const gap = variant === 'desktop' ? 'gap-2' : 'gap-1.5';
+    const start =
+      total <= MAX_PAGINATION_DOTS
+        ? 0
+        : Math.min(
+            Math.max(safeIndex - Math.floor(MAX_PAGINATION_DOTS / 2), 0),
+            total - MAX_PAGINATION_DOTS,
+          );
+    const end = Math.min(start + MAX_PAGINATION_DOTS, total);
+    return (
+      <div className={`flex justify-center items-center ${gap}`}>
+        {start > 0 && <span className="text-[10px] opacity-40 mr-1">{start}+</span>}
+        {collection.items.slice(start, end).map((_, i) => {
+          const target = start + i;
+          return (
+            <button
+              key={target}
+              onClick={() => jumpTo(target)}
+              aria-label={t('exhibitionJumpTo', { n: target + 1 })}
+              aria-current={target === safeIndex ? 'true' : undefined}
+              className={`${height} rounded-full transition-all ${
+                target === safeIndex
+                  ? `${activeWidth} bg-amber-500`
+                  : `${inactiveWidth} bg-white/20 hover:bg-white/30`
+              }`}
+            />
+          );
+        })}
+        {end < total && <span className="text-[10px] opacity-40 ml-1">+{total - end}</span>}
       </div>
     );
   };
@@ -311,22 +365,7 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
         {/* Auto-play + pagination dots */}
         <div className="flex flex-col items-center gap-2 py-2.5">
           {renderAutoplayControls('mobile')}
-          <div className="flex justify-center items-center gap-1.5">
-            {collection.items.slice(0, 10).map((_, i) => (
-              <button
-                key={i}
-                onClick={() => jumpTo(i)}
-                aria-label={t('exhibitionJumpTo', { n: i + 1 })}
-                aria-current={i === safeIndex ? 'true' : undefined}
-                className={`h-1 rounded-full transition-all ${
-                  i === safeIndex ? 'w-6 bg-amber-500' : 'w-1.5 bg-white/20 hover:bg-white/30'
-                }`}
-              />
-            ))}
-            {itemCount > 10 && (
-              <span className="text-[10px] opacity-40 ml-1">+{itemCount - 10}</span>
-            )}
-          </div>
+          {renderPaginationDots('mobile')}
         </div>
       </div>
 
@@ -428,22 +467,7 @@ export const ExhibitionView: React.FC<ExhibitionViewProps> = ({
         {/* Footer: auto-play + pagination */}
         <footer className="py-6 px-8 flex flex-col items-center gap-3">
           {renderAutoplayControls('desktop')}
-          <div className="flex gap-2 items-center">
-            {collection.items.slice(0, 10).map((_, i) => (
-              <button
-                key={i}
-                onClick={() => jumpTo(i)}
-                aria-label={t('exhibitionJumpTo', { n: i + 1 })}
-                aria-current={i === safeIndex ? 'true' : undefined}
-                className={`h-1.5 rounded-full transition-all ${
-                  i === safeIndex ? 'w-10 bg-amber-500' : 'w-3 bg-white/20 hover:bg-white/30'
-                }`}
-              />
-            ))}
-            {itemCount > 10 && (
-              <span className="text-[10px] opacity-40 ml-1">+{itemCount - 10}</span>
-            )}
-          </div>
+          {renderPaginationDots('desktop')}
         </footer>
       </div>
     </div>
