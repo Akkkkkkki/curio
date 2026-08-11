@@ -68,7 +68,7 @@ export const DeleteItemModal: React.FC<DeleteItemModalProps> = ({
             className={`p-4 rounded-xl ${theme === 'vault' ? 'bg-red-500/10 border border-red-500/20' : 'bg-red-50 border border-red-100'}`}
           >
             <p className={`text-sm ${theme === 'vault' ? 'text-red-200' : 'text-red-700'}`}>
-              {t('deleteItemWarning').replace('{title}', item.title)}
+              {t('deleteItemWarning').replace('{title}', item.title?.trim() || t('untitled'))}
             </p>
           </div>
         </div>
