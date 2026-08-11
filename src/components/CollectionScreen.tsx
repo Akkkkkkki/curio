@@ -98,6 +98,7 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({
   const isReadOnly = Boolean(collection?.isPublic) && !isAdmin;
   const isSample = Boolean(collection?.isPublic) || Boolean(collection?.id?.startsWith('sample'));
   const canAddItems = Boolean(collection) && !isReadOnly;
+  const hasItems = (collection?.items.length ?? 0) > 0;
   const [filterInput, setFilterInput] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'waterfall'>('waterfall');
   const [sortBy, setSortBy] = useState<ItemSort>('newest');
@@ -278,7 +279,7 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({
   }
 
   return (
-    <div className="space-y-10 animate-in slide-in-from-bottom-4 duration-500">
+    <div className="space-y-6 sm:space-y-10 animate-in slide-in-from-bottom-4 duration-500">
       {isReadOnly && (
         <div
           data-testid="read-only-banner"
@@ -298,7 +299,7 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({
         </div>
       )}
 
-      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8">
+      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-5 sm:gap-8">
         <div className="flex items-center gap-4 sm:gap-6">
           <Link
             to="/"
@@ -330,120 +331,140 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({
           </div>
         </div>
         <div className="flex flex-col gap-3 w-full lg:w-auto">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 w-full">
+          {/* CUR-160: keep the primary actions on one row on mobile so item
+              cards surface sooner. Add Item stays the emphasized primary;
+              Enter Exhibition collapses to a compact icon beside it, and only
+              takes the full labelled treatment when it is the sole action
+              (e.g. a read-only sample collection with no Add Item button). */}
+          <div className="flex flex-row items-center gap-3 sm:gap-4 w-full">
             {canAddItems && (
               <Button
                 variant="primary"
                 onClick={() => openAddItemModal(collection.id)}
                 icon={<Plus size={16} />}
-                className="shadow-md w-full sm:w-auto"
+                className="shadow-md flex-1 sm:flex-none sm:w-auto"
               >
                 {t('addItem')}
               </Button>
             )}
-            <Button
-              variant="primary"
-              onClick={() => setIsExhibitionOpen(true)}
-              disabled={collection.items.length === 0}
-              icon={<Play size={16} />}
-              className="shadow-md w-full sm:w-auto"
-            >
-              {t('enterExhibition')}
-            </Button>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full">
-            {!isReadOnly && (
-              <button
-                onClick={() => setIsDeleteCollectionModalOpen(true)}
-                aria-label={t('deleteCollection')}
-                className={`w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl transition-colors ${
-                  theme === 'vault'
-                    ? 'bg-stone-900 border border-white/10 text-stone-400 hover:text-red-400 hover:border-red-400/30'
-                    : 'bg-white border border-stone-200 text-stone-400 hover:text-red-500 hover:border-red-200'
-                }`}
-                title={t('deleteCollection')}
-              >
-                <Trash2 size={18} />
-              </button>
-            )}
-            {!isReadOnly && (
+            {hasItems && (
               <Button
-                variant={isSelectionMode ? 'primary' : 'outline'}
-                onClick={handleToggleSelectionMode}
-                className={`${theme === 'vault' ? 'bg-stone-900 text-white border-white/10' : 'bg-white'} h-11`}
-                icon={<CheckSquare size={16} />}
+                variant="primary"
+                onClick={() => setIsExhibitionOpen(true)}
+                icon={<Play size={16} />}
+                aria-label={t('enterExhibition')}
+                title={t('enterExhibition')}
+                className={`shadow-md ${canAddItems ? 'w-11 !px-0 sm:w-auto sm:!px-6' : 'flex-1 sm:flex-none sm:w-auto'}`}
               >
-                {isSelectionMode ? t('done') : t('selectItems')}
+                <span className={canAddItems ? 'hidden sm:inline' : undefined}>
+                  {t('enterExhibition')}
+                </span>
               </Button>
             )}
-            <div
-              className={`flex rounded-xl p-1 ${theme === 'vault' ? 'bg-white/5' : theme === 'atelier' ? 'bg-[#D4C9B8]/30' : 'bg-stone-200/50'}`}
-            >
-              <button
-                onClick={() => setViewMode('grid')}
-                aria-label={t('viewGrid')}
-                title={t('viewGrid')}
-                className={`w-11 h-11 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg transition-all ${viewMode === 'grid' ? (theme === 'vault' ? 'bg-white/10 text-white shadow-sm' : theme === 'atelier' ? 'bg-[#F5EFE4] text-[#3D3530] shadow-sm' : 'bg-white text-stone-900 shadow-sm') : theme === 'vault' ? 'text-stone-500 hover:text-stone-300' : theme === 'atelier' ? 'text-[#8C7B6B] hover:text-[#3D3530]' : 'text-stone-400 hover:text-stone-600'}`}
-              >
-                <LayoutGrid size={18} />
-              </button>
-              <button
-                onClick={() => setViewMode('waterfall')}
-                aria-label={t('viewWaterfall')}
-                title={t('viewWaterfall')}
-                className={`w-11 h-11 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg transition-all ${viewMode === 'waterfall' ? (theme === 'vault' ? 'bg-white/10 text-white shadow-sm' : theme === 'atelier' ? 'bg-[#F5EFE4] text-[#3D3530] shadow-sm' : 'bg-white text-stone-900 shadow-sm') : theme === 'vault' ? 'text-stone-500 hover:text-stone-300' : theme === 'atelier' ? 'text-[#8C7B6B] hover:text-[#3D3530]' : 'text-stone-400 hover:text-stone-600'}`}
-              >
-                <LayoutTemplate size={18} className="rotate-180" />
-              </button>
-            </div>
-            <div className="flex items-center gap-2">
-              <ListOrdered size={16} className="text-stone-400" />
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as ItemSort)}
-                className={`h-11 px-3 rounded-xl border text-sm font-semibold ${theme === 'vault' ? 'bg-stone-900 border-white/10 text-white' : 'bg-white border-stone-200 text-stone-700'}`}
-                aria-label={t('sortLabel')}
-              >
-                <option value="newest">{t('sortNewest')}</option>
-                <option value="oldest">{t('sortOldest')}</option>
-                <option value="title">{t('sortTitle')}</option>
-                <option value="rating">{t('sortRating')}</option>
-              </select>
-            </div>
-            <div className="flex gap-2 flex-1 min-w-[12rem]">
-              <div className="relative flex-1">
-                <input
-                  type="text"
-                  placeholder={t('collectionSearchPlaceholder')}
-                  aria-label={t('collectionSearchPlaceholder')}
-                  value={filterInput}
-                  onChange={(e) => setFilterInput(e.target.value)}
-                  className={`pl-4 pr-11 py-2 rounded-xl border focus:ring-4 focus:ring-amber-500/5 outline-none text-sm w-full transition-all shadow-sm font-serif italic ${theme === 'vault' ? 'bg-stone-900 border-white/10 text-white' : 'bg-white border-stone-200 text-stone-900'}`}
-                />
-                {filterInput.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setFilterInput('')}
-                    aria-label={t('clearSearch')}
-                    title={t('clearSearch')}
-                    data-testid="collection-search-clear"
-                    className={`absolute right-1 sm:right-2 top-1/2 -translate-y-1/2 w-11 h-11 sm:w-9 sm:h-9 rounded-full flex items-center justify-center transition-colors ${theme === 'vault' ? 'text-stone-300 hover:bg-white/10' : 'text-stone-400 hover:bg-stone-100 hover:text-stone-600'}`}
+          </div>
+          {/* CUR-160: item-oriented controls only make sense once a collection
+              has items — hide Exhibition/Select/Sort/Search/Filter on an empty
+              collection so it shows just its empty-state CTA. Delete Collection
+              stays available so an empty collection can still be removed. */}
+          {(!isReadOnly || hasItems) && (
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full">
+              {!isReadOnly && (
+                <button
+                  onClick={() => setIsDeleteCollectionModalOpen(true)}
+                  aria-label={t('deleteCollection')}
+                  className={`w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl transition-colors ${
+                    theme === 'vault'
+                      ? 'bg-stone-900 border border-white/10 text-stone-400 hover:text-red-400 hover:border-red-400/30'
+                      : 'bg-white border border-stone-200 text-stone-400 hover:text-red-500 hover:border-red-200'
+                  }`}
+                  title={t('deleteCollection')}
+                >
+                  <Trash2 size={18} />
+                </button>
+              )}
+              {!isReadOnly && hasItems && (
+                <Button
+                  variant={isSelectionMode ? 'primary' : 'outline'}
+                  onClick={handleToggleSelectionMode}
+                  className={`${theme === 'vault' ? 'bg-stone-900 text-white border-white/10' : 'bg-white'} h-11`}
+                  icon={<CheckSquare size={16} />}
+                >
+                  {isSelectionMode ? t('done') : t('selectItems')}
+                </Button>
+              )}
+              {hasItems && (
+                <>
+                  <div
+                    className={`flex rounded-xl p-1 ${theme === 'vault' ? 'bg-white/5' : theme === 'atelier' ? 'bg-[#D4C9B8]/30' : 'bg-stone-200/50'}`}
                   >
-                    <X size={16} />
-                  </button>
-                )}
-              </div>
-              <Button
-                variant={activeFilterCount > 0 ? 'primary' : 'outline'}
-                className={`w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center !p-0 rounded-xl ${theme === 'vault' ? 'bg-stone-900 border-white/10' : activeFilterCount > 0 ? '' : 'bg-white'}`}
-                onClick={() => setIsFilterModalOpen(true)}
-                aria-label={t('filterCollection')}
-                title={t('filterCollection')}
-              >
-                <SlidersHorizontal size={18} />
-              </Button>
+                    <button
+                      onClick={() => setViewMode('grid')}
+                      aria-label={t('viewGrid')}
+                      title={t('viewGrid')}
+                      className={`w-11 h-11 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg transition-all ${viewMode === 'grid' ? (theme === 'vault' ? 'bg-white/10 text-white shadow-sm' : theme === 'atelier' ? 'bg-[#F5EFE4] text-[#3D3530] shadow-sm' : 'bg-white text-stone-900 shadow-sm') : theme === 'vault' ? 'text-stone-500 hover:text-stone-300' : theme === 'atelier' ? 'text-[#8C7B6B] hover:text-[#3D3530]' : 'text-stone-400 hover:text-stone-600'}`}
+                    >
+                      <LayoutGrid size={18} />
+                    </button>
+                    <button
+                      onClick={() => setViewMode('waterfall')}
+                      aria-label={t('viewWaterfall')}
+                      title={t('viewWaterfall')}
+                      className={`w-11 h-11 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg transition-all ${viewMode === 'waterfall' ? (theme === 'vault' ? 'bg-white/10 text-white shadow-sm' : theme === 'atelier' ? 'bg-[#F5EFE4] text-[#3D3530] shadow-sm' : 'bg-white text-stone-900 shadow-sm') : theme === 'vault' ? 'text-stone-500 hover:text-stone-300' : theme === 'atelier' ? 'text-[#8C7B6B] hover:text-[#3D3530]' : 'text-stone-400 hover:text-stone-600'}`}
+                    >
+                      <LayoutTemplate size={18} className="rotate-180" />
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <ListOrdered size={16} className="text-stone-400" />
+                    <select
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value as ItemSort)}
+                      className={`h-11 px-3 rounded-xl border text-sm font-semibold ${theme === 'vault' ? 'bg-stone-900 border-white/10 text-white' : 'bg-white border-stone-200 text-stone-700'}`}
+                      aria-label={t('sortLabel')}
+                    >
+                      <option value="newest">{t('sortNewest')}</option>
+                      <option value="oldest">{t('sortOldest')}</option>
+                      <option value="title">{t('sortTitle')}</option>
+                      <option value="rating">{t('sortRating')}</option>
+                    </select>
+                  </div>
+                  <div className="flex gap-2 flex-1 min-w-[12rem]">
+                    <div className="relative flex-1">
+                      <input
+                        type="text"
+                        placeholder={t('collectionSearchPlaceholder')}
+                        aria-label={t('collectionSearchPlaceholder')}
+                        value={filterInput}
+                        onChange={(e) => setFilterInput(e.target.value)}
+                        className={`pl-4 pr-11 py-2 rounded-xl border focus:ring-4 focus:ring-amber-500/5 outline-none text-sm w-full transition-all shadow-sm font-serif italic ${theme === 'vault' ? 'bg-stone-900 border-white/10 text-white' : 'bg-white border-stone-200 text-stone-900'}`}
+                      />
+                      {filterInput.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setFilterInput('')}
+                          aria-label={t('clearSearch')}
+                          title={t('clearSearch')}
+                          data-testid="collection-search-clear"
+                          className={`absolute right-1 sm:right-2 top-1/2 -translate-y-1/2 w-11 h-11 sm:w-9 sm:h-9 rounded-full flex items-center justify-center transition-colors ${theme === 'vault' ? 'text-stone-300 hover:bg-white/10' : 'text-stone-400 hover:bg-stone-100 hover:text-stone-600'}`}
+                        >
+                          <X size={16} />
+                        </button>
+                      )}
+                    </div>
+                    <Button
+                      variant={activeFilterCount > 0 ? 'primary' : 'outline'}
+                      className={`w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center !p-0 rounded-xl ${theme === 'vault' ? 'bg-stone-900 border-white/10' : activeFilterCount > 0 ? '' : 'bg-white'}`}
+                      onClick={() => setIsFilterModalOpen(true)}
+                      aria-label={t('filterCollection')}
+                      title={t('filterCollection')}
+                    >
+                      <SlidersHorizontal size={18} />
+                    </Button>
+                  </div>
+                </>
+              )}
             </div>
-          </div>
+          )}
         </div>
       </div>
 
