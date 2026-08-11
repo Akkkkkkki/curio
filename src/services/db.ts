@@ -160,6 +160,8 @@ type PendingImageRecord = {
   nextRetryAt?: string;
 };
 
+const ITEM_IMAGE_ROLES = ['original', 'display', 'enhanced', 'thumbnail', 'poster'] as const;
+
 const ASSET_UPLOAD_BACKOFF_BASE_MS = 30_000;
 const ASSET_UPLOAD_BACKOFF_MAX_MS = 10 * 60_000;
 // After this many consecutive failures an upload is surfaced to the UI as
@@ -685,14 +687,59 @@ const removeFromPendingAssetUploads = async (
   tx.objectStore(SETTINGS_STORE).put(filtered, PENDING_ASSET_UPLOADS_KEY);
 };
 
+const isItemImageRole = (value: unknown): value is ItemImageRole =>
+  typeof value === 'string' && ITEM_IMAGE_ROLES.includes(value as ItemImageRole);
+
+const normalizePendingImageRecord = (value: unknown): PendingImageRecord | null => {
+  if (!value || typeof value !== 'object') return null;
+
+  const candidate = value as Record<string, unknown>;
+  if (
+    typeof candidate.collectionId !== 'string' ||
+    typeof candidate.itemId !== 'string' ||
+    !isItemImageRole(candidate.role) ||
+    typeof candidate.storagePath !== 'string'
+  ) {
+    return null;
+  }
+
+  const record: PendingImageRecord = {
+    collectionId: candidate.collectionId,
+    itemId: candidate.itemId,
+    role: candidate.role,
+    storagePath: candidate.storagePath,
+  };
+
+  if (typeof candidate.createdAt === 'string') record.createdAt = candidate.createdAt;
+  if (typeof candidate.attemptCount === 'number' && Number.isFinite(candidate.attemptCount)) {
+    record.attemptCount = candidate.attemptCount;
+  }
+  if (typeof candidate.lastError === 'string') record.lastError = candidate.lastError;
+  if (typeof candidate.nextRetryAt === 'string') record.nextRetryAt = candidate.nextRetryAt;
+
+  return record;
+};
+
+const normalizePendingImageRecords = (value: unknown): PendingImageRecord[] => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((entry) => normalizePendingImageRecord(entry))
+    .filter((entry): entry is PendingImageRecord => entry !== null);
+};
+
 const getPendingImageRecords = async (): Promise<PendingImageRecord[]> => {
   const db = await initDB();
-  return new Promise((resolve) => {
+  const stored = await new Promise<unknown>((resolve) => {
     const tx = db.transaction(SETTINGS_STORE, 'readonly');
     const req = tx.objectStore(SETTINGS_STORE).get(PENDING_IMAGE_RECORDS_KEY);
-    req.onsuccess = () => resolve(req.result || []);
+    req.onsuccess = () => resolve(req.result);
     req.onerror = () => resolve([]);
   });
+  const normalized = normalizePendingImageRecords(stored);
+  if (stored !== undefined && (!Array.isArray(stored) || normalized.length !== stored.length)) {
+    await savePendingImageRecords(normalized);
+  }
+  return normalized;
 };
 
 const savePendingImageRecords = async (records: PendingImageRecord[]): Promise<void> => {
