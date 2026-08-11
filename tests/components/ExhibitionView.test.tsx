@@ -169,6 +169,25 @@ describe('ExhibitionView', () => {
       });
       expect(onClose).not.toHaveBeenCalled();
     });
+
+    it('clamps the active exhibit when live sync removes later items', async () => {
+      const { rerender } = renderWithProviders(
+        <ExhibitionView collection={collection} initialIndex={1} isOpen={true} onClose={vi.fn()} />,
+      );
+      expect(screen.getByRole('dialog')).toHaveAccessibleName(/2.*2/);
+
+      rerender(
+        <ExhibitionView
+          collection={{ ...collection, items: [collection.items[0]] }}
+          initialIndex={1}
+          isOpen={true}
+          onClose={vi.fn()}
+        />,
+      );
+
+      expect(screen.getByRole('dialog')).toHaveAccessibleName(/1.*1/);
+      expect(screen.getAllByText('Blue Train').length).toBeGreaterThan(0);
+    });
   });
 
   describe('large-collection navigation (CUR-51)', () => {

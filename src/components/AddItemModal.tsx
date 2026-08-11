@@ -504,10 +504,8 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     return () => observer.disconnect();
   }, [isOpen, step, updateScrollAffordance]);
 
-  // Verify and batch-verify are the only steps where the user has already
-  // invested effort worth confirming before discard: a photo upload, AI-
-  // analyzed metadata, typed Story, typed title, set rating, filled custom
-  // field, or batch items lined up for save.
+  // Once a photo or batch is selected, closing the modal discards real
+  // user-provided work even if AI analysis has not finished yet.
   const hasFilledFormField = Object.entries(formData.data || {}).some(([key, value]) => {
     // Skip internal AI metadata (e.g. `_aiDescription`); it's hidden and
     // only present alongside `imagePreview`, which is already counted.
@@ -516,14 +514,16 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     if (typeof value === 'string') return value.trim().length > 0;
     return true;
   });
+  const hasAnalyzingWork = step === 'analyzing' && (!!imagePreview || !!batchProgress);
   const hasInProgressWork =
-    (step === 'verify' || step === 'batch-verify') &&
-    (!!imagePreview ||
-      formData.title.trim().length > 0 ||
-      (formData.notes || '').trim().length > 0 ||
-      formData.rating > 0 ||
-      hasFilledFormField ||
-      batchItems.length > 0);
+    hasAnalyzingWork ||
+    ((step === 'verify' || step === 'batch-verify') &&
+      (!!imagePreview ||
+        formData.title.trim().length > 0 ||
+        (formData.notes || '').trim().length > 0 ||
+        formData.rating > 0 ||
+        hasFilledFormField ||
+        batchItems.length > 0));
 
   // Mirror the latest values into refs so the keydown handler (registered once
   // per modal-open) reads current state without a re-registration churn that

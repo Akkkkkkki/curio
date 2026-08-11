@@ -1528,8 +1528,11 @@ const saveCollectionToCloud = async (collection: UserCollection): Promise<void> 
     // Do not resurrect cloud data from that old snapshot.
     return;
   }
+  if (currentLocalCollection === undefined) {
+    throw new Error('Local collection recheck failed before cloud sync');
+  }
 
-  const collectionForSync = currentLocalCollection ?? collection;
+  const collectionForSync = currentLocalCollection;
 
   // Sync Collection Metadata
   const collectionPayload: Record<string, any> = {
@@ -1566,9 +1569,18 @@ const saveCollectionToCloud = async (collection: UserCollection): Promise<void> 
     // The collection was deleted while the metadata upsert was in flight.
     return;
   }
+  if (latestLocalCollection === undefined) {
+    throw new Error('Latest local collection recheck failed before cloud sync');
+  }
 
-  const latestCollectionForItems = latestLocalCollection ?? collectionForSync;
-  const pendingDeletes = await getPendingDeletes().catch(() => [] as PendingDelete[]);
+  const latestCollectionForItems = latestLocalCollection;
+  let pendingDeletes: PendingDelete[];
+  try {
+    pendingDeletes = await getPendingDeletes();
+  } catch (error) {
+    console.warn('Pending delete recheck failed before cloud sync:', error);
+    throw new Error('Pending delete recheck failed before cloud sync');
+  }
   const pendingDeletedItemIds = new Set(
     pendingDeletes
       .filter(
