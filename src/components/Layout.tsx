@@ -403,9 +403,34 @@ export const Layout: React.FC<LayoutProps> = ({
                 title={showSignInAffordance ? t('login') : statusLabel}
                 aria-haspopup="menu"
                 aria-expanded={profileSource === 'header'}
-                className={`${showSignInAffordance ? 'pl-3 pr-4 py-2 rounded-full flex items-center gap-2' : 'p-2 rounded-full'} transition-colors ${navGhost} ${statusColor} relative`}
+                className={`${showSignInAffordance ? 'pl-3 pr-4 py-2 rounded-full flex items-center gap-2' : 'p-2 rounded-full'} transition-colors ${navGhost} ${statusColor}`}
               >
-                <User size={20} />
+                {/* CUR-158 / CUR-153: anchor the status badge to the account
+                    icon itself, not the button box. Positioning it on the box
+                    (bottom-0 right-0) kept it beside the glyph in the compact
+                    icon-only button, but once CUR-49 widened the signed-out
+                    control into a labelled "Sign In" pill, that same corner
+                    landed outside the pill's rounded edge and read as a stray
+                    orange glyph. Wrapping the icon in a positioning context
+                    keeps the badge on the glyph in both layouts. Screen
+                    readers flatten a button's descendants, so the status
+                    reaches them via the button's aria-describedby -> this
+                    badge's aria-label; the title covers hover. Both reuse the
+                    profile menu's status vocabulary so every surface uses one
+                    consistent term. */}
+                <span className="relative flex items-center justify-center">
+                  <User size={20} />
+                  <span
+                    id="header-status-badge"
+                    data-testid="header-status-badge"
+                    role="img"
+                    aria-label={statusLabel}
+                    title={statusLabel}
+                    className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border flex items-center justify-center ${statusBadgeSurface}`}
+                  >
+                    <span className={statusColor}>{statusBadgeIcon}</span>
+                  </span>
+                </span>
                 {showSignInAffordance && (
                   <span
                     data-testid="header-sign-in-label"
@@ -414,23 +439,6 @@ export const Layout: React.FC<LayoutProps> = ({
                     {t('login')}
                   </span>
                 )}
-                {/* CUR-153: the badge must stay inside the button bounds (it
-                    used to hang at -bottom-1/-right-1, poking below the header
-                    edge and reading as a stray glyph). Screen readers flatten
-                    a button's descendants, so the status reaches them via the
-                    button's aria-describedby -> this badge's aria-label; the
-                    title covers hover. Both reuse the profile menu's status
-                    vocabulary so every surface uses one consistent term. */}
-                <span
-                  id="header-status-badge"
-                  data-testid="header-status-badge"
-                  role="img"
-                  aria-label={statusLabel}
-                  title={statusLabel}
-                  className={`absolute bottom-0 right-0 w-4 h-4 rounded-full border flex items-center justify-center ${statusBadgeSurface}`}
-                >
-                  <span className={statusColor}>{statusBadgeIcon}</span>
-                </span>
               </button>
 
               {profileSource === 'header' && (

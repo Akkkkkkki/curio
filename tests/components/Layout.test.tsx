@@ -1142,19 +1142,33 @@ describe('Layout Component', () => {
       expect(accountButton).toHaveAccessibleDescription(label);
     });
 
+    // CUR-158: once CUR-49 widened the signed-out control into a labelled
+    // "Sign In" pill, a badge anchored to the button box floated off its
+    // rounded bottom-right corner and read as a stray glyph. The badge is now
+    // anchored to the account icon, so it hugs the glyph in both the icon-only
+    // and pill layouts, in every auth state.
     it.each([
       { state: 'signed out', props: { user: null } },
       { state: 'signed in', props: { user: authenticatedUser } },
       { state: 'unconfigured', props: { user: null, isSupabaseConfigured: false } },
-    ])('stays inside the account button bounds when $state', ({ props }) => {
-      renderWithProviders(<Layout {...defaultProps} {...props} />);
+    ])(
+      'anchors the status badge to the account icon, not the button box, when $state',
+      ({ props }) => {
+        renderWithProviders(<Layout {...defaultProps} {...props} />);
 
-      const badge = screen.getByTestId('header-status-badge');
-      expect(badge.className).toContain('bottom-0');
-      expect(badge.className).toContain('right-0');
-      expect(badge.className).not.toContain('-bottom-1');
-      expect(badge.className).not.toContain('-right-1');
-    });
+        const badge = screen.getByTestId('header-status-badge');
+        const accountButton = screen.getByRole('button', { name: /account/i });
+
+        // Anchored to the icon wrapper, not directly to the button box.
+        expect(badge.parentElement).not.toBe(accountButton);
+        expect(badge.parentElement).toHaveClass('relative');
+        // Its positioning ancestor wraps the account glyph (the User icon svg).
+        expect(badge.parentElement?.querySelector('svg')).toBeInTheDocument();
+        // Hugs the icon's corner rather than the far corner of the wide pill.
+        expect(badge.className).toContain('-bottom-0.5');
+        expect(badge.className).toContain('-right-0.5');
+      },
+    );
   });
 
   describe('Accessibility', () => {
