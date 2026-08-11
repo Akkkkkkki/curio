@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, within, fireEvent, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { AppContent } from '@/App';
+import { App, AppContent } from '@/App';
 import { LanguageProvider } from '@/i18n';
 import React from 'react';
 import * as db from '@/services/db';
@@ -194,6 +194,39 @@ describe('App Integration Tests', () => {
       },
       { timeout: 5000 },
     );
+  });
+
+  it('resets scroll on pushed item routes but preserves it on browser back (CUR-150)', async () => {
+    const originalHash = window.location.hash;
+    window.location.hash = '#/collection/col1';
+    const scrollToSpy = vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
+    let unmount = () => undefined;
+
+    try {
+      ({ unmount } = render(<App />));
+
+      await screen.findByText('Test Collection', undefined, { timeout: 3000 });
+      // The initial hash route is a POP navigation, so it must not clobber a
+      // restored list position on page load.
+      expect(scrollToSpy).not.toHaveBeenCalled();
+
+      fireEvent.click(screen.getByTestId('item-card'));
+
+      await screen.findByDisplayValue('Test Item', undefined, { timeout: 5000 });
+      expect(scrollToSpy).toHaveBeenCalledWith(0, 0);
+
+      scrollToSpy.mockClear();
+      fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+
+      await waitFor(() => {
+        expect(screen.getByText('Test Collection')).toBeInTheDocument();
+      });
+      expect(scrollToSpy).not.toHaveBeenCalled();
+    } finally {
+      unmount();
+      scrollToSpy.mockRestore();
+      window.location.hash = originalHash;
+    }
   });
 
   it('filters collection items and resets the query from the inline clear button', async () => {
@@ -1660,6 +1693,30 @@ describe('App Integration Tests', () => {
   // pale yellow blocks and the muted link collapsed against the surface. The
   // fix mirrors the warning tone in StatusBanner (CUR-81) so the chips read
   // as one system across all three themes.
+  it('keeps the icon-only Filter button padding override so the icon remains visible', async () => {
+    const { ThemeProvider } = await import('@/theme');
+
+    render(
+      <MemoryRouter initialEntries={['/collection/col1']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Test Collection')).toBeInTheDocument();
+    });
+
+    const filterButton = screen.getByRole('button', { name: 'Filter Collection' });
+    // The Button md padding utilities are larger than this square control; the
+    // important override is what prevents the sliders icon from collapsing.
+    expect(filterButton.classList).toContain('!p-0');
+    expect(filterButton.querySelector('svg')).not.toBeNull();
+  });
+
   const applyRatingFilter = async () => {
     fireEvent.click(screen.getByRole('button', { name: 'Filter Collection' }));
     const dialog = await screen.findByRole('dialog', { name: 'Filter Collection' });
