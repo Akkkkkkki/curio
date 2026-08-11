@@ -2342,25 +2342,63 @@ export const loadCollections = async (): Promise<UserCollection[]> => {
 export const saveAllCollections = async (collections: UserCollection[]): Promise<void> => {
   const db = await initDB();
   const newIds = new Set(collections.map((c) => c.id));
+  const collectionsToKeepForAssets = [...collections];
 
   await new Promise<void>((resolve, reject) => {
-    const transaction = db.transaction(COLLECTIONS_STORE, 'readwrite');
+    const transaction = db.transaction([COLLECTIONS_STORE, SETTINGS_STORE], 'readwrite');
     const store = transaction.objectStore(COLLECTIONS_STORE);
+    const settingsStore = transaction.objectStore(SETTINGS_STORE);
 
-    // Get existing keys to find stale entries
-    const keysRequest = store.getAllKeys();
-    keysRequest.onsuccess = () => {
-      const existingKeys = keysRequest.result as string[];
+    let existingCollections: UserCollection[] = [];
+    let pendingSyncIds = new Set<string>();
+    let existingCollectionsLoaded = false;
+    let pendingSyncLoaded = false;
 
-      // Delete stale entries (ones not in new collection set)
-      existingKeys.forEach((key) => {
-        if (!newIds.has(key)) {
-          store.delete(key);
+    const persistSnapshot = () => {
+      if (!existingCollectionsLoaded || !pendingSyncLoaded) return;
+
+      // Delete stale entries unless they are queued for cloud sync. A background
+      // full-cache save can lag behind a just-created local collection; deleting
+      // pending rows here would silently drop the only retryable copy.
+      existingCollections.forEach((collection) => {
+        if (newIds.has(collection.id)) {
+          return;
         }
+        if (pendingSyncIds.has(collection.id)) {
+          collectionsToKeepForAssets.push(collection);
+          return;
+        }
+        store.delete(collection.id);
       });
 
       // Upsert all new collections (put instead of add)
       collections.forEach((col) => store.put(col));
+    };
+
+    // Get existing collections to find stale entries and preserve queued local writes.
+    const collectionsRequest = store.getAll();
+    collectionsRequest.onsuccess = () => {
+      existingCollections = collectionsRequest.result as UserCollection[];
+      existingCollectionsLoaded = true;
+      persistSnapshot();
+    };
+    collectionsRequest.onerror = () => {
+      existingCollectionsLoaded = true;
+      persistSnapshot();
+    };
+
+    const pendingRequest = settingsStore.get(PENDING_SYNC_KEY);
+    pendingRequest.onsuccess = () => {
+      pendingSyncIds = new Set(
+        normalizePendingSyncEntries(pendingRequest.result || []).map((entry) => entry.id),
+      );
+      pendingSyncLoaded = true;
+      persistSnapshot();
+    };
+    pendingRequest.onerror = (event) => {
+      event.preventDefault();
+      pendingSyncLoaded = true;
+      persistSnapshot();
     };
 
     transaction.oncomplete = () => resolve();
@@ -2368,7 +2406,7 @@ export const saveAllCollections = async (collections: UserCollection[]): Promise
   });
 
   // Clean up orphaned assets that no longer have a corresponding item
-  await cleanupOrphanedAssets(collections);
+  await cleanupOrphanedAssets(collectionsToKeepForAssets);
 };
 
 // Remove assets from IndexedDB that don't have a corresponding item in collections
