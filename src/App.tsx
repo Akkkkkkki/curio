@@ -1134,8 +1134,15 @@ export const AppContent: React.FC = () => {
     setCollections((prev) => {
       const target = prev.find((c) => c.id === collectionId);
       if (target) {
+        // Removing an item mutates the collection, so its `updatedAt` has to
+        // move with it — `updateItem` and `updateCollection` already do this.
+        // Leaving it untouched makes a deletion invisible to every timestamp
+        // comparison downstream (cache-snapshot recency, cloud merge), so a
+        // snapshot taken moments earlier looks equally fresh and can put the
+        // deleted item back.
         const newC = {
           ...target,
+          updatedAt: new Date().toISOString(),
           items: target.items.filter((i) => i.id !== itemId),
         };
         saveCollection(newC).catch((e) => {

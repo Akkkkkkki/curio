@@ -430,6 +430,66 @@ describe('Phase 2.2 — services/db.ts dual-write operations', () => {
     consoleError.mockRestore();
   });
 
+  it('saveAllCollections: does not resurrect a queued deletion on an equal timestamp', async () => {
+    // Two versions that are indistinguishable by recency: a snapshot captured
+    // moments before a local item deletion carries the same collection
+    // `updatedAt`. Ties must fall to the queued local row, or the deleted item
+    // is written back and reappears on the next cache-backed startup.
+    const { supabase, collectionsUpsert } = createSupabaseMock();
+    collectionsUpsert.mockRejectedValue(new Error('offline'));
+
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const dbMod = await importDbModuleFreshWithSupabaseMock(supabase);
+
+    const db = await dbMod.initDB();
+    openDb = db;
+    await clearStores(db, ['collections', 'assets', 'display', 'enhanced', 'settings']);
+
+    const sharedTimestamp = '2026-07-13T00:00:00.000Z';
+    const survivingItem: CollectionItem = {
+      id: 'item-kept',
+      collectionId: 'col-pending',
+      photoUrl: 'asset',
+      title: 'Kept',
+      rating: 4,
+      data: {},
+      createdAt: sharedTimestamp,
+      updatedAt: sharedTimestamp,
+      notes: '',
+    };
+
+    // Local state after the deletion: the item is gone, but `updatedAt` matches
+    // the snapshot's.
+    await dbMod.saveCollection({
+      id: 'col-pending',
+      templateId: 'vinyl',
+      name: 'Queued deletion',
+      icon: 'C',
+      customFields: [],
+      items: [survivingItem],
+      ownerId: 'test-user-id',
+      updatedAt: sharedTimestamp,
+    });
+
+    await dbMod.saveAllCollections([
+      {
+        id: 'col-pending',
+        templateId: 'vinyl',
+        name: 'Queued deletion',
+        icon: 'C',
+        customFields: [],
+        items: [survivingItem, { ...survivingItem, id: 'item-deleted', title: 'Deleted' }],
+        ownerId: 'test-user-id',
+        updatedAt: sharedTimestamp,
+      },
+    ]);
+
+    const stored = await readFromStore<UserCollection>(db, 'collections', 'col-pending');
+    expect(stored?.items.map((item) => item.id)).toEqual(['item-kept']);
+
+    consoleError.mockRestore();
+  });
+
   it('saveCollection: invalid collection object (missing id) rejects and does not attempt cloud writes', async () => {
     /**
      * Error case: IndexedDB keyPath is `id`; objects without `id` should fail local persistence,

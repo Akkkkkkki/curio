@@ -2447,10 +2447,16 @@ export const saveAllCollections = async (collections: UserCollection[]): Promise
       // Skipping the put is not enough on its own either: the asset whitelist
       // has to track the local version too, or blobs belonging to items added
       // in the pending edit get purged as orphans.
+      //
+      // Ties go to the queued local row. Equal timestamps mean the two versions
+      // are indistinguishable by recency, and the local one is the copy flagged
+      // as holding unsynced work: preferring it can at worst re-apply a cloud
+      // change that is still safely in the cloud, while preferring the snapshot
+      // can destroy a local edit that exists nowhere else.
       collections.forEach((col) => {
         const existing = pendingSyncIds.has(col.id) ? existingById.get(col.id) : undefined;
         const pendingLocal =
-          existing && compareTimestamps(existing.updatedAt, col.updatedAt) > 0
+          existing && compareTimestamps(existing.updatedAt, col.updatedAt) >= 0
             ? existing
             : undefined;
         if (pendingLocal) {
