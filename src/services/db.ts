@@ -1193,9 +1193,25 @@ export const getPendingDeletes = async (): Promise<PendingDelete[]> => {
   return pending;
 };
 
+// Reading the tombstone queue serves two opposite needs. A sync guard needs a
+// list it can trust and must abort when it cannot be read, so `getPendingDeletes`
+// rejects. The append path needs the opposite: by the time it runs the item is
+// already gone locally and its caller swallows failures, so refusing to record
+// the tombstone loses the deletion outright — no queue entry, no cloud delete,
+// and the item returns on the next refresh. Degrade to a best-effort base there
+// instead, so the new tombstone is still journaled durably.
+const readPendingDeletesForAppend = async (): Promise<PendingDelete[]> => {
+  try {
+    return await getPendingDeletes();
+  } catch (error) {
+    console.warn('Pending delete read failed; journaling new tombstone on a partial base:', error);
+    return readPendingDeleteJournal() ?? [];
+  }
+};
+
 export const addToPendingDeletes = async (entry: PendingDelete): Promise<void> => {
   const db = await initDB();
-  const pending = await getPendingDeletes();
+  const pending = await readPendingDeletesForAppend();
   // Avoid duplicates
   if (entry.type === 'item') {
     if (

@@ -97,6 +97,13 @@ function createSupabaseMock() {
     return chain;
   });
 
+  const itemsDelete = vi.fn(() => {
+    const chain: any = { error: null };
+    chain.eq = vi.fn().mockReturnValue(chain);
+    chain.then = (resolve: (value: { error: null }) => unknown) => resolve({ error: null });
+    return chain;
+  });
+
   const from = vi.fn((table: string) => {
     const upsertForTable =
       table === 'collections'
@@ -107,6 +114,7 @@ function createSupabaseMock() {
     return {
       upsert: upsertForTable,
       update,
+      delete: itemsDelete,
       select: vi.fn(() => ({
         eq: vi.fn(() => ({ maybeSingle: itemsMaybeSingle })),
       })),
@@ -130,9 +138,31 @@ function createSupabaseMock() {
     itemsUpsert,
     itemImagesUpsert,
     itemsMaybeSingle,
+    itemsDelete,
     upload,
     from,
   };
+}
+
+// Opens the transaction normally and fails only the `get()` request, matching a
+// transient IndexedDB read failure (corrupt record, eviction mid-read).
+function failAsyncGetFor(storeName: string, key: string) {
+  const originalGet = IDBObjectStore.prototype.get;
+  return vi.spyOn(IDBObjectStore.prototype, 'get').mockImplementation(function (
+    this: IDBObjectStore,
+    query: any,
+  ) {
+    if (this.name === storeName && query === key) {
+      const request: any = {
+        onsuccess: null,
+        onerror: null,
+        error: new DOMException(`IndexedDB ${storeName} read failed`, 'UnknownError'),
+      };
+      setTimeout(() => request.onerror?.(new Event('error')), 0);
+      return request as IDBRequest;
+    }
+    return originalGet.call(this, query);
+  } as IDBObjectStore['get']);
 }
 
 async function importDbModuleFreshWithSupabaseMock(
@@ -428,6 +458,41 @@ describe('Phase 2.2 — services/db.ts dual-write operations', () => {
     expect(await readFromStore<Blob>(db, 'display', 'item-added')).toBeTruthy();
 
     consoleError.mockRestore();
+  });
+
+  it('deleteCloudItem: still records the tombstone when the queue read fails', async () => {
+    // The guard path must abort on an unreadable tombstone queue, but the append
+    // path must not: the item is already gone locally by the time this runs and
+    // deleteItem swallows the failure, so refusing to queue would lose the
+    // deletion outright — no tombstone, no cloud delete, item back on refresh.
+    const { supabase } = createSupabaseMock();
+    // No session, so the cloud delete cannot complete and the tombstone has to
+    // survive for a later retry — the state Codex flagged as lost.
+    supabase.auth.getUser = vi.fn().mockResolvedValue({ data: { user: null }, error: null });
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const dbMod = await importDbModuleFreshWithSupabaseMock(supabase);
+
+    const db = await dbMod.initDB();
+    openDb = db;
+    await clearStores(db, ['collections', 'assets', 'display', 'enhanced', 'settings']);
+    window.localStorage.removeItem('curio_pending_delete_journal');
+
+    const getSpy = failAsyncGetFor('settings', 'pending_deletes');
+    try {
+      await expect(dbMod.deleteCloudItem('col-1', 'item-deleted')).resolves.toBeUndefined();
+    } finally {
+      getSpy.mockRestore();
+    }
+
+    const journal = JSON.parse(window.localStorage.getItem('curio_pending_delete_journal') || '[]');
+    expect(journal).toEqual([
+      expect.objectContaining({ type: 'item', collectionId: 'col-1', itemId: 'item-deleted' }),
+    ]);
+    await expect(dbMod.getPendingDeletes()).resolves.toEqual([
+      expect.objectContaining({ type: 'item', collectionId: 'col-1', itemId: 'item-deleted' }),
+    ]);
+
+    consoleWarn.mockRestore();
   });
 
   it('saveAllCollections: does not resurrect a queued deletion on an equal timestamp', async () => {
