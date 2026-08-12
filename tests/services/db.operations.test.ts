@@ -484,13 +484,47 @@ describe('Phase 2.2 — services/db.ts dual-write operations', () => {
       getSpy.mockRestore();
     }
 
-    const journal = JSON.parse(window.localStorage.getItem('curio_pending_delete_journal') || '[]');
-    expect(journal).toEqual([
-      expect.objectContaining({ type: 'item', collectionId: 'col-1', itemId: 'item-deleted' }),
-    ]);
+    // Once reads recover the tombstone is back in the canonical queue, so the
+    // retry path can still delete it from the cloud.
     await expect(dbMod.getPendingDeletes()).resolves.toEqual([
       expect.objectContaining({ type: 'item', collectionId: 'col-1', itemId: 'item-deleted' }),
     ]);
+
+    consoleWarn.mockRestore();
+  });
+
+  it('deleteCloudItem: does not erase existing tombstones when the queue read fails', async () => {
+    // The recovery path must not rewrite the queue from a guessed base: the
+    // entries it could not read are exactly the ones a blind rewrite destroys,
+    // which would let their cloud rows survive and reappear on a later refresh.
+    const { supabase } = createSupabaseMock();
+    supabase.auth.getUser = vi.fn().mockResolvedValue({ data: { user: null }, error: null });
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const dbMod = await importDbModuleFreshWithSupabaseMock(supabase);
+
+    const db = await dbMod.initDB();
+    openDb = db;
+    await clearStores(db, ['collections', 'assets', 'display', 'enhanced', 'settings']);
+
+    // An older tombstone is already queued, and the journal is gone — so the
+    // IndexedDB queue is the only copy of it.
+    await dbMod.addToPendingDeletes({
+      type: 'item',
+      collectionId: 'col-1',
+      itemId: 'item-older',
+      createdAt: '2026-07-13T00:00:00.000Z',
+    });
+    window.localStorage.removeItem('curio_pending_delete_journal');
+
+    const getSpy = failAsyncGetFor('settings', 'pending_deletes');
+    try {
+      await expect(dbMod.deleteCloudItem('col-1', 'item-newer')).resolves.toBeUndefined();
+    } finally {
+      getSpy.mockRestore();
+    }
+
+    const queued = await dbMod.getPendingDeletes();
+    expect(queued.map((entry: any) => entry.itemId).sort()).toEqual(['item-newer', 'item-older']);
 
     consoleWarn.mockRestore();
   });

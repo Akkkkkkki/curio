@@ -19,6 +19,7 @@ const PENDING_SYNC_KEY = 'pending_sync_ids';
 const PENDING_ASSET_UPLOADS_KEY = 'pending_asset_uploads';
 const PENDING_IMAGE_RECORDS_KEY = 'pending_image_records';
 const PENDING_DELETE_KEY = 'pending_deletes';
+const PENDING_DELETE_RECOVERY_PREFIX = 'pending_delete_recovery:';
 const PENDING_DELETE_JOURNAL_KEY = 'curio_pending_delete_journal';
 
 const SYNC_RETRY_BACKOFF_BASE_MS = 30_000;
@@ -1180,58 +1181,121 @@ const writePendingDeletesToIndexedDb = async (
     tx.onabort = () => reject(tx.error);
   });
 
+const samePendingDelete = (a: PendingDelete, b: PendingDelete) =>
+  a.type === b.type &&
+  a.collectionId === b.collectionId &&
+  (a.type === 'collection' || b.type === 'collection' || a.itemId === b.itemId);
+
+const mergePendingDeletes = (base: PendingDelete[], extra: PendingDelete[]): PendingDelete[] => {
+  const merged = [...base];
+  extra.forEach((entry) => {
+    if (!merged.some((existing) => samePendingDelete(existing, entry))) merged.push(entry);
+  });
+  return merged;
+};
+
+// Recovery records: tombstones written while the canonical queue was unreadable.
+// The queue lives under a single key, so appending to it normally means
+// read-modify-write — and if the read fails, writing back erases whatever was
+// there. These are stored one-per-key instead, so the write is blind and
+// additive and cannot destroy a queue it could not read. The key is derived
+// from the entry's identity, so re-deleting the same thing overwrites its own
+// record rather than accumulating duplicates. `getPendingDeletes` folds them
+// back into the queue and clears them once reads recover.
+const recoveryKeyFor = (entry: PendingDelete) =>
+  `${PENDING_DELETE_RECOVERY_PREFIX}${entry.type}:${entry.collectionId}:${
+    entry.type === 'item' ? entry.itemId : ''
+  }`;
+
+const recoveryKeyRange = () =>
+  IDBKeyRange.bound(PENDING_DELETE_RECOVERY_PREFIX, `${PENDING_DELETE_RECOVERY_PREFIX}￿`);
+
+const appendPendingDeleteRecovery = async (db: IDBDatabase, entry: PendingDelete): Promise<void> =>
+  new Promise((resolve, reject) => {
+    const tx = db.transaction(SETTINGS_STORE, 'readwrite');
+    tx.objectStore(SETTINGS_STORE).put(entry, recoveryKeyFor(entry));
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
+  });
+
+const readPendingDeleteRecovery = async (
+  db: IDBDatabase,
+): Promise<{ entries: PendingDelete[]; keys: IDBValidKey[] }> =>
+  new Promise((resolve, reject) => {
+    const tx = db.transaction(SETTINGS_STORE, 'readonly');
+    const store = tx.objectStore(SETTINGS_STORE);
+    const valuesReq = store.getAll(recoveryKeyRange());
+    const keysReq = store.getAllKeys(recoveryKeyRange());
+    tx.oncomplete = () =>
+      resolve({
+        entries: normalizePendingDeletes(valuesReq.result || []),
+        keys: (keysReq.result || []) as IDBValidKey[],
+      });
+    tx.onerror = () => reject(tx.error ?? new Error('Pending delete recovery read failed'));
+    tx.onabort = () => reject(tx.error ?? new Error('Pending delete recovery read aborted'));
+  });
+
+const clearPendingDeleteRecovery = async (db: IDBDatabase, keys: IDBValidKey[]): Promise<void> => {
+  if (keys.length === 0) return;
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(SETTINGS_STORE, 'readwrite');
+    const store = tx.objectStore(SETTINGS_STORE);
+    keys.forEach((key) => store.delete(key));
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
+  });
+};
+
 export const getPendingDeletes = async (): Promise<PendingDelete[]> => {
   const db = await initDB();
+  const recovery = await readPendingDeleteRecovery(db);
   const journal = readPendingDeleteJournal();
+  const base = journal !== null ? journal : await readPendingDeletesFromIndexedDb(db);
+
+  // Reads are working again, so fold any recovered tombstones back into the
+  // canonical queue and drop their standalone records.
+  if (recovery.entries.length > 0) {
+    const merged = mergePendingDeletes(base, recovery.entries);
+    writePendingDeleteJournal(merged);
+    await writePendingDeletesToIndexedDb(db, merged);
+    await clearPendingDeleteRecovery(db, recovery.keys);
+    return merged;
+  }
+
   if (journal !== null) {
     await writePendingDeletesToIndexedDb(db, journal);
     return journal;
   }
-
-  const pending = await readPendingDeletesFromIndexedDb(db);
-  writePendingDeleteJournal(pending);
-  return pending;
-};
-
-// Reading the tombstone queue serves two opposite needs. A sync guard needs a
-// list it can trust and must abort when it cannot be read, so `getPendingDeletes`
-// rejects. The append path needs the opposite: by the time it runs the item is
-// already gone locally and its caller swallows failures, so refusing to record
-// the tombstone loses the deletion outright — no queue entry, no cloud delete,
-// and the item returns on the next refresh. Degrade to a best-effort base there
-// instead, so the new tombstone is still journaled durably.
-const readPendingDeletesForAppend = async (): Promise<PendingDelete[]> => {
-  try {
-    return await getPendingDeletes();
-  } catch (error) {
-    console.warn('Pending delete read failed; journaling new tombstone on a partial base:', error);
-    return readPendingDeleteJournal() ?? [];
-  }
+  writePendingDeleteJournal(base);
+  return base;
 };
 
 export const addToPendingDeletes = async (entry: PendingDelete): Promise<void> => {
   const db = await initDB();
-  const pending = await readPendingDeletesForAppend();
-  // Avoid duplicates
-  if (entry.type === 'item') {
-    if (
-      pending.some(
-        (d) =>
-          d.type === 'item' && d.collectionId === entry.collectionId && d.itemId === entry.itemId,
-      )
-    ) {
-      return;
-    }
+  const entryToAdd = { ...entry, createdAt: entry.createdAt ?? new Date().toISOString() };
+
+  let pending: PendingDelete[];
+  try {
+    pending = await getPendingDeletes();
+  } catch (error) {
+    // A sync guard must abort on an unreadable queue, but this path must not:
+    // the item is already gone locally and the caller swallows failures, so
+    // refusing here loses the deletion outright — no tombstone, no cloud
+    // delete, item back on the next refresh. Rewriting the queue from a
+    // guessed base is equally unsafe, since it would erase the very entries
+    // that could not be read. Record additively instead: no read, nothing to
+    // clobber, folded back in once reads recover.
+    console.warn('Pending delete read failed; recording tombstone additively:', error);
+    await appendPendingDeleteRecovery(db, entryToAdd);
+    return;
   }
-  if (entry.type === 'collection') {
-    if (pending.some((d) => d.type === 'collection' && d.collectionId === entry.collectionId)) {
-      return;
-    }
+
+  if (pending.some((existing) => samePendingDelete(existing, entryToAdd))) {
+    return;
   }
-  const updated = [
-    ...pending,
-    { ...entry, createdAt: entry.createdAt ?? new Date().toISOString() },
-  ];
+  const updated = [...pending, entryToAdd];
   writePendingDeleteJournal(updated);
   await writePendingDeletesToIndexedDb(db, updated);
 };
