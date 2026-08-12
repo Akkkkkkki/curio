@@ -1156,11 +1156,16 @@ const getLocalStorage = (): Storage | null => {
 };
 
 const readPendingDeletesFromIndexedDb = async (db: IDBDatabase): Promise<PendingDelete[]> =>
-  new Promise((resolve) => {
+  new Promise((resolve, reject) => {
     const tx = db.transaction(SETTINGS_STORE, 'readonly');
     const req = tx.objectStore(SETTINGS_STORE).get(PENDING_DELETE_KEY);
     req.onsuccess = () => resolve(normalizePendingDeletes(req.result));
-    req.onerror = () => resolve([]);
+    // Resolving `[]` on failure is indistinguishable from "nothing is pending
+    // deletion", which defeats every tombstone guard downstream: the cloud sync
+    // would happily re-upsert an item the user just deleted. Propagate instead
+    // so callers can abort and leave the collection queued for a later retry.
+    req.onerror = () => reject(req.error ?? new Error('Pending delete read failed'));
+    tx.onabort = () => reject(tx.error ?? new Error('Pending delete read aborted'));
   });
 
 const writePendingDeletesToIndexedDb = async (
@@ -2416,6 +2421,8 @@ export const saveAllCollections = async (collections: UserCollection[]): Promise
     const persistSnapshot = () => {
       if (!existingCollectionsLoaded || !pendingSyncLoaded) return;
 
+      const existingById = new Map(existingCollections.map((c) => [c.id, c]));
+
       // Delete stale entries unless they are queued for cloud sync. A background
       // full-cache save can lag behind a just-created local collection; deleting
       // pending rows here would silently drop the only retryable copy.
@@ -2430,8 +2437,30 @@ export const saveAllCollections = async (collections: UserCollection[]): Promise
         store.delete(collection.id);
       });
 
-      // Upsert all new collections (put instead of add)
-      collections.forEach((col) => store.put(col));
+      // Upsert the snapshot (put instead of add) — but not over a queued local
+      // edit that is newer than the snapshot. A background full-cache save can
+      // be built from state read before the user's latest edit; writing it back
+      // would drop the only copy of that edit. Recency is the discriminator,
+      // not the pending flag alone: a full-cache save also legitimately carries
+      // *newer* state for a still-pending collection (e.g. an item deleted
+      // while an older cloud save is in flight), and that must still win.
+      // Skipping the put is not enough on its own either: the asset whitelist
+      // has to track the local version too, or blobs belonging to items added
+      // in the pending edit get purged as orphans.
+      collections.forEach((col) => {
+        const existing = pendingSyncIds.has(col.id) ? existingById.get(col.id) : undefined;
+        const pendingLocal =
+          existing && compareTimestamps(existing.updatedAt, col.updatedAt) > 0
+            ? existing
+            : undefined;
+        if (pendingLocal) {
+          const idx = collectionsToKeepForAssets.findIndex((c) => c.id === col.id);
+          if (idx >= 0) collectionsToKeepForAssets[idx] = pendingLocal;
+          else collectionsToKeepForAssets.push(pendingLocal);
+          return;
+        }
+        store.put(col);
+      });
     };
 
     // Get existing collections to find stale entries and preserve queued local writes.

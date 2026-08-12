@@ -336,7 +336,12 @@ export const AppContent: React.FC = () => {
   useEffect(() => {
     const handleOnline = () => {
       setIsOffline(false);
-      void syncPendingDeletes();
+      // Fire-and-forget: a failed tombstone read now rejects rather than
+      // reporting "nothing pending", so swallow it here. The deletes stay
+      // queued and the next sync attempt retries them.
+      void syncPendingDeletes().catch((e) =>
+        console.warn('Pending delete sync on reconnect failed:', e),
+      );
     };
     const handleOffline = () => setIsOffline(true);
     window.addEventListener('online', handleOnline);

@@ -360,6 +360,76 @@ describe('Phase 2.2 — services/db.ts dual-write operations', () => {
     consoleError.mockRestore();
   });
 
+  it('saveAllCollections: does not overwrite a pending local edit present in a stale snapshot', async () => {
+    // The sibling case to the test above. There, the queued collection was
+    // absent from the snapshot; here it is present but at an older revision.
+    // The snapshot must not be written over the newer queued row, and the newly
+    // added item's blobs must survive orphan cleanup.
+    const { supabase, collectionsUpsert } = createSupabaseMock();
+    collectionsUpsert.mockRejectedValue(new Error('offline'));
+
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const dbMod = await importDbModuleFreshWithSupabaseMock(supabase);
+
+    const db = await dbMod.initDB();
+    openDb = db;
+    await clearStores(db, ['collections', 'assets', 'display', 'enhanced', 'settings']);
+
+    const makeItem = (id: string, title: string): CollectionItem => ({
+      id,
+      collectionId: 'col-pending',
+      photoUrl: 'asset',
+      title,
+      rating: 4,
+      data: {},
+      createdAt: '2026-07-13T00:00:00.000Z',
+      updatedAt: '2026-07-13T00:00:00.000Z',
+      notes: '',
+    });
+
+    // The user's latest local edit: renamed, plus a second item added.
+    await dbMod.saveCollection({
+      id: 'col-pending',
+      templateId: 'vinyl',
+      name: 'Renamed locally',
+      icon: 'C',
+      customFields: [],
+      items: [makeItem('item-original', 'Original'), makeItem('item-added', 'Added while syncing')],
+      ownerId: 'test-user-id',
+      updatedAt: '2026-07-13T12:00:00.000Z',
+    });
+    for (const itemId of ['item-original', 'item-added']) {
+      await dbMod.saveAsset(
+        'col-pending',
+        itemId,
+        new Blob(['orig'], { type: 'image/jpeg' }),
+        new Blob(['display'], { type: 'image/jpeg' }),
+      );
+    }
+
+    // A background refresh finishes with a snapshot taken before that edit.
+    await dbMod.saveAllCollections([
+      {
+        id: 'col-pending',
+        templateId: 'vinyl',
+        name: 'Stale name from cloud',
+        icon: 'C',
+        customFields: [],
+        items: [makeItem('item-original', 'Original')],
+        ownerId: 'test-user-id',
+        updatedAt: '2026-07-13T00:00:00.000Z',
+      },
+    ]);
+
+    const stored = await readFromStore<UserCollection>(db, 'collections', 'col-pending');
+    expect(stored?.name).toBe('Renamed locally');
+    expect(stored?.items.map((item) => item.id)).toEqual(['item-original', 'item-added']);
+    expect(await readFromStore<Blob>(db, 'assets', 'item-added')).toBeTruthy();
+    expect(await readFromStore<Blob>(db, 'display', 'item-added')).toBeTruthy();
+
+    consoleError.mockRestore();
+  });
+
   it('saveCollection: invalid collection object (missing id) rejects and does not attempt cloud writes', async () => {
     /**
      * Error case: IndexedDB keyPath is `id`; objects without `id` should fail local persistence,
