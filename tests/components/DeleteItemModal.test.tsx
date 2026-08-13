@@ -45,6 +45,14 @@ describe('DeleteItemModal', () => {
     expect(screen.getByText(/Arcade Cabinet/)).toBeInTheDocument();
   });
 
+  it('falls back to Untitled when the item title is blank', () => {
+    const untitledItem = createMockItem({ title: '   ' });
+
+    renderWithProviders(<DeleteItemModal {...defaultProps} item={untitledItem} />);
+
+    expect(screen.getByText(/Untitled/)).toBeInTheDocument();
+  });
+
   it('calls onClose when cancel is clicked', async () => {
     const user = userEvent.setup();
     renderWithProviders(<DeleteItemModal {...defaultProps} />);
