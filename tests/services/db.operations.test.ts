@@ -589,6 +589,126 @@ describe('Phase 2.2 — services/db.ts dual-write operations', () => {
     consoleError.mockRestore();
   });
 
+  it('saveAllCollections: aborts when the pending-sync guard cannot be read', async () => {
+    // If the guard is unreadable, treating it as empty lets stale full-cache
+    // snapshots delete queued local work and then purge that work's blobs.
+    const { supabase, collectionsUpsert } = createSupabaseMock();
+    collectionsUpsert.mockRejectedValue(new Error('offline'));
+
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const dbMod = await importDbModuleFreshWithSupabaseMock(supabase);
+
+    const db = await dbMod.initDB();
+    openDb = db;
+    await clearStores(db, ['collections', 'assets', 'display', 'enhanced', 'settings']);
+
+    const pendingItem: CollectionItem = {
+      id: 'item-pending-guard',
+      collectionId: 'col-pending-guard',
+      photoUrl: 'asset',
+      title: 'Unsynced item',
+      rating: 4,
+      data: {},
+      createdAt: '2026-07-13T00:00:00.000Z',
+      updatedAt: '2026-07-13T00:00:00.000Z',
+      notes: '',
+    };
+    const pendingCollection: UserCollection = {
+      id: 'col-pending-guard',
+      templateId: 'vinyl',
+      name: 'Queued local collection',
+      icon: 'C',
+      customFields: [],
+      items: [pendingItem],
+      ownerId: 'test-user-id',
+      updatedAt: '2026-07-13T00:00:00.000Z',
+    };
+
+    await dbMod.saveCollection(pendingCollection);
+    await dbMod.saveAsset(
+      'col-pending-guard',
+      'item-pending-guard',
+      new Blob(['orig'], { type: 'image/jpeg' }),
+      new Blob(['display'], { type: 'image/jpeg' }),
+    );
+
+    const getSpy = failAsyncGetFor('settings', 'pending_sync_ids');
+    try {
+      await expect(
+        dbMod.saveAllCollections([
+          {
+            id: 'col-cloud-guard',
+            templateId: 'vinyl',
+            name: 'Older cloud snapshot',
+            icon: 'S',
+            customFields: [],
+            items: [],
+            ownerId: 'test-user-id',
+            updatedAt: '2026-07-12T00:00:00.000Z',
+          },
+        ]),
+      ).rejects.toBeTruthy();
+    } finally {
+      getSpy.mockRestore();
+      consoleWarn.mockRestore();
+    }
+
+    const localIds = (await dbMod.getLocalCollections()).map((collection) => collection.id);
+    expect(localIds).toContain('col-pending-guard');
+    expect(await readFromStore<Blob>(db, 'assets', 'item-pending-guard')).toBeTruthy();
+    expect(await readFromStore<Blob>(db, 'display', 'item-pending-guard')).toBeTruthy();
+  });
+
+  it('saveCollection: removes stale cloud metadata if collection is deleted mid-upsert', async () => {
+    let releaseUpsert!: () => void;
+    const upsertReleased = new Promise<{ error: null }>((resolve) => {
+      releaseUpsert = () => resolve({ error: null });
+    });
+    let markUpsertStarted!: () => void;
+    const upsertStarted = new Promise<void>((resolve) => {
+      markUpsertStarted = resolve;
+    });
+
+    const { supabase, collectionsUpsert, itemsDelete } = createSupabaseMock();
+    collectionsUpsert.mockImplementation(async () => {
+      markUpsertStarted();
+      return upsertReleased;
+    });
+
+    const dbMod = await importDbModuleFreshWithSupabaseMock(supabase);
+
+    const db = await dbMod.initDB();
+    openDb = db;
+    await clearStores(db, ['collections', 'assets', 'display', 'enhanced', 'settings']);
+
+    const collection: UserCollection = {
+      id: 'col-delete-mid-upsert',
+      templateId: 'vinyl',
+      name: 'Deleted During Upsert',
+      icon: 'D',
+      customFields: [],
+      items: [],
+      ownerId: 'test-user-id',
+      updatedAt: '2026-07-13T00:00:00.000Z',
+    };
+
+    const savePromise = dbMod.saveCollection(collection);
+    await upsertStarted;
+
+    await dbMod.deleteCollection(collection);
+    expect(itemsDelete).toHaveBeenCalledTimes(1);
+    await expect(dbMod.getPendingDeletes()).resolves.toEqual([]);
+
+    releaseUpsert();
+    await savePromise;
+
+    expect(itemsDelete).toHaveBeenCalledTimes(2);
+    await expect(dbMod.getPendingDeletes()).resolves.toEqual([]);
+    await expect(
+      readFromStore<UserCollection>(db, 'collections', collection.id),
+    ).resolves.toBeNull();
+  });
+
   it('saveCollection: invalid collection object (missing id) rejects and does not attempt cloud writes', async () => {
     /**
      * Error case: IndexedDB keyPath is `id`; objects without `id` should fail local persistence,
