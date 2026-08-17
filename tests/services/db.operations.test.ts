@@ -165,6 +165,39 @@ function failAsyncGetFor(storeName: string, key: string) {
   } as IDBObjectStore['get']);
 }
 
+function failAsyncObjectStoreGetFor(storeName: string, key: string) {
+  const originalObjectStore = IDBTransaction.prototype.objectStore;
+  return vi.spyOn(IDBTransaction.prototype, 'objectStore').mockImplementation(function (
+    this: IDBTransaction,
+    name: string,
+  ) {
+    const store = originalObjectStore.call(this, name);
+    if (name !== storeName) return store;
+
+    return new Proxy(store, {
+      get(target, prop) {
+        if (prop === 'get') {
+          return (query: any) => {
+            if (query === key) {
+              const request: any = {
+                onsuccess: null,
+                onerror: null,
+                error: new DOMException(`IndexedDB ${storeName} read failed`, 'UnknownError'),
+              };
+              setTimeout(() => request.onerror?.(new Event('error')), 0);
+              return request as IDBRequest;
+            }
+            return target.get(query);
+          };
+        }
+
+        const value = Reflect.get(target, prop, target);
+        return typeof value === 'function' ? value.bind(target) : value;
+      },
+    });
+  } as IDBTransaction['objectStore']);
+}
+
 async function importDbModuleFreshWithSupabaseMock(
   supabaseMock: any,
   env?: { syncTimestamps?: 'true' | 'false' },
@@ -632,7 +665,7 @@ describe('Phase 2.2 — services/db.ts dual-write operations', () => {
       new Blob(['display'], { type: 'image/jpeg' }),
     );
 
-    const getSpy = failAsyncGetFor('settings', 'pending_sync_ids');
+    const getSpy = failAsyncObjectStoreGetFor('settings', 'pending_sync_ids');
     try {
       await expect(
         dbMod.saveAllCollections([
