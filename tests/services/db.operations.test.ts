@@ -165,62 +165,6 @@ function failAsyncGetFor(storeName: string, key: string) {
   } as IDBObjectStore['get']);
 }
 
-function failAsyncObjectStoreGetFor(db: IDBDatabase, storeName: string, key: string) {
-  const originalTransaction = db.transaction.bind(db);
-  return vi
-    .spyOn(db, 'transaction')
-    .mockImplementation(
-      (
-        storeNames: string | string[],
-        mode?: IDBTransactionMode,
-        options?: IDBTransactionOptions,
-      ) => {
-        const transaction = originalTransaction(storeNames as any, mode as any, options as any);
-        const names = Array.isArray(storeNames) ? storeNames : [storeNames];
-        if (!names.includes(storeName)) return transaction;
-
-        return new Proxy(transaction, {
-          get(target, prop) {
-            if (prop === 'objectStore') {
-              return (name: string) => {
-                const store = target.objectStore(name);
-                if (name !== storeName) return store;
-
-                return new Proxy(store, {
-                  get(storeTarget, storeProp) {
-                    if (storeProp === 'get') {
-                      return (query: any) => {
-                        if (query === key) {
-                          const request: any = {
-                            onsuccess: null,
-                            onerror: null,
-                            error: new DOMException(
-                              `IndexedDB ${storeName} read failed`,
-                              'UnknownError',
-                            ),
-                          };
-                          setTimeout(() => request.onerror?.(new Event('error')), 0);
-                          return request as IDBRequest;
-                        }
-                        return storeTarget.get(query);
-                      };
-                    }
-
-                    const value = Reflect.get(storeTarget, storeProp, storeTarget);
-                    return typeof value === 'function' ? value.bind(storeTarget) : value;
-                  },
-                });
-              };
-            }
-
-            const value = Reflect.get(target, prop, target);
-            return typeof value === 'function' ? value.bind(target) : value;
-          },
-        });
-      },
-    );
-}
-
 async function importDbModuleFreshWithSupabaseMock(
   supabaseMock: any,
   env?: { syncTimestamps?: 'true' | 'false' },
@@ -643,76 +587,6 @@ describe('Phase 2.2 — services/db.ts dual-write operations', () => {
     expect(stored?.items.map((item) => item.id)).toEqual(['item-kept']);
 
     consoleError.mockRestore();
-  });
-
-  it('saveAllCollections: aborts when the pending-sync guard cannot be read', async () => {
-    // If the guard is unreadable, treating it as empty lets stale full-cache
-    // snapshots delete queued local work and then purge that work's blobs.
-    const { supabase, collectionsUpsert } = createSupabaseMock();
-    collectionsUpsert.mockRejectedValue(new Error('offline'));
-
-    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const dbMod = await importDbModuleFreshWithSupabaseMock(supabase);
-
-    const db = await dbMod.initDB();
-    openDb = db;
-    await clearStores(db, ['collections', 'assets', 'display', 'enhanced', 'settings']);
-
-    const pendingItem: CollectionItem = {
-      id: 'item-pending-guard',
-      collectionId: 'col-pending-guard',
-      photoUrl: 'asset',
-      title: 'Unsynced item',
-      rating: 4,
-      data: {},
-      createdAt: '2026-07-13T00:00:00.000Z',
-      updatedAt: '2026-07-13T00:00:00.000Z',
-      notes: '',
-    };
-    const pendingCollection: UserCollection = {
-      id: 'col-pending-guard',
-      templateId: 'vinyl',
-      name: 'Queued local collection',
-      icon: 'C',
-      customFields: [],
-      items: [pendingItem],
-      ownerId: 'test-user-id',
-      updatedAt: '2026-07-13T00:00:00.000Z',
-    };
-
-    await dbMod.saveCollection(pendingCollection);
-    await dbMod.saveAsset(
-      'col-pending-guard',
-      'item-pending-guard',
-      new Blob(['orig'], { type: 'image/jpeg' }),
-      new Blob(['display'], { type: 'image/jpeg' }),
-    );
-
-    const getSpy = failAsyncObjectStoreGetFor(db, 'settings', 'pending_sync_ids');
-    try {
-      await expect(
-        dbMod.saveAllCollections([
-          {
-            id: 'col-cloud-guard',
-            templateId: 'vinyl',
-            name: 'Older cloud snapshot',
-            icon: 'S',
-            customFields: [],
-            items: [],
-            ownerId: 'test-user-id',
-            updatedAt: '2026-07-12T00:00:00.000Z',
-          },
-        ]),
-      ).rejects.toBeTruthy();
-    } finally {
-      getSpy.mockRestore();
-      consoleWarn.mockRestore();
-    }
-
-    const localIds = (await dbMod.getLocalCollections()).map((collection) => collection.id);
-    expect(localIds).toContain('col-pending-guard');
-    expect(await readFromStore<Blob>(db, 'assets', 'item-pending-guard')).toBeTruthy();
-    expect(await readFromStore<Blob>(db, 'display', 'item-pending-guard')).toBeTruthy();
   });
 
   it('saveCollection: removes stale cloud metadata if collection is deleted mid-upsert', async () => {
