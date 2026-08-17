@@ -165,62 +165,60 @@ function failAsyncGetFor(storeName: string, key: string) {
   } as IDBObjectStore['get']);
 }
 
-function failAsyncObjectStoreGetFor(storeName: string, key: string) {
-  const originalTransaction = IDBDatabase.prototype.transaction;
-  return vi.spyOn(IDBDatabase.prototype, 'transaction').mockImplementation(function (
-    this: IDBDatabase,
-    storeNames: string | string[],
-    mode?: IDBTransactionMode,
-    options?: IDBTransactionOptions,
-  ) {
-    const transaction = originalTransaction.call(
-      this,
-      storeNames as any,
-      mode as any,
-      options as any,
-    );
-    const names = Array.isArray(storeNames) ? storeNames : [storeNames];
-    if (!names.includes(storeName)) return transaction;
+function failAsyncObjectStoreGetFor(db: IDBDatabase, storeName: string, key: string) {
+  const originalTransaction = db.transaction.bind(db);
+  return vi
+    .spyOn(db, 'transaction')
+    .mockImplementation(
+      (
+        storeNames: string | string[],
+        mode?: IDBTransactionMode,
+        options?: IDBTransactionOptions,
+      ) => {
+        const transaction = originalTransaction(storeNames as any, mode as any, options as any);
+        const names = Array.isArray(storeNames) ? storeNames : [storeNames];
+        if (!names.includes(storeName)) return transaction;
 
-    return new Proxy(transaction, {
-      get(target, prop) {
-        if (prop === 'objectStore') {
-          return (name: string) => {
-            const store = target.objectStore(name);
-            if (name !== storeName) return store;
+        return new Proxy(transaction, {
+          get(target, prop) {
+            if (prop === 'objectStore') {
+              return (name: string) => {
+                const store = target.objectStore(name);
+                if (name !== storeName) return store;
 
-            return new Proxy(store, {
-              get(storeTarget, storeProp) {
-                if (storeProp === 'get') {
-                  return (query: any) => {
-                    if (query === key) {
-                      const request: any = {
-                        onsuccess: null,
-                        onerror: null,
-                        error: new DOMException(
-                          `IndexedDB ${storeName} read failed`,
-                          'UnknownError',
-                        ),
+                return new Proxy(store, {
+                  get(storeTarget, storeProp) {
+                    if (storeProp === 'get') {
+                      return (query: any) => {
+                        if (query === key) {
+                          const request: any = {
+                            onsuccess: null,
+                            onerror: null,
+                            error: new DOMException(
+                              `IndexedDB ${storeName} read failed`,
+                              'UnknownError',
+                            ),
+                          };
+                          setTimeout(() => request.onerror?.(new Event('error')), 0);
+                          return request as IDBRequest;
+                        }
+                        return storeTarget.get(query);
                       };
-                      setTimeout(() => request.onerror?.(new Event('error')), 0);
-                      return request as IDBRequest;
                     }
-                    return storeTarget.get(query);
-                  };
-                }
 
-                const value = Reflect.get(storeTarget, storeProp, storeTarget);
-                return typeof value === 'function' ? value.bind(storeTarget) : value;
-              },
-            });
-          };
-        }
+                    const value = Reflect.get(storeTarget, storeProp, storeTarget);
+                    return typeof value === 'function' ? value.bind(storeTarget) : value;
+                  },
+                });
+              };
+            }
 
-        const value = Reflect.get(target, prop, target);
-        return typeof value === 'function' ? value.bind(target) : value;
+            const value = Reflect.get(target, prop, target);
+            return typeof value === 'function' ? value.bind(target) : value;
+          },
+        });
       },
-    });
-  } as IDBDatabase['transaction']);
+    );
 }
 
 async function importDbModuleFreshWithSupabaseMock(
@@ -690,7 +688,7 @@ describe('Phase 2.2 — services/db.ts dual-write operations', () => {
       new Blob(['display'], { type: 'image/jpeg' }),
     );
 
-    const getSpy = failAsyncObjectStoreGetFor('settings', 'pending_sync_ids');
+    const getSpy = failAsyncObjectStoreGetFor(db, 'settings', 'pending_sync_ids');
     try {
       await expect(
         dbMod.saveAllCollections([
