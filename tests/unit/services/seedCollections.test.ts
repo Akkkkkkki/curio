@@ -82,6 +82,15 @@ describe('seedCollections.ts — buildSeedRepairs (CUR-143)', () => {
     );
   });
 
+  it('leaves an admin-customized seed photo alone (not treated as drift, #373)', () => {
+    // The Update Photo control persists a chosen image as a data URL. That is a
+    // valid customization, not the superseded shared image, so it must survive.
+    const items = masterSeed.items.map((item, index) =>
+      index === 1 ? { ...item, photoUrl: 'data:image/jpeg;base64,QUJD' } : { ...item },
+    );
+    expect(buildSeedRepairs([healthyCloudSeed({ items })], ADMIN_ID)).toEqual([]);
+  });
+
   it('preserves curator-added items when repairing', () => {
     const curatorItem: CollectionItem = {
       id: 'curator-pick-1',
