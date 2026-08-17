@@ -1128,8 +1128,11 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
 
   const renderCollectionSelect = () => (
     <div className="space-y-4 sm:space-y-6">
+      {/* This step chooses which existing collection the new item lands in, so
+          the heading names that choice ("Choose a collection") rather than
+          reusing the home tile's "Start a collection" (newArchive) copy. */}
       <h3 className="text-xl sm:text-2xl font-serif font-bold text-center mb-4 sm:mb-8">
-        {t('newArchive')}
+        {t('pickCollection')}
       </h3>
       <div className="grid grid-cols-2 gap-3 sm:gap-4">
         {collections.map((c) => (
