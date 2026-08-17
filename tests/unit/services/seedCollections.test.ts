@@ -8,12 +8,16 @@
  * repair shape (curator-added items are preserved).
  */
 
+import { existsSync, readFileSync } from 'node:fs';
+import { basename, resolve } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import type { CollectionItem, UserCollection } from '@/types';
 import { buildSeedRepairs, INITIAL_COLLECTIONS } from '@/services/seedCollections';
 
 const ADMIN_ID = 'admin-1';
 const masterSeed = INITIAL_COLLECTIONS[0];
+const PUBLIC_ASSETS = resolve(__dirname, '../../../public/assets');
+const JPEG_SIGNATURE = Buffer.from([0xff, 0xd8, 0xff]);
 
 /** A faithful cloud copy of the master seed, as fetchCloudCollections returns it. */
 function healthyCloudSeed(overrides: Partial<UserCollection> = {}): UserCollection {
@@ -113,7 +117,7 @@ describe('seedCollections.ts — buildSeedRepairs (CUR-143)', () => {
     expect(repairs).toHaveLength(INITIAL_COLLECTIONS.length);
   });
 
-  it('ignores non-seed cloud collections entirely', () => {
+  it('ignores non-seed cloud collections entirely (CUR-143)', () => {
     const personal: UserCollection = {
       id: 'my-teas',
       templateId: 'general',
@@ -125,5 +129,32 @@ describe('seedCollections.ts — buildSeedRepairs (CUR-143)', () => {
     };
     const repairs = buildSeedRepairs([personal, healthyCloudSeed()], ADMIN_ID);
     expect(repairs).toEqual([]);
+  });
+});
+
+/**
+ * GitHub #373: the pre-login Vinyl Vault is the strongest "delight before auth"
+ * moment. Every seed item previously shared one photo, so the grid read as
+ * placeholder content. Each item now carries its own still-life; these guards
+ * keep the set distinct and keep every referenced file a real, shipped JPEG.
+ */
+describe('seedCollections.ts — distinct sample photos (#373)', () => {
+  const photoUrls = masterSeed.items.map((item) => item.photoUrl ?? '');
+
+  it('gives every Vinyl Vault item a non-empty photo', () => {
+    expect(photoUrls.every((url) => url.length > 0)).toBe(true);
+  });
+
+  it('gives every Vinyl Vault item a distinct photo', () => {
+    expect(new Set(photoUrls).size).toBe(masterSeed.items.length);
+  });
+
+  it('points every item photo at a real JPEG shipped under public/assets', () => {
+    for (const url of photoUrls) {
+      const filePath = resolve(PUBLIC_ASSETS, basename(url));
+      expect(existsSync(filePath), `${url} should exist`).toBe(true);
+      const head = readFileSync(filePath).subarray(0, JPEG_SIGNATURE.length);
+      expect(head.equals(JPEG_SIGNATURE), `${url} should be a JPEG`).toBe(true);
+    }
   });
 });
