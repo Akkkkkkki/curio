@@ -139,9 +139,12 @@ const hasSeedDrift = (seed: UserCollection, cloud: UserCollection | undefined): 
   return seed.items.some((seedItem) => {
     const cloudItem = cloud.items.find((item) => matchesSeed(item, seedItem));
     if (!cloudItem) return true;
-    // A seed item that lost its photo path (e.g. drifted to NULL in cloud)
-    // renders as a broken card on the exact surface meant to delight.
-    return Boolean(seedItem.photoUrl) && !cloudItem.photoUrl;
+    // A cloud seed item whose photo path drifted from the code-defined art —
+    // dropped to NULL, or left pointing at a superseded image after a seed
+    // content bump (#373) — renders stale on the exact surface meant to delight.
+    // Any admin load then repairs it, even on a fresh device (seed version 0)
+    // that never triggers the version-bump force path.
+    return Boolean(seedItem.photoUrl) && cloudItem.photoUrl !== seedItem.photoUrl;
   });
 };
 

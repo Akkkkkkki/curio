@@ -67,6 +67,21 @@ describe('seedCollections.ts — buildSeedRepairs (CUR-143)', () => {
     expect(repairs[0].items[0].photoUrl).toBe(masterSeed.items[0].photoUrl);
   });
 
+  it('repairs a cloud seed item whose photo path is stale after a content bump (#373)', () => {
+    // Pre-#373 cloud: items 2–5 still point at the shared sample-vinyl.jpg.
+    // A fresh admin device (seed version 0) skips the force path, so drift
+    // detection must catch the superseded URL or the new art never propagates.
+    const items = masterSeed.items.map((item) => ({
+      ...item,
+      photoUrl: '/assets/sample-vinyl.jpg',
+    }));
+    const repairs = buildSeedRepairs([healthyCloudSeed({ items })], ADMIN_ID);
+    expect(repairs).toHaveLength(1);
+    expect(repairs[0].items.map((item) => item.photoUrl)).toEqual(
+      masterSeed.items.map((item) => item.photoUrl),
+    );
+  });
+
   it('preserves curator-added items when repairing', () => {
     const curatorItem: CollectionItem = {
       id: 'curator-pick-1',
