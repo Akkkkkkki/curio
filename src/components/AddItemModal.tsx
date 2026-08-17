@@ -698,6 +698,10 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
       // (e.g. HEIC photos that browsers can't decode), so we never lose the
       // original payload here.
       const base64Data = await compressImageForAi(image);
+      // Compression is an await gap (image decode + canvas.toBlob) that can
+      // outlast the modal. Without a recheck here, closing mid-compression
+      // still spends an AI/network request on a photo nobody is waiting for.
+      if (analysisRunId.current !== runId) return analyzed;
       if (!base64Data) {
         setError(t('analysisFallback'));
         hadError = true;
@@ -888,6 +892,9 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
       // compressImageForAi falls back to the raw base64 on any failure so
       // we never silently lose the original payload here.
       const base64Data = await compressImageForAi(base64);
+      // Same await gap as the batch loop: the modal can close while the photo
+      // is still being compressed, so recheck before spending the request.
+      if (analysisRunId.current !== runId) return;
       if (!base64Data) {
         setError(t('analysisFallback'));
         setAnalysisError(true);

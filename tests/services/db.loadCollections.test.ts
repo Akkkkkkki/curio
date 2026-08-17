@@ -162,6 +162,29 @@ function failReadonlyTransactionsFor(storeName: string, failures = Number.POSITI
   } as IDBDatabase['transaction']);
 }
 
+// The transaction opens fine here; it is the `get()` request that fails
+// asynchronously via `onerror`. That is the realistic IndexedDB failure mode
+// (corrupt record, quota eviction mid-read) and it bypasses any guard that only
+// catches a synchronous `transaction()` throw.
+function failAsyncGetFor(storeName: string, key: string) {
+  const originalGet = IDBObjectStore.prototype.get;
+  return vi.spyOn(IDBObjectStore.prototype, 'get').mockImplementation(function (
+    this: IDBObjectStore,
+    query: any,
+  ) {
+    if (this.name === storeName && query === key) {
+      const request: any = {
+        onsuccess: null,
+        onerror: null,
+        error: new DOMException(`IndexedDB ${storeName} read failed`, 'UnknownError'),
+      };
+      setTimeout(() => request.onerror?.(new Event('error')), 0);
+      return request as IDBRequest;
+    }
+    return originalGet.call(this, query);
+  } as IDBObjectStore['get']);
+}
+
 describe('Phase 2.1 — services/db.ts loadCollections merge behavior', () => {
   beforeEach(async () => {
     if (openDb) {
@@ -497,6 +520,42 @@ describe('Phase 2.1 — services/db.ts loadCollections merge behavior', () => {
       );
     } finally {
       transactionSpy.mockRestore();
+    }
+
+    expect(itemsUpsert).not.toHaveBeenCalled();
+    await expect(dbMod.getPendingSyncIds()).resolves.toContain('col-1');
+  });
+
+  it('does not upsert stale items when the pending-delete read fails asynchronously', async () => {
+    // Regression for the async half of the tombstone guard: the settings
+    // transaction opens successfully and only the `get()` request errors. That
+    // used to resolve to an empty tombstone list — indistinguishable from
+    // "nothing is pending deletion" — letting a just-deleted item be upserted
+    // straight back into the cloud.
+    window.localStorage.removeItem('curio_pending_delete_journal');
+    const itemsUpsert = vi.fn(async () => ({ error: null }));
+    const { supabase } = createSupabaseMock({
+      collections: [],
+      items: [],
+      itemsUpsert,
+    });
+    const dbMod = await importDbModuleFresh(supabase);
+
+    const db = await dbMod.initDB();
+    openDb = db;
+    await clearStores(db, ['collections', 'assets', 'display', 'settings']);
+
+    const getSpy = failAsyncGetFor('settings', 'pending_deletes');
+    try {
+      await dbMod.saveCollection(
+        baseCollection({
+          id: 'col-1',
+          ownerId: 'user-123',
+          items: [baseItem({ id: 'item-hidden-by-unreadable-delete-journal' })],
+        }),
+      );
+    } finally {
+      getSpy.mockRestore();
     }
 
     expect(itemsUpsert).not.toHaveBeenCalled();

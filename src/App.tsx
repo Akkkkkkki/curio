@@ -336,7 +336,12 @@ export const AppContent: React.FC = () => {
   useEffect(() => {
     const handleOnline = () => {
       setIsOffline(false);
-      void syncPendingDeletes();
+      // Fire-and-forget: a failed tombstone read now rejects rather than
+      // reporting "nothing pending", so swallow it here. The deletes stay
+      // queued and the next sync attempt retries them.
+      void syncPendingDeletes().catch((e) =>
+        console.warn('Pending delete sync on reconnect failed:', e),
+      );
     };
     const handleOffline = () => setIsOffline(true);
     window.addEventListener('online', handleOnline);
@@ -1129,8 +1134,15 @@ export const AppContent: React.FC = () => {
     setCollections((prev) => {
       const target = prev.find((c) => c.id === collectionId);
       if (target) {
+        // Removing an item mutates the collection, so its `updatedAt` has to
+        // move with it — `updateItem` and `updateCollection` already do this.
+        // Leaving it untouched makes a deletion invisible to every timestamp
+        // comparison downstream (cache-snapshot recency, cloud merge), so a
+        // snapshot taken moments earlier looks equally fresh and can put the
+        // deleted item back.
         const newC = {
           ...target,
+          updatedAt: new Date().toISOString(),
           items: target.items.filter((i) => i.id !== itemId),
         };
         saveCollection(newC).catch((e) => {
