@@ -78,6 +78,9 @@ test.describe('First-Time User Experience', () => {
     await expect(
       page.getByTestId('read-only-banner').getByText(/Public sample collections can be viewed/i),
     ).toBeVisible();
+    // #411: the notice is consolidated into the single banner — the old
+    // redundant "Public samples are read-only…" line must not also render.
+    await expect(page.getByText(/Public samples are read-only/i)).toHaveCount(0);
     await expect(page.getByRole('button', { name: /add item/i })).toHaveCount(0);
   });
 

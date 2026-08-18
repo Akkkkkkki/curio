@@ -295,6 +295,11 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({
               {t('readOnlyMode')}
             </p>
             <p className="text-xs text-stone-500">{t('readOnlyCollectionDesc')}</p>
+            {!isAuthenticated && (
+              <p className="text-xs font-semibold text-amber-600 mt-1">
+                {t('readOnlyCollectionEditHint')}
+              </p>
+            )}
           </div>
         </div>
       )}
@@ -497,10 +502,6 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({
             {t('clearAll')}
           </button>
         </div>
-      )}
-
-      {isReadOnly && (
-        <p className="text-sm text-amber-600 font-semibold">{t('readOnlyCollectionNote')}</p>
       )}
 
       {isSelectionMode && (

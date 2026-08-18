@@ -347,7 +347,7 @@ export const translations = {
     importing: 'Importing...',
     importComplete: 'Import complete.',
     importFailed: 'Import failed. Please try again.',
-    readOnlyCollectionNote: 'Public samples are read-only. Sign in to duplicate or edit.',
+    readOnlyCollectionEditHint: 'Sign in to duplicate or edit.',
     readOnlyControls: 'Edits disabled in read-only mode.',
     account: 'Account',
     // Field Labels
@@ -904,7 +904,7 @@ export const translations = {
     importing: '正在导入...',
     importComplete: '导入完成。',
     importFailed: '导入失败，请重试。',
-    readOnlyCollectionNote: '公开示例为只读，登录或复制后可编辑。',
+    readOnlyCollectionEditHint: '登录后可复制或编辑。',
     readOnlyControls: '只读模式下不可编辑。',
     account: '账户',
     // Field Labels
