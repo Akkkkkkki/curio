@@ -480,6 +480,22 @@ describe('AddItemModal', () => {
     expect(screen.getByText('Sneaker Gallery')).toBeInTheDocument();
   });
 
+  it('describes what Rapid-Fire Mode does on the upload step', () => {
+    renderWithProviders(
+      <AddItemModal
+        isOpen
+        onClose={mockOnClose}
+        collections={[createMockCollection()]}
+        onSave={mockOnSave}
+      />,
+    );
+
+    // Single collection routes straight to the upload step.
+    expect(screen.getByRole('button', { name: 'Rapid-Fire Mode' })).toBeInTheDocument();
+    // The emphasized alternate mode is no longer label-only: it explains itself.
+    expect(screen.getByText('Process multiple items in a single session.')).toBeInTheDocument();
+  });
+
   it('processes a batch upload and renders the analyzed item', async () => {
     const user = userEvent.setup();
     mockRefreshAiEnabled.mockResolvedValue(true);
