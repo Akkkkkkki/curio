@@ -1225,10 +1225,13 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
             variant="secondary"
             onClick={() => batchInputRef.current?.click()}
             icon={<Zap size={18} />}
+            aria-describedby="add-item-batch-desc"
           >
             {t('batchMode')}
           </Button>
-          <p className={`text-xs text-center ${mutedText}`}>{t('batchModeDesc')}</p>
+          <p id="add-item-batch-desc" className={`text-xs text-center ${mutedText}`}>
+            {t('batchModeDesc')}
+          </p>
         </div>
         <button
           onClick={switchToManual}

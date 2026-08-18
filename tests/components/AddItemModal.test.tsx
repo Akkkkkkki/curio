@@ -491,9 +491,13 @@ describe('AddItemModal', () => {
     );
 
     // Single collection routes straight to the upload step.
-    expect(screen.getByRole('button', { name: 'Rapid-Fire Mode' })).toBeInTheDocument();
-    // The emphasized alternate mode is no longer label-only: it explains itself.
-    expect(screen.getByText('Process multiple items in a single session.')).toBeInTheDocument();
+    const batchButton = screen.getByRole('button', { name: 'Rapid-Fire Mode' });
+    // The emphasized alternate mode is no longer label-only: it explains itself,
+    // and the description is programmatically associated for screen readers.
+    const description = screen.getByText('Process multiple items in a single session.');
+    expect(description).toBeInTheDocument();
+    expect(batchButton).toHaveAttribute('aria-describedby', description.id);
+    expect(description.id).toBeTruthy();
   });
 
   it('processes a batch upload and renders the analyzed item', async () => {
