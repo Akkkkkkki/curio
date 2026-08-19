@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from '../i18n';
+import { Button } from './ui/Button';
 import { ThemeQuickToggle } from './ThemeQuickToggle';
 import { useTheme, cardSurfaceClasses, dividerClasses } from '../theme';
 import { AppTheme } from '../types';
@@ -391,6 +392,28 @@ export const Layout: React.FC<LayoutProps> = ({
           </Link>
 
           <nav className="flex items-center gap-2 justify-end">
+            {/* CUR-410: the global Add-item affordance lived only on the mobile
+                bottom-nav Add pill (`sm:hidden`), so a signed-in desktop user on
+                the home screen had no way to add an item without first drilling
+                into a collection. This mirrors that pill on desktop widths
+                (`hidden sm:inline-flex`, so the two never overlap) using the
+                same `onAddItem` handler, which already routes through auth /
+                collection-picker gating. Gated on `isAuthenticated` to keep the
+                pre-auth first run single-path — signed-out users still land on
+                the access gate's one primary CTA. */}
+            {isAuthenticated && onAddItem && (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={onAddItem}
+                icon={<Plus size={14} strokeWidth={2.5} />}
+                className="hidden sm:inline-flex motion-fade"
+                data-testid="header-add-item"
+              >
+                {t('addItem')}
+              </Button>
+            )}
+
             {headerExtras}
 
             <ThemeQuickToggle />

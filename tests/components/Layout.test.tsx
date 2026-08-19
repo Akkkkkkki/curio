@@ -668,6 +668,38 @@ describe('Layout Component', () => {
     });
   });
 
+  describe('CUR-410 Desktop header Add-item entry point', () => {
+    const authenticatedUser = { id: 'user-1', email: 'test@example.com' };
+
+    it('renders a desktop Add Item button for signed-in users', () => {
+      renderWithProviders(
+        <Layout {...defaultProps} user={authenticatedUser} onAddItem={vi.fn()} />,
+      );
+
+      const addButton = screen.getByTestId('header-add-item');
+      expect(addButton).toHaveTextContent('Add Item');
+      // Hidden on mobile so it never overlaps the bottom-nav Add pill.
+      expect(addButton.className).toContain('hidden');
+      expect(addButton.className).toContain('sm:inline-flex');
+    });
+
+    it('calls onAddItem when the desktop Add Item button is clicked', () => {
+      const onAddItem = vi.fn();
+      renderWithProviders(
+        <Layout {...defaultProps} user={authenticatedUser} onAddItem={onAddItem} />,
+      );
+
+      fireEvent.click(screen.getByTestId('header-add-item'));
+      expect(onAddItem).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not render the desktop Add Item button when signed out', () => {
+      renderWithProviders(<Layout {...defaultProps} user={null} onAddItem={vi.fn()} />);
+
+      expect(screen.queryByTestId('header-add-item')).not.toBeInTheDocument();
+    });
+  });
+
   describe('Theme Support', () => {
     describe.each([
       { theme: 'gallery' as const, bgPattern: /bg-white/, description: 'light background' },
