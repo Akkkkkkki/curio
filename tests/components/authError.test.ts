@@ -43,10 +43,40 @@ describe('mapAuthErrorMessage', () => {
     );
   });
 
-  it('falls back to the raw message for unrecognized non-empty errors', () => {
-    expect(mapAuthErrorMessage('Email rate limit exceeded', makeT('en'))).toBe(
-      'Email rate limit exceeded',
+  it('maps an existing-account error to friendly localized copy', () => {
+    expect(mapAuthErrorMessage('User already registered', makeT('en'))).toBe(
+      translations.en.authEmailInUse,
     );
+    expect(mapAuthErrorMessage('Email already exists', makeT('zh'))).toBe(
+      translations.zh.authEmailInUse,
+    );
+  });
+
+  it('maps an unconfirmed-email error to friendly localized copy', () => {
+    expect(mapAuthErrorMessage('Email not confirmed', makeT('en'))).toBe(
+      translations.en.authEmailNotConfirmed,
+    );
+    expect(mapAuthErrorMessage('Email not confirmed', makeT('zh'))).toBe(
+      translations.zh.authEmailNotConfirmed,
+    );
+  });
+
+  it('maps a rate-limit error to friendly localized copy', () => {
+    expect(mapAuthErrorMessage('Email rate limit exceeded', makeT('en'))).toBe(
+      translations.en.authTooManyRequests,
+    );
+    expect(mapAuthErrorMessage('Email rate limit exceeded', makeT('zh'))).toBe(
+      translations.zh.authTooManyRequests,
+    );
+  });
+
+  it('never surfaces raw exception text — unrecognized errors fall back to generic copy', () => {
+    // A malformed auth response can throw a bare JSON parse error; the user must
+    // never see it (see #375). Both locales get the generic authFailed copy.
+    const parseError = `Unexpected token '', "�..." is not valid JSON`;
+    expect(mapAuthErrorMessage(parseError, makeT('en'))).toBe(translations.en.authFailed);
+    expect(mapAuthErrorMessage(parseError, makeT('zh'))).toBe(translations.zh.authFailed);
+    expect(mapAuthErrorMessage(parseError, makeT('en'))).not.toContain('JSON');
   });
 
   it('falls back to the generic authFailed copy for an empty error', () => {
