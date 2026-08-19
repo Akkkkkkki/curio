@@ -343,6 +343,7 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({
                 onClick={() => openAddItemModal(collection.id)}
                 icon={<Plus size={16} />}
                 className="shadow-md flex-1 sm:flex-none sm:w-auto"
+                data-testid="collection-add-item"
               >
                 {t('addItem')}
               </Button>
