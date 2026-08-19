@@ -53,7 +53,7 @@ export const mapAuthErrorMessage = (raw: string, t: Translate): string => {
   if (/email not confirmed|confirm your email/i.test(message)) {
     return t('authEmailNotConfirmed');
   }
-  if (/rate limit|too many requests|over_email_send_rate|429/i.test(message)) {
+  if (/rate limit|too many requests|over_email_send_rate/i.test(message)) {
     return t('authTooManyRequests');
   }
   return t('authFailed');

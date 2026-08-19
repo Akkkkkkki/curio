@@ -79,6 +79,13 @@ describe('mapAuthErrorMessage', () => {
     expect(mapAuthErrorMessage(parseError, makeT('en'))).not.toContain('JSON');
   });
 
+  it('does not misread a stray "429" in an unrelated error as rate limiting', () => {
+    // Rate-limit detection matches the message phrasing, not bare digits, so a
+    // parse error that merely mentions column 429 stays generic (not "wait").
+    const strayDigits = 'Unexpected token at position 429 is not valid JSON';
+    expect(mapAuthErrorMessage(strayDigits, makeT('en'))).toBe(translations.en.authFailed);
+  });
+
   it('falls back to the generic authFailed copy for an empty error', () => {
     expect(mapAuthErrorMessage('', makeT('en'))).toBe(translations.en.authFailed);
   });
