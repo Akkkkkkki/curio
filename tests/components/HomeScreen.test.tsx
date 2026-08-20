@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { renderWithProviders, screen, fireEvent, waitFor, within } from '../utils/test-utils';
+import { renderWithProviders, screen, fireEvent, waitFor, within, act } from '../utils/test-utils';
 import { setMockTheme } from '../utils/test-utils';
 import { HomeScreen } from '@/components/HomeScreen';
 import { UserCollection } from '@/types';
@@ -472,6 +472,149 @@ describe('HomeScreen', () => {
 
       expect(screen.getByText('One Month Ago')).toBeInTheDocument();
       expect(screen.queryByText('On This Day')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('load error auto-retry (#370)', () => {
+    const setOnline = (online: boolean) => {
+      Object.defineProperty(window.navigator, 'onLine', {
+        value: online,
+        configurable: true,
+      });
+    };
+
+    beforeEach(() => {
+      vi.useFakeTimers();
+      setOnline(true);
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+      setOnline(true);
+    });
+
+    it('shows honest copy that never blames "Supabase" and offers a countdown', () => {
+      renderWithProviders(
+        <HomeScreen
+          {...defaultProps}
+          loadError={"We couldn't reach your museum. Check your connection — we'll keep trying."}
+        />,
+      );
+
+      // The user-facing body no longer names the internal backend.
+      expect(screen.queryByText(/Supabase/i)).not.toBeInTheDocument();
+      expect(
+        screen.getByText(
+          /We couldn't reach your museum\. Check your connection — we'll keep trying\./,
+        ),
+      ).toBeInTheDocument();
+      // The countdown text is announced politely so the screen doesn't feel dead.
+      expect(screen.getByTestId('home-auto-retry-status')).toHaveTextContent(
+        /Trying again in \d+s/,
+      );
+      // The manual button reads as an override, not the only escape.
+      expect(screen.getByRole('button', { name: /Retry now/i })).toBeInTheDocument();
+    });
+
+    it('auto-retries after the first backoff step without user action', () => {
+      const refreshCollections = vi.fn();
+      renderWithProviders(
+        <HomeScreen
+          {...defaultProps}
+          loadError="whatever the current copy is"
+          refreshCollections={refreshCollections}
+        />,
+      );
+
+      expect(refreshCollections).not.toHaveBeenCalled();
+      expect(screen.getByTestId('home-auto-retry-status')).toHaveTextContent('Trying again in 5s');
+
+      // Countdown ticks visibly then fires the retry at zero.
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+      expect(screen.getByTestId('home-auto-retry-status')).toHaveTextContent('Trying again in 4s');
+      act(() => {
+        vi.advanceTimersByTime(4000);
+      });
+      expect(refreshCollections).toHaveBeenCalledTimes(1);
+    });
+
+    it('pauses the countdown while offline and resumes when the browser reconnects', () => {
+      setOnline(false);
+      const refreshCollections = vi.fn();
+      renderWithProviders(
+        <HomeScreen
+          {...defaultProps}
+          loadError="offline"
+          refreshCollections={refreshCollections}
+        />,
+      );
+
+      // No countdown — a wait time we can't honour would be dishonest.
+      expect(screen.getByTestId('home-auto-retry-status')).toHaveTextContent(/offline/i);
+      act(() => {
+        vi.advanceTimersByTime(30000);
+      });
+      expect(refreshCollections).not.toHaveBeenCalled();
+
+      // Reconnect: the countdown starts fresh from the first backoff step.
+      setOnline(true);
+      act(() => {
+        window.dispatchEvent(new Event('online'));
+      });
+      expect(screen.getByTestId('home-auto-retry-status')).toHaveTextContent('Trying again in 5s');
+      act(() => {
+        vi.advanceTimersByTime(5000);
+      });
+      expect(refreshCollections).toHaveBeenCalledTimes(1);
+    });
+
+    it('the manual Retry button short-circuits the wait and only fires once per click', () => {
+      const refreshCollections = vi.fn();
+      renderWithProviders(
+        <HomeScreen
+          {...defaultProps}
+          loadError="whatever"
+          refreshCollections={refreshCollections}
+        />,
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: /Retry now/i }));
+      expect(refreshCollections).toHaveBeenCalledTimes(1);
+
+      // The pending countdown was cancelled — advancing past its window must
+      // not stack a second automatic call on top of the manual one.
+      act(() => {
+        vi.advanceTimersByTime(6000);
+      });
+      expect(refreshCollections).toHaveBeenCalledTimes(1);
+    });
+
+    it('stops auto-retrying after the backoff schedule is exhausted', () => {
+      const refreshCollections = vi.fn();
+      renderWithProviders(
+        <HomeScreen {...defaultProps} loadError="err" refreshCollections={refreshCollections} />,
+      );
+
+      // Schedule is [5s, 15s, 30s] — three passes total, error never clears.
+      act(() => {
+        vi.advanceTimersByTime(5000);
+      });
+      act(() => {
+        vi.advanceTimersByTime(15000);
+      });
+      act(() => {
+        vi.advanceTimersByTime(30000);
+      });
+      expect(refreshCollections).toHaveBeenCalledTimes(3);
+
+      // Countdown is gone; the manual button is the only remaining path.
+      expect(screen.queryByTestId('home-auto-retry-status')).not.toBeInTheDocument();
+      act(() => {
+        vi.advanceTimersByTime(60000);
+      });
+      expect(refreshCollections).toHaveBeenCalledTimes(3);
     });
   });
 });

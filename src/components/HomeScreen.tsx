@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { AlertCircle, Sparkles, Calendar, Search, Plus, Loader2, X } from 'lucide-react';
 import { useTranslation } from '../i18n';
@@ -90,6 +90,92 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     // Move focus so keyboard users continue from the grid, not the page top.
     node.focus({ preventScroll: true });
   };
+  // #370: When a cold-load hits a slow network or a transient outage, don't
+  // strand the user on a terminal-looking "Sync paused" screen. Auto-retry on a
+  // bounded backoff (a handful of attempts over ~50s), show a live countdown so
+  // the state feels alive, and pause the schedule while the browser reports
+  // offline — reconnecting resumes it immediately. The manual Retry button stays
+  // available for anyone who wants to override the wait.
+  const autoRetryScheduleMs = [5000, 15000, 30000];
+  const [autoRetryStep, setAutoRetryStep] = useState(0);
+  const [autoRetrySecondsLeft, setAutoRetrySecondsLeft] = useState<number | null>(null);
+  const [isOnline, setIsOnline] = useState<boolean>(() =>
+    typeof navigator === 'undefined' ? true : navigator.onLine,
+  );
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  // Reset the backoff schedule whenever the error clears so the next failure
+  // starts fresh from the shortest delay.
+  useEffect(() => {
+    if (!loadError) {
+      setAutoRetryStep(0);
+      setAutoRetrySecondsLeft(null);
+    }
+  }, [loadError]);
+
+  useEffect(() => {
+    if (!loadError) return;
+    if (!isOnline) {
+      // Hold the countdown while offline; the online listener above will flip
+      // this effect back on the moment the browser reports reconnection.
+      setAutoRetrySecondsLeft(null);
+      return;
+    }
+    if (autoRetryStep >= autoRetryScheduleMs.length) {
+      // Ran out of automatic attempts — the user still has the manual button.
+      setAutoRetrySecondsLeft(null);
+      return;
+    }
+    let cancelled = false;
+    let remaining = Math.ceil(autoRetryScheduleMs[autoRetryStep] / 1000);
+    setAutoRetrySecondsLeft(remaining);
+    const interval = window.setInterval(() => {
+      if (cancelled) return;
+      remaining -= 1;
+      if (remaining > 0) {
+        setAutoRetrySecondsLeft(remaining);
+        return;
+      }
+      window.clearInterval(interval);
+      setAutoRetrySecondsLeft(0);
+      setAutoRetryStep((step) => step + 1);
+      refreshCollections();
+    }, 1000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [loadError, isOnline, autoRetryStep, refreshCollections]);
+
+  const handleManualRetry = () => {
+    // A manual click short-circuits any pending automatic wait and consumes an
+    // attempt so the schedule doesn't fire again on top of it.
+    setAutoRetrySecondsLeft(null);
+    setAutoRetryStep((step) => step + 1);
+    refreshCollections();
+  };
+
+  const autoRetryStatus: string | null = !loadError
+    ? null
+    : !isOnline
+      ? t('loadErrorOffline')
+      : autoRetrySecondsLeft === null
+        ? null
+        : autoRetrySecondsLeft <= 0
+          ? t('loadErrorRetryingNow')
+          : t('loadErrorAutoRetrying', { seconds: autoRetrySecondsLeft });
+
   const statsSummary = t('homeMuseumSubtitle', {
     collections: t(stats.totalCollections === 1 ? 'collectionCount' : 'collectionsCount', {
       n: stats.totalCollections,
@@ -130,12 +216,22 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             {t('syncPausedTitle')}
           </h2>
           <p
-            className={`text-sm mb-6 ${theme === 'vault' ? 'text-stone-400' : theme === 'atelier' ? 'text-[#8C7B6B]' : 'text-stone-500'}`}
+            className={`text-sm mb-3 ${theme === 'vault' ? 'text-stone-400' : theme === 'atelier' ? 'text-[#8C7B6B]' : 'text-stone-500'}`}
           >
             {loadError}
           </p>
-          <Button onClick={() => refreshCollections()} size="lg" className="w-full">
-            {t('actionRetry')}
+          {autoRetryStatus && (
+            <p
+              className={`text-xs mb-6 italic ${theme === 'vault' ? 'text-stone-500' : theme === 'atelier' ? 'text-[#A8967F]' : 'text-stone-400'}`}
+              aria-live="polite"
+              data-testid="home-auto-retry-status"
+            >
+              {autoRetryStatus}
+            </p>
+          )}
+          {!autoRetryStatus && <div className="mb-6" />}
+          <Button onClick={handleManualRetry} size="lg" className="w-full">
+            {t('actionRetryNow')}
           </Button>
         </div>
       </div>
