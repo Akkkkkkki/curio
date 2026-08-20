@@ -497,16 +497,15 @@ describe('HomeScreen', () => {
       renderWithProviders(
         <HomeScreen
           {...defaultProps}
-          loadError={"We couldn't reach your museum. Check your connection — we'll keep trying."}
+          loadError={"We couldn't reach your museum. Check your connection."}
         />,
       );
 
-      // The user-facing body no longer names the internal backend.
+      // The user-facing body no longer names the internal backend, and it states
+      // only the problem — the "keep trying" promise lives in the status line.
       expect(screen.queryByText(/Supabase/i)).not.toBeInTheDocument();
       expect(
-        screen.getByText(
-          /We couldn't reach your museum\. Check your connection — we'll keep trying\./,
-        ),
+        screen.getByText(/We couldn't reach your museum\. Check your connection\./),
       ).toBeInTheDocument();
       // The countdown text is announced politely so the screen doesn't feel dead.
       expect(screen.getByTestId('home-auto-retry-status')).toHaveTextContent(
