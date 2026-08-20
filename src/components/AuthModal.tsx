@@ -29,10 +29,12 @@ type Translate = (
 ) => string;
 
 // Auth calls surface raw provider/browser strings on failure — a network drop
-// yields the literal "Failed to fetch" and bad credentials yield Supabase's
-// untranslated "Invalid login credentials". Neither is friendly or localized,
-// so map the ones we recognize to translated copy and fall back to the generic
-// authFailed message for anything unexpected. Exported for unit testing.
+// yields the literal "Failed to fetch", bad credentials yield Supabase's
+// untranslated "Invalid login credentials", and a malformed response can leak a
+// bare "Unexpected token … is not valid JSON". None is friendly or localized, so
+// map the ones we recognize to translated copy and fall back to the generic
+// authFailed message for anything unexpected — the raw text is never shown to
+// the user (it's logged to the console instead). Exported for unit testing.
 export const mapAuthErrorMessage = (raw: string, t: Translate): string => {
   const message = (raw || '').trim();
   if (
@@ -45,7 +47,16 @@ export const mapAuthErrorMessage = (raw: string, t: Translate): string => {
   if (/invalid login credentials|invalid.*(email|password)|incorrect.*password/i.test(message)) {
     return t('authInvalidCredentials');
   }
-  return message || t('authFailed');
+  if (/already registered|already.*exists|user already/i.test(message)) {
+    return t('authEmailInUse');
+  }
+  if (/email not confirmed|confirm your email/i.test(message)) {
+    return t('authEmailNotConfirmed');
+  }
+  if (/rate limit|too many requests|over_email_send_rate/i.test(message)) {
+    return t('authTooManyRequests');
+  }
+  return t('authFailed');
 };
 
 export type AuthModalMode =
@@ -305,6 +316,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       onClose();
     } catch (err: any) {
       const raw = err?.message || '';
+      // Keep the raw provider/browser detail available for debugging even though
+      // the modal only ever shows friendly, localized copy (see #375).
+      console.error('Auth request failed:', err);
       // Supabase returns a generic English string for short passwords on sign-up;
       // surface the friendly translated copy instead.
       if (mode === 'signup' && /password.*(short|characters)/i.test(raw)) {

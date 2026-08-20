@@ -209,8 +209,8 @@ describe('AuthModal', () => {
       });
     });
 
-    it('displays error message on sign up failure', async () => {
-      mockSignUp.mockRejectedValue(new Error('Email already exists'));
+    it('maps an existing-account sign up failure to friendly copy, never the raw string', async () => {
+      mockSignUp.mockRejectedValue(new Error('User already registered'));
       const user = userEvent.setup();
       renderWithProviders(<AuthModal {...defaultProps} />);
 
@@ -220,8 +220,9 @@ describe('AuthModal', () => {
       await user.click(screen.getByRole('button', { name: /create account/i }));
 
       await waitFor(() => {
-        expect(screen.getByText(/Email already exists/i)).toBeInTheDocument();
+        expect(screen.getByRole('alert')).toHaveTextContent(translations.en.authEmailInUse);
       });
+      expect(screen.queryByText(/already registered/i)).not.toBeInTheDocument();
     });
 
     it('calls onAuthSuccess and onClose when sign-up returns a session (confirmation disabled)', async () => {
@@ -519,7 +520,7 @@ describe('AuthModal', () => {
       expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument();
     });
 
-    it('surfaces a reset failure as an error', async () => {
+    it('maps a reset rate-limit failure to friendly copy, never the raw string', async () => {
       mockResetPassword.mockRejectedValue(new Error('Email rate limit exceeded'));
       const user = userEvent.setup();
       renderWithProviders(<AuthModal {...defaultProps} />);
@@ -529,8 +530,9 @@ describe('AuthModal', () => {
       await user.click(screen.getByRole('button', { name: /send reset link/i }));
 
       await waitFor(() => {
-        expect(screen.getByRole('alert')).toHaveTextContent(/rate limit/i);
+        expect(screen.getByRole('alert')).toHaveTextContent(translations.en.authTooManyRequests);
       });
+      expect(screen.queryByText(/rate limit/i)).not.toBeInTheDocument();
       expect(screen.queryByText(/check your email/i)).not.toBeInTheDocument();
     });
   });
