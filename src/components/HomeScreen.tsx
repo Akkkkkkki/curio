@@ -130,18 +130,21 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   }, [loadError, isLoading]);
 
   const wasOfflineRef = useRef(false);
+  const isRetryScheduleExhausted = autoRetryStep >= autoRetryScheduleMs.length;
 
   useEffect(() => {
     if (!loadError) return;
+    if (isRetryScheduleExhausted) {
+      // Ran out of automatic attempts — the user still has the manual button.
+      // Checked before the offline branch so we never promise a reconnect
+      // retry (below) that the exhaustion guard would then swallow.
+      setAutoRetrySecondsLeft(null);
+      return;
+    }
     if (!isOnline) {
       // Hold the countdown while offline and remember that we paused, so
       // reconnecting can retry promptly rather than restarting the wait.
       wasOfflineRef.current = true;
-      setAutoRetrySecondsLeft(null);
-      return;
-    }
-    if (autoRetryStep >= autoRetryScheduleMs.length) {
-      // Ran out of automatic attempts — the user still has the manual button.
       setAutoRetrySecondsLeft(null);
       return;
     }
@@ -184,15 +187,18 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     refreshCollections();
   };
 
-  const autoRetryStatus: string | null = !loadError
-    ? null
-    : !isOnline
-      ? t('loadErrorOffline')
-      : autoRetrySecondsLeft === null
-        ? null
-        : autoRetrySecondsLeft <= 0
-          ? t('loadErrorRetryingNow')
-          : t('loadErrorAutoRetrying', { seconds: autoRetrySecondsLeft });
+  const autoRetryStatus: string | null =
+    !loadError || isRetryScheduleExhausted
+      ? // Once the automatic schedule is spent, make no further promises — the
+        // manual button is the only remaining path, online or offline.
+        null
+      : !isOnline
+        ? t('loadErrorOffline')
+        : autoRetrySecondsLeft === null
+          ? null
+          : autoRetrySecondsLeft <= 0
+            ? t('loadErrorRetryingNow')
+            : t('loadErrorAutoRetrying', { seconds: autoRetrySecondsLeft });
 
   const statsSummary = t('homeMuseumSubtitle', {
     collections: t(stats.totalCollections === 1 ? 'collectionCount' : 'collectionsCount', {

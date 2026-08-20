@@ -679,5 +679,42 @@ describe('HomeScreen', () => {
       });
       expect(refreshCollections).toHaveBeenCalledTimes(3);
     });
+
+    it('makes no reconnect promise once the schedule is exhausted, even offline (#420 review)', () => {
+      const refreshCollections = vi.fn();
+      const { rerender } = renderWithProviders(
+        <HomeScreen {...defaultProps} loadError="err" refreshCollections={refreshCollections} />,
+      );
+
+      // Exhaust all three automatic attempts (error never clears).
+      act(() => {
+        vi.advanceTimersByTime(5000);
+      });
+      act(() => {
+        vi.advanceTimersByTime(15000);
+      });
+      act(() => {
+        vi.advanceTimersByTime(30000);
+      });
+      expect(refreshCollections).toHaveBeenCalledTimes(3);
+
+      // Now go offline: the status must NOT promise a reconnect retry it can't keep.
+      setOnline(false);
+      act(() => {
+        window.dispatchEvent(new Event('offline'));
+      });
+      expect(screen.queryByTestId('home-auto-retry-status')).not.toBeInTheDocument();
+
+      // Reconnecting fires nothing automatic — the manual button is the only path.
+      setOnline(true);
+      act(() => {
+        window.dispatchEvent(new Event('online'));
+      });
+      expect(refreshCollections).toHaveBeenCalledTimes(3);
+      rerender(
+        <HomeScreen {...defaultProps} loadError="err" refreshCollections={refreshCollections} />,
+      );
+      expect(screen.getByRole('button', { name: /Retry now/i })).toBeInTheDocument();
+    });
   });
 });
