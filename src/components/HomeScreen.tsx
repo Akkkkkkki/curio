@@ -129,17 +129,30 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     if (!loadError && !isLoading) setAutoRetryStep(0);
   }, [loadError, isLoading]);
 
+  const wasOfflineRef = useRef(false);
+
   useEffect(() => {
     if (!loadError) return;
     if (!isOnline) {
-      // Hold the countdown while offline; the online listener above will flip
-      // this effect back on the moment the browser reports reconnection.
+      // Hold the countdown while offline and remember that we paused, so
+      // reconnecting can retry promptly rather than restarting the wait.
+      wasOfflineRef.current = true;
       setAutoRetrySecondsLeft(null);
       return;
     }
     if (autoRetryStep >= autoRetryScheduleMs.length) {
       // Ran out of automatic attempts — the user still has the manual button.
       setAutoRetrySecondsLeft(null);
+      return;
+    }
+    if (wasOfflineRef.current) {
+      // Just came back online mid-outage. The status line promised a retry
+      // "as soon as you're back", so honor it immediately instead of imposing
+      // a fresh full backoff for the current step.
+      wasOfflineRef.current = false;
+      setAutoRetrySecondsLeft(0);
+      setAutoRetryStep((step) => step + 1);
+      refreshCollections();
       return;
     }
     let cancelled = false;

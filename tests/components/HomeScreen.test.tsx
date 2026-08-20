@@ -540,7 +540,7 @@ describe('HomeScreen', () => {
       expect(refreshCollections).toHaveBeenCalledTimes(1);
     });
 
-    it('pauses the countdown while offline and resumes when the browser reconnects', () => {
+    it('pauses the countdown while offline and retries immediately on reconnect', () => {
       setOnline(false);
       const refreshCollections = vi.fn();
       renderWithProviders(
@@ -558,14 +558,11 @@ describe('HomeScreen', () => {
       });
       expect(refreshCollections).not.toHaveBeenCalled();
 
-      // Reconnect: the countdown starts fresh from the first backoff step.
+      // Reconnect: the status promises a retry "as soon as you're back", so it
+      // fires at once rather than imposing a fresh full backoff.
       setOnline(true);
       act(() => {
         window.dispatchEvent(new Event('online'));
-      });
-      expect(screen.getByTestId('home-auto-retry-status')).toHaveTextContent('Trying again in 5s');
-      act(() => {
-        vi.advanceTimersByTime(5000);
       });
       expect(refreshCollections).toHaveBeenCalledTimes(1);
     });
