@@ -591,6 +591,72 @@ describe('HomeScreen', () => {
       expect(refreshCollections).toHaveBeenCalledTimes(1);
     });
 
+    it('preserves the backoff step across the transient error-clear of an in-flight retry (#420 review)', () => {
+      // App.refreshCollections clears loadError (isLoading=true) before awaiting
+      // the request, then restores it on failure. The schedule must advance
+      // (5s → 15s) across that flicker rather than reset to the first step, or a
+      // persistent outage would retry every 5s forever.
+      const refreshCollections = vi.fn();
+      const { rerender } = renderWithProviders(
+        <HomeScreen {...defaultProps} loadError="err" refreshCollections={refreshCollections} />,
+      );
+      expect(screen.getByTestId('home-auto-retry-status')).toHaveTextContent('Trying again in 5s');
+
+      act(() => {
+        vi.advanceTimersByTime(5000);
+      });
+      expect(refreshCollections).toHaveBeenCalledTimes(1);
+
+      // In-flight retry: error cleared, loading spinner shown.
+      rerender(
+        <HomeScreen
+          {...defaultProps}
+          loadError={null}
+          isLoading={true}
+          refreshCollections={refreshCollections}
+        />,
+      );
+      // Retry failed: error restored.
+      rerender(
+        <HomeScreen {...defaultProps} loadError="err" refreshCollections={refreshCollections} />,
+      );
+
+      // Advanced to the second step, not reset to the first.
+      expect(screen.getByTestId('home-auto-retry-status')).toHaveTextContent('Trying again in 15s');
+      act(() => {
+        vi.advanceTimersByTime(15000);
+      });
+      expect(refreshCollections).toHaveBeenCalledTimes(2);
+    });
+
+    it('resets the backoff schedule only after a settled recovery', () => {
+      const refreshCollections = vi.fn();
+      const { rerender } = renderWithProviders(
+        <HomeScreen {...defaultProps} loadError="err" refreshCollections={refreshCollections} />,
+      );
+
+      // Burn the first step.
+      act(() => {
+        vi.advanceTimersByTime(5000);
+      });
+      expect(refreshCollections).toHaveBeenCalledTimes(1);
+
+      // A genuine recovery: no error, not loading.
+      rerender(
+        <HomeScreen
+          {...defaultProps}
+          loadError={null}
+          isLoading={false}
+          refreshCollections={refreshCollections}
+        />,
+      );
+      // A brand-new outage starts fresh at 5s.
+      rerender(
+        <HomeScreen {...defaultProps} loadError="err" refreshCollections={refreshCollections} />,
+      );
+      expect(screen.getByTestId('home-auto-retry-status')).toHaveTextContent('Trying again in 5s');
+    });
+
     it('stops auto-retrying after the backoff schedule is exhausted', () => {
       const refreshCollections = vi.fn();
       renderWithProviders(

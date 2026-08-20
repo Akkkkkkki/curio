@@ -115,14 +115,19 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     };
   }, []);
 
-  // Reset the backoff schedule whenever the error clears so the next failure
-  // starts fresh from the shortest delay.
+  // Clear the visible countdown as soon as the error card goes away.
   useEffect(() => {
-    if (!loadError) {
-      setAutoRetryStep(0);
-      setAutoRetrySecondsLeft(null);
-    }
+    if (!loadError) setAutoRetrySecondsLeft(null);
   }, [loadError]);
+
+  // Only reset the backoff schedule after a *settled* recovery — no error and
+  // not loading. App.refreshCollections clears loadError before awaiting the
+  // fetch, so an in-flight retry briefly renders (loadError=null, isLoading=true);
+  // resetting the step on that transient would restart the schedule at 5s on
+  // every attempt and never exhaust, hammering a genuinely-down backend forever.
+  useEffect(() => {
+    if (!loadError && !isLoading) setAutoRetryStep(0);
+  }, [loadError, isLoading]);
 
   useEffect(() => {
     if (!loadError) return;
