@@ -784,6 +784,7 @@ export const ItemDetailScreen: React.FC<ItemDetailScreenProps> = ({
               <div className={`flex flex-wrap items-center gap-3 ${accentColorClasses[theme]}`}>
                 <Quote size={18} fill="currentColor" className="opacity-20 sm:w-5 sm:h-5" />
                 <dt
+                  id="item-story-label"
                   className={`min-w-0 ${typographyClasses.label} ${labelColorClasses[theme]} break-words`}
                 >
                   {t('story')}
@@ -859,6 +860,7 @@ export const ItemDetailScreen: React.FC<ItemDetailScreenProps> = ({
                     ) : (
                       <textarea
                         ref={detailStoryRef}
+                        aria-labelledby="item-story-label"
                         className={`w-full p-6 sm:p-8 rounded-2xl sm:rounded-[2.5rem] italic border font-serif text-xl sm:text-2xl leading-relaxed min-h-[200px] sm:min-h-[240px] focus:ring-8 focus:ring-amber-500/30 focus:border-amber-500 outline-none transition-all shadow-inner placeholder:text-stone-400 ${theme === 'vault' ? 'bg-white/5 border-white/5 text-white' : 'bg-stone-50/50 border-stone-100 text-stone-800'} ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
                         value={item.notes}
                         onChange={(e) => applyItemUpdate({ notes: e.target.value })}
@@ -962,6 +964,7 @@ export const ItemDetailScreen: React.FC<ItemDetailScreenProps> = ({
                   return (
                     <div key={field.id} className="group">
                       <dt
+                        id={`item-field-label-${field.id}`}
                         className={`${typographyClasses.label} ${mutedTextClasses[theme]} mb-1 sm:mb-2 group-hover:text-amber-500 transition-colors break-words leading-tight`}
                       >
                         {label}
@@ -975,6 +978,7 @@ export const ItemDetailScreen: React.FC<ItemDetailScreenProps> = ({
                           value={fieldValue}
                           placeholder="—"
                           rows={1}
+                          aria-labelledby={`item-field-label-${field.id}`}
                           aria-describedby={showHint ? `item-field-hint-${field.id}` : undefined}
                           onChange={(e) => {
                             e.currentTarget.style.height = 'auto';
@@ -988,6 +992,7 @@ export const ItemDetailScreen: React.FC<ItemDetailScreenProps> = ({
                           className={fieldBaseClass}
                           value={fieldValue}
                           placeholder="—"
+                          aria-labelledby={`item-field-label-${field.id}`}
                           aria-describedby={showHint ? `item-field-hint-${field.id}` : undefined}
                           onChange={handleFieldChange}
                           disabled={isReadOnly}
