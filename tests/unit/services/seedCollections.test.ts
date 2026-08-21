@@ -91,6 +91,21 @@ describe('seedCollections.ts — buildSeedRepairs (CUR-143)', () => {
     expect(buildSeedRepairs([healthyCloudSeed({ items })], ADMIN_ID)).toEqual([]);
   });
 
+  it('preserves an admin-customized seed photo during a forced content upgrade (#373)', () => {
+    const customPhoto = 'data:image/jpeg;base64,QUJD';
+    const legacySharedPhoto = masterSeed.items[0].photoUrl;
+    const items = masterSeed.items.map((item, index) => ({
+      ...item,
+      photoUrl: index === 1 ? customPhoto : legacySharedPhoto,
+    }));
+
+    const repairs = buildSeedRepairs([healthyCloudSeed({ items })], ADMIN_ID, { force: true });
+    expect(repairs).toHaveLength(1);
+    expect(repairs[0].items.slice(0, masterSeed.items.length).map((item) => item.photoUrl)).toEqual(
+      masterSeed.items.map((item, index) => (index === 1 ? customPhoto : item.photoUrl)),
+    );
+  });
+
   it('preserves curator-added items when repairing', () => {
     const curatorItem: CollectionItem = {
       id: 'curator-pick-1',
