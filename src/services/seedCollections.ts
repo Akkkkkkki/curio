@@ -133,6 +133,15 @@ type SeedRef = { id: string; seedKey?: string };
 const matchesSeed = (candidate: SeedRef, seed: SeedRef) =>
   candidate.id === seed.id || (Boolean(candidate.seedKey) && candidate.seedKey === seed.seedKey);
 
+const CODE_DEFINED_SEED_PHOTO_URLS = new Set<string>(
+  INITIAL_COLLECTIONS.flatMap((collection) =>
+    collection.items.flatMap((item) => (item.photoUrl ? [item.photoUrl] : [])),
+  ),
+);
+
+const isCustomSeedPhoto = (photoUrl?: string): boolean =>
+  Boolean(photoUrl && !CODE_DEFINED_SEED_PHOTO_URLS.has(photoUrl));
+
 const hasSeedDrift = (seed: UserCollection, cloud: UserCollection | undefined): boolean => {
   if (!cloud) return true;
   if (!cloud.isPublic) return true;
@@ -157,8 +166,8 @@ const hasSeedDrift = (seed: UserCollection, cloud: UserCollection | undefined): 
  * private, seed items lost or stripped of photo paths outside the app).
  * Returns the seed collections whose cloud copy must be re-upserted so the
  * admin load path can repair drift instead of only seeding an empty cloud
- * (CUR-143). Curator-added items already in the cloud copy are preserved.
- * Pass `force` to re-push healthy seeds too (seed-version content upgrades).
+ * (CUR-143). Curator-added items and explicit custom seed photos are preserved.
+ * Pass `force` to re-push healthy seed content too (seed-version upgrades).
  */
 export const buildSeedRepairs = (
   cloudCollections: UserCollection[],
@@ -168,6 +177,18 @@ export const buildSeedRepairs = (
   INITIAL_COLLECTIONS.flatMap((seed) => {
     const cloud = cloudCollections.find((collection) => matchesSeed(collection, seed));
     if (!force && !hasSeedDrift(seed, cloud)) return [];
+    const repairedSeedItems: CollectionItem[] = seed.items.map((seedItem) => {
+      const cloudItem = cloud?.items.find((item) => matchesSeed(item, seedItem));
+      // A photo outside the code-defined seed asset set came from the admin's
+      // Update Photo path. Preserve that explicit customization even during a
+      // forced content upgrade; missing photos and known seed assets still take
+      // the canonical value from the current seed (including the #373 migration
+      // away from the old shared sample-vinyl.jpg path).
+      if (cloudItem?.photoUrl && isCustomSeedPhoto(cloudItem.photoUrl)) {
+        return { ...seedItem, photoUrl: cloudItem.photoUrl };
+      }
+      return seedItem;
+    });
     const curatorItems: CollectionItem[] = (cloud?.items ?? []).filter(
       (item) => !seed.items.some((seedItem) => matchesSeed(item, seedItem)),
     );
@@ -180,7 +201,7 @@ export const buildSeedRepairs = (
         id: targetId,
         ownerId: cloud?.ownerId || ownerId,
         isPublic: true,
-        items: [...seed.items, ...curatorItems].map((item) => ({
+        items: [...repairedSeedItems, ...curatorItems].map((item) => ({
           ...item,
           collectionId: targetId,
         })),
