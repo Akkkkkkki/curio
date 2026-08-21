@@ -535,10 +535,14 @@ export const translations = {
     hideDetails: 'Hide details',
     showDetails: 'Show details',
     noscriptMessage: 'JavaScript is required to run Curio.',
-    // Load errors
-    loadErrorCloudFetch:
-      'Unable to sync with Supabase. Check your connection and Supabase settings.',
-    loadErrorGeneric: 'Failed to load collections. Please try again.',
+    // Load errors. The body states the problem only; the ongoing-retry promise
+    // lives in the transient status line so it disappears once retries stop.
+    loadErrorCloudFetch: "We couldn't reach your museum. Check your connection.",
+    loadErrorGeneric: "We couldn't open your collections just now.",
+    loadErrorAutoRetrying: 'Trying again in {seconds}s…',
+    loadErrorRetryingNow: 'Trying again…',
+    loadErrorOffline: "You're offline. We'll retry as soon as you're back.",
+    actionRetryNow: 'Retry now',
     // Delete failure
     deleteCollectionFailed: 'Failed to delete collection',
     // Sample badge
@@ -1098,9 +1102,14 @@ export const translations = {
     hideDetails: '隐藏详情',
     showDetails: '查看详情',
     noscriptMessage: '运行 Curio 需要启用 JavaScript。',
-    // Load errors
-    loadErrorCloudFetch: '无法连接 Supabase 进行同步，请检查网络连接和 Supabase 配置。',
-    loadErrorGeneric: '加载收藏集失败，请重试。',
+    // Load errors. The body states the problem only; the ongoing-retry promise
+    // lives in the transient status line so it disappears once retries stop.
+    loadErrorCloudFetch: '暂时无法连接到你的博物馆，请检查网络连接。',
+    loadErrorGeneric: '暂时无法加载你的藏品。',
+    loadErrorAutoRetrying: '{seconds} 秒后重试…',
+    loadErrorRetryingNow: '正在重试…',
+    loadErrorOffline: '当前离线，恢复网络后会自动重试。',
+    actionRetryNow: '立即重试',
     // Delete failure
     deleteCollectionFailed: '删除收藏集失败',
     // Sample badge
