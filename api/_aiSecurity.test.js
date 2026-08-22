@@ -22,11 +22,14 @@ const makeRes = () => {
   return res;
 };
 
-const originalEnv = { ...process.env };
+const configureSupabase = () => {
+  vi.stubEnv('SUPABASE_URL', 'https://example.supabase.co');
+  vi.stubEnv('SUPABASE_ANON_KEY', 'anon-key');
+};
 
 afterEach(() => {
   vi.restoreAllMocks();
-  process.env = { ...originalEnv };
+  vi.unstubAllEnvs();
 });
 
 describe('requireAiAccess', () => {
@@ -40,8 +43,7 @@ describe('requireAiAccess', () => {
   });
 
   it('rejects invalid Supabase sessions before checking the quota', async () => {
-    process.env.SUPABASE_URL = 'https://example.supabase.co';
-    process.env.SUPABASE_ANON_KEY = 'anon-key';
+    configureSupabase();
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({ ok: false });
     const res = makeRes();
 
@@ -56,8 +58,7 @@ describe('requireAiAccess', () => {
   });
 
   it('returns a stable 429 shape when the persistent quota is exhausted', async () => {
-    process.env.SUPABASE_URL = 'https://example.supabase.co';
-    process.env.SUPABASE_ANON_KEY = 'anon-key';
+    configureSupabase();
     vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce({ ok: true, json: async () => ({ id: 'user-1' }) })
       .mockResolvedValueOnce({
@@ -81,8 +82,7 @@ describe('requireAiAccess', () => {
   });
 
   it('allows authenticated requests within quota and exposes the user id for logging', async () => {
-    process.env.SUPABASE_URL = 'https://example.supabase.co';
-    process.env.SUPABASE_ANON_KEY = 'anon-key';
+    configureSupabase();
     vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce({ ok: true, json: async () => ({ id: 'user-1' }) })
       .mockResolvedValueOnce({
