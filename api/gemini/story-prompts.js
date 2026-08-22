@@ -29,14 +29,13 @@ export default async function handler(req, res) {
   }
 
   const { title, collectionContext, aiDescription, knownFields, locale = 'en' } = req.body || {};
+  if (!title || typeof title !== 'string' || !title.trim()) {
+    recordApiError(res, { name: 'BadRequest', message: 'Missing title' });
+    return res.status(400).json({ error: 'Missing title' });
+  }
 
-  // Keep this endpoint non-blocking for capture: if title is not available yet,
-  // use the collection context and visual observation, then fall back to curated
-  // prompts when there is no usable context.
-  const safeTitle = typeof title === 'string' ? title.trim() : '';
-
-  const contextLines = [];
-  if (safeTitle) contextLines.push(`- Title: "${safeTitle}"`);
+  const safeTitle = title.trim();
+  const contextLines = [`- Title: "${safeTitle}"`];
   if (collectionContext?.name) contextLines.push(`- Collection: "${collectionContext.name}"`);
   if (collectionContext?.description)
     contextLines.push(`- Collection description: "${collectionContext.description}"`);
@@ -50,18 +49,6 @@ export default async function handler(req, res) {
     if (knownEntries.length) {
       contextLines.push(`- Known facts:\n${knownEntries.join('\n')}`);
     }
-  }
-
-  if (contextLines.length === 0) {
-    const fallback =
-      locale === 'zh'
-        ? ['你是在哪儿遇到它的？', '是谁让你认识它的？', '它让你想起了什么？']
-        : [
-            'Where were you when you got this?',
-            'Who introduced you to it?',
-            'What does it remind you of?',
-          ];
-    return res.status(200).json({ prompts: fallback });
   }
 
   const systemPrompt = `You are a thoughtful curator helping a collector reflect on an object. Given the object's title and known facts, produce 3 short open-ended questions (max 12 words each) that would help the owner write a personal story about it.
