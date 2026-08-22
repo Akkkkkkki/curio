@@ -55,8 +55,10 @@ vi.mock('@capacitor/camera', () => ({
 
 import { analyzeImage, refreshAiEnabled } from '@/services/geminiService';
 import { trackEvent } from '@/services/analytics';
+import { compressImageForAi } from '@/services/imageProcessor';
 import { Camera, CameraSource } from '@capacitor/camera';
 
+const mockCompressImageForAi = compressImageForAi as ReturnType<typeof vi.fn>;
 const mockAnalyzeImage = analyzeImage as ReturnType<typeof vi.fn>;
 const mockRefreshAiEnabled = refreshAiEnabled as ReturnType<typeof vi.fn>;
 const mockTrackEvent = trackEvent as ReturnType<typeof vi.fn>;
@@ -136,7 +138,7 @@ describe('AddItemModal', () => {
     );
 
     // Starts on the select-type step with both collections offered.
-    expect(screen.getByText('Start a collection')).toBeInTheDocument();
+    expect(screen.getByText('Choose a collection')).toBeInTheDocument();
     expect(screen.getByText('Vinyl Vault')).toBeInTheDocument();
 
     // Pick Vinyl Vault → advances to the upload step.
@@ -157,7 +159,7 @@ describe('AddItemModal', () => {
     // Should remain on the upload step. Previously this would snap back to
     // select-type and silently drop `selectedCollectionId`.
     expect(screen.getByRole('heading', { name: 'Upload Photo' })).toBeInTheDocument();
-    expect(screen.queryByText('Start a collection')).not.toBeInTheDocument();
+    expect(screen.queryByText('Choose a collection')).not.toBeInTheDocument();
   });
 
   it('skips collection picker when defaultCollectionId matches a known collection', async () => {
@@ -176,7 +178,7 @@ describe('AddItemModal', () => {
 
     // Should skip select-type and land on upload step directly.
     expect(screen.getByRole('heading', { name: 'Upload Photo' })).toBeInTheDocument();
-    expect(screen.queryByText('Start a collection')).not.toBeInTheDocument();
+    expect(screen.queryByText('Choose a collection')).not.toBeInTheDocument();
   });
 
   it('describes AI in the future tense on the idle upload step, before any photo (#374)', () => {
@@ -217,7 +219,7 @@ describe('AddItemModal', () => {
     );
 
     // Should show the collection picker since the default ID is stale.
-    expect(screen.getByText('Start a collection')).toBeInTheDocument();
+    expect(screen.getByText('Choose a collection')).toBeInTheDocument();
     expect(screen.getByText('Vinyl Vault')).toBeInTheDocument();
   });
 
@@ -230,7 +232,7 @@ describe('AddItemModal', () => {
     );
 
     // Without a default, multi-collection modal starts on picker.
-    expect(screen.getByText('Start a collection')).toBeInTheDocument();
+    expect(screen.getByText('Choose a collection')).toBeInTheDocument();
   });
 
   it('routes to collection picker (not upload dead-end) when defaultCollectionId becomes stale mid-session', async () => {
@@ -473,7 +475,7 @@ describe('AddItemModal', () => {
     );
 
     // Stale default + multiple collections → must show picker, not upload dead-end.
-    expect(screen.getByText('Start a collection')).toBeInTheDocument();
+    expect(screen.getByText('Choose a collection')).toBeInTheDocument();
     expect(screen.getByText('Vinyl Vault')).toBeInTheDocument();
     expect(screen.getByText('Sneaker Gallery')).toBeInTheDocument();
   });
@@ -948,6 +950,55 @@ describe('AddItemModal', () => {
     });
 
     expect(mockAnalyzeImage).toHaveBeenCalledTimes(1);
+  });
+
+  it('stops a closed batch while the first photo is still compressing', async () => {
+    // Compression is an await gap before any request is sent. The run-id check
+    // sat above it, so closing mid-compression still spent an AI call on a
+    // photo the user had already dismissed.
+    const user = userEvent.setup();
+    mockRefreshAiEnabled.mockResolvedValue(true);
+    let releaseCompression: () => void = () => {};
+    mockCompressImageForAi.mockImplementationOnce(
+      (dataUrl: string) =>
+        new Promise((resolve) => {
+          releaseCompression = () => {
+            const idx = dataUrl.indexOf(',');
+            resolve(idx >= 0 ? dataUrl.slice(idx + 1) : dataUrl);
+          };
+        }),
+    );
+
+    const collection = createMockCollection({ name: 'Artifacts', customFields: [] });
+    const { rerender } = renderWithProviders(
+      <AddItemModal isOpen onClose={mockOnClose} collections={[collection]} onSave={mockOnSave} />,
+    );
+
+    const files = [
+      new File(['a'], 'a.png', { type: 'image/png' }),
+      new File(['b'], 'b.png', { type: 'image/png' }),
+    ];
+    const input = screen.getByTestId('add-item-batch-input') as HTMLInputElement;
+    await user.upload(input, files);
+    await screen.findByRole('heading', { name: 'Analyzing photo...' });
+    await waitFor(() => expect(mockCompressImageForAi).toHaveBeenCalled());
+    expect(mockAnalyzeImage).not.toHaveBeenCalled();
+
+    rerender(
+      <AddItemModal
+        isOpen={false}
+        onClose={mockOnClose}
+        collections={[collection]}
+        onSave={mockOnSave}
+      />,
+    );
+
+    releaseCompression();
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(mockAnalyzeImage).not.toHaveBeenCalled();
   });
 
   it('fades the verify-step scroll edge while fields remain below the fold (CUR-45)', async () => {

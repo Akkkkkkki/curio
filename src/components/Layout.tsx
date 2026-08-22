@@ -489,7 +489,7 @@ export const Layout: React.FC<LayoutProps> = ({
             <Link
               to="/"
               aria-current={location.pathname === '/' ? 'page' : undefined}
-              className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition-colors ${location.pathname === '/' ? 'text-amber-500' : bottomNavMuted}`}
+              className={`flex flex-col items-center justify-center gap-1 min-h-[44px] text-[11px] font-semibold transition-colors ${location.pathname === '/' ? 'text-amber-500' : bottomNavMuted}`}
             >
               <Home size={22} />
               {t('navHome')}
@@ -500,7 +500,7 @@ export const Layout: React.FC<LayoutProps> = ({
                 to={exploreTo}
                 onClick={onExploreSamples}
                 aria-current={isExploreActive ? 'page' : undefined}
-                className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition-colors ${isExploreActive ? 'text-amber-500' : bottomNavMuted}`}
+                className={`flex flex-col items-center justify-center gap-1 min-h-[44px] text-[11px] font-semibold transition-colors ${isExploreActive ? 'text-amber-500' : bottomNavMuted}`}
               >
                 <Compass size={22} />
                 {t('exploreSample')}
@@ -509,7 +509,7 @@ export const Layout: React.FC<LayoutProps> = ({
 
             <button
               onClick={onAddItem}
-              className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition-colors ${bottomNavMuted}`}
+              className={`flex flex-col items-center justify-center gap-1 min-h-[44px] text-[11px] font-semibold transition-colors ${bottomNavMuted}`}
             >
               <div
                 data-testid="bottom-nav-add-pill"
@@ -526,7 +526,7 @@ export const Layout: React.FC<LayoutProps> = ({
               aria-haspopup="dialog"
               aria-expanded={profileSource === 'bottomNav'}
               aria-label={showSignInAffordance ? t('login') : t('profile')}
-              className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition-colors ${profileSource === 'bottomNav' ? 'text-amber-500' : bottomNavMuted}`}
+              className={`flex flex-col items-center justify-center gap-1 min-h-[44px] text-[11px] font-semibold transition-colors ${profileSource === 'bottomNav' ? 'text-amber-500' : bottomNavMuted}`}
             >
               <User size={22} />
               {showSignInAffordance ? t('login') : t('profile')}

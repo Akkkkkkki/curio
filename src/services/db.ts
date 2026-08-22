@@ -19,6 +19,7 @@ const PENDING_SYNC_KEY = 'pending_sync_ids';
 const PENDING_ASSET_UPLOADS_KEY = 'pending_asset_uploads';
 const PENDING_IMAGE_RECORDS_KEY = 'pending_image_records';
 const PENDING_DELETE_KEY = 'pending_deletes';
+const PENDING_DELETE_RECOVERY_PREFIX = 'pending_delete_recovery:';
 const PENDING_DELETE_JOURNAL_KEY = 'curio_pending_delete_journal';
 
 const SYNC_RETRY_BACKOFF_BASE_MS = 30_000;
@@ -1156,11 +1157,16 @@ const getLocalStorage = (): Storage | null => {
 };
 
 const readPendingDeletesFromIndexedDb = async (db: IDBDatabase): Promise<PendingDelete[]> =>
-  new Promise((resolve) => {
+  new Promise((resolve, reject) => {
     const tx = db.transaction(SETTINGS_STORE, 'readonly');
     const req = tx.objectStore(SETTINGS_STORE).get(PENDING_DELETE_KEY);
     req.onsuccess = () => resolve(normalizePendingDeletes(req.result));
-    req.onerror = () => resolve([]);
+    // Resolving `[]` on failure is indistinguishable from "nothing is pending
+    // deletion", which defeats every tombstone guard downstream: the cloud sync
+    // would happily re-upsert an item the user just deleted. Propagate instead
+    // so callers can abort and leave the collection queued for a later retry.
+    req.onerror = () => reject(req.error ?? new Error('Pending delete read failed'));
+    tx.onabort = () => reject(tx.error ?? new Error('Pending delete read aborted'));
   });
 
 const writePendingDeletesToIndexedDb = async (
@@ -1175,42 +1181,121 @@ const writePendingDeletesToIndexedDb = async (
     tx.onabort = () => reject(tx.error);
   });
 
+const samePendingDelete = (a: PendingDelete, b: PendingDelete) =>
+  a.type === b.type &&
+  a.collectionId === b.collectionId &&
+  (a.type === 'collection' || b.type === 'collection' || a.itemId === b.itemId);
+
+const mergePendingDeletes = (base: PendingDelete[], extra: PendingDelete[]): PendingDelete[] => {
+  const merged = [...base];
+  extra.forEach((entry) => {
+    if (!merged.some((existing) => samePendingDelete(existing, entry))) merged.push(entry);
+  });
+  return merged;
+};
+
+// Recovery records: tombstones written while the canonical queue was unreadable.
+// The queue lives under a single key, so appending to it normally means
+// read-modify-write — and if the read fails, writing back erases whatever was
+// there. These are stored one-per-key instead, so the write is blind and
+// additive and cannot destroy a queue it could not read. The key is derived
+// from the entry's identity, so re-deleting the same thing overwrites its own
+// record rather than accumulating duplicates. `getPendingDeletes` folds them
+// back into the queue and clears them once reads recover.
+const recoveryKeyFor = (entry: PendingDelete) =>
+  `${PENDING_DELETE_RECOVERY_PREFIX}${entry.type}:${entry.collectionId}:${
+    entry.type === 'item' ? entry.itemId : ''
+  }`;
+
+const recoveryKeyRange = () =>
+  IDBKeyRange.bound(PENDING_DELETE_RECOVERY_PREFIX, `${PENDING_DELETE_RECOVERY_PREFIX}￿`);
+
+const appendPendingDeleteRecovery = async (db: IDBDatabase, entry: PendingDelete): Promise<void> =>
+  new Promise((resolve, reject) => {
+    const tx = db.transaction(SETTINGS_STORE, 'readwrite');
+    tx.objectStore(SETTINGS_STORE).put(entry, recoveryKeyFor(entry));
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
+  });
+
+const readPendingDeleteRecovery = async (
+  db: IDBDatabase,
+): Promise<{ entries: PendingDelete[]; keys: IDBValidKey[] }> =>
+  new Promise((resolve, reject) => {
+    const tx = db.transaction(SETTINGS_STORE, 'readonly');
+    const store = tx.objectStore(SETTINGS_STORE);
+    const valuesReq = store.getAll(recoveryKeyRange());
+    const keysReq = store.getAllKeys(recoveryKeyRange());
+    tx.oncomplete = () =>
+      resolve({
+        entries: normalizePendingDeletes(valuesReq.result || []),
+        keys: (keysReq.result || []) as IDBValidKey[],
+      });
+    tx.onerror = () => reject(tx.error ?? new Error('Pending delete recovery read failed'));
+    tx.onabort = () => reject(tx.error ?? new Error('Pending delete recovery read aborted'));
+  });
+
+const clearPendingDeleteRecovery = async (db: IDBDatabase, keys: IDBValidKey[]): Promise<void> => {
+  if (keys.length === 0) return;
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(SETTINGS_STORE, 'readwrite');
+    const store = tx.objectStore(SETTINGS_STORE);
+    keys.forEach((key) => store.delete(key));
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
+  });
+};
+
 export const getPendingDeletes = async (): Promise<PendingDelete[]> => {
   const db = await initDB();
+  const recovery = await readPendingDeleteRecovery(db);
   const journal = readPendingDeleteJournal();
+  const base = journal !== null ? journal : await readPendingDeletesFromIndexedDb(db);
+
+  // Reads are working again, so fold any recovered tombstones back into the
+  // canonical queue and drop their standalone records.
+  if (recovery.entries.length > 0) {
+    const merged = mergePendingDeletes(base, recovery.entries);
+    writePendingDeleteJournal(merged);
+    await writePendingDeletesToIndexedDb(db, merged);
+    await clearPendingDeleteRecovery(db, recovery.keys);
+    return merged;
+  }
+
   if (journal !== null) {
     await writePendingDeletesToIndexedDb(db, journal);
     return journal;
   }
-
-  const pending = await readPendingDeletesFromIndexedDb(db);
-  writePendingDeleteJournal(pending);
-  return pending;
+  writePendingDeleteJournal(base);
+  return base;
 };
 
 export const addToPendingDeletes = async (entry: PendingDelete): Promise<void> => {
   const db = await initDB();
-  const pending = await getPendingDeletes();
-  // Avoid duplicates
-  if (entry.type === 'item') {
-    if (
-      pending.some(
-        (d) =>
-          d.type === 'item' && d.collectionId === entry.collectionId && d.itemId === entry.itemId,
-      )
-    ) {
-      return;
-    }
+  const entryToAdd = { ...entry, createdAt: entry.createdAt ?? new Date().toISOString() };
+
+  let pending: PendingDelete[];
+  try {
+    pending = await getPendingDeletes();
+  } catch (error) {
+    // A sync guard must abort on an unreadable queue, but this path must not:
+    // the item is already gone locally and the caller swallows failures, so
+    // refusing here loses the deletion outright — no tombstone, no cloud
+    // delete, item back on the next refresh. Rewriting the queue from a
+    // guessed base is equally unsafe, since it would erase the very entries
+    // that could not be read. Record additively instead: no read, nothing to
+    // clobber, folded back in once reads recover.
+    console.warn('Pending delete read failed; recording tombstone additively:', error);
+    await appendPendingDeleteRecovery(db, entryToAdd);
+    return;
   }
-  if (entry.type === 'collection') {
-    if (pending.some((d) => d.type === 'collection' && d.collectionId === entry.collectionId)) {
-      return;
-    }
+
+  if (pending.some((existing) => samePendingDelete(existing, entryToAdd))) {
+    return;
   }
-  const updated = [
-    ...pending,
-    { ...entry, createdAt: entry.createdAt ?? new Date().toISOString() },
-  ];
+  const updated = [...pending, entryToAdd];
   writePendingDeleteJournal(updated);
   await writePendingDeletesToIndexedDb(db, updated);
 };
@@ -2416,6 +2501,8 @@ export const saveAllCollections = async (collections: UserCollection[]): Promise
     const persistSnapshot = () => {
       if (!existingCollectionsLoaded || !pendingSyncLoaded) return;
 
+      const existingById = new Map(existingCollections.map((c) => [c.id, c]));
+
       // Delete stale entries unless they are queued for cloud sync. A background
       // full-cache save can lag behind a just-created local collection; deleting
       // pending rows here would silently drop the only retryable copy.
@@ -2430,8 +2517,36 @@ export const saveAllCollections = async (collections: UserCollection[]): Promise
         store.delete(collection.id);
       });
 
-      // Upsert all new collections (put instead of add)
-      collections.forEach((col) => store.put(col));
+      // Upsert the snapshot (put instead of add) — but not over a queued local
+      // edit that is newer than the snapshot. A background full-cache save can
+      // be built from state read before the user's latest edit; writing it back
+      // would drop the only copy of that edit. Recency is the discriminator,
+      // not the pending flag alone: a full-cache save also legitimately carries
+      // *newer* state for a still-pending collection (e.g. an item deleted
+      // while an older cloud save is in flight), and that must still win.
+      // Skipping the put is not enough on its own either: the asset whitelist
+      // has to track the local version too, or blobs belonging to items added
+      // in the pending edit get purged as orphans.
+      //
+      // Ties go to the queued local row. Equal timestamps mean the two versions
+      // are indistinguishable by recency, and the local one is the copy flagged
+      // as holding unsynced work: preferring it can at worst re-apply a cloud
+      // change that is still safely in the cloud, while preferring the snapshot
+      // can destroy a local edit that exists nowhere else.
+      collections.forEach((col) => {
+        const existing = pendingSyncIds.has(col.id) ? existingById.get(col.id) : undefined;
+        const pendingLocal =
+          existing && compareTimestamps(existing.updatedAt, col.updatedAt) >= 0
+            ? existing
+            : undefined;
+        if (pendingLocal) {
+          const idx = collectionsToKeepForAssets.findIndex((c) => c.id === col.id);
+          if (idx >= 0) collectionsToKeepForAssets[idx] = pendingLocal;
+          else collectionsToKeepForAssets.push(pendingLocal);
+          return;
+        }
+        store.put(col);
+      });
     };
 
     // Get existing collections to find stale entries and preserve queued local writes.

@@ -97,6 +97,13 @@ function createSupabaseMock() {
     return chain;
   });
 
+  const itemsDelete = vi.fn(() => {
+    const chain: any = { error: null };
+    chain.eq = vi.fn().mockReturnValue(chain);
+    chain.then = (resolve: (value: { error: null }) => unknown) => resolve({ error: null });
+    return chain;
+  });
+
   const from = vi.fn((table: string) => {
     const upsertForTable =
       table === 'collections'
@@ -107,6 +114,7 @@ function createSupabaseMock() {
     return {
       upsert: upsertForTable,
       update,
+      delete: itemsDelete,
       select: vi.fn(() => ({
         eq: vi.fn(() => ({ maybeSingle: itemsMaybeSingle })),
       })),
@@ -130,9 +138,31 @@ function createSupabaseMock() {
     itemsUpsert,
     itemImagesUpsert,
     itemsMaybeSingle,
+    itemsDelete,
     upload,
     from,
   };
+}
+
+// Opens the transaction normally and fails only the `get()` request, matching a
+// transient IndexedDB read failure (corrupt record, eviction mid-read).
+function failAsyncGetFor(storeName: string, key: string) {
+  const originalGet = IDBObjectStore.prototype.get;
+  return vi.spyOn(IDBObjectStore.prototype, 'get').mockImplementation(function (
+    this: IDBObjectStore,
+    query: any,
+  ) {
+    if (this.name === storeName && query === key) {
+      const request: any = {
+        onsuccess: null,
+        onerror: null,
+        error: new DOMException(`IndexedDB ${storeName} read failed`, 'UnknownError'),
+      };
+      setTimeout(() => request.onerror?.(new Event('error')), 0);
+      return request as IDBRequest;
+    }
+    return originalGet.call(this, query);
+  } as IDBObjectStore['get']);
 }
 
 async function importDbModuleFreshWithSupabaseMock(
@@ -356,6 +386,205 @@ describe('Phase 2.2 — services/db.ts dual-write operations', () => {
     expect(localIds).toEqual(expect.arrayContaining(['col-cloud', 'col-pending']));
     expect(await readFromStore<Blob>(db, 'assets', 'item-pending')).toBeTruthy();
     expect(await readFromStore<Blob>(db, 'display', 'item-pending')).toBeTruthy();
+
+    consoleError.mockRestore();
+  });
+
+  it('saveAllCollections: does not overwrite a pending local edit present in a stale snapshot', async () => {
+    // The sibling case to the test above. There, the queued collection was
+    // absent from the snapshot; here it is present but at an older revision.
+    // The snapshot must not be written over the newer queued row, and the newly
+    // added item's blobs must survive orphan cleanup.
+    const { supabase, collectionsUpsert } = createSupabaseMock();
+    collectionsUpsert.mockRejectedValue(new Error('offline'));
+
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const dbMod = await importDbModuleFreshWithSupabaseMock(supabase);
+
+    const db = await dbMod.initDB();
+    openDb = db;
+    await clearStores(db, ['collections', 'assets', 'display', 'enhanced', 'settings']);
+
+    const makeItem = (id: string, title: string): CollectionItem => ({
+      id,
+      collectionId: 'col-pending',
+      photoUrl: 'asset',
+      title,
+      rating: 4,
+      data: {},
+      createdAt: '2026-07-13T00:00:00.000Z',
+      updatedAt: '2026-07-13T00:00:00.000Z',
+      notes: '',
+    });
+
+    // The user's latest local edit: renamed, plus a second item added.
+    await dbMod.saveCollection({
+      id: 'col-pending',
+      templateId: 'vinyl',
+      name: 'Renamed locally',
+      icon: 'C',
+      customFields: [],
+      items: [makeItem('item-original', 'Original'), makeItem('item-added', 'Added while syncing')],
+      ownerId: 'test-user-id',
+      updatedAt: '2026-07-13T12:00:00.000Z',
+    });
+    for (const itemId of ['item-original', 'item-added']) {
+      await dbMod.saveAsset(
+        'col-pending',
+        itemId,
+        new Blob(['orig'], { type: 'image/jpeg' }),
+        new Blob(['display'], { type: 'image/jpeg' }),
+      );
+    }
+
+    // A background refresh finishes with a snapshot taken before that edit.
+    await dbMod.saveAllCollections([
+      {
+        id: 'col-pending',
+        templateId: 'vinyl',
+        name: 'Stale name from cloud',
+        icon: 'C',
+        customFields: [],
+        items: [makeItem('item-original', 'Original')],
+        ownerId: 'test-user-id',
+        updatedAt: '2026-07-13T00:00:00.000Z',
+      },
+    ]);
+
+    const stored = await readFromStore<UserCollection>(db, 'collections', 'col-pending');
+    expect(stored?.name).toBe('Renamed locally');
+    expect(stored?.items.map((item) => item.id)).toEqual(['item-original', 'item-added']);
+    expect(await readFromStore<Blob>(db, 'assets', 'item-added')).toBeTruthy();
+    expect(await readFromStore<Blob>(db, 'display', 'item-added')).toBeTruthy();
+
+    consoleError.mockRestore();
+  });
+
+  it('deleteCloudItem: still records the tombstone when the queue read fails', async () => {
+    // The guard path must abort on an unreadable tombstone queue, but the append
+    // path must not: the item is already gone locally by the time this runs and
+    // deleteItem swallows the failure, so refusing to queue would lose the
+    // deletion outright — no tombstone, no cloud delete, item back on refresh.
+    const { supabase } = createSupabaseMock();
+    // No session, so the cloud delete cannot complete and the tombstone has to
+    // survive for a later retry — the state Codex flagged as lost.
+    supabase.auth.getUser = vi.fn().mockResolvedValue({ data: { user: null }, error: null });
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const dbMod = await importDbModuleFreshWithSupabaseMock(supabase);
+
+    const db = await dbMod.initDB();
+    openDb = db;
+    await clearStores(db, ['collections', 'assets', 'display', 'enhanced', 'settings']);
+    window.localStorage.removeItem('curio_pending_delete_journal');
+
+    const getSpy = failAsyncGetFor('settings', 'pending_deletes');
+    try {
+      await expect(dbMod.deleteCloudItem('col-1', 'item-deleted')).resolves.toBeUndefined();
+    } finally {
+      getSpy.mockRestore();
+    }
+
+    // Once reads recover the tombstone is back in the canonical queue, so the
+    // retry path can still delete it from the cloud.
+    await expect(dbMod.getPendingDeletes()).resolves.toEqual([
+      expect.objectContaining({ type: 'item', collectionId: 'col-1', itemId: 'item-deleted' }),
+    ]);
+
+    consoleWarn.mockRestore();
+  });
+
+  it('deleteCloudItem: does not erase existing tombstones when the queue read fails', async () => {
+    // The recovery path must not rewrite the queue from a guessed base: the
+    // entries it could not read are exactly the ones a blind rewrite destroys,
+    // which would let their cloud rows survive and reappear on a later refresh.
+    const { supabase } = createSupabaseMock();
+    supabase.auth.getUser = vi.fn().mockResolvedValue({ data: { user: null }, error: null });
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const dbMod = await importDbModuleFreshWithSupabaseMock(supabase);
+
+    const db = await dbMod.initDB();
+    openDb = db;
+    await clearStores(db, ['collections', 'assets', 'display', 'enhanced', 'settings']);
+
+    // An older tombstone is already queued, and the journal is gone — so the
+    // IndexedDB queue is the only copy of it.
+    await dbMod.addToPendingDeletes({
+      type: 'item',
+      collectionId: 'col-1',
+      itemId: 'item-older',
+      createdAt: '2026-07-13T00:00:00.000Z',
+    });
+    window.localStorage.removeItem('curio_pending_delete_journal');
+
+    const getSpy = failAsyncGetFor('settings', 'pending_deletes');
+    try {
+      await expect(dbMod.deleteCloudItem('col-1', 'item-newer')).resolves.toBeUndefined();
+    } finally {
+      getSpy.mockRestore();
+    }
+
+    const queued = await dbMod.getPendingDeletes();
+    expect(queued.map((entry: any) => entry.itemId).sort()).toEqual(['item-newer', 'item-older']);
+
+    consoleWarn.mockRestore();
+  });
+
+  it('saveAllCollections: does not resurrect a queued deletion on an equal timestamp', async () => {
+    // Two versions that are indistinguishable by recency: a snapshot captured
+    // moments before a local item deletion carries the same collection
+    // `updatedAt`. Ties must fall to the queued local row, or the deleted item
+    // is written back and reappears on the next cache-backed startup.
+    const { supabase, collectionsUpsert } = createSupabaseMock();
+    collectionsUpsert.mockRejectedValue(new Error('offline'));
+
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const dbMod = await importDbModuleFreshWithSupabaseMock(supabase);
+
+    const db = await dbMod.initDB();
+    openDb = db;
+    await clearStores(db, ['collections', 'assets', 'display', 'enhanced', 'settings']);
+
+    const sharedTimestamp = '2026-07-13T00:00:00.000Z';
+    const survivingItem: CollectionItem = {
+      id: 'item-kept',
+      collectionId: 'col-pending',
+      photoUrl: 'asset',
+      title: 'Kept',
+      rating: 4,
+      data: {},
+      createdAt: sharedTimestamp,
+      updatedAt: sharedTimestamp,
+      notes: '',
+    };
+
+    // Local state after the deletion: the item is gone, but `updatedAt` matches
+    // the snapshot's.
+    await dbMod.saveCollection({
+      id: 'col-pending',
+      templateId: 'vinyl',
+      name: 'Queued deletion',
+      icon: 'C',
+      customFields: [],
+      items: [survivingItem],
+      ownerId: 'test-user-id',
+      updatedAt: sharedTimestamp,
+    });
+
+    await dbMod.saveAllCollections([
+      {
+        id: 'col-pending',
+        templateId: 'vinyl',
+        name: 'Queued deletion',
+        icon: 'C',
+        customFields: [],
+        items: [survivingItem, { ...survivingItem, id: 'item-deleted', title: 'Deleted' }],
+        ownerId: 'test-user-id',
+        updatedAt: sharedTimestamp,
+      },
+    ]);
+
+    const stored = await readFromStore<UserCollection>(db, 'collections', 'col-pending');
+    expect(stored?.items.map((item) => item.id)).toEqual(['item-kept']);
 
     consoleError.mockRestore();
   });

@@ -30,6 +30,7 @@ export const translations = {
     clearSearch: 'Clear search',
     searchItemMatchLabel: 'Item match',
     newArchive: 'Start a collection',
+    pickCollection: 'Choose a collection',
     expandSpace: 'Make room for something new',
     exploreSample: 'Explore',
     explorePlaceholderTitle: 'Community features are coming soon.',
@@ -348,7 +349,7 @@ export const translations = {
     importing: 'Importing...',
     importComplete: 'Import complete.',
     importFailed: 'Import failed. Please try again.',
-    readOnlyCollectionNote: 'Public samples are read-only. Sign in to duplicate or edit.',
+    readOnlyCollectionEditHint: 'Sign in to duplicate or edit.',
     readOnlyControls: 'Edits disabled in read-only mode.',
     account: 'Account',
     // Field Labels
@@ -493,10 +494,13 @@ export const translations = {
     authPrivateDesc: 'Your data is yours alone.',
     authFastTitle: 'Fast',
     authFastDesc: 'Optimized for speed & offline.',
-    authFailed: 'Authentication failed',
+    authFailed: 'Something went wrong. Please try again.',
     authNetworkError: "Can't reach the server. Check your connection and try again.",
     authInvalidCredentials:
       "That email or password doesn't match. Try again or reset your password.",
+    authEmailInUse: 'That email already has an account. Try signing in instead.',
+    authEmailNotConfirmed: 'Please confirm your email first — check your inbox for the link.',
+    authTooManyRequests: 'Too many attempts. Please wait a moment and try again.',
     forgotPassword: 'Forgot password?',
     resetPasswordTitle: 'Reset your password',
     resetPasswordDesc: 'Enter the email you signed up with. We will send you a reset link.',
@@ -533,10 +537,14 @@ export const translations = {
     hideDetails: 'Hide details',
     showDetails: 'Show details',
     noscriptMessage: 'JavaScript is required to run Curio.',
-    // Load errors
-    loadErrorCloudFetch:
-      'Unable to sync with Supabase. Check your connection and Supabase settings.',
-    loadErrorGeneric: 'Failed to load collections. Please try again.',
+    // Load errors. The body states the problem only; the ongoing-retry promise
+    // lives in the transient status line so it disappears once retries stop.
+    loadErrorCloudFetch: "We couldn't reach your museum. Check your connection.",
+    loadErrorGeneric: "We couldn't open your collections just now.",
+    loadErrorAutoRetrying: 'Trying again in {seconds}s…',
+    loadErrorRetryingNow: 'Trying again…',
+    loadErrorOffline: "You're offline. We'll retry as soon as you're back.",
+    actionRetryNow: 'Retry now',
     // Delete failure
     deleteCollectionFailed: 'Failed to delete collection',
     // Sample badge
@@ -598,6 +606,7 @@ export const translations = {
     clearSearch: '清除搜索',
     searchItemMatchLabel: '藏品匹配',
     newArchive: '开始收藏',
+    pickCollection: '选择一个收藏',
     expandSpace: '为下一件藏品留一处空间',
     exploreSample: '探索',
     explorePlaceholderTitle: '社区功能即将上线。',
@@ -906,7 +915,7 @@ export const translations = {
     importing: '正在导入...',
     importComplete: '导入完成。',
     importFailed: '导入失败，请重试。',
-    readOnlyCollectionNote: '公开示例为只读，登录或复制后可编辑。',
+    readOnlyCollectionEditHint: '登录后可复制或编辑。',
     readOnlyControls: '只读模式下不可编辑。',
     account: '账户',
     // Field Labels
@@ -1058,9 +1067,12 @@ export const translations = {
     authPrivateDesc: '您的数据仅属于您。',
     authFastTitle: '快速',
     authFastDesc: '为速度和离线体验优化。',
-    authFailed: '身份验证失败',
+    authFailed: '出了点问题，请重试。',
     authNetworkError: '无法连接服务器，请检查网络后重试。',
     authInvalidCredentials: '邮箱或密码不正确，请重试或重置密码。',
+    authEmailInUse: '该邮箱已注册，请直接登录。',
+    authEmailNotConfirmed: '请先确认邮箱，查收邮件中的确认链接。',
+    authTooManyRequests: '尝试过于频繁，请稍后再试。',
     forgotPassword: '忘记密码？',
     resetPasswordTitle: '重置密码',
     resetPasswordDesc: '请输入注册时使用的邮箱，我们将向您发送重置链接。',
@@ -1094,9 +1106,14 @@ export const translations = {
     hideDetails: '隐藏详情',
     showDetails: '查看详情',
     noscriptMessage: '运行 Curio 需要启用 JavaScript。',
-    // Load errors
-    loadErrorCloudFetch: '无法连接 Supabase 进行同步，请检查网络连接和 Supabase 配置。',
-    loadErrorGeneric: '加载收藏集失败，请重试。',
+    // Load errors. The body states the problem only; the ongoing-retry promise
+    // lives in the transient status line so it disappears once retries stop.
+    loadErrorCloudFetch: '暂时无法连接到你的博物馆，请检查网络连接。',
+    loadErrorGeneric: '暂时无法加载你的藏品。',
+    loadErrorAutoRetrying: '{seconds} 秒后重试…',
+    loadErrorRetryingNow: '正在重试…',
+    loadErrorOffline: '当前离线，恢复网络后会自动重试。',
+    actionRetryNow: '立即重试',
     // Delete failure
     deleteCollectionFailed: '删除收藏集失败',
     // Sample badge

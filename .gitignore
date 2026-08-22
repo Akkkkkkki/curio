@@ -13,6 +13,12 @@ dist
 dist-ssr
 *.local
 
+# Local env files — never commit real secrets. Keep the tracked template
+# (.env.example) so contributors know which variables to set.
+.env
+.env.*
+!.env.example
+
 # Test coverage
 coverage
 
