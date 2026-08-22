@@ -2,8 +2,13 @@ import { EventEmitter } from 'node:events';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import handler from '../../api/gemini/story-prompts.js';
 
-const { generateContentMock } = vi.hoisted(() => ({
+const { generateContentMock, requireAiAccessMock } = vi.hoisted(() => ({
   generateContentMock: vi.fn(),
+  requireAiAccessMock: vi.fn(),
+}));
+
+vi.mock('../../api/_aiSecurity.js', () => ({
+  requireAiAccess: requireAiAccessMock,
 }));
 
 vi.mock('@google/genai', () => ({
@@ -66,11 +71,13 @@ const postJson = async (body: unknown) => {
 describe('/api/gemini/story-prompts handler', () => {
   beforeEach(() => {
     generateContentMock.mockReset();
+    requireAiAccessMock.mockReset();
+    requireAiAccessMock.mockResolvedValue(null);
     process.env.GEMINI_API_KEY = 'test-gemini-key';
     vi.spyOn(console, 'log').mockImplementation(() => {});
   });
 
-  it('returns curated fallback prompts without calling Gemini when no usable context is provided', async () => {
+  it('matches the local route by rejecting a missing title before calling Gemini', async () => {
     const res = await postJson({
       title: '   ',
       aiDescription: '',
@@ -81,14 +88,8 @@ describe('/api/gemini/story-prompts handler', () => {
       locale: 'en',
     });
 
-    expect(res.statusCode).toBe(200);
-    expect(res.body).toEqual({
-      prompts: [
-        'Where were you when you got this?',
-        'Who introduced you to it?',
-        'What does it remind you of?',
-      ],
-    });
+    expect(res.statusCode).toBe(400);
+    expect(res.body).toEqual({ error: 'Missing title' });
     expect(generateContentMock).not.toHaveBeenCalled();
   });
 
