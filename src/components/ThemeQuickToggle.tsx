@@ -51,7 +51,7 @@ export const ThemeQuickToggle: React.FC = () => {
         aria-expanded={isOpen}
         aria-label={t('themeSelection')}
         title={t('themeSelection')}
-        className={`p-2 rounded-full transition-colors ${buttonClass}`}
+        className={`p-2 rounded-full transition-colors inline-flex items-center justify-center [@media(any-pointer:coarse)]:min-h-[44px] [@media(any-pointer:coarse)]:min-w-[44px] ${buttonClass}`}
       >
         <Paintbrush size={18} aria-hidden="true" />
       </button>

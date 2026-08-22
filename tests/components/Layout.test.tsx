@@ -1195,6 +1195,44 @@ describe('Layout Component', () => {
     });
   });
 
+  // Issue #425: always-visible header and bottom-nav controls rendered below
+  // the 44px minimum touch target. The header toggles gain the larger hit area
+  // whenever a coarse pointer is available (`any-pointer: coarse`), so touch on
+  // hybrid laptops is covered while a pure non-touch desktop is unchanged; the
+  // mobile-only bottom nav items get a >=44px tall hit area unconditionally.
+  describe('Touch target sizing (#425)', () => {
+    const authenticatedUser = { id: 'user-1', email: 'test@example.com' };
+
+    it('gives the header theme toggle a >=44px touch-capable hit area', () => {
+      renderWithProviders(<Layout {...defaultProps} />);
+
+      const themeToggle = screen.getByTestId('theme-picker');
+      expect(themeToggle.className).toContain('[@media(any-pointer:coarse)]:min-h-[44px]');
+      expect(themeToggle.className).toContain('[@media(any-pointer:coarse)]:min-w-[44px]');
+      expect(themeToggle.className).toContain('justify-center');
+    });
+
+    it('gives each bottom-nav item a >=44px tall hit area', () => {
+      renderWithProviders(
+        <Layout {...defaultProps} user={authenticatedUser} sampleCollectionId="sample-vinyl-1" />,
+      );
+
+      const bottomNav = screen.getByRole('navigation', { name: /primary/i });
+      const items = [
+        within(bottomNav).getByText('Home').closest('a'),
+        within(bottomNav).getByText('Explore').closest('a'),
+        within(bottomNav).getByText('Add').closest('button'),
+        within(bottomNav).getByText('Profile').closest('button'),
+      ];
+
+      for (const item of items) {
+        expect(item).not.toBeNull();
+        expect(item!.className).toContain('min-h-[44px]');
+        expect(item!.className).toContain('justify-center');
+      }
+    });
+  });
+
   describe('Edge Cases', () => {
     it('handles null sampleCollectionId gracefully', () => {
       expect(() => {
