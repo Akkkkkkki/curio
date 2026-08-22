@@ -43,6 +43,18 @@ describe('LanguageToggle (CUR-113)', () => {
     expect(screen.getByRole('button', { name: '切换语言为英文' })).toBeInTheDocument();
   });
 
+  it('reserves a >=44px coarse-pointer hit area without enlarging the desktop glyph', () => {
+    // Issue #425: the header toggle rendered ~34px tall, below the 44px touch
+    // minimum. The larger hit area is applied only on coarse pointers so the
+    // desktop (fine-pointer) header keeps its compact height.
+    renderWithProviders(<LanguageToggle />);
+
+    const button = screen.getByRole('button', { name: /switch language to/i });
+    expect(button.className).toContain('[@media(pointer:coarse)]:min-h-[44px]');
+    expect(button.className).toContain('[@media(pointer:coarse)]:min-w-[44px]');
+    expect(button.className).toContain('justify-center');
+  });
+
   it('hides the Globe icon and target-code text from the accessibility tree', () => {
     renderWithProviders(<LanguageToggle />);
 
