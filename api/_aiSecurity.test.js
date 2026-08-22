@@ -80,7 +80,7 @@ describe('requireAiAccess', () => {
     expect(res.headers['RateLimit-Remaining']).toBe('0');
   });
 
-  it('allows authenticated requests within quota and exposes the user', async () => {
+  it('allows authenticated requests within quota and exposes the user id for logging', async () => {
     process.env.SUPABASE_URL = 'https://example.supabase.co';
     process.env.SUPABASE_ANON_KEY = 'anon-key';
     vi.spyOn(globalThis, 'fetch')
@@ -95,7 +95,7 @@ describe('requireAiAccess', () => {
     const result = await requireAiAccess(req, res, '/api/gemini/analyze');
 
     expect(result).toBeNull();
-    expect(req.user).toEqual({ id: 'user-1' });
+    expect(req.user).toEqual({ id: 'user-1', sub: 'user-1' });
     expect(res.statusCode).toBe(200);
   });
 });
