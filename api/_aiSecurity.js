@@ -44,11 +44,7 @@ export const requireAiAccess = async (req, res, route) => {
     const limitResponse = await fetch(`${url}/rest/v1/rpc/consume_ai_rate_limit`, {
       method: 'POST',
       headers: jsonHeaders(anonKey, token),
-      body: JSON.stringify({
-        p_route: route,
-        p_limit: RATE_LIMIT,
-        p_window_seconds: WINDOW_SECONDS,
-      }),
+      body: JSON.stringify({ p_route: route }),
     });
 
     if (!limitResponse.ok) {
