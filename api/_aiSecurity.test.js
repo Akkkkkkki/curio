@@ -81,9 +81,10 @@ describe('requireAiAccess', () => {
     expect(res.headers['RateLimit-Remaining']).toBe('0');
   });
 
-  it('allows authenticated requests within quota and exposes the user id for logging', async () => {
+  it('allows authenticated requests within quota and keeps policy out of the client-callable RPC', async () => {
     configureSupabase();
-    vi.spyOn(globalThis, 'fetch')
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce({ ok: true, json: async () => ({ id: 'user-1' }) })
       .mockResolvedValueOnce({
         ok: true,
@@ -97,6 +98,9 @@ describe('requireAiAccess', () => {
     expect(result).toBeNull();
     expect(req.user).toEqual({ id: 'user-1', sub: 'user-1' });
     expect(res.statusCode).toBe(200);
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({
+      p_route: '/api/gemini/analyze',
+    });
   });
 });
 
