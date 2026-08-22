@@ -12,7 +12,7 @@ export const LanguageToggle: React.FC = () => {
   return (
     <button
       onClick={() => setLanguage(targetLang)}
-      className={`p-2 rounded-full transition-colors flex items-center justify-center gap-1 sm:gap-1.5 [@media(pointer:coarse)]:min-h-[44px] [@media(pointer:coarse)]:min-w-[44px] ${
+      className={`p-2 rounded-full transition-colors flex items-center justify-center gap-1 sm:gap-1.5 [@media(any-pointer:coarse)]:min-h-[44px] [@media(any-pointer:coarse)]:min-w-[44px] ${
         theme === 'vault'
           ? 'text-white/70 hover:text-white hover:bg-white/10'
           : theme === 'atelier'
