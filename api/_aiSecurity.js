@@ -39,7 +39,7 @@ export const requireAiAccess = async (req, res, route) => {
     }
 
     const user = await userResponse.json();
-    req.user = user;
+    req.user = { ...user, sub: user?.id || user?.sub || null };
 
     const limitResponse = await fetch(`${url}/rest/v1/rpc/consume_ai_rate_limit`, {
       method: 'POST',
