@@ -31,6 +31,7 @@ export const attachRequestLogger = (req, res, { route, provider, model } = {}) =
       durationMs: Date.now() - start,
       ok,
       requestId,
+      userId: req.user?.id || req.user?.sub || null,
       deployment: process.env.VERCEL_ENV || process.env.NODE_ENV || 'unknown',
       commitSha: process.env.VERCEL_GIT_COMMIT_SHA || null,
       provider: provider || null,
