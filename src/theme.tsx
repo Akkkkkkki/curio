@@ -159,10 +159,13 @@ export const typographyClasses = {
   quote: 'font-serif italic text-lg leading-relaxed',
 } as const;
 
-// Theme-aware label colors. Vault uses stone-400 (#A8A29E) to match DESIGN.md's
-// "Text Muted" token — stone-500 fails WCAG AA on stone-900 surfaces.
+// Theme-aware label colors, tuned per surface so muted labels still clear
+// WCAG AA. Gallery uses stone-500 (#78716C) — DESIGN.md's Gallery "Text Muted"
+// token — which reaches ~4.8:1 on the light surface, where stone-400 (#A8A29E)
+// only manages ~2.4:1. Vault keeps stone-400 to match DESIGN.md's dark "Text
+// Muted" token, which clears AA against the stone-900 surface.
 export const labelColorClasses: Record<AppTheme, string> = {
-  gallery: 'text-stone-400',
+  gallery: 'text-stone-500',
   vault: 'text-stone-400',
   atelier: 'text-[#8C7B6B]', // Sepia-toned labels
 };
@@ -235,6 +238,17 @@ export const accentColorClasses: Record<AppTheme, string> = {
   gallery: 'text-amber-600 hover:text-amber-700',
   vault: 'text-[#D4A574] hover:text-[#E0B585]',
   atelier: 'text-[#A86F3C] hover:text-[#8B5A2B]', // Rich amber-brown
+};
+
+// Accent color for small uppercase eyebrow/label text. The interactive accent
+// (amber-600, ~3.05:1 on white) fails WCAG AA when used as static label text,
+// so labels use the darker accent tone per theme: amber-700 (#B45309, DESIGN.md
+// "Accent Hover", ~4.6:1) on Gallery and the deeper amber-brown on Atelier.
+// Vault's brass already clears AA on the dark surface.
+export const accentLabelColorClasses: Record<AppTheme, string> = {
+  gallery: 'text-amber-700',
+  vault: 'text-[#D4A574]',
+  atelier: 'text-[#8B5A2B]',
 };
 
 // Accent background classes (for buttons, badges)

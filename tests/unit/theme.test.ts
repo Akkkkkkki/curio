@@ -9,6 +9,7 @@ import {
   ratingColorClasses,
   ratingEmptyClasses,
   accentColorClasses,
+  accentLabelColorClasses,
   frameAccentClasses,
   cardHoverClasses,
   inputClasses,
@@ -94,6 +95,13 @@ describe('Theme Utilities', () => {
     // (~3.77:1); DESIGN.md sets Vault textMuted to stone-400 (#A8A29E).
     it('keeps Vault labels at or above stone-400 contrast', () => {
       expect(labelColorClasses.vault).toBe('text-stone-400');
+    });
+
+    // stone-400 (#A8A29E) only reaches ~2.4:1 on the Gallery light surface and
+    // fails WCAG AA; DESIGN.md's Gallery "Text Muted" token is stone-500
+    // (#78716C, ~4.8:1). Regression guard for #423.
+    it('uses AA-compliant stone-500 for Gallery labels', () => {
+      expect(labelColorClasses.gallery).toBe('text-stone-500');
     });
   });
 
@@ -184,6 +192,30 @@ describe('Theme Utilities', () => {
       expect(accentColorClasses.gallery).toContain('hover:');
       expect(accentColorClasses.vault).toContain('hover:');
       expect(accentColorClasses.atelier).toContain('hover:');
+    });
+  });
+
+  describe('accentLabelColorClasses', () => {
+    it('has all three themes', () => {
+      expect(accentLabelColorClasses.gallery).toBeDefined();
+      expect(accentLabelColorClasses.vault).toBeDefined();
+      expect(accentLabelColorClasses.atelier).toBeDefined();
+    });
+
+    // The interactive accent amber-600 (~3.05:1 on white) fails WCAG AA as
+    // static label text; eyebrow labels use amber-700 (#B45309, ~4.6:1), which
+    // DESIGN.md already defines as "Accent Hover". Regression guard for #423.
+    it('uses the AA-compliant darker accent for Gallery label text', () => {
+      expect(accentLabelColorClasses.gallery).toBe('text-amber-700');
+      expect(accentLabelColorClasses.gallery).not.toContain('amber-600');
+    });
+
+    // Label text is static, so no hover state is needed (unlike the
+    // interactive accentColorClasses).
+    it('does not carry a hover state', () => {
+      expect(accentLabelColorClasses.gallery).not.toContain('hover:');
+      expect(accentLabelColorClasses.vault).not.toContain('hover:');
+      expect(accentLabelColorClasses.atelier).not.toContain('hover:');
     });
   });
 

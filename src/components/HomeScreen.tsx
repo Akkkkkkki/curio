@@ -5,7 +5,7 @@ import { useTranslation } from '../i18n';
 import {
   useTheme,
   typographyClasses,
-  accentColorClasses,
+  accentLabelColorClasses,
   labelColorClasses,
   matSurfaceClasses,
 } from '../theme';
@@ -268,7 +268,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   };
 
   const newArchiveTileClasses = {
-    gallery: 'border-stone-200 hover:border-amber-400 bg-white/50 text-stone-400',
+    gallery: 'border-stone-200 hover:border-amber-400 bg-white/50 text-stone-500',
     vault: 'border-white/10 hover:border-amber-400 bg-white/5 text-stone-500',
     atelier: 'border-[#D4C9B8] hover:border-[#A86F3C] bg-[#EDE4D3]/60 text-[#8C7B6B]',
   };
@@ -280,7 +280,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   };
 
   const newArchiveTitleClasses = {
-    gallery: 'text-stone-400',
+    gallery: 'text-stone-500',
     vault: 'text-white/60',
     atelier: 'text-[#8C7B6B]',
   };
@@ -301,7 +301,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-full bg-amber-500 text-white shadow-lg shadow-amber-500/20">
             <Sparkles size={24} />
           </div>
-          <p className={`${typographyClasses.label} ${accentColorClasses[theme]} mb-3`}>
+          <p className={`${typographyClasses.label} ${accentLabelColorClasses[theme]} mb-3`}>
             {t('firstRunEyebrow')}
           </p>
           <h1
@@ -341,7 +341,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   return (
     <div className={`space-y-10 sm:space-y-12 animate-in fade-in duration-700`}>
       <header className="space-y-2">
-        <p className={`${typographyClasses.label} ${accentColorClasses[theme]}`}>
+        <p className={`${typographyClasses.label} ${accentLabelColorClasses[theme]}`}>
           {t('homeWelcome')}
         </p>
         <h1 className={`${typographyClasses.titleHero} leading-tight`}>{t('homeMuseumTitle')}</h1>
@@ -517,7 +517,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               >
                 {t('newArchive')}
               </span>
-              <span className={typographyClasses.labelMuted}>{t('expandSpace')}</span>
+              <span className={typographyClasses.labelSmall}>{t('expandSpace')}</span>
             </div>
           </button>
         )}
