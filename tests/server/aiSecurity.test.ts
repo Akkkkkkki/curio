@@ -1,5 +1,6 @@
 import { EventEmitter } from 'node:events';
 import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { requireAiAccess } from '../../api/_aiSecurity.js';
 import { attachRequestLogger } from '../../api/_requestLogging.js';
@@ -168,10 +169,7 @@ describe('AI request logging', () => {
 
 describe('AI rate-limit SQL policy', () => {
   it('fixes the quota policy server-side and only accepts supported routes', () => {
-    const sql = readFileSync(
-      new URL('../../supabase/4_ai_rate_limit.sql', import.meta.url),
-      'utf8',
-    );
+    const sql = readFileSync(join(process.cwd(), 'supabase/4_ai_rate_limit.sql'), 'utf8');
 
     expect(sql).toContain('v_limit constant integer := 10');
     expect(sql).toContain('v_window_seconds constant integer := 60');
