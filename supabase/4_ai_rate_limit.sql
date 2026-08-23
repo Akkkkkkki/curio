@@ -39,6 +39,15 @@ begin
     raise exception 'route required';
   end if;
 
+  if p_route not in (
+    '/api/gemini/analyze',
+    '/api/gemini/enhance',
+    '/api/gemini/story-prompts',
+    '/api/gemini/suggest-fields'
+  ) then
+    raise exception 'unsupported route';
+  end if;
+
   insert into public.ai_rate_limits (user_id, route, window_started_at, request_count)
   values (v_user_id, p_route, v_now, 0)
   on conflict (user_id, route) do nothing;
