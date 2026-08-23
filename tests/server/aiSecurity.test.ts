@@ -38,7 +38,11 @@ afterEach(() => {
 describe('requireAiAccess', () => {
   it('rejects requests without a bearer token', async () => {
     const res = makeRes();
-    const result = await requireAiAccess({ headers: {} }, res, '/api/gemini/analyze');
+    const result = await requireAiAccess(
+      { headers: {} },
+      res,
+      '/api/gemini/analyze',
+    );
 
     expect(result).toBe(res);
     expect(res.statusCode).toBe(401);
@@ -47,7 +51,9 @@ describe('requireAiAccess', () => {
 
   it('rejects invalid Supabase sessions before checking the quota', async () => {
     configureSupabase();
-    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({ ok: false } as Response);
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce({ ok: false } as Response);
     const res = makeRes();
 
     await requireAiAccess(
@@ -63,7 +69,10 @@ describe('requireAiAccess', () => {
   it('returns a stable 429 shape when the persistent quota is exhausted', async () => {
     configureSupabase();
     vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: 'user-1' }) } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ id: 'user-1' }),
+      } as Response)
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({ allowed: false, remaining: 0, reset_at: 1234 }),
@@ -88,7 +97,10 @@ describe('requireAiAccess', () => {
     configureSupabase();
     const fetchMock = vi
       .spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: 'user-1' }) } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ id: 'user-1' }),
+      } as Response)
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({ allowed: true, remaining: 9, reset_at: 1234 }),
@@ -111,10 +123,16 @@ describe('requireAiAccess', () => {
 
   it('accepts the repository canonical Supabase publishable key', async () => {
     vi.stubEnv('VITE_SUPABASE_URL', 'https://example.supabase.co');
-    vi.stubEnv('VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY', 'publishable-key');
+    vi.stubEnv(
+      'VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY',
+      'publishable-key',
+    );
     const fetchMock = vi
       .spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: 'user-1' }) } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ id: 'user-1' }),
+      } as Response)
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({ allowed: true, remaining: 9, reset_at: 1234 }),
@@ -128,7 +146,9 @@ describe('requireAiAccess', () => {
     );
 
     expect(res.statusCode).toBe(200);
-    expect(fetchMock.mock.calls[0][1]?.headers).toMatchObject({ apikey: 'publishable-key' });
+    expect(fetchMock.mock.calls[0][1]?.headers).toMatchObject({
+      apikey: 'publishable-key',
+    });
   });
 });
 
@@ -166,7 +186,10 @@ describe('AI request logging', () => {
 
 describe('AI rate-limit SQL policy', () => {
   it('fixes the quota policy server-side and only accepts supported routes', () => {
-    const sql = readFileSync(new URL('../../supabase/4_ai_rate_limit.sql', import.meta.url), 'utf8');
+    const sql = readFileSync(
+      new URL('../../supabase/4_ai_rate_limit.sql', import.meta.url),
+      'utf8',
+    );
 
     expect(sql).toContain('v_limit constant integer := 10');
     expect(sql).toContain('v_window_seconds constant integer := 60');
