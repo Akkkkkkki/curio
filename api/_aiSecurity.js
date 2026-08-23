@@ -22,6 +22,12 @@ const jsonHeaders = (anonKey, token) => ({
   'Content-Type': 'application/json',
 });
 
+const getResetDelaySeconds = (resetAt) => {
+  const resetEpochSeconds = Number(resetAt);
+  if (!Number.isFinite(resetEpochSeconds)) return null;
+  return Math.max(Math.ceil(resetEpochSeconds - Date.now() / 1000), 0);
+};
+
 export const requireAiAccess = async (req, res, route) => {
   const token = getBearerToken(req);
   if (!token) {
@@ -38,7 +44,15 @@ export const requireAiAccess = async (req, res, route) => {
       headers: jsonHeaders(anonKey, token),
     });
     if (!userResponse.ok) {
-      return res.status(401).json({ error: 'Invalid or expired token' });
+      if (userResponse.status === 401 || userResponse.status === 403) {
+        return res.status(401).json({ error: 'Invalid or expired token' });
+      }
+
+      console.error('Supabase auth check failed', {
+        route,
+        status: userResponse.status,
+      });
+      return res.status(503).json({ error: 'AI auth service unavailable' });
     }
 
     const user = await userResponse.json();
@@ -59,16 +73,17 @@ export const requireAiAccess = async (req, res, route) => {
     }
 
     const result = await limitResponse.json();
+    const resetDelaySeconds = getResetDelaySeconds(result?.reset_at);
     res.setHeader('RateLimit-Limit', String(RATE_LIMIT));
     if (Number.isFinite(result?.remaining)) {
       res.setHeader('RateLimit-Remaining', String(result.remaining));
     }
-    if (result?.reset_at) {
-      res.setHeader('RateLimit-Reset', String(result.reset_at));
+    if (resetDelaySeconds !== null) {
+      res.setHeader('RateLimit-Reset', String(resetDelaySeconds));
     }
 
     if (!result?.allowed) {
-      res.setHeader('Retry-After', String(WINDOW_SECONDS));
+      res.setHeader('Retry-After', String(resetDelaySeconds ?? WINDOW_SECONDS));
       return res.status(429).json({
         error: 'Rate limit exceeded. Please wait before trying again.',
       });
