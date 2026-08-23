@@ -208,7 +208,9 @@ describe('AI rate-limit SQL policy', () => {
     const resetSql = readFileSync(join(process.cwd(), 'supabase/0_reset.sql'), 'utf8');
 
     expect(resetSql).toContain('drop table if exists public.ai_rate_limits cascade;');
-    expect(resetSql).toContain('drop function if exists public.consume_ai_rate_limit(text) cascade;');
+    expect(resetSql).toContain(
+      'drop function if exists public.consume_ai_rate_limit(text) cascade;',
+    );
   });
 });
 
