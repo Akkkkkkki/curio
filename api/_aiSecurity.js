@@ -3,7 +3,10 @@ const WINDOW_SECONDS = 60;
 
 const getSupabaseConfig = () => ({
   url: process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL,
-  anonKey: process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY,
+  anonKey:
+    process.env.SUPABASE_ANON_KEY ||
+    process.env.VITE_SUPABASE_ANON_KEY ||
+    process.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY,
 });
 
 const getBearerToken = (req) => {
