@@ -29,7 +29,7 @@ export default async function handler(req, res) {
   }
 
   const { title, collectionContext, aiDescription, knownFields, locale = 'en' } = req.body || {};
-  if (!title || typeof title !== 'string' || !title.trim()) {
+  if (typeof title !== 'string' || !title.trim()) {
     recordApiError(res, { name: 'BadRequest', message: 'Missing title' });
     return res.status(400).json({ error: 'Missing title' });
   }
