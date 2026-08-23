@@ -411,15 +411,17 @@ app.post('/api/gemini/story-prompts', ipLimiter, requireAuth, userLimiter, async
 
   const { title, collectionContext, aiDescription, knownFields, locale = 'en' } = req.body || {};
 
-  if (!title || typeof title !== 'string') {
+  if (typeof title !== 'string' || !title.trim()) {
     return res.status(400).json({ error: 'Missing title' });
   }
 
-  const contextLines = [`- Title: "${title}"`];
+  const safeTitle = title.trim();
+  const contextLines = [`- Title: "${safeTitle}"`];
   if (collectionContext?.name) contextLines.push(`- Collection: "${collectionContext.name}"`);
   if (collectionContext?.description)
     contextLines.push(`- Collection description: "${collectionContext.description}"`);
-  if (aiDescription) contextLines.push(`- Visual observation: "${aiDescription}"`);
+  if (typeof aiDescription === 'string' && aiDescription.trim())
+    contextLines.push(`- Visual observation: "${aiDescription.trim()}"`);
   if (knownFields && typeof knownFields === 'object') {
     const knownEntries = Object.entries(knownFields)
       .filter(([, v]) => v !== null && v !== undefined && v !== '')
@@ -482,7 +484,7 @@ Return only the questions as a JSON object of the schema { "prompts": [string, s
     return res.json({ prompts });
   } catch (error) {
     console.error('Story prompt generation failed:', error);
-    return res.status(500).json({ error: sanitizeErrorMessage(error) });
+    return res.status(500).json({ error: 'Story prompt generation failed' });
   }
 });
 

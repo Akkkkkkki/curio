@@ -1,11 +1,11 @@
 import { GoogleGenAI } from '@google/genai';
 import { attachMetrics } from '../_metrics.js';
 import { attachRequestLogger, recordApiError } from '../_requestLogging.js';
+import { requireAiAccess } from '../_aiSecurity.js';
 
 // Model for image generation/enhancement
 const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image';
 
-// Prompt templates for image enhancement
 const ENHANCEMENT_PROMPTS = {
   subtle: `Enhance this photo of a collectible item to improve clarity and lighting while STRICTLY preserving its historical authenticity and physical condition.
 
@@ -45,6 +45,9 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
+  const denied = await requireAiAccess(req, res, '/api/gemini/enhance');
+  if (denied) return denied;
+
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     recordApiError(res, { name: 'MissingApiKey', message: 'GEMINI_API_KEY is not configured' });
@@ -67,8 +70,6 @@ export default async function handler(req, res) {
 
   try {
     const ai = new GoogleGenAI({ apiKey });
-    // Use Gemini's image generation model for image editing
-    // Reference: https://ai.google.dev/gemini-api/docs/image-generation
     const response = await ai.models.generateContent({
       model: GEMINI_IMAGE_MODEL,
       contents: [
@@ -85,7 +86,6 @@ export default async function handler(req, res) {
       },
     });
 
-    // Extract the generated image from the response
     const parts = response.candidates?.[0]?.content?.parts || [];
     let enhancedImageBase64 = null;
     let responseText = null;
@@ -120,7 +120,6 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error('Image Enhancement Failed:', error);
 
-    // Extract detailed error info
     let errorMessage = 'Unknown error';
     let statusCode = 500;
     let errorName = 'ImageEnhancementFailed';
@@ -131,7 +130,6 @@ export default async function handler(req, res) {
         errorName = error.name;
       }
 
-      // Check for specific Gemini API errors
       if (error.message.includes('API key')) {
         errorMessage = 'Invalid or missing API key';
         statusCode = 503;

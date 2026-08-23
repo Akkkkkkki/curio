@@ -1,6 +1,7 @@
 import { GoogleGenAI, Type } from '@google/genai';
 import { attachMetrics } from '../_metrics.js';
 import { attachRequestLogger, recordApiError } from '../_requestLogging.js';
+import { requireAiAccess } from '../_aiSecurity.js';
 
 // Model for prompt generation (text-only)
 const GEMINI_ANALYZE_MODEL = process.env.GEMINI_ANALYZE_MODEL || 'gemini-2.5-flash';
@@ -18,6 +19,9 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
+  const denied = await requireAiAccess(req, res, '/api/gemini/story-prompts');
+  if (denied) return denied;
+
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     recordApiError(res, { name: 'MissingApiKey', message: 'GEMINI_API_KEY is not configured' });
@@ -25,15 +29,13 @@ export default async function handler(req, res) {
   }
 
   const { title, collectionContext, aiDescription, knownFields, locale = 'en' } = req.body || {};
+  if (typeof title !== 'string' || !title.trim()) {
+    recordApiError(res, { name: 'BadRequest', message: 'Missing title' });
+    return res.status(400).json({ error: 'Missing title' });
+  }
 
-  // Title is the primary signal for prompt specificity, but treat its absence
-  // as a soft signal — fall back to collection context + AI observation
-  // rather than hard-rejecting. Users who tap the prompt button before AI
-  // analysis finishes deserve something useful, not a 400.
-  const safeTitle = typeof title === 'string' ? title.trim() : '';
-
-  const contextLines = [];
-  if (safeTitle) contextLines.push(`- Title: "${safeTitle}"`);
+  const safeTitle = title.trim();
+  const contextLines = [`- Title: "${safeTitle}"`];
   if (collectionContext?.name) contextLines.push(`- Collection: "${collectionContext.name}"`);
   if (collectionContext?.description)
     contextLines.push(`- Collection description: "${collectionContext.description}"`);
@@ -47,21 +49,6 @@ export default async function handler(req, res) {
     if (knownEntries.length) {
       contextLines.push(`- Known facts:\n${knownEntries.join('\n')}`);
     }
-  }
-
-  // If we have no usable context at all, return a curated fallback rather
-  // than calling Gemini with nothing — the model would either refuse or
-  // produce generic filler. These match the spec's curatorial tone.
-  if (contextLines.length === 0) {
-    const fallback =
-      locale === 'zh'
-        ? ['你是在哪儿遇到它的？', '是谁让你认识它的？', '它让你想起了什么？']
-        : [
-            'Where were you when you got this?',
-            'Who introduced you to it?',
-            'What does it remind you of?',
-          ];
-    return res.status(200).json({ prompts: fallback });
   }
 
   const systemPrompt = `You are a thoughtful curator helping a collector reflect on an object. Given the object's title and known facts, produce 3 short open-ended questions (max 12 words each) that would help the owner write a personal story about it.
@@ -107,7 +94,6 @@ Return only the questions as a JSON object of the schema { "prompts": [string, s
       const key = cleaned.toLowerCase();
       if (seen.has(key)) continue;
       seen.add(key);
-      // Cap each prompt at ~12 words; if longer, truncate gracefully.
       const words = cleaned.split(/\s+/);
       const capped = words.length > 14 ? words.slice(0, 12).join(' ') + '…' : cleaned;
       prompts.push(capped);

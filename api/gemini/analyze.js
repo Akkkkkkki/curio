@@ -1,6 +1,7 @@
 import { GoogleGenAI, Type } from '@google/genai';
 import { attachMetrics } from '../_metrics.js';
 import { attachRequestLogger, recordApiError } from '../_requestLogging.js';
+import { requireAiAccess } from '../_aiSecurity.js';
 
 // Model for metadata extraction (vision/text analysis)
 const GEMINI_ANALYZE_MODEL = process.env.GEMINI_ANALYZE_MODEL || 'gemini-2.5-flash';
@@ -20,6 +21,19 @@ const mapFieldTypeToSchemaType = (type) => {
   }
 };
 
+export const buildAnalysisPrompt = ({ collectionContext, locale = 'en' } = {}) => {
+  const contextLines = [];
+  if (collectionContext?.name) contextLines.push(`- Name: "${collectionContext.name}"`);
+  if (collectionContext?.description) {
+    contextLines.push(`- User's description: "${collectionContext.description}"`);
+  }
+  const contextBlock = contextLines.length
+    ? `\n\nCollection context:\n${contextLines.join('\n')}`
+    : '';
+
+  return `Analyze this image of a collectible item.${contextBlock}\n\nExtract metadata based on the provided schema.\n\nIMPORTANT RULES:\n1. Output ALL text (title, aiDescription, field values) in the "${locale}" language.\n2. Be precise. If a field cannot be determined from the image, leave it null.\n3. For the "title", provide a descriptive name (e.g., "Qing Dynasty Coin", "Vintage Kodak Camera").\n4. For "aiDescription", give a factual visual observation only. Do not tell a story or speculate about meaning.`;
+};
+
 export default async function handler(req, res) {
   attachRequestLogger(req, res, {
     route: '/api/gemini/analyze',
@@ -33,13 +47,16 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
+  const denied = await requireAiAccess(req, res, '/api/gemini/analyze');
+  if (denied) return denied;
+
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     recordApiError(res, { name: 'MissingApiKey', message: 'GEMINI_API_KEY is not configured' });
     return res.status(503).json({ error: 'GEMINI_API_KEY is not configured' });
   }
 
-  const { imageBase64, fields, locale = 'en' } = req.body || {};
+  const { imageBase64, fields, collectionContext, locale = 'en' } = req.body || {};
   if (!imageBase64 || !Array.isArray(fields)) {
     recordApiError(res, { name: 'BadRequest', message: 'Missing imageBase64 or fields' });
     return res.status(400).json({ error: 'Missing imageBase64 or fields' });
@@ -74,16 +91,7 @@ export default async function handler(req, res) {
       contents: {
         parts: [
           { inlineData: { mimeType: 'image/jpeg', data: imageBase64 } },
-          {
-            text: `Analyze this image of a collectible item. Extract metadata based on the provided schema.
-
-            IMPORTANT RULES:
-            1. Output ALL text (title, aiDescription, field values) in the "${locale}" language.
-            2. Be precise. If a field cannot be determined from the image, leave it null.
-            3. For the "title", provide a descriptive name (e.g., "Qing Dynasty Coin", "Vintage Kodak Camera").
-            4. For "aiDescription", give a factual visual observation only. Do not tell a story or speculate about meaning.
-            `,
-          },
+          { text: buildAnalysisPrompt({ collectionContext, locale }) },
         ],
       },
       config: {

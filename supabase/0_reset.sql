@@ -5,10 +5,12 @@
 -- deleting all existing data.
 -- =============================================================================
 
+drop table if exists public.ai_rate_limits cascade;
 drop table if exists public.item_links cascade;
 drop table if exists public.collection_fields cascade;
 drop table if exists public.items cascade;
 drop table if exists public.collections cascade;
 
+drop function if exists public.consume_ai_rate_limit(text) cascade;
 drop function if exists public.set_item_user_id_from_collection cascade;
 drop function if exists public.set_updated_at cascade;

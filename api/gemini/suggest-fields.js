@@ -1,6 +1,7 @@
 import { GoogleGenAI, Type } from '@google/genai';
 import { attachMetrics } from '../_metrics.js';
 import { attachRequestLogger, recordApiError } from '../_requestLogging.js';
+import { requireAiAccess } from '../_aiSecurity.js';
 
 // Model for field suggestion (text-only)
 const GEMINI_ANALYZE_MODEL = process.env.GEMINI_ANALYZE_MODEL || 'gemini-2.5-flash';
@@ -17,6 +18,9 @@ export default async function handler(req, res) {
     recordApiError(res, { name: 'MethodNotAllowed', message: 'Method Not Allowed' });
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
+
+  const denied = await requireAiAccess(req, res, '/api/gemini/suggest-fields');
+  if (denied) return denied;
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {

@@ -2,8 +2,13 @@ import { EventEmitter } from 'node:events';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import handler from '../../api/gemini/story-prompts.js';
 
-const { generateContentMock } = vi.hoisted(() => ({
+const { generateContentMock, requireAiAccessMock } = vi.hoisted(() => ({
   generateContentMock: vi.fn(),
+  requireAiAccessMock: vi.fn(),
+}));
+
+vi.mock('../../api/_aiSecurity.js', () => ({
+  requireAiAccess: requireAiAccessMock,
 }));
 
 vi.mock('@google/genai', () => ({
@@ -66,11 +71,13 @@ const postJson = async (body: unknown) => {
 describe('/api/gemini/story-prompts handler', () => {
   beforeEach(() => {
     generateContentMock.mockReset();
+    requireAiAccessMock.mockReset();
+    requireAiAccessMock.mockResolvedValue(null);
     process.env.GEMINI_API_KEY = 'test-gemini-key';
     vi.spyOn(console, 'log').mockImplementation(() => {});
   });
 
-  it('returns curated fallback prompts without calling Gemini when no usable context is provided', async () => {
+  it('rejects a whitespace-only title before calling Gemini', async () => {
     const res = await postJson({
       title: '   ',
       aiDescription: '',
@@ -81,14 +88,8 @@ describe('/api/gemini/story-prompts handler', () => {
       locale: 'en',
     });
 
-    expect(res.statusCode).toBe(200);
-    expect(res.body).toEqual({
-      prompts: [
-        'Where were you when you got this?',
-        'Who introduced you to it?',
-        'What does it remind you of?',
-      ],
-    });
+    expect(res.statusCode).toBe(400);
+    expect(res.body).toEqual({ error: 'Missing title' });
     expect(generateContentMock).not.toHaveBeenCalled();
   });
 
@@ -156,6 +157,84 @@ describe('/api/gemini/story-prompts handler', () => {
     expect(systemPrompt).not.toContain('nullable:');
     expect(systemPrompt).not.toContain('undefinedValue:');
     expect(systemPrompt).not.toContain('overflow:');
+  });
+
+  it('returns a stable generic 500 when Gemini generation fails', async () => {
+    generateContentMock.mockRejectedValueOnce(new Error('quota exceeded'));
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const res = await postJson({ title: 'Kind of Blue' });
+
+    expect(res.statusCode).toBe(500);
+    expect(res.body).toEqual({ error: 'Story prompt generation failed' });
+  });
+
+  it('keeps the local proxy validation, normalization, and errors in parity', async () => {
+    const originalJwtSecret = process.env.SUPABASE_JWT_SECRET;
+    delete process.env.SUPABASE_JWT_SECRET;
+    vi.resetModules();
+
+    const { default: localApp } = await import('../../server/geminiProxy.js');
+    const server = localApp.listen(0);
+    await new Promise<void>((resolve) => server.once('listening', resolve));
+    const address = server.address();
+    if (!address || typeof address === 'string') {
+      throw new Error('Expected local proxy to bind to a TCP port');
+    }
+    const endpoint = `http://127.0.0.1:${address.port}/api/gemini/story-prompts`;
+
+    try {
+      generateContentMock.mockClear();
+      const whitespaceResponse = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: '   ' }),
+      });
+
+      expect(whitespaceResponse.status).toBe(400);
+      expect(await whitespaceResponse.json()).toEqual({ error: 'Missing title' });
+      expect(generateContentMock).not.toHaveBeenCalled();
+
+      generateContentMock.mockResolvedValueOnce({
+        text: JSON.stringify({ prompts: ['Where did this copy first find you?'] }),
+      });
+      const successResponse = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: ' Kind of Blue ',
+          aiDescription: '  Blue-toned album cover.  ',
+          locale: 'en',
+        }),
+      });
+
+      expect(successResponse.status).toBe(200);
+      expect(await successResponse.json()).toEqual({
+        prompts: ['Where did this copy first find you?'],
+      });
+      const localRequest = generateContentMock.mock.calls[0][0];
+      const localPrompt = localRequest.contents.parts[0].text;
+      expect(localPrompt).toContain('- Title: "Kind of Blue"');
+      expect(localPrompt).not.toContain('- Title: " Kind of Blue "');
+      expect(localPrompt).toContain('- Visual observation: "Blue-toned album cover."');
+
+      generateContentMock.mockRejectedValueOnce(new Error('quota exceeded'));
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      const errorResponse = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'Kind of Blue' }),
+      });
+
+      expect(errorResponse.status).toBe(500);
+      expect(await errorResponse.json()).toEqual({ error: 'Story prompt generation failed' });
+    } finally {
+      await new Promise<void>((resolve, reject) =>
+        server.close((error?: Error) => (error ? reject(error) : resolve())),
+      );
+      if (originalJwtSecret === undefined) delete process.env.SUPABASE_JWT_SECRET;
+      else process.env.SUPABASE_JWT_SECRET = originalJwtSecret;
+    }
   });
 
   it('returns 503 before Gemini calls when the API key is missing', async () => {
