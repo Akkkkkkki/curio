@@ -50,7 +50,7 @@ describe('requireAiAccess', () => {
     configureSupabase();
     const fetchMock = vi
       .spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce({ ok: false } as Response);
+      .mockResolvedValueOnce({ ok: false, status: 401 } as Response);
     const res = makeRes();
 
     await requireAiAccess(
@@ -63,8 +63,28 @@ describe('requireAiAccess', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it('returns 503 when Supabase Auth is unavailable', async () => {
+    configureSupabase();
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce({ ok: false, status: 503 } as Response);
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const res = makeRes();
+
+    await requireAiAccess(
+      { headers: { authorization: 'Bearer good-token' } },
+      res,
+      '/api/gemini/analyze',
+    );
+
+    expect(res.statusCode).toBe(503);
+    expect(res.body).toEqual({ error: 'AI auth service unavailable' });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it('returns a stable 429 shape when the persistent quota is exhausted', async () => {
     configureSupabase();
+    vi.spyOn(Date, 'now').mockReturnValue(1_200_000);
     vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce({ ok: true, json: async () => ({ id: 'user-1' }) } as Response)
       .mockResolvedValueOnce({
@@ -85,6 +105,8 @@ describe('requireAiAccess', () => {
     });
     expect(res.headers['RateLimit-Limit']).toBe('10');
     expect(res.headers['RateLimit-Remaining']).toBe('0');
+    expect(res.headers['RateLimit-Reset']).toBe('34');
+    expect(res.headers['Retry-After']).toBe('34');
   });
 
   it('allows authenticated requests within quota and keeps policy out of the client-callable RPC', async () => {
