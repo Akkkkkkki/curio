@@ -17,17 +17,21 @@ All cost-bearing `/api/gemini/*` handlers call `requireAiAccess` before invoking
 4. returns `401` for missing/invalid auth and `429` with `Retry-After` when the quota is exhausted;
 5. fails closed with `503` if auth or rate-limit infrastructure is not configured.
 
+The limiter policy is fixed inside the database function. Its public RPC accepts only the four supported production AI routes (`analyze`, `enhance`, `story-prompts`, and `suggest-fields`), so authenticated clients cannot weaken the quota or create unbounded route keys.
+
 The client already attaches the current Supabase session token in `src/services/geminiService.ts`.
 
 ## Required deployment configuration
 
-Vercel must expose either the server names or the existing Vite names for Supabase:
+Vercel must expose the Supabase URL plus one supported public API key variable:
 
 - `SUPABASE_URL` or `VITE_SUPABASE_URL`
-- `SUPABASE_ANON_KEY` or `VITE_SUPABASE_ANON_KEY`
+- `SUPABASE_ANON_KEY`, `VITE_SUPABASE_ANON_KEY`, or the repository's canonical `VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY`
 - `GEMINI_API_KEY`
 
 Apply `supabase/4_ai_rate_limit.sql` to the production Supabase project before deploying the guarded handlers. The SQL table is not directly accessible to `anon` or `authenticated`; clients only receive execute permission on the authenticated RPC, which derives `auth.uid()` from the caller token.
+
+Structured production request logs include the authenticated `userId` once the guard has validated the session. Missing or invalid sessions remain anonymous.
 
 ## Request-contract parity
 
