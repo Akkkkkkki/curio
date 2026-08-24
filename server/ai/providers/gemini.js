@@ -20,8 +20,8 @@ const toGeminiSchema = (schema) => {
   return converted;
 };
 
-export const createGeminiProvider = ({ apiKey, model }) => {
-  const client = new GoogleGenAI({ apiKey });
+export const createGeminiProvider = ({ apiKey, model, client: injectedClient }) => {
+  const client = injectedClient || new GoogleGenAI({ apiKey });
   const generateStructured = async ({ parts, schema }) => {
     const response = await client.models.generateContent({
       model,
