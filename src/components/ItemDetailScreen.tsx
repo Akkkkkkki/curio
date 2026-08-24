@@ -607,6 +607,10 @@ export const ItemDetailScreen: React.FC<ItemDetailScreenProps> = ({
           )}
           <div className="flex flex-col md:flex-row justify-between items-start gap-8 sm:gap-12">
             <div className="flex-1 w-full">
+              {/* Semantic page heading for document structure / screen readers.
+                  The visible title is an inline-editable textarea below, which
+                  cannot itself be a heading, so we mirror it here visually hidden. */}
+              <h1 className="sr-only">{item.title.trim() || t('untitled')}</h1>
               <textarea
                 ref={titleTextareaRef}
                 rows={1}
