@@ -1,8 +1,18 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Paintbrush } from 'lucide-react';
 import { ThemePicker } from './ThemePicker';
+import { AppTheme } from '../types';
 import { useTheme, cardSurfaceClasses } from '../theme';
-import { useTranslation } from '../i18n';
+import { useTranslation, type TranslationKey } from '../i18n';
+
+// CUR-162: the toggle's accessible name must describe the action and the
+// current theme (not the noun "App Aesthetic"), mirroring the language
+// toggle's action-oriented "Switch language to …" name.
+const themeLabelKeys: Record<AppTheme, TranslationKey> = {
+  gallery: 'themeGallery',
+  vault: 'themeVault',
+  atelier: 'themeAtelier',
+};
 
 // CUR-127: theme switching is a frequent, playful action that was buried inside
 // the account menu. This header control makes the three themes directly
@@ -49,8 +59,8 @@ export const ThemeQuickToggle: React.FC = () => {
         onClick={() => setIsOpen((prev) => !prev)}
         aria-haspopup="menu"
         aria-expanded={isOpen}
-        aria-label={t('themeSelection')}
-        title={t('themeSelection')}
+        aria-label={t('changeThemeCurrent', { theme: t(themeLabelKeys[theme]) })}
+        title={t('changeTheme')}
         className={`p-2 rounded-full transition-colors inline-flex items-center justify-center [@media(any-pointer:coarse)]:min-h-[44px] [@media(any-pointer:coarse)]:min-w-[44px] ${buttonClass}`}
       >
         <Paintbrush size={18} aria-hidden="true" />
