@@ -3,6 +3,7 @@ import {
   analyzeItem,
   buildAnalysisPrompt,
   buildStoryPrompt,
+  getGeminiAnalyzeModel,
   normalizeStoryPrompts,
   normalizeSuggestedFields,
   storyPrompts,
@@ -17,6 +18,19 @@ const fakeClient = (payload: unknown) => ({
 });
 
 describe('shared AI operations', () => {
+  it('resolves the analysis model from the current environment at runtime', () => {
+    const previous = process.env.GEMINI_ANALYZE_MODEL;
+    try {
+      process.env.GEMINI_ANALYZE_MODEL = 'gemini-local-override';
+      expect(getGeminiAnalyzeModel()).toBe('gemini-local-override');
+      delete process.env.GEMINI_ANALYZE_MODEL;
+      expect(getGeminiAnalyzeModel()).toBe('gemini-2.5-flash');
+    } finally {
+      if (previous === undefined) delete process.env.GEMINI_ANALYZE_MODEL;
+      else process.env.GEMINI_ANALYZE_MODEL = previous;
+    }
+  });
+
   it('validates analysis input at the shared boundary', () => {
     expect(validateAnalyzeInput({ imageBase64: '', fields: [] })).toBe('imageBase64 is empty');
     expect(validateAnalyzeInput({ imageBase64: 'abc', fields: [{ id: 'year', type: 'text' }] })).toBeNull();
