@@ -139,8 +139,17 @@ const CODE_DEFINED_SEED_PHOTO_URLS = new Set<string>(
   ),
 );
 
+// Seed art is shipped under public/assets with a `sample-*` filename. Keep this
+// convention in the classification, not just the current INITIAL_COLLECTIONS
+// values, so a forced upgrade recognizes a photo from an older seed version as
+// code-defined even after that exact URL has been replaced or removed later.
+const isCodeDefinedSeedAsset = (photoUrl: string): boolean => {
+  if (CODE_DEFINED_SEED_PHOTO_URLS.has(photoUrl)) return true;
+  return /(?:^|\/)assets\/sample-[^/?#]+\.(?:jpe?g|png|webp)(?:[?#].*)?$/i.test(photoUrl);
+};
+
 const isCustomSeedPhoto = (photoUrl?: string): boolean =>
-  Boolean(photoUrl && !CODE_DEFINED_SEED_PHOTO_URLS.has(photoUrl));
+  Boolean(photoUrl && !isCodeDefinedSeedAsset(photoUrl));
 
 const hasSeedDrift = (seed: UserCollection, cloud: UserCollection | undefined): boolean => {
   if (!cloud) return true;
@@ -179,11 +188,10 @@ export const buildSeedRepairs = (
     if (!force && !hasSeedDrift(seed, cloud)) return [];
     const repairedSeedItems: CollectionItem[] = seed.items.map((seedItem) => {
       const cloudItem = cloud?.items.find((item) => matchesSeed(item, seedItem));
-      // A photo outside the code-defined seed asset set came from the admin's
-      // Update Photo path. Preserve that explicit customization even during a
-      // forced content upgrade; missing photos and known seed assets still take
-      // the canonical value from the current seed (including the #373 migration
-      // away from the old shared sample-vinyl.jpg path).
+      // A photo outside the code-defined seed asset convention came from the
+      // admin's Update Photo path. Preserve that explicit customization even
+      // during a forced content upgrade; current and historical sample assets
+      // take the canonical value from the new seed version instead.
       if (cloudItem?.photoUrl && isCustomSeedPhoto(cloudItem.photoUrl)) {
         return { ...seedItem, photoUrl: cloudItem.photoUrl };
       }
