@@ -8,7 +8,7 @@ import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
 import {
   analyzeItem,
-  GEMINI_ANALYZE_MODEL,
+  getGeminiAnalyzeModel,
   storyPrompts,
   suggestFields,
 } from './ai/operations.js';
@@ -180,7 +180,7 @@ const operationHandler = (operation, errorLabel) => async (req, res) => {
 };
 
 app.get('/api/health', (_req, res) => {
-  res.json({ ok: true, geminiConfigured: Boolean(apiKey), analyzeModel: GEMINI_ANALYZE_MODEL });
+  res.json({ ok: true, geminiConfigured: Boolean(apiKey), analyzeModel: getGeminiAnalyzeModel() });
 });
 app.get('/api/metrics', requireAuth, (_req, res) => {
   res.json({ generatedAt: new Date().toISOString(), routes: summarizeMetrics() });
@@ -228,7 +228,18 @@ app.post('/api/gemini/enhance', ipLimiter, requireAuth, userLimiter, async (req,
     });
   } catch (error) {
     console.error('Image Enhancement Failed:', error);
-    return res.status(500).json({ error: 'Image enhancement failed' });
+
+    let statusCode = 500;
+    if (error instanceof Error) {
+      if (error.message.includes('API key')) statusCode = 503;
+      else if (error.message.includes('quota') || error.message.includes('rate')) statusCode = 429;
+      else if (error.message.includes('safety') || error.message.includes('blocked'))
+        statusCode = 400;
+      else if (error.message.includes('not found') || error.message.includes('404'))
+        statusCode = 503;
+    }
+
+    return res.status(statusCode).json({ error: 'Image enhancement failed' });
   }
 });
 
