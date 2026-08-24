@@ -14,6 +14,7 @@ import {
   Edit3,
   RefreshCw,
   AlertCircle,
+  AlertTriangle,
 } from 'lucide-react';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Capacitor } from '@capacitor/core';
@@ -114,6 +115,9 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [analysisError, setAnalysisError] = useState(false);
+  // #434: whether the last analysis failure is worth retrying (transient) or a
+  // hard failure that should steer the user straight to manual entry.
+  const [analysisRetryable, setAnalysisRetryable] = useState(true);
   const [analysisSlow, setAnalysisSlow] = useState(false);
   const [analysisNeedsReview, setAnalysisNeedsReview] = useState(false);
   const [lowConfidence, setLowConfidence] = useState(false);
@@ -184,6 +188,24 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     gallery: 'text-amber-800 hover:text-amber-900',
     vault: 'text-amber-100 hover:text-white',
     atelier: 'text-[#A86F3C] hover:text-[#8B5A2B]',
+  }[theme];
+  // #434: a hard AI failure gets the DESIGN.md error tone (#DC2626 family) so
+  // it reads as an error, not a neutral hint. Transient failures reuse the
+  // amber warn surface above.
+  const errorBannerClass = {
+    gallery: 'bg-red-50 text-red-700 border-red-100',
+    vault: 'bg-red-500/10 text-red-200 border-red-400/20',
+    atelier: 'bg-red-100/70 text-red-900 border-red-300/60',
+  }[theme];
+  const errorBannerTitleClass = {
+    gallery: 'text-red-900',
+    vault: 'text-red-100',
+    atelier: 'text-red-950',
+  }[theme];
+  const errorBannerIconClass = {
+    gallery: 'text-red-600',
+    vault: 'text-red-300',
+    atelier: 'text-red-700',
   }[theme];
   // CUR-110: the batch-mode info card shares the warn-banner surface; its
   // title and icon need their own amber steps so the hierarchy survives on
@@ -871,6 +893,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     const runId = ++analysisRunId.current;
     setError(null);
     setAnalysisError(false);
+    setAnalysisRetryable(true);
     setAnalysisNeedsReview(false);
     setLowConfidence(false);
     setTitleError(null);
@@ -896,7 +919,9 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
       // is still being compressed, so recheck before spending the request.
       if (analysisRunId.current !== runId) return;
       if (!base64Data) {
-        setError(t('analysisFallback'));
+        // Local image processing hiccup — a retry re-runs compression, so keep
+        // the transient (retryable) framing set at the top of analyze().
+        setError(t('analysisBusyDesc'));
         setAnalysisError(true);
         setStep('verify');
         return;
@@ -909,10 +934,12 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
         locale: language,
       });
       if (result.status !== 'success') {
+        const retryable = result.status === 'error' ? result.retryable : true;
         if (result.status === 'error') {
           console.warn('AI analysis failed:', result.message);
         }
-        setError(t('analysisFallback'));
+        setAnalysisRetryable(retryable);
+        setError(retryable ? t('analysisBusyDesc') : t('analysisFailedManual'));
         setAnalysisError(true);
         setStep('verify');
         return;
@@ -943,7 +970,9 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     } catch (e) {
       console.error(e);
       if (analysisRunId.current !== runId) return;
-      setError(t('analysisFallback'));
+      // Unexpected/thrown failure (usually network) — default to the
+      // retryable framing already set at the top of analyze().
+      setError(t('analysisBusyDesc'));
       setAnalysisError(true);
       setStep('verify');
     }
@@ -1490,26 +1519,66 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
           </button>
         </div>
       )}
-      {error && (
+      {analysisError && (
         <div
           id="add-item-error"
-          className={`p-3 text-xs rounded-xl border font-medium flex items-center justify-between gap-2 ${warnBannerClass}`}
+          className={`p-4 text-sm rounded-xl border flex flex-col gap-3 ${
+            analysisRetryable ? warnBannerClass : errorBannerClass
+          }`}
         >
-          <span>{error}</span>
-          {analysisError && (
-            <button
-              onClick={switchToManual}
-              className={`underline underline-offset-4 font-semibold ${warnBannerActionClass}`}
-            >
-              {t('enterManually')}
-            </button>
-          )}
+          <div
+            className={`flex items-center gap-2 font-semibold ${
+              analysisRetryable ? batchInfoTitleClass : errorBannerTitleClass
+            }`}
+          >
+            {analysisRetryable ? (
+              <AlertTriangle size={16} className={batchInfoIconClass} />
+            ) : (
+              <AlertCircle size={16} className={errorBannerIconClass} />
+            )}
+            <span>{analysisRetryable ? t('analysisBusyTitle') : t('analysisFailedTitle')}</span>
+          </div>
+          <p className="text-xs leading-relaxed opacity-80">{error}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            {analysisRetryable ? (
+              <>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={retryAnalysis}
+                  icon={<RefreshCw size={14} />}
+                >
+                  {t('retryAnalysis')}
+                </Button>
+                <Button variant="ghost" size="sm" onClick={switchToManual}>
+                  {t('enterManually')}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="outline" size="sm" onClick={switchToManual}>
+                  {t('enterManually')}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={retryAnalysis}
+                  icon={<RefreshCw size={14} />}
+                >
+                  {t('retryAnalysis')}
+                </Button>
+              </>
+            )}
+          </div>
         </div>
       )}
-      {analysisError && (
-        <Button variant="outline" size="sm" onClick={retryAnalysis} icon={<RefreshCw size={14} />}>
-          {t('retryAnalysis')}
-        </Button>
+      {error && !analysisError && (
+        <div
+          id="add-item-error"
+          className={`p-3 text-xs rounded-xl border font-medium ${warnBannerClass}`}
+        >
+          {error}
+        </div>
       )}
       <div className="space-y-3">
         <div

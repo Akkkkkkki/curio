@@ -524,13 +524,14 @@ describe('AddItemModal', () => {
     });
   });
 
-  it('shows localized fallback copy, not raw AI errors, after single-photo analysis fails', async () => {
+  it('shows a hard-failure error panel (not raw AI errors) after a non-retryable single-photo analysis failure', async () => {
     const user = userEvent.setup();
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     mockRefreshAiEnabled.mockResolvedValue(true);
     mockAnalyzeImage.mockResolvedValue({
       status: 'error',
       message: '413 Payload Too Large',
+      retryable: false,
     });
     mockGetPhoto.mockResolvedValue({
       dataUrl: 'data:image/png;base64,ZmFrZQ==',
@@ -548,13 +549,52 @@ describe('AddItemModal', () => {
 
     await user.click(screen.getAllByRole('button', { name: /upload photo/i })[0]);
 
+    // Hard failure: manual-entry framing, no retry-oriented "busy" copy.
+    expect(await screen.findByText("Couldn't analyze this photo")).toBeInTheDocument();
     expect(
-      await screen.findByText('Analysis failed. Continue with manual entry.'),
+      screen.getByText('Analysis failed. Please fill in the details manually.'),
     ).toBeInTheDocument();
+    expect(screen.queryByText('AI is busy right now')).not.toBeInTheDocument();
     expect(screen.queryByText('413 Payload Too Large')).not.toBeInTheDocument();
+    // Manual entry stays available (Recoverable-AI), retry remains as a fallback.
+    expect(screen.getByRole('button', { name: 'Enter manually' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Retry analysis' })).toBeInTheDocument();
+    expect(warnSpy).toHaveBeenCalledWith('AI analysis failed:', '413 Payload Too Large');
+
+    warnSpy.mockRestore();
+  });
+
+  it('shows a retry-oriented "AI is busy" panel after a transient single-photo analysis failure', async () => {
+    const user = userEvent.setup();
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    mockRefreshAiEnabled.mockResolvedValue(true);
+    mockAnalyzeImage.mockResolvedValue({
+      status: 'error',
+      message: 'AI request failed (503)',
+      retryable: true,
+    });
+    mockGetPhoto.mockResolvedValue({
+      dataUrl: 'data:image/png;base64,ZmFrZQ==',
+      format: 'png',
+    });
+
+    renderWithProviders(
+      <AddItemModal
+        isOpen
+        onClose={mockOnClose}
+        collections={[createMockCollection({ customFields: [] })]}
+        onSave={mockOnSave}
+      />,
+    );
+
+    await user.click(screen.getAllByRole('button', { name: /upload photo/i })[0]);
+
+    // Transient failure: busy framing that nudges a retry, manual still offered.
+    expect(await screen.findByText('AI is busy right now')).toBeInTheDocument();
+    expect(screen.queryByText("Couldn't analyze this photo")).not.toBeInTheDocument();
+    expect(screen.queryByText('AI request failed (503)')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Retry analysis' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Enter manually' })).toBeInTheDocument();
-    expect(warnSpy).toHaveBeenCalledWith('AI analysis failed:', '413 Payload Too Large');
 
     warnSpy.mockRestore();
   });

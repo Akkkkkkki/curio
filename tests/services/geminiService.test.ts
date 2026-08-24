@@ -139,8 +139,40 @@ describe('services/geminiService.ts - analyzeImage (Phase 3.1)', () => {
     const mod = await importGeminiServiceFresh();
     const result = await mod.analyzeImage('BASE64', fields);
 
-    expect(result).toEqual({ status: 'error', message: 'Network down' });
+    // Network failures are transient, so they are flagged retryable.
+    expect(result).toEqual({ status: 'error', message: 'Network down', retryable: true });
     expect(warnSpy).toHaveBeenCalledWith('AI analysis failed:', expect.any(Error));
+
+    warnSpy.mockRestore();
+  });
+
+  it('flags 5xx/overload failures as retryable and hard 4xx failures as not', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const makeMod = async (status: number) => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockImplementation(async (url: string) => {
+          if (url.includes('/health')) {
+            return createOkJsonResponse({ geminiConfigured: true });
+          }
+          return new Response(JSON.stringify({ error: 'boom' }), { status });
+        }),
+      );
+      const mod = await importGeminiServiceFresh();
+      return mod.analyzeImage('BASE64', fields);
+    };
+
+    // Server overloaded / rate limited / request timeout → worth a retry.
+    expect(await makeMod(503)).toMatchObject({ status: 'error', retryable: true });
+    expect(await makeMod(429)).toMatchObject({ status: 'error', retryable: true });
+    expect(await makeMod(408)).toMatchObject({ status: 'error', retryable: true });
+    // Bad / blocked / oversized request → a plain retry won't help.
+    expect(await makeMod(422)).toMatchObject({ status: 'error', retryable: false });
+    expect(await makeMod(413)).toMatchObject({ status: 'error', retryable: false });
+    // Any other 4xx is hard by default (not just the enumerated ones).
+    expect(await makeMod(451)).toMatchObject({ status: 'error', retryable: false });
+    expect(await makeMod(418)).toMatchObject({ status: 'error', retryable: false });
 
     warnSpy.mockRestore();
   });
