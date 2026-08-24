@@ -169,7 +169,10 @@ const requireApiKey = (res) => {
 const operationHandler = (operation, errorLabel) => async (req, res) => {
   if (requireApiKey(res)) return;
   try {
-    const result = await operation({ apiKey, ...(req.body || {}) });
+    const requestInput = { ...(req.body || {}) };
+    delete requestInput.apiKey;
+    delete requestInput.client;
+    const result = await operation({ ...requestInput, apiKey });
     return res.json(result);
   } catch (error) {
     const statusCode = error?.statusCode || 500;
