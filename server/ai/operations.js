@@ -1,6 +1,12 @@
 import { GoogleGenAI, Type } from '@google/genai';
 
-export const GEMINI_ANALYZE_MODEL = process.env.GEMINI_ANALYZE_MODEL || 'gemini-2.5-flash';
+export const getGeminiAnalyzeModel = () =>
+  process.env.GEMINI_ANALYZE_MODEL || 'gemini-2.5-flash';
+
+// Keep the exported value for Vercel request-logging metadata, where env is
+// already populated before module evaluation. Runtime operations deliberately
+// call getGeminiAnalyzeModel() so the local gateway can load .env first.
+export const GEMINI_ANALYZE_MODEL = getGeminiAnalyzeModel();
 
 const MAX_IMAGE_BASE64_LENGTH = 20 * 1024 * 1024;
 const MAX_FIELDS_COUNT = 30;
@@ -76,7 +82,7 @@ export const analyzeItem = async ({ apiKey, client, imageBase64, fields, collect
 
   const ai = client || createClient(apiKey);
   const response = await ai.models.generateContent({
-    model: GEMINI_ANALYZE_MODEL,
+    model: getGeminiAnalyzeModel(),
     contents: {
       parts: [
         { inlineData: { mimeType: 'image/jpeg', data: imageBase64 } },
@@ -127,7 +133,7 @@ export const suggestFields = async ({ apiKey, client, description, locale = 'en'
   }
   const ai = client || createClient(apiKey);
   const response = await ai.models.generateContent({
-    model: GEMINI_ANALYZE_MODEL,
+    model: getGeminiAnalyzeModel(),
     contents: { parts: [{ text: buildSuggestFieldsPrompt({ description, locale }) }] },
     config: {
       responseMimeType: 'application/json',
@@ -187,7 +193,7 @@ export const storyPrompts = async ({ apiKey, client, title, collectionContext, a
   }
   const ai = client || createClient(apiKey);
   const response = await ai.models.generateContent({
-    model: GEMINI_ANALYZE_MODEL,
+    model: getGeminiAnalyzeModel(),
     contents: { parts: [{ text: buildStoryPrompt({ title, collectionContext, aiDescription, knownFields, locale }) }] },
     config: {
       responseMimeType: 'application/json',
