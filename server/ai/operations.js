@@ -1,25 +1,22 @@
-import { GoogleGenAI, Type } from '@google/genai';
+import { createGeminiProvider } from './providers/gemini.js';
 
 export const getGeminiAnalyzeModel = () => process.env.GEMINI_ANALYZE_MODEL || 'gemini-2.5-flash';
-
-// Keep the exported value for Vercel request-logging metadata, where env is
-// already populated before module evaluation. Runtime operations deliberately
-// call getGeminiAnalyzeModel() so the local gateway can load .env first.
 export const GEMINI_ANALYZE_MODEL = getGeminiAnalyzeModel();
 
 const MAX_IMAGE_BASE64_LENGTH = 20 * 1024 * 1024;
 const MAX_FIELDS_COUNT = 30;
 
-const createClient = (apiKey) => new GoogleGenAI({ apiKey });
+const createDefaultProvider = (apiKey) =>
+  createGeminiProvider({ apiKey, model: getGeminiAnalyzeModel() });
 
 const mapFieldTypeToSchemaType = (type) => {
   switch (type) {
     case 'number':
-      return Type.NUMBER;
+      return 'number';
     case 'boolean':
-      return Type.BOOLEAN;
+      return 'boolean';
     default:
-      return Type.STRING;
+      return 'string';
   }
 };
 
@@ -51,9 +48,9 @@ export const buildAnalysisPrompt = ({ collectionContext, locale = 'en' } = {}) =
 
 const buildAnalysisSchema = (fields) => {
   const properties = {
-    title: { type: Type.STRING, description: 'A short, descriptive title for the item.' },
+    title: { type: 'string', description: 'A short, descriptive title for the item.' },
     aiDescription: {
-      type: Type.STRING,
+      type: 'string',
       description:
         'A factual, neutral visual observation of the item (1-2 sentences). This is hidden metadata; it must NOT attempt to tell a story, infer emotional meaning, or speculate about the owner. Describe only what is visible.',
     },
@@ -68,12 +65,12 @@ const buildAnalysisSchema = (fields) => {
       properties[field.id].description += ` Must be one of: ${field.options.join(', ')}`;
     }
   }
-  return { type: Type.OBJECT, properties };
+  return { type: 'object', properties };
 };
 
 export const analyzeItem = async ({
   apiKey,
-  client,
+  provider,
   imageBase64,
   fields,
   collectionContext,
@@ -86,22 +83,12 @@ export const analyzeItem = async ({
     throw error;
   }
 
-  const ai = client || createClient(apiKey);
-  const response = await ai.models.generateContent({
-    model: getGeminiAnalyzeModel(),
-    contents: {
-      parts: [
-        { inlineData: { mimeType: 'image/jpeg', data: imageBase64 } },
-        { text: buildAnalysisPrompt({ collectionContext, locale }) },
-      ],
-    },
-    config: {
-      responseMimeType: 'application/json',
-      responseSchema: buildAnalysisSchema(fields),
-    },
+  const ai = provider || createDefaultProvider(apiKey);
+  const result = await ai.analyzeImage({
+    imageBase64,
+    prompt: buildAnalysisPrompt({ collectionContext, locale }),
+    schema: buildAnalysisSchema(fields),
   });
-
-  const result = JSON.parse(response.text || '{}');
   const { title, aiDescription, ...data } = result || {};
   const description = aiDescription || '';
   return {
@@ -131,25 +118,20 @@ export const normalizeSuggestedFields = (rawFields, maxFields = 6) => {
   return fields;
 };
 
-export const suggestFields = async ({ apiKey, client, description, locale = 'en' }) => {
+export const suggestFields = async ({ apiKey, provider, description, locale = 'en' }) => {
   if (!description || typeof description !== 'string') {
     const error = new Error('Missing description');
     error.statusCode = 400;
     throw error;
   }
-  const ai = client || createClient(apiKey);
-  const response = await ai.models.generateContent({
-    model: getGeminiAnalyzeModel(),
-    contents: { parts: [{ text: buildSuggestFieldsPrompt({ description, locale }) }] },
-    config: {
-      responseMimeType: 'application/json',
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: { fields: { type: Type.ARRAY, items: { type: Type.STRING } } },
-      },
+  const ai = provider || createDefaultProvider(apiKey);
+  const result = await ai.generateStructuredText({
+    prompt: buildSuggestFieldsPrompt({ description, locale }),
+    schema: {
+      type: 'object',
+      properties: { fields: { type: 'array', items: { type: 'string' } } },
     },
   });
-  const result = JSON.parse(response.text || '{}');
   return { fields: normalizeSuggestedFields(result?.fields) };
 };
 
@@ -199,7 +181,7 @@ export const normalizeStoryPrompts = (rawPrompts) => {
 
 export const storyPrompts = async ({
   apiKey,
-  client,
+  provider,
   title,
   collectionContext,
   aiDescription,
@@ -211,24 +193,13 @@ export const storyPrompts = async ({
     error.statusCode = 400;
     throw error;
   }
-  const ai = client || createClient(apiKey);
-  const response = await ai.models.generateContent({
-    model: getGeminiAnalyzeModel(),
-    contents: {
-      parts: [
-        {
-          text: buildStoryPrompt({ title, collectionContext, aiDescription, knownFields, locale }),
-        },
-      ],
-    },
-    config: {
-      responseMimeType: 'application/json',
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: { prompts: { type: Type.ARRAY, items: { type: Type.STRING } } },
-      },
+  const ai = provider || createDefaultProvider(apiKey);
+  const result = await ai.generateStructuredText({
+    prompt: buildStoryPrompt({ title, collectionContext, aiDescription, knownFields, locale }),
+    schema: {
+      type: 'object',
+      properties: { prompts: { type: 'array', items: { type: 'string' } } },
     },
   });
-  const result = JSON.parse(response.text || '{}');
   return { prompts: normalizeStoryPrompts(result?.prompts) };
 };
