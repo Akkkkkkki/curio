@@ -242,7 +242,10 @@ app.post('/api/gemini/enhance', ipLimiter, requireAuth, userLimiter, async (req,
     const parts = response.candidates?.[0]?.content?.parts || [];
     const imagePart = parts.find((part) => part.inlineData?.data);
     if (!imagePart) {
-      return res.status(500).json({ error: 'Enhancement failed - no image generated' });
+      return res.status(500).json({
+        error: 'Enhancement failed - no image generated',
+        details: 'The model did not return an image. Try a different photo.',
+      });
     }
     return res.json({
       enhancedImageBase64: imagePart.inlineData.data,
@@ -251,17 +254,30 @@ app.post('/api/gemini/enhance', ipLimiter, requireAuth, userLimiter, async (req,
   } catch (error) {
     console.error('Image Enhancement Failed:', error);
 
+    let errorMessage = 'Unknown error';
     let statusCode = 500;
     if (error instanceof Error) {
-      if (error.message.includes('API key')) statusCode = 503;
-      else if (error.message.includes('quota') || error.message.includes('rate')) statusCode = 429;
-      else if (error.message.includes('safety') || error.message.includes('blocked'))
-        statusCode = 400;
-      else if (error.message.includes('not found') || error.message.includes('404'))
+      errorMessage = error.message;
+      if (error.message.includes('API key')) {
+        errorMessage = 'Invalid or missing API key';
         statusCode = 503;
+      } else if (error.message.includes('quota') || error.message.includes('rate')) {
+        errorMessage = 'API rate limit exceeded. Please try again later.';
+        statusCode = 429;
+      } else if (error.message.includes('safety') || error.message.includes('blocked')) {
+        errorMessage = 'Image was blocked by safety filters. Try a different photo.';
+        statusCode = 400;
+      } else if (error.message.includes('not found') || error.message.includes('404')) {
+        errorMessage =
+          'Model not available. The image generation model may not be enabled for this API key.';
+        statusCode = 503;
+      }
     }
 
-    return res.status(statusCode).json({ error: 'Image enhancement failed' });
+    return res.status(statusCode).json({
+      error: 'Image enhancement failed',
+      details: errorMessage,
+    });
   }
 });
 
