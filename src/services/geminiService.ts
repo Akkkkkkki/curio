@@ -14,6 +14,41 @@ let aiImageEditEnabledCache: boolean | null = AI_IMAGE_EDIT_ENABLED;
 let aiEnabledPromise: Promise<boolean> | null = null;
 let aiImageEditEnabledPromise: Promise<boolean> | null = null;
 
+/**
+ * Error thrown when an AI proxy request returns a non-OK HTTP status. Carries
+ * the status code so callers can tell a transient failure (retry likely helps)
+ * from a hard one (retrying the same request won't).
+ */
+export class AiRequestError extends Error {
+  readonly status?: number;
+  constructor(message: string, status?: number) {
+    super(message);
+    this.name = 'AiRequestError';
+    this.status = status;
+  }
+}
+
+// 4xx client errors that a plain retry of the same request cannot fix
+// (408 Request Timeout, 425 Too Early, and 429 Too Many Requests are the
+// retryable exceptions and are deliberately absent).
+const HARD_CLIENT_STATUSES = new Set([
+  400, 401, 402, 403, 404, 405, 406, 409, 410, 413, 414, 415, 422,
+]);
+
+/**
+ * Whether a failed AI request is worth retrying. Server (5xx), rate-limit
+ * (429), timeout, and unknown/network failures are treated as transient;
+ * hard client errors (bad/blocked/oversized request) are not.
+ */
+export const isRetryableAiError = (error: unknown): boolean => {
+  if (error instanceof AiRequestError && typeof error.status === 'number') {
+    return !HARD_CLIENT_STATUSES.has(error.status);
+  }
+  // Timeouts, dropped connections, and unclassified failures are usually
+  // transient, so default to offering a retry.
+  return true;
+};
+
 const postJson = async <T>(
   path: string,
   body: unknown,
@@ -46,7 +81,7 @@ const postJson = async <T>(
       const message = errorPayload?.error
         ? `${errorPayload.error}${details}`
         : `AI request failed (${response.status})`;
-      throw new Error(message);
+      throw new AiRequestError(message, response.status);
     }
     return response.json() as Promise<T>;
   } finally {
@@ -117,7 +152,7 @@ export type AnalyzeResult =
       notes: string;
     }
   | { status: 'disabled' }
-  | { status: 'error'; message: string };
+  | { status: 'error'; message: string; retryable: boolean };
 
 export const analyzeImage = async (
   base64Image: string,
@@ -152,6 +187,7 @@ export const analyzeImage = async (
     return {
       status: 'error',
       message: error instanceof Error ? error.message : 'AI analysis failed',
+      retryable: isRetryableAiError(error),
     };
   }
 };
