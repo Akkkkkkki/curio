@@ -27,7 +27,10 @@ export default async function handler(req, res) {
   }
 
   try {
-    const result = await storyPrompts({ apiKey, ...(req.body || {}) });
+    const requestInput = { ...(req.body || {}) };
+    delete requestInput.apiKey;
+    delete requestInput.client;
+    const result = await storyPrompts({ ...requestInput, apiKey });
     return res.status(200).json(result);
   } catch (error) {
     const statusCode = error?.statusCode || 500;
