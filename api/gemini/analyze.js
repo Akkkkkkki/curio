@@ -29,7 +29,10 @@ export default async function handler(req, res) {
   }
 
   try {
-    const result = await analyzeItem({ apiKey, ...(req.body || {}) });
+    const requestInput = { ...(req.body || {}) };
+    delete requestInput.apiKey;
+    delete requestInput.client;
+    const result = await analyzeItem({ ...requestInput, apiKey });
     return res.status(200).json(result);
   } catch (error) {
     const statusCode = error?.statusCode || 500;
