@@ -106,6 +106,20 @@ describe('seedCollections.ts — buildSeedRepairs (CUR-143)', () => {
     );
   });
 
+  it('replaces a historical code-defined sample photo during a forced upgrade', () => {
+    // A future seed version may remove an older sample asset from
+    // INITIAL_COLLECTIONS. It is still code-owned, not an admin customization.
+    const historicalSeedPhoto = '/assets/sample-vinyl-retired.jpg';
+    const items = masterSeed.items.map((item, index) => ({
+      ...item,
+      photoUrl: index === 1 ? historicalSeedPhoto : item.photoUrl,
+    }));
+
+    const repairs = buildSeedRepairs([healthyCloudSeed({ items })], ADMIN_ID, { force: true });
+    expect(repairs).toHaveLength(1);
+    expect(repairs[0].items[1].photoUrl).toBe(masterSeed.items[1].photoUrl);
+  });
+
   it('preserves curator-added items when repairing', () => {
     const curatorItem: CollectionItem = {
       id: 'curator-pick-1',
