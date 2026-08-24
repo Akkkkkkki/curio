@@ -589,6 +589,56 @@ describe('Phase 2.2 — services/db.ts dual-write operations', () => {
     consoleError.mockRestore();
   });
 
+  it('saveCollection: removes stale cloud metadata if collection is deleted mid-upsert', async () => {
+    let releaseUpsert!: () => void;
+    const upsertReleased = new Promise<{ error: null }>((resolve) => {
+      releaseUpsert = () => resolve({ error: null });
+    });
+    let markUpsertStarted!: () => void;
+    const upsertStarted = new Promise<void>((resolve) => {
+      markUpsertStarted = resolve;
+    });
+
+    const { supabase, collectionsUpsert, itemsDelete } = createSupabaseMock();
+    collectionsUpsert.mockImplementation(async () => {
+      markUpsertStarted();
+      return upsertReleased;
+    });
+
+    const dbMod = await importDbModuleFreshWithSupabaseMock(supabase);
+
+    const db = await dbMod.initDB();
+    openDb = db;
+    await clearStores(db, ['collections', 'assets', 'display', 'enhanced', 'settings']);
+
+    const collection: UserCollection = {
+      id: 'col-delete-mid-upsert',
+      templateId: 'vinyl',
+      name: 'Deleted During Upsert',
+      icon: 'D',
+      customFields: [],
+      items: [],
+      ownerId: 'test-user-id',
+      updatedAt: '2026-07-13T00:00:00.000Z',
+    };
+
+    const savePromise = dbMod.saveCollection(collection);
+    await upsertStarted;
+
+    await dbMod.deleteCollection(collection);
+    expect(itemsDelete).toHaveBeenCalledTimes(1);
+    await expect(dbMod.getPendingDeletes()).resolves.toEqual([]);
+
+    releaseUpsert();
+    await savePromise;
+
+    expect(itemsDelete).toHaveBeenCalledTimes(2);
+    await expect(dbMod.getPendingDeletes()).resolves.toEqual([]);
+    await expect(
+      readFromStore<UserCollection>(db, 'collections', collection.id),
+    ).resolves.toBeNull();
+  });
+
   it('saveCollection: invalid collection object (missing id) rejects and does not attempt cloud writes', async () => {
     /**
      * Error case: IndexedDB keyPath is `id`; objects without `id` should fail local persistence,

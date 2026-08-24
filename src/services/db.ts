@@ -1591,6 +1591,22 @@ const getCurrentLocalCollectionForCloudSync = async (
   }
 };
 
+const deleteStaleCloudCollectionUpsert = async (collectionId: string): Promise<void> => {
+  await addToPendingDeletes({
+    type: 'collection',
+    collectionId,
+    createdAt: new Date().toISOString(),
+  });
+
+  const { error } = await supabase!.from('collections').delete().eq('id', collectionId);
+  if (error) {
+    console.warn('Stale collection upsert cleanup failed; queued for retry:', error);
+    return;
+  }
+
+  await removeFromPendingDeletes(collectionId);
+};
+
 // Internal function to sync a collection to cloud (used by both saveCollection and syncPendingChanges)
 // Throws on failure so callers can retain pending syncs for retry
 const saveCollectionToCloud = async (collection: UserCollection): Promise<void> => {
@@ -1652,6 +1668,7 @@ const saveCollectionToCloud = async (collection: UserCollection): Promise<void> 
   const latestLocalCollection = await getCurrentLocalCollectionForCloudSync(collectionForSync.id);
   if (latestLocalCollection === null) {
     // The collection was deleted while the metadata upsert was in flight.
+    await deleteStaleCloudCollectionUpsert(collectionForSync.id);
     return;
   }
   if (latestLocalCollection === undefined) {
@@ -2569,10 +2586,8 @@ export const saveAllCollections = async (collections: UserCollection[]): Promise
       pendingSyncLoaded = true;
       persistSnapshot();
     };
-    pendingRequest.onerror = (event) => {
-      event.preventDefault();
-      pendingSyncLoaded = true;
-      persistSnapshot();
+    pendingRequest.onerror = () => {
+      reject(pendingRequest.error ?? new Error('Pending sync read failed'));
     };
 
     transaction.oncomplete = () => resolve();
