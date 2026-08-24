@@ -163,12 +163,16 @@ describe('services/geminiService.ts - analyzeImage (Phase 3.1)', () => {
       return mod.analyzeImage('BASE64', fields);
     };
 
-    // Server overloaded / rate limited → worth a retry.
+    // Server overloaded / rate limited / request timeout → worth a retry.
     expect(await makeMod(503)).toMatchObject({ status: 'error', retryable: true });
     expect(await makeMod(429)).toMatchObject({ status: 'error', retryable: true });
+    expect(await makeMod(408)).toMatchObject({ status: 'error', retryable: true });
     // Bad / blocked / oversized request → a plain retry won't help.
     expect(await makeMod(422)).toMatchObject({ status: 'error', retryable: false });
     expect(await makeMod(413)).toMatchObject({ status: 'error', retryable: false });
+    // Any other 4xx is hard by default (not just the enumerated ones).
+    expect(await makeMod(451)).toMatchObject({ status: 'error', retryable: false });
+    expect(await makeMod(418)).toMatchObject({ status: 'error', retryable: false });
 
     warnSpy.mockRestore();
   });
