@@ -39,6 +39,8 @@ export default async function handler(req, res) {
       message,
     });
     if (statusCode >= 500) console.error('AI Analysis Failed:', error);
-    return res.status(statusCode).json({ error: statusCode === 400 ? message : 'AI analysis failed' });
+    return res
+      .status(statusCode)
+      .json({ error: statusCode === 400 ? message : 'AI analysis failed' });
   }
 }

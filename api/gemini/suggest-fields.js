@@ -37,6 +37,8 @@ export default async function handler(req, res) {
       message,
     });
     if (statusCode >= 500) console.error('Field suggestion failed:', error);
-    return res.status(statusCode).json({ error: statusCode === 400 ? message : 'Field suggestion failed' });
+    return res
+      .status(statusCode)
+      .json({ error: statusCode === 400 ? message : 'Field suggestion failed' });
   }
 }

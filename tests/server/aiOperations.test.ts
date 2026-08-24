@@ -33,7 +33,9 @@ describe('shared AI operations', () => {
 
   it('validates analysis input at the shared boundary', () => {
     expect(validateAnalyzeInput({ imageBase64: '', fields: [] })).toBe('imageBase64 is empty');
-    expect(validateAnalyzeInput({ imageBase64: 'abc', fields: [{ id: 'year', type: 'text' }] })).toBeNull();
+    expect(
+      validateAnalyzeInput({ imageBase64: 'abc', fields: [{ id: 'year', type: 'text' }] }),
+    ).toBeNull();
   });
 
   it('builds one analysis prompt with collection context and locale', () => {
@@ -47,7 +49,11 @@ describe('shared AI operations', () => {
   });
 
   it('normalizes analysis output consistently', async () => {
-    const client = fakeClient({ title: 'Leica M6', aiDescription: 'Black rangefinder.', year: 1984 });
+    const client = fakeClient({
+      title: 'Leica M6',
+      aiDescription: 'Black rangefinder.',
+      year: 1984,
+    });
     const result = await analyzeItem({
       apiKey: 'unused',
       client,
@@ -82,12 +88,13 @@ describe('shared AI operations', () => {
     });
     expect(prompt).toContain('Blue mug');
     expect(prompt).toContain('Studio A');
-    expect(normalizeStoryPrompts(['Why this mug?', 'Why this mug?', 'Where did you find it?'])).toEqual([
-      'Why this mug?',
-      'Where did you find it?',
-    ]);
+    expect(
+      normalizeStoryPrompts(['Why this mug?', 'Why this mug?', 'Where did you find it?']),
+    ).toEqual(['Why this mug?', 'Where did you find it?']);
 
-    const client = fakeClient({ prompts: ['Why this mug?', 'Who made it?', 'When did it arrive?'] });
+    const client = fakeClient({
+      prompts: ['Why this mug?', 'Who made it?', 'When did it arrive?'],
+    });
     await expect(
       storyPrompts({ apiKey: 'unused', client, title: 'Blue mug', locale: 'en' }),
     ).resolves.toEqual({ prompts: ['Why this mug?', 'Who made it?', 'When did it arrive?'] });
@@ -95,7 +102,9 @@ describe('shared AI operations', () => {
 
   it('rejects invalid shared operation inputs without invoking a provider', async () => {
     const client = fakeClient({});
-    await expect(suggestFields({ apiKey: 'unused', client, description: '' })).rejects.toMatchObject({
+    await expect(
+      suggestFields({ apiKey: 'unused', client, description: '' }),
+    ).rejects.toMatchObject({
       statusCode: 400,
     });
     await expect(storyPrompts({ apiKey: 'unused', client, title: ' ' })).rejects.toMatchObject({

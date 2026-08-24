@@ -111,7 +111,8 @@ const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS || '')
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   if (ALLOWED_ORIGINS.length > 0) {
-    if (origin && ALLOWED_ORIGINS.includes(origin)) res.setHeader('Access-Control-Allow-Origin', origin);
+    if (origin && ALLOWED_ORIGINS.includes(origin))
+      res.setHeader('Access-Control-Allow-Origin', origin);
     else if (origin) return res.status(403).json({ error: 'Origin not allowed' });
   } else if (!isProduction) {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -185,9 +186,27 @@ app.get('/api/health', (_req, res) => {
 app.get('/api/metrics', requireAuth, (_req, res) => {
   res.json({ generatedAt: new Date().toISOString(), routes: summarizeMetrics() });
 });
-app.post('/api/gemini/analyze', ipLimiter, requireAuth, userLimiter, operationHandler(analyzeItem, 'AI analysis failed'));
-app.post('/api/gemini/suggest-fields', ipLimiter, requireAuth, userLimiter, operationHandler(suggestFields, 'Field suggestion failed'));
-app.post('/api/gemini/story-prompts', ipLimiter, requireAuth, userLimiter, operationHandler(storyPrompts, 'Story prompt generation failed'));
+app.post(
+  '/api/gemini/analyze',
+  ipLimiter,
+  requireAuth,
+  userLimiter,
+  operationHandler(analyzeItem, 'AI analysis failed'),
+);
+app.post(
+  '/api/gemini/suggest-fields',
+  ipLimiter,
+  requireAuth,
+  userLimiter,
+  operationHandler(suggestFields, 'Field suggestion failed'),
+);
+app.post(
+  '/api/gemini/story-prompts',
+  ipLimiter,
+  requireAuth,
+  userLimiter,
+  operationHandler(storyPrompts, 'Story prompt generation failed'),
+);
 
 const ENHANCEMENT_PROMPTS = {
   subtle: `Enhance this photo to look cleaner and more presentable while preserving its original character.\n\nRequirements:\n- Preserve the subject's identity, angle, and proportions exactly\n- Do NOT alter, recreate, or modify any text, logos, labels, barcodes, or serial numbers\n- Improve lighting to be more even; reduce harsh shadows and glare\n- Make the background less distracting by reducing visual clutter (do NOT replace the background entirely)\n- Keep colors accurate and natural\n- Do NOT over-process or add artificial effects\n- Maintain the authentic look of the item\n\nThis should look like the same photo, just better lit and cleaner.`,

@@ -1,7 +1,6 @@
 import { GoogleGenAI, Type } from '@google/genai';
 
-export const getGeminiAnalyzeModel = () =>
-  process.env.GEMINI_ANALYZE_MODEL || 'gemini-2.5-flash';
+export const getGeminiAnalyzeModel = () => process.env.GEMINI_ANALYZE_MODEL || 'gemini-2.5-flash';
 
 // Keep the exported value for Vercel request-logging metadata, where env is
 // already populated before module evaluation. Runtime operations deliberately
@@ -72,7 +71,14 @@ const buildAnalysisSchema = (fields) => {
   return { type: Type.OBJECT, properties };
 };
 
-export const analyzeItem = async ({ apiKey, client, imageBase64, fields, collectionContext, locale = 'en' }) => {
+export const analyzeItem = async ({
+  apiKey,
+  client,
+  imageBase64,
+  fields,
+  collectionContext,
+  locale = 'en',
+}) => {
   const validationError = validateAnalyzeInput({ imageBase64, fields });
   if (validationError) {
     const error = new Error(validationError);
@@ -147,7 +153,13 @@ export const suggestFields = async ({ apiKey, client, description, locale = 'en'
   return { fields: normalizeSuggestedFields(result?.fields) };
 };
 
-export const buildStoryPrompt = ({ title, collectionContext, aiDescription, knownFields, locale = 'en' }) => {
+export const buildStoryPrompt = ({
+  title,
+  collectionContext,
+  aiDescription,
+  knownFields,
+  locale = 'en',
+}) => {
   const safeTitle = title.trim();
   const contextLines = [`- Title: "${safeTitle}"`];
   if (collectionContext?.name) contextLines.push(`- Collection: "${collectionContext.name}"`);
@@ -185,7 +197,15 @@ export const normalizeStoryPrompts = (rawPrompts) => {
   return prompts;
 };
 
-export const storyPrompts = async ({ apiKey, client, title, collectionContext, aiDescription, knownFields, locale = 'en' }) => {
+export const storyPrompts = async ({
+  apiKey,
+  client,
+  title,
+  collectionContext,
+  aiDescription,
+  knownFields,
+  locale = 'en',
+}) => {
   if (typeof title !== 'string' || !title.trim()) {
     const error = new Error('Missing title');
     error.statusCode = 400;
@@ -194,7 +214,13 @@ export const storyPrompts = async ({ apiKey, client, title, collectionContext, a
   const ai = client || createClient(apiKey);
   const response = await ai.models.generateContent({
     model: getGeminiAnalyzeModel(),
-    contents: { parts: [{ text: buildStoryPrompt({ title, collectionContext, aiDescription, knownFields, locale }) }] },
+    contents: {
+      parts: [
+        {
+          text: buildStoryPrompt({ title, collectionContext, aiDescription, knownFields, locale }),
+        },
+      ],
+    },
     config: {
       responseMimeType: 'application/json',
       responseSchema: {
