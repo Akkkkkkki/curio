@@ -50,14 +50,18 @@ export const ItemCard: React.FC<ItemCardProps> = React.memo(function ItemCard({
   // The title clamps to two lines. Only mount the full-title reveal when the
   // text is actually clipped — otherwise a short title pops a redundant
   // duplicate over the fields below on every hover/focus (reads as a glitch).
-  // Unlike the single-line collection card, this clamp overflows vertically, so
-  // truncation is measured by height, not width.
+  // The two-line clamp usually overflows vertically (height), but a long
+  // unbroken token (a catalog id or URL) clips horizontally on one line
+  // instead, so check both axes.
   const titleRef = useRef<HTMLHeadingElement>(null);
   const [isTitleTruncated, setIsTitleTruncated] = useState(false);
   useEffect(() => {
     const el = titleRef.current;
     if (!el) return;
-    const measure = () => setIsTitleTruncated(el.scrollHeight > el.clientHeight + 1);
+    const measure = () =>
+      setIsTitleTruncated(
+        el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1,
+      );
     measure();
     if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(measure);

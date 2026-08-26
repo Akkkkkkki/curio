@@ -488,12 +488,20 @@ describe('ItemCard Component', () => {
       return heading.nextElementSibling as HTMLElement | null;
     };
 
-    // The title clamps to two lines, so truncation overflows vertically: force
-    // the clamped box to report as clipped (or not) via height, not width.
-    const mockTitleTruncation = (truncated: boolean) => {
+    // The two-line clamp can clip either vertically (extra lines) or
+    // horizontally (a long unbroken token on one line), so drive both axes.
+    const mockTitleMetrics = ({ clippedX = false, clippedY = false } = {}) => {
+      Object.defineProperty(HTMLElement.prototype, 'scrollWidth', {
+        configurable: true,
+        get: () => (clippedX ? 500 : 100),
+      });
+      Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
+        configurable: true,
+        get: () => 100,
+      });
       Object.defineProperty(HTMLElement.prototype, 'scrollHeight', {
         configurable: true,
-        get: () => (truncated ? 500 : 40),
+        get: () => (clippedY ? 500 : 40),
       });
       Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
         configurable: true,
@@ -502,12 +510,13 @@ describe('ItemCard Component', () => {
     };
 
     afterEach(() => {
-      delete (HTMLElement.prototype as unknown as Record<string, unknown>).scrollHeight;
-      delete (HTMLElement.prototype as unknown as Record<string, unknown>).clientHeight;
+      for (const prop of ['scrollWidth', 'clientWidth', 'scrollHeight', 'clientHeight']) {
+        delete (HTMLElement.prototype as unknown as Record<string, unknown>)[prop];
+      }
     });
 
     it('does not render the reveal tooltip when the title fits', () => {
-      mockTitleTruncation(false);
+      mockTitleMetrics();
       const item = createMockItem();
 
       renderWithProviders(<ItemCard item={item} fields={mockFields} onClick={vi.fn()} />);
@@ -520,7 +529,7 @@ describe('ItemCard Component', () => {
     });
 
     it('only reveals on hover for hover-capable pointers when truncated (no sticky tap tooltip)', () => {
-      mockTitleTruncation(true);
+      mockTitleMetrics({ clippedY: true });
       const item = createMockItem();
 
       renderWithProviders(<ItemCard item={item} fields={mockFields} onClick={vi.fn()} />);
@@ -533,8 +542,18 @@ describe('ItemCard Component', () => {
       expect(tooltip!.className).not.toContain('group-active:');
     });
 
+    it('reveals when a long unbroken title clips horizontally without extra lines', () => {
+      // A catalog id or URL overflows on one line: height stays put, width grows.
+      mockTitleMetrics({ clippedX: true });
+      const item = createMockItem();
+
+      renderWithProviders(<ItemCard item={item} fields={mockFields} onClick={vi.fn()} />);
+
+      expect(getTooltip()).not.toBeNull();
+    });
+
     it('still reveals on keyboard focus via focus-visible when truncated', () => {
-      mockTitleTruncation(true);
+      mockTitleMetrics({ clippedY: true });
       const item = createMockItem();
 
       renderWithProviders(<ItemCard item={item} fields={mockFields} onClick={vi.fn()} />);
