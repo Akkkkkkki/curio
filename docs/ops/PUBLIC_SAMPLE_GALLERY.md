@@ -6,8 +6,10 @@ tooling; normal users see the gallery read-only.
 
 If you only need the one-line version: the gallery is **code-defined** in
 `src/services/seedCollections.ts`. Edit it, bump `CURRENT_SEED_VERSION`, ship the
-code, then load the app **once while signed in as an admin** — that publishes the
-change to Supabase automatically.
+code, then load the app signed in as an admin **from a browser that already
+carried the previous version** — that publishes the change to Supabase. (A
+brand-new or cleared browser reports seed version `0` and only self-heals
+_structural_ drift, not content edits — see "Seed versioning" below.)
 
 ## How it works
 
@@ -23,12 +25,22 @@ change to Supabase automatically.
   reconciles the cloud copy against the code-defined seed
   (`buildSeedRepairs` → `saveCollection`, in `src/hooks/useCollections.ts` and the
   matching path in `src/App.tsx`). It upserts the seed rows as `is_public: true`.
-  This is self-healing: drift (a row toggled private, a missing item, a stripped
-  photo path) is repaired the next time an admin opens the app. A healthy cloud
-  copy makes the pass a no-op.
-- **Non-admins never write it.** RLS gives everyone public read on `is_public`
-  collections/items but restricts edits to admins, so a visitor or ordinary user
-  can browse the gallery but cannot change it.
+  Two kinds of change behave differently: **structural** drift (a missing
+  collection or item, a row toggled private, a null or superseded photo path) is
+  self-healed on _any_ admin load; **content** edits to an existing item (title,
+  notes, rating, `data` fields, a swapped canonical photo) are only re-pushed when
+  the version gate below opens. A healthy, up-to-date cloud copy makes the pass a
+  no-op.
+- **Only the owner or an admin can write it.** RLS gives everyone public read on
+  `is_public` collections/items, but a write requires either being an admin _or_
+  being the row's `user_id` owner — the policy is
+  `auth.uid() = user_id or (is_public and is_admin)` (`supabase/1_schema.sql`). So
+  a visitor or ordinary signed-in user can browse but not change the gallery. One
+  caveat worth knowing: the admin who first publishes a sample becomes its owner,
+  and the owner branch is independent of `is_admin`, so a former admin who is later
+  demoted keeps DB-level write access to the rows they published. If edits must be
+  strictly admin-only, drop the owner branch from the public rows' update/delete
+  policies.
 
 ### Seed versioning
 
@@ -37,14 +49,19 @@ re-pull your content:
 
 - Each device records the last-applied version in IndexedDB (`seed_version`).
 - Structural drift is always repaired. But a device that already has a **healthy**
-  cloud copy only re-pushes your edited content when its recorded version is lower
-  than `CURRENT_SEED_VERSION`.
+  cloud copy only re-pushes your edited content when it does a _forced_ pass, and
+  the force flag opens only when its recorded version is **greater than 0 and lower
+  than** `CURRENT_SEED_VERSION` (`force: localSeedVersion > 0 && localSeedVersion < CURRENT_SEED_VERSION`).
 - **So: bump `CURRENT_SEED_VERSION` whenever you change seed _content_** (titles,
   notes, ratings, field data, canonical photos). If you skip the bump, admin
   devices that already recorded the current version treat their healthy cloud copy
   as fine and your edit never propagates.
-- A fresh/cleared device reports version `0`, which forces nothing on its own —
-  only a device that recorded an _older_ version forces a content re-push.
+- A fresh or cleared device reports version `0`. Because `0` is not `> 0`, it never
+  forces a content re-push — it only self-heals structural drift. **A content edit
+  therefore publishes only from a browser that recorded the _previous_ version**
+  (typically the same admin browser you published from last time), which after the
+  bump satisfies `0 < recorded < CURRENT_SEED_VERSION`. If you have no such browser,
+  update the affected rows directly in Supabase instead.
 
 ### Admin-curated photos are preserved
 
@@ -91,9 +108,14 @@ as few accounts as possible.
    non-admin/signed-out view. Run `npm test` (the public-assets regression test
    covers the sample images) and `npm run build`.
 5. **Ship the code.** Merge and deploy as usual (Vercel).
-6. **Publish to production.** After the deploy, open the production app **once
-   while signed in as a prod admin**. That load runs the reconciliation and upserts
-   the new seed into the production database as public rows. Reload as a
+6. **Publish to production.** After the deploy, open the production app signed in
+   as a prod admin. For a **content** edit, use a browser profile that already
+   carried the previous seed version (its recorded `seed_version` is now below the
+   new `CURRENT_SEED_VERSION`) — usually the admin browser you published from last
+   time — so the forced pass upserts your change. A **structural** addition (a new
+   collection or item, a restored/broken photo) publishes from any admin load,
+   including a fresh browser. If your only admin browser is fresh and the change is
+   content-only, update the affected rows directly in Supabase. Reload as a
    signed-out visitor to confirm the gallery reflects the update.
 
 ## Local development vs production
@@ -101,18 +123,21 @@ as few accounts as possible.
 The mechanism is identical in both; only the Supabase project and admin account
 differ.
 
-| Step                | Local development                                | Production                                        |
-| ------------------- | ------------------------------------------------ | ------------------------------------------------- |
-| Target database     | Your dev Supabase project (`.env`)               | The production Supabase project                   |
-| Admin account       | An account with `is_admin = true` in the dev DB  | An account with `is_admin = true` in the prod DB  |
-| Trigger the publish | Load `npm run dev` signed in as the dev admin    | Load the deployed app signed in as the prod admin |
-| Verify              | Signed-out browse + `npm test` / `npm run build` | Signed-out browse of the live gallery             |
+| Step                | Local development                                                                              | Production                                                                                         |
+| ------------------- | ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Target database     | Your dev Supabase project (`.env`)                                                             | The production Supabase project                                                                    |
+| Admin account       | An account with `is_admin = true` in the dev DB                                                | An account with `is_admin = true` in the prod DB                                                   |
+| Trigger the publish | Load `npm run dev` as the dev admin (content edits: from a browser carrying the prior version) | Load the deployed app as the prod admin (content edits: from a browser carrying the prior version) |
+| Verify              | Signed-out browse + `npm test` / `npm run build`                                               | Signed-out browse of the live gallery                                                              |
 
 ## Troubleshooting
 
-- **My edit didn't show up in the cloud.** You likely forgot to bump
-  `CURRENT_SEED_VERSION`; a device with a healthy cloud copy and the current
-  version won't re-push content. Bump it, redeploy, and reload as an admin.
+- **My content edit didn't show up in the cloud.** Either you forgot to bump
+  `CURRENT_SEED_VERSION`, or you published from a fresh/cleared browser (recorded
+  version `0`, so the forced content pass never ran). Bump the version, redeploy,
+  and reload as an admin from a browser that carried the previous version — or
+  update the affected rows directly in Supabase. (Structural additions don't need
+  this; they publish from any admin load.)
 - **The gallery went blank / rows disappeared.** An admin load self-heals
   structural drift — sign in as an admin and reload. If it persists, confirm the
   rows are still `is_public = true` and the account's `is_admin` flag is set.
@@ -124,7 +149,7 @@ differ.
 
 - Code: `src/services/seedCollections.ts`, `src/hooks/useCollections.ts`,
   `src/App.tsx`, `src/hooks/useAuthState.ts`
-- Schema/RLS: `supabase/1_schema.sql` (public read + admin edit),
+- Schema/RLS: `supabase/1_schema.sql` (public read + owner/admin edit),
   `supabase/3_profiles.sql` (`is_admin`)
 - Adding a new template that a sample uses: see "Adding a New Collection Template"
   in `CLAUDE.md`
