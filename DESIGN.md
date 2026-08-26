@@ -70,18 +70,20 @@
 
 ### Atelier (Warm)
 
-| Token         | Value                              | Usage                            |
-| ------------- | ---------------------------------- | -------------------------------- |
-| Surface       | `#F5EFE4`                          | Warm cream with yellow undertone |
-| Surface Muted | `#EDE4D3`                          | Parchment mat                    |
-| Text          | `#3D3530`                          | Warm dark brown                  |
-| Text Muted    | `#8C7B6B`                          | Sepia-toned muted text           |
-| Border        | `#D4C9B8`                          | Warm, visible dividers           |
-| Accent        | `#A86F3C`                          | Rich amber-brown (aged leather)  |
-| Accent Hover  | `#8B5A2B`                          | Deeper on hover                  |
-| Frame Accent  | `#6B5344`                          | Aged wood brown                  |
-| Shadow        | `0 2px 12px rgba(168,111,60,0.10)` | Card resting state               |
-| Shadow Hover  | `0 4px 20px rgba(168,111,60,0.14)` | Card hover state                 |
+| Token         | Value                             | Usage                                      |
+| ------------- | --------------------------------- | ------------------------------------------ |
+| Surface       | `#F5EFE4`                         | Warm cream with yellow undertone           |
+| Surface Muted | `#EDE4D3`                         | Parchment mat                              |
+| Text          | `#3D3530`                         | Warm dark brown                            |
+| Text Muted    | `#6F6257`                         | AA-compliant sepia muted text              |
+| Border        | `#D4C9B8`                         | Warm, visible dividers                     |
+| Accent        | `#8B5A2B`                         | Accessible aged-leather brown              |
+| Accent Hover  | `#73481F`                         | Deeper accessible hover state              |
+| Frame Accent  | `#6B5344`                         | Aged wood brown                            |
+| Shadow        | `0 2px 12px rgba(139,90,43,0.10)` | Card resting state                         |
+| Shadow Hover  | `0 4px 20px rgba(139,90,43,0.14)` | Card hover state                           |
+
+Atelier's accent colors are chosen to keep white text above the WCAG AA 4.5:1 threshold. The muted token also clears 4.5:1 against both the cream (`#F5EFE4`) and parchment (`#EDE4D3`) surfaces, so labels, placeholders, badges, and secondary copy can share one system token without per-component overrides.
 
 ### Semantic Colors (shared)
 
@@ -137,6 +139,7 @@ These are intentional choices that differentiate Curio from every competitor:
 
 | Date       | Decision                                            | Rationale                                                                                                                                                                                                                                                      |
 | ---------- | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-08-27 | Tightened Atelier accent and muted tokens for AA    | Preserve the warm leather/sepia character while ensuring small white-on-accent and muted-on-cream text clears WCAG AA without component-specific overrides                                                                                                     |
 | 2026-03-24 | Initial design system created                       | Formalized from existing codebase via /design-consultation. Competitive research: CatalogIt, Libib, Artwork Archive, Rijksmuseum, The Met. Key insight: no personal collection app occupies the space between "utility catalog" and "actual museum experience" |
 | 2026-03-24 | Kept DM Serif Display / Inter / JetBrains Mono trio | Already well-chosen and distinctive. DM Serif Display is underused in app/SaaS space                                                                                                                                                                           |
 | 2026-03-24 | Kept three-theme system (Gallery/Vault/Atelier)     | Core differentiator vs light/dark-only competitors                                                                                                                                                                                                             |
