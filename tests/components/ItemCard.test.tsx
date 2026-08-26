@@ -5,7 +5,7 @@
  * Validates rendering, accessibility, theme support, and interaction behavior.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   renderWithProviders,
   screen,
@@ -485,30 +485,65 @@ describe('ItemCard Component', () => {
   describe('Full-Title Tooltip Reveal', () => {
     const getTooltip = () => {
       const heading = screen.getByRole('heading', { name: 'Abbey Road' });
-      return heading.nextElementSibling as HTMLElement;
+      return heading.nextElementSibling as HTMLElement | null;
     };
 
-    it('only reveals on hover for hover-capable pointers (no sticky tap tooltip)', () => {
-      const item = createMockItem();
+    // The title clamps to two lines, so truncation overflows vertically: force
+    // the clamped box to report as clipped (or not) via height, not width.
+    const mockTitleTruncation = (truncated: boolean) => {
+      Object.defineProperty(HTMLElement.prototype, 'scrollHeight', {
+        configurable: true,
+        get: () => (truncated ? 500 : 40),
+      });
+      Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
+        configurable: true,
+        get: () => 40,
+      });
+    };
 
-      renderWithProviders(<ItemCard item={item} fields={mockFields} onClick={vi.fn()} />);
-
-      const tooltip = getTooltip();
-      expect(tooltip.className).toContain('[@media(hover:hover)]:group-hover:opacity-100');
-      // Bare group-hover / group-active reveals stick open after tap on touch devices
-      expect(tooltip.className).not.toMatch(/(^|\s)group-hover:/);
-      expect(tooltip.className).not.toContain('group-active:');
+    afterEach(() => {
+      delete (HTMLElement.prototype as unknown as Record<string, unknown>).scrollHeight;
+      delete (HTMLElement.prototype as unknown as Record<string, unknown>).clientHeight;
     });
 
-    it('still reveals on keyboard focus via focus-visible', () => {
+    it('does not render the reveal tooltip when the title fits', () => {
+      mockTitleTruncation(false);
+      const item = createMockItem();
+
+      renderWithProviders(<ItemCard item={item} fields={mockFields} onClick={vi.fn()} />);
+
+      // No duplicate title pill popping over the fields for untruncated titles.
+      expect(getTooltip()).toBeNull();
+      // The native affordance still exposes the full title.
+      const heading = screen.getByRole('heading', { name: 'Abbey Road' });
+      expect(heading).toHaveAttribute('title', 'Abbey Road');
+    });
+
+    it('only reveals on hover for hover-capable pointers when truncated (no sticky tap tooltip)', () => {
+      mockTitleTruncation(true);
       const item = createMockItem();
 
       renderWithProviders(<ItemCard item={item} fields={mockFields} onClick={vi.fn()} />);
 
       const tooltip = getTooltip();
-      expect(tooltip.className).toContain('group-focus-visible:opacity-100');
+      expect(tooltip).not.toBeNull();
+      expect(tooltip!.className).toContain('[@media(hover:hover)]:group-hover:opacity-100');
+      // Bare group-hover / group-active reveals stick open after tap on touch devices
+      expect(tooltip!.className).not.toMatch(/(^|\s)group-hover:/);
+      expect(tooltip!.className).not.toContain('group-active:');
+    });
+
+    it('still reveals on keyboard focus via focus-visible when truncated', () => {
+      mockTitleTruncation(true);
+      const item = createMockItem();
+
+      renderWithProviders(<ItemCard item={item} fields={mockFields} onClick={vi.fn()} />);
+
+      const tooltip = getTooltip();
+      expect(tooltip).not.toBeNull();
+      expect(tooltip!.className).toContain('group-focus-visible:opacity-100');
       // Plain focus-within would also match tap-focus (e.g. bulk-select taps)
-      expect(tooltip.className).not.toContain('group-focus-within:');
+      expect(tooltip!.className).not.toContain('group-focus-within:');
     });
   });
 });
