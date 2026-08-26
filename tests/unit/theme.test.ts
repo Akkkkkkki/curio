@@ -15,6 +15,25 @@ import {
   inputClasses,
 } from '@/theme';
 
+const relativeLuminance = (hex: string) => {
+  const channels = hex
+    .replace('#', '')
+    .match(/.{2}/g)!
+    .map((channel) => parseInt(channel, 16) / 255)
+    .map((value) =>
+      value <= 0.04045 ? value / 12.92 : Math.pow((value + 0.055) / 1.055, 2.4),
+    );
+  return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+};
+
+const contrastRatio = (foreground: string, background: string) => {
+  const a = relativeLuminance(foreground);
+  const b = relativeLuminance(background);
+  const lighter = Math.max(a, b);
+  const darker = Math.min(a, b);
+  return (lighter + 0.05) / (darker + 0.05);
+};
+
 describe('Theme Utilities', () => {
   describe('typographyClasses', () => {
     it('has title classes', () => {
@@ -74,7 +93,16 @@ describe('Theme Utilities', () => {
     it('has atelier theme colors', () => {
       expect(themeColors.atelier.mat).toBe('#EDE4D3');
       expect(themeColors.atelier.frameAccent).toBe('#6B5344');
-      expect(themeColors.atelier.accent).toBe('#A86F3C');
+      expect(themeColors.atelier.accent).toBe('#8B5A2B');
+      expect(themeColors.atelier.accentHover).toBe('#73481F');
+      expect(themeColors.atelier.textMuted).toBe('#6F6257');
+    });
+
+    it('keeps Atelier text and accent combinations at WCAG AA contrast', () => {
+      expect(contrastRatio('#FFFFFF', themeColors.atelier.accent)).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio('#FFFFFF', themeColors.atelier.accentHover)).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(themeColors.atelier.textMuted, themeColors.atelier.surface)).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(themeColors.atelier.textMuted, themeColors.atelier.surfaceMuted)).toBeGreaterThanOrEqual(4.5);
     });
   });
 
@@ -88,18 +116,13 @@ describe('Theme Utilities', () => {
     it('uses appropriate colors per theme', () => {
       expect(labelColorClasses.gallery).toContain('text-stone');
       expect(labelColorClasses.vault).toContain('text-stone');
-      expect(labelColorClasses.atelier).toContain('text-[#8C7B6B]');
+      expect(labelColorClasses.atelier).toContain('text-[#6F6257]');
     });
 
-    // stone-500 (#78716c) fails WCAG AA on the Vault stone-900 surface
-    // (~3.77:1); DESIGN.md sets Vault textMuted to stone-400 (#A8A29E).
     it('keeps Vault labels at or above stone-400 contrast', () => {
       expect(labelColorClasses.vault).toBe('text-stone-400');
     });
 
-    // stone-400 (#A8A29E) only reaches ~2.4:1 on the Gallery light surface and
-    // fails WCAG AA; DESIGN.md's Gallery "Text Muted" token is stone-500
-    // (#78716C, ~4.8:1). Regression guard for #423.
     it('uses AA-compliant stone-500 for Gallery labels', () => {
       expect(labelColorClasses.gallery).toBe('text-stone-500');
     });
@@ -163,7 +186,7 @@ describe('Theme Utilities', () => {
     it('uses amber/brass colors', () => {
       expect(ratingColorClasses.gallery).toContain('amber');
       expect(ratingColorClasses.vault).toContain('#D4A574');
-      expect(ratingColorClasses.atelier).toContain('#A86F3C');
+      expect(ratingColorClasses.atelier).toContain('#8B5A2B');
     });
   });
 
@@ -202,16 +225,11 @@ describe('Theme Utilities', () => {
       expect(accentLabelColorClasses.atelier).toBeDefined();
     });
 
-    // The interactive accent amber-600 (~3.05:1 on white) fails WCAG AA as
-    // static label text; eyebrow labels use amber-700 (#B45309, ~4.6:1), which
-    // DESIGN.md already defines as "Accent Hover". Regression guard for #423.
     it('uses the AA-compliant darker accent for Gallery label text', () => {
       expect(accentLabelColorClasses.gallery).toBe('text-amber-700');
       expect(accentLabelColorClasses.gallery).not.toContain('amber-600');
     });
 
-    // Label text is static, so no hover state is needed (unlike the
-    // interactive accentColorClasses).
     it('does not carry a hover state', () => {
       expect(accentLabelColorClasses.gallery).not.toContain('hover:');
       expect(accentLabelColorClasses.vault).not.toContain('hover:');
@@ -265,9 +283,12 @@ describe('Theme Utilities', () => {
       expect(inputClasses.atelier).toContain('placeholder:');
     });
 
-    // Mirrors labelColorClasses contrast guarantee — see comment above.
     it('uses stone-400 placeholders on Vault for WCAG AA contrast', () => {
       expect(inputClasses.vault).toContain('placeholder:text-stone-400');
+    });
+
+    it('uses the AA-compliant Atelier muted token for placeholders', () => {
+      expect(inputClasses.atelier).toContain('placeholder:text-[#6F6257]');
     });
   });
 });
