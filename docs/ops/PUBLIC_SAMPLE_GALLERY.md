@@ -38,12 +38,10 @@ _structural_ drift, not content edits — see "Seed versioning" below.)
   a visitor or ordinary signed-in user can browse but not change the gallery. One
   caveat worth knowing: the admin who first publishes a sample becomes its owner,
   and the owner branch is independent of `is_admin`, so a former admin who is later
-  demoted keeps DB-level write access to the rows they published. Making this
-  strictly admin-only is a policy change beyond this guide's scope: the owner
-  (`auth.uid() = user_id`) branch appears in the **insert, update, and delete**
-  policies for `collections`, `items`, and `item_images` in
-  `supabase/1_schema.sql`, so all of them (not just update/delete) would need
-  revisiting together.
+  demoted keeps DB-level write access to the rows they published. Closing that gap
+  is an RLS change beyond this guide's scope — it means reviewing the owner
+  (`auth.uid() = user_id`) write branches in `supabase/1_schema.sql`, which is the
+  authoritative definition of who can write.
 
 ### Seed versioning
 
