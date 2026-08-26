@@ -153,41 +153,16 @@ If you previously created tables with UUID `id` columns for collections/items, d
 
 ### Public Sample Collection
 
-Curated sample collections are stored in the same `collections`/`items` tables and marked with `is_public = true`. All users can read them, but only admin users can edit or delete them.
+Curated sample collections live in the same `collections`/`items` tables
+(`is_public = true`), defined in code at `src/services/seedCollections.ts` with
+images served from `public/assets/`. Everyone can read them; writes are limited to
+admins and the row owner.
 
-To promote an admin account:
-
-```sql
-update public.profiles set is_admin = true where id = 'YOUR_USER_UUID';
-```
-
-Notes:
-
-- Public samples should use local image assets (e.g., `public/assets/...`) rather than private storage paths.
-- The admin account can seed the public sample by signing in on a clean database and saving the sample collection.
-
-### Seed Data Structure (Sample Content)
-
-Seed data is the default sample content every new user sees. In this project it is defined in
-`src/services/seedCollections.ts` and used by `App.tsx` to populate the sample collection when the database
-is empty and the current user is an admin.
-
-Why this structure:
-
-- Keeps sample content in a single, predictable file (easier to maintain than inline data in `App.tsx`).
-- Keeps sample images local so they load without Supabase storage policies or public buckets.
-
-#### Rules for Sample Assets
-
-- Store sample images in `public/assets/`.
-- Use stable, descriptive filenames (e.g., `sample-vinyl.jpg`, `sample-camera.jpg`).
-- Prefer `.jpg` for consistent compression and load performance.
-- Reference paths as `assets/<filename>` in seed data (`photoUrl` fields).
-
-To add new sample items:
-
-1. Add the image file to `public/assets/`.
-2. Add or update the item entry in `src/services/seedCollections.ts` with `photoUrl: 'assets/<filename>'`.
+The full admin workflow — the code-defined seed and `CURRENT_SEED_VERSION`, how an
+admin publishes changes to Supabase (reconciled on every admin load, not just a
+clean database), the sample-asset rules, and how to grant admin — is the single
+source of truth in
+**[`docs/ops/PUBLIC_SAMPLE_GALLERY.md`](docs/ops/PUBLIC_SAMPLE_GALLERY.md)**.
 
 ## Notes
 
