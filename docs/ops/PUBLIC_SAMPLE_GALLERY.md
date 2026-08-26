@@ -38,9 +38,12 @@ _structural_ drift, not content edits — see "Seed versioning" below.)
   a visitor or ordinary signed-in user can browse but not change the gallery. One
   caveat worth knowing: the admin who first publishes a sample becomes its owner,
   and the owner branch is independent of `is_admin`, so a former admin who is later
-  demoted keeps DB-level write access to the rows they published. If edits must be
-  strictly admin-only, drop the owner branch from the public rows' update/delete
-  policies.
+  demoted keeps DB-level write access to the rows they published. Making this
+  strictly admin-only is a policy change beyond this guide's scope: the owner
+  (`auth.uid() = user_id`) branch appears in the **insert, update, and delete**
+  policies for `collections`, `items`, and `item_images` in
+  `supabase/1_schema.sql`, so all of them (not just update/delete) would need
+  revisiting together.
 
 ### Seed versioning
 
@@ -98,7 +101,11 @@ as few accounts as possible.
    them with `sampleAsset('your-file.jpg')`. For the Vinyl Vault artwork, the
    still-lifes are generated, not hand-shot — re-render them with
    `node scripts/generate-sample-vinyl.mjs` (guarded by
-   `tests/unit/publicAssets.regression.test.ts`).
+   `tests/unit/publicAssets.regression.test.ts`). Note: `public/sw.js` caches
+   `/assets/` **stale-while-revalidate**, so re-rendering an image under the _same_
+   filename shows the old art on a returning visitor's first load (it refreshes in
+   the background). If you need the change to be visible immediately, give the new
+   artwork a new filename, or verify with a hard reload / fresh browser.
 3. **Bump the version.** Increment `CURRENT_SEED_VERSION` by one whenever step 1 or
    2 changed content. (You can skip the bump only for a pure code refactor that
    leaves the rendered seed identical.)
@@ -115,8 +122,10 @@ as few accounts as possible.
    time — so the forced pass upserts your change. A **structural** addition (a new
    collection or item, a restored/broken photo) publishes from any admin load,
    including a fresh browser. If your only admin browser is fresh and the change is
-   content-only, update the affected rows directly in Supabase. Reload as a
-   signed-out visitor to confirm the gallery reflects the update.
+   content-only, update the affected rows directly in Supabase. Confirm as a
+   signed-out visitor — hard-reload (or use a fresh browser) if you changed an
+   image under an existing filename, since the service worker serves it
+   stale-while-revalidate.
 
 ## Local development vs production
 
