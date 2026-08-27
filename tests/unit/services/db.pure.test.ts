@@ -580,6 +580,13 @@ describe('db.ts - Pure Functions', () => {
       expect(blob?.size).toBe(11);
     });
 
+    it('encodes non-ASCII percent-encoded text as UTF-8 (not truncated)', () => {
+      // %E2%9C%93 is U+2713 CHECK MARK — three UTF-8 bytes, not one.
+      const blob = dataUrlToBlob('data:text/plain,%E2%9C%93');
+      expect(blob).toBeInstanceOf(Blob);
+      expect(blob?.size).toBe(3);
+    });
+
     it('defaults the MIME type when none is declared', () => {
       const blob = dataUrlToBlob('data:;base64,aGk=');
       expect(blob?.type).toBe('application/octet-stream');

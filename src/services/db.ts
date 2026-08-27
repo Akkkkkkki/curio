@@ -1500,13 +1500,14 @@ export const dataUrlToBlob = (dataUrl: string): Blob | null => {
   try {
     let bytes: Uint8Array;
     if (isBase64) {
+      // atob yields a binary string whose char codes are already bytes (0–255).
       const binary = atob(rawData);
       bytes = new Uint8Array(binary.length);
       for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
     } else {
-      const decoded = decodeURIComponent(rawData);
-      bytes = new Uint8Array(decoded.length);
-      for (let i = 0; i < decoded.length; i++) bytes[i] = decoded.charCodeAt(i);
+      // Percent-decoded text may hold non-ASCII characters; encode it as UTF-8
+      // so multi-byte code points aren't truncated into a single byte.
+      bytes = new TextEncoder().encode(decodeURIComponent(rawData));
     }
     return new Blob([bytes], { type: mimeType });
   } catch {
