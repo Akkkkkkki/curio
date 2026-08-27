@@ -289,6 +289,81 @@ describe('Phase 2.2 — services/db.ts dual-write operations', () => {
     expect(itemsPayload[0].updated_at).toBeDefined();
   });
 
+  it('saveCollection: never upserts a data: URL into item photo columns (issue #369)', async () => {
+    /**
+     * Regression guard for #369: an item whose photoUrl is still a raw base64
+     * data URL at sync time must NOT bloat the item row. The inline image is
+     * moved onto the Storage-backed asset track — bytes stashed locally, an
+     * upload queued, and canonical Storage paths written to the row instead.
+     */
+    const { supabase, itemsUpsert } = createSupabaseMock();
+    const dbMod = await importDbModuleFreshWithSupabaseMock(supabase);
+
+    const db = await dbMod.initDB();
+    openDb = db;
+    await clearStores(db, ['collections', 'assets', 'display', 'settings']);
+
+    // A valid base64 payload (length is a multiple of 4). The point is only
+    // that photoUrl is a data URL; its exact bytes don't matter.
+    const dataUrl = `data:image/jpeg;base64,${'AAAA'.repeat(20)}`;
+
+    const item: CollectionItem = {
+      id: 'item-1',
+      collectionId: 'col-1',
+      photoUrl: dataUrl,
+      title: 'Inline photo item',
+      rating: 4,
+      data: {},
+      createdAt: new Date('2024-01-01T00:00:00Z').toISOString(),
+      updatedAt: new Date('2024-01-02T00:00:00Z').toISOString(),
+      notes: '',
+    };
+
+    const collection: UserCollection = {
+      id: 'col-1',
+      templateId: 'vinyl',
+      name: 'My Collection',
+      icon: '🎵',
+      customFields: [],
+      items: [item],
+      ownerId: 'test-user-id',
+      updatedAt: new Date('2024-01-03T00:00:00Z').toISOString(),
+    };
+
+    await expect(dbMod.saveCollection(collection)).resolves.toBeUndefined();
+
+    // The upserted row carries canonical Storage paths, never the data URL.
+    const [itemsPayload] = itemsUpsert.mock.calls[0];
+    expect(itemsPayload[0].photo_original_path).toBe(
+      'test-user-id/collections/col-1/item-1/original.jpg',
+    );
+    expect(itemsPayload[0].photo_display_path).toBe(
+      'test-user-id/collections/col-1/item-1/display.jpg',
+    );
+    expect(JSON.stringify(itemsPayload[0])).not.toContain('data:image');
+
+    // The bytes were stashed in the local asset caches so the photo still
+    // renders and can be uploaded later.
+    const originalBlob = await readFromStore<Blob>(db, 'assets', 'item-1');
+    const displayBlob = await readFromStore<Blob>(db, 'display', 'item-1');
+    expect(originalBlob).toBeTruthy();
+    expect(displayBlob).toBeTruthy();
+    expect(originalBlob?.type).toBe('image/jpeg');
+    expect(displayBlob?.type).toBe('image/jpeg');
+
+    // And an upload was queued for retry.
+    const pendingUploads = await readFromStore<Array<{ collectionId: string; itemId: string }>>(
+      db,
+      'settings',
+      'pending_asset_uploads',
+    );
+    expect(pendingUploads).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ collectionId: 'col-1', itemId: 'item-1' }),
+      ]),
+    );
+  });
+
   it('saveCollection: cloud failure does not rollback local save (eventual consistency)', async () => {
     /**
      * Roadmap expectation: if cloud fails, local succeeds; callers get eventual consistency.

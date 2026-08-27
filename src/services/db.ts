@@ -1479,6 +1479,50 @@ export const normalizePhotoPaths = (photoUrl: string) => {
   return { originalPath: normalizedUrl, displayPath: normalizedUrl };
 };
 
+// A `data:`/`blob:` photoUrl is a raw image payload that never made it onto the
+// Storage-backed asset track. It must never be upserted into `photo_*_path`
+// columns, which are contracted to hold short Storage paths (issue #369).
+export const isInlinePhotoUrl = (photoUrl: string): boolean =>
+  photoUrl.startsWith('data:') || photoUrl.startsWith('blob:');
+
+// Decode a `data:` URL into a Blob so it can be moved into Storage. Returns null
+// for `blob:` URLs (their object is not resolvable at sync time) and for
+// malformed input, so callers fall back to storing null rather than a payload.
+export const dataUrlToBlob = (dataUrl: string): Blob | null => {
+  const match = /^data:([^;,]*?)(;base64)?,([\s\S]*)$/.exec(dataUrl);
+  if (!match) return null;
+  const mimeType = match[1] || 'application/octet-stream';
+  const isBase64 = Boolean(match[2]);
+  const rawData = match[3];
+  try {
+    let bytes: Uint8Array;
+    if (isBase64) {
+      const binary = atob(rawData);
+      bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    } else {
+      const decoded = decodeURIComponent(rawData);
+      bytes = new Uint8Array(decoded.length);
+      for (let i = 0; i < decoded.length; i++) bytes[i] = decoded.charCodeAt(i);
+    }
+    return new Blob([bytes], { type: mimeType });
+  } catch {
+    return null;
+  }
+};
+
+// Persist image variants into the local IndexedDB asset caches (no cloud write).
+const persistAssetToStores = async (id: string, original: Blob, display: Blob): Promise<void> => {
+  const db = await initDB();
+  await new Promise<void>((resolve, reject) => {
+    const transaction = db.transaction([ASSETS_STORE, DISPLAY_STORE], 'readwrite');
+    transaction.objectStore(ASSETS_STORE).put(original, id);
+    transaction.objectStore(DISPLAY_STORE).put(display, id);
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+  });
+};
+
 const mapCloudCollections = (cols: any[], items: any[]): UserCollection[] => {
   return cols.map((c) => {
     const colItems: CollectionItem[] = (items || [])
@@ -1696,12 +1740,46 @@ const saveCollectionToCloud = async (collection: UserCollection): Promise<void> 
 
   // Sync Items
   if (itemsForSync.length > 0) {
-    const itemsToSync = itemsForSync.map((item) => {
+    const itemsToSync: Record<string, any>[] = [];
+    for (const item of itemsForSync) {
       const basePath = `${user.id}/collections/${latestCollectionForItems.id}/${item.id}`;
-      const { originalPath, displayPath } = normalizePhotoPaths(item.photoUrl || '');
-      const photoOriginalPath =
-        item.photoUrl === 'asset' ? `${basePath}/original.jpg` : originalPath;
-      const photoDisplayPath = item.photoUrl === 'asset' ? `${basePath}/display.jpg` : displayPath;
+      const photoUrl = item.photoUrl || '';
+
+      let photoOriginalPath: string | null;
+      let photoDisplayPath: string | null;
+
+      if (photoUrl === 'asset') {
+        photoOriginalPath = `${basePath}/original.jpg`;
+        photoDisplayPath = `${basePath}/display.jpg`;
+      } else if (isInlinePhotoUrl(photoUrl)) {
+        // Never upsert a multi-megabyte data:/blob: payload into the item row
+        // (issue #369). Move the inline image onto the Storage-backed asset
+        // track instead: stash the bytes in the local caches, queue an upload,
+        // and record the canonical Storage paths. If the bytes can't be
+        // recovered, store null rather than the blob and leave the local photo
+        // untouched so it still renders and can be retried.
+        const blob = dataUrlToBlob(photoUrl);
+        if (blob) {
+          try {
+            await persistAssetToStores(item.id, blob, blob);
+            await addToPendingAssetUploads(latestCollectionForItems.id, item.id);
+            photoOriginalPath = `${basePath}/original.jpg`;
+            photoDisplayPath = `${basePath}/display.jpg`;
+          } catch (e) {
+            console.warn(`Failed to migrate inline photo for item ${item.id}:`, e);
+            photoOriginalPath = null;
+            photoDisplayPath = null;
+          }
+        } else {
+          photoOriginalPath = null;
+          photoDisplayPath = null;
+        }
+      } else {
+        const { originalPath, displayPath } = normalizePhotoPaths(photoUrl);
+        photoOriginalPath = originalPath;
+        photoDisplayPath = displayPath;
+      }
+
       const photoEnhancedPath = normalizeStoragePath(item.photoEnhancedPath) || null;
       const payload: Record<string, any> = {
         id: item.id,
@@ -1720,8 +1798,8 @@ const saveCollectionToCloud = async (collection: UserCollection): Promise<void> 
         payload.created_at = item.createdAt;
         payload.updated_at = item.updatedAt || item.createdAt;
       }
-      return payload;
-    });
+      itemsToSync.push(payload);
+    }
 
     const { error: itemsError } = await supabase.from('items').upsert(itemsToSync);
 
@@ -1866,16 +1944,8 @@ export const saveAsset = async (
   original: Blob,
   display: Blob,
 ): Promise<void> => {
-  const db = await initDB();
-
   // Save to Local
-  await new Promise<void>((resolve, reject) => {
-    const transaction = db.transaction([ASSETS_STORE, DISPLAY_STORE], 'readwrite');
-    transaction.objectStore(ASSETS_STORE).put(original, id);
-    transaction.objectStore(DISPLAY_STORE).put(display, id);
-    transaction.oncomplete = () => resolve();
-    transaction.onerror = () => reject(transaction.error);
-  });
+  await persistAssetToStores(id, original, display);
 
   // Save to Cloud if available
   if (isSupabaseConfigured() && supabase) {
