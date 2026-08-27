@@ -1482,17 +1482,17 @@ export const normalizePhotoPaths = (photoUrl: string) => {
 // A `data:`/`blob:` photoUrl is a raw image payload that never made it onto the
 // Storage-backed asset track. It must never be upserted into `photo_*_path`
 // columns, which are contracted to hold short Storage paths (issue #369).
-export const isInlinePhotoUrl = (photoUrl: string): boolean =>
-  photoUrl.startsWith('data:') || photoUrl.startsWith('blob:');
+export const isInlinePhotoUrl = (photoUrl: string): boolean => /^(?:data|blob):/i.test(photoUrl);
 
 // Decode a `data:` URL into a Blob so it can be moved into Storage. Returns null
 // for `blob:` URLs (their object is not resolvable at sync time) and for
 // malformed input, so callers fall back to storing null rather than a payload.
 export const dataUrlToBlob = (dataUrl: string): Blob | null => {
-  // The media-type portion may carry parameters (e.g. `;charset=utf-8`) before
-  // the optional `;base64` marker, so match everything up to the payload comma
-  // rather than stopping at the first `;`.
-  const match = /^data:([^,]*?)(;base64)?,([\s\S]*)$/.exec(dataUrl);
+  // The scheme and `base64` marker are case-insensitive; the media-type portion
+  // may carry parameters (e.g. `;charset=utf-8`) before the optional `;base64`
+  // marker, so match everything up to the payload comma rather than stopping at
+  // the first `;`.
+  const match = /^data:([^,]*?)(;base64)?,([\s\S]*)$/i.exec(dataUrl);
   if (!match) return null;
   const mimeType = match[1] || 'application/octet-stream';
   const isBase64 = Boolean(match[2]);
@@ -1500,8 +1500,10 @@ export const dataUrlToBlob = (dataUrl: string): Blob | null => {
   try {
     let bytes: Uint8Array;
     if (isBase64) {
-      // atob yields a binary string whose char codes are already bytes (0–255).
-      const binary = atob(rawData);
+      // A base64 payload may itself be percent-escaped (e.g. `%3D` for `=`);
+      // decode that first so atob sees the raw base64. atob then yields a binary
+      // string whose char codes are already bytes (0–255).
+      const binary = atob(decodeURIComponent(rawData));
       bytes = new Uint8Array(binary.length);
       for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
     } else {
@@ -1745,6 +1747,7 @@ const saveCollectionToCloud = async (collection: UserCollection): Promise<void> 
   // Sync Items
   if (itemsForSync.length > 0) {
     const itemsToSync: Record<string, any>[] = [];
+    let didAwaitMigration = false;
     for (const item of itemsForSync) {
       const basePath = `${user.id}/collections/${latestCollectionForItems.id}/${item.id}`;
       const photoUrl = item.photoUrl || '';
@@ -1767,6 +1770,7 @@ const saveCollectionToCloud = async (collection: UserCollection): Promise<void> 
         const blob = dataUrlToBlob(photoUrl);
         if (blob) {
           try {
+            didAwaitMigration = true;
             await saveAsset(latestCollectionForItems.id, item.id, blob, blob);
             photoOriginalPath = `${basePath}/original.jpg`;
             photoDisplayPath = `${basePath}/display.jpg`;
@@ -1806,7 +1810,47 @@ const saveCollectionToCloud = async (collection: UserCollection): Promise<void> 
       itemsToSync.push(payload);
     }
 
-    const { error: itemsError } = await supabase.from('items').upsert(itemsToSync);
+    let itemsToUpsert = itemsToSync;
+    if (didAwaitMigration) {
+      // Migrating an inline photo awaits Storage/DB work, widening the window
+      // since the pre-loop delete recheck. Re-read local state now so a delete
+      // (or edit) that landed concurrently isn't clobbered by this now-stale
+      // snapshot — the row must not resurrect an item the user just removed.
+      const collectionAfterMigration = await getCurrentLocalCollectionForCloudSync(
+        latestCollectionForItems.id,
+      );
+      if (collectionAfterMigration === null) {
+        await deleteStaleCloudCollectionUpsert(latestCollectionForItems.id);
+        return;
+      }
+      if (collectionAfterMigration === undefined) {
+        throw new Error('Local collection recheck failed before items upsert');
+      }
+      let deletesAfterMigration: PendingDelete[];
+      try {
+        deletesAfterMigration = await getPendingDeletes();
+      } catch (error) {
+        console.warn('Pending delete recheck failed before items upsert:', error);
+        throw new Error('Pending delete recheck failed before items upsert');
+      }
+      const deletedItemIdsAfter = new Set(
+        deletesAfterMigration
+          .filter(
+            (entry) => entry.type === 'item' && entry.collectionId === collectionAfterMigration.id,
+          )
+          .map((entry) => entry.itemId),
+      );
+      const liveItemIds = new Set(collectionAfterMigration.items.map((entry) => entry.id));
+      itemsToUpsert = itemsToSync.filter(
+        (payload) => liveItemIds.has(payload.id) && !deletedItemIdsAfter.has(payload.id),
+      );
+    }
+
+    if (itemsToUpsert.length === 0) {
+      return;
+    }
+
+    const { error: itemsError } = await supabase.from('items').upsert(itemsToUpsert);
 
     if (itemsError) {
       throw new Error(`Items sync failed: ${itemsError.message}`);

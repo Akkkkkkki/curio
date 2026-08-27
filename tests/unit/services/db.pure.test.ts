@@ -555,6 +555,11 @@ describe('db.ts - Pure Functions', () => {
       expect(isInlinePhotoUrl('blob:http://localhost:3000/abc-123')).toBe(true);
     });
 
+    it('matches the scheme case-insensitively', () => {
+      expect(isInlinePhotoUrl('DATA:image/jpeg;base64,/9j/4AAQ==')).toBe(true);
+      expect(isInlinePhotoUrl('Blob:http://localhost:3000/abc-123')).toBe(true);
+    });
+
     it('does not flag Storage paths, remote URLs, the asset sentinel, or empty', () => {
       expect(isInlinePhotoUrl('user123/collections/col1/item1/display.jpg')).toBe(false);
       expect(isInlinePhotoUrl('https://cdn.example.com/photo.jpg')).toBe(false);
@@ -602,6 +607,19 @@ describe('db.ts - Pure Functions', () => {
       const text = dataUrlToBlob('data:image/svg+xml;charset=utf-8,%3Csvg%3E');
       expect(text).toBeInstanceOf(Blob);
       expect(text?.type).toBe('image/svg+xml;charset=utf-8');
+    });
+
+    it('recognizes the base64 marker case-insensitively', () => {
+      const blob = dataUrlToBlob('data:image/png;BASE64,aGk=');
+      expect(blob).toBeInstanceOf(Blob);
+      expect(blob?.size).toBe(2);
+    });
+
+    it('percent-decodes a base64 payload before decoding it', () => {
+      // "Hello" base64-encoded is "SGVsbG8=", with the "=" percent-escaped.
+      const blob = dataUrlToBlob('data:image/jpeg;base64,SGVsbG8%3D');
+      expect(blob).toBeInstanceOf(Blob);
+      expect(blob?.size).toBe(5);
     });
 
     it('returns null for blob: URLs and malformed input', () => {

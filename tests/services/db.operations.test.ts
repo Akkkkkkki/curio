@@ -358,6 +358,65 @@ describe('Phase 2.2 — services/db.ts dual-write operations', () => {
     expect(uploadedPaths).toContain('test-user-id/collections/col-1/item-1/display.jpg');
   });
 
+  it('saveCollection: a delete landing during inline-photo migration is not resurrected (#369)', async () => {
+    /**
+     * The inline-photo migration awaits a Storage upload, widening the window
+     * between the delete recheck and the items upsert. If the user deletes the
+     * item during that await, the now-stale snapshot must not upsert it back.
+     */
+    const { supabase, itemsUpsert, upload } = createSupabaseMock();
+    const dbMod = await importDbModuleFreshWithSupabaseMock(supabase);
+
+    const db = await dbMod.initDB();
+    openDb = db;
+    await clearStores(db, ['collections', 'assets', 'display', 'settings']);
+
+    // Simulate a concurrent delete: while the migration's Storage upload is in
+    // flight, a tombstone for the item appears in the pending-delete journal.
+    upload.mockImplementation(async () => {
+      window.localStorage.setItem(
+        PENDING_DELETE_JOURNAL_KEY,
+        JSON.stringify([
+          {
+            type: 'item',
+            collectionId: 'col-1',
+            itemId: 'item-1',
+            createdAt: new Date('2024-01-02T00:00:00Z').toISOString(),
+          },
+        ]),
+      );
+      return { data: { path: 'ok' }, error: null };
+    });
+
+    const item: CollectionItem = {
+      id: 'item-1',
+      collectionId: 'col-1',
+      photoUrl: `data:image/jpeg;base64,${'AAAA'.repeat(20)}`,
+      title: 'Inline photo item',
+      rating: 4,
+      data: {},
+      createdAt: new Date('2024-01-01T00:00:00Z').toISOString(),
+      updatedAt: new Date('2024-01-02T00:00:00Z').toISOString(),
+      notes: '',
+    };
+
+    const collection: UserCollection = {
+      id: 'col-1',
+      templateId: 'vinyl',
+      name: 'My Collection',
+      icon: '🎵',
+      customFields: [],
+      items: [item],
+      ownerId: 'test-user-id',
+      updatedAt: new Date('2024-01-03T00:00:00Z').toISOString(),
+    };
+
+    await expect(dbMod.saveCollection(collection)).resolves.toBeUndefined();
+
+    // The item was dropped from the upsert rather than resurrected.
+    expect(itemsUpsert).not.toHaveBeenCalled();
+  });
+
   it('saveCollection: cloud failure does not rollback local save (eventual consistency)', async () => {
     /**
      * Roadmap expectation: if cloud fails, local succeeds; callers get eventual consistency.
