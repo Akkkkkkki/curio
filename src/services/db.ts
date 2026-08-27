@@ -1746,105 +1746,102 @@ const saveCollectionToCloud = async (collection: UserCollection): Promise<void> 
 
   // Sync Items
   if (itemsForSync.length > 0) {
-    const itemsToSync: Record<string, any>[] = [];
-    let didAwaitMigration = false;
+    // Pass 1 — migrate inline photos. A `data:`/`blob:` photoUrl is a raw image
+    // payload that must never be upserted into the item row (issue #369). Move
+    // each onto the Storage-backed asset track via `saveAsset` (which stashes
+    // the bytes locally and uploads them now, queuing only on failure). This is
+    // the only step here that awaits network/DB work.
+    const migratedItemIds: string[] = [];
     for (const item of itemsForSync) {
-      const basePath = `${user.id}/collections/${latestCollectionForItems.id}/${item.id}`;
       const photoUrl = item.photoUrl || '';
-
-      let photoOriginalPath: string | null;
-      let photoDisplayPath: string | null;
-
-      if (photoUrl === 'asset') {
-        photoOriginalPath = `${basePath}/original.jpg`;
-        photoDisplayPath = `${basePath}/display.jpg`;
-      } else if (isInlinePhotoUrl(photoUrl)) {
-        // Never upsert a multi-megabyte data:/blob: payload into the item row
-        // (issue #369). Move the inline image onto the Storage-backed asset
-        // track instead. `saveAsset` mirrors the normal capture path: it stashes
-        // the bytes locally and uploads them to Storage now (queuing for retry
-        // only if that upload fails), so the canonical Storage paths we write
-        // resolve promptly on other devices rather than waiting for the next
-        // reconnect. If the bytes can't be recovered, store null rather than the
-        // blob and leave the local photo untouched so it still renders.
-        const blob = dataUrlToBlob(photoUrl);
-        if (blob) {
-          try {
-            didAwaitMigration = true;
-            await saveAsset(latestCollectionForItems.id, item.id, blob, blob);
-            photoOriginalPath = `${basePath}/original.jpg`;
-            photoDisplayPath = `${basePath}/display.jpg`;
-          } catch (e) {
-            console.warn(`Failed to migrate inline photo for item ${item.id}:`, e);
-            photoOriginalPath = null;
-            photoDisplayPath = null;
-          }
-        } else {
-          photoOriginalPath = null;
-          photoDisplayPath = null;
-        }
-      } else {
-        const { originalPath, displayPath } = normalizePhotoPaths(photoUrl);
-        photoOriginalPath = originalPath;
-        photoDisplayPath = displayPath;
+      if (photoUrl === 'asset' || !isInlinePhotoUrl(photoUrl)) continue;
+      const blob = dataUrlToBlob(photoUrl);
+      if (!blob) continue; // undecodable (e.g. blob:) — handled as a null path below
+      try {
+        await saveAsset(latestCollectionForItems.id, item.id, blob, blob);
+        migratedItemIds.push(item.id);
+      } catch (e) {
+        console.warn(`Failed to migrate inline photo for item ${item.id}:`, e);
       }
-
-      const photoEnhancedPath = normalizeStoragePath(item.photoEnhancedPath) || null;
-      const payload: Record<string, any> = {
-        id: item.id,
-        user_id: user.id,
-        collection_id: latestCollectionForItems.id,
-        title: item.title,
-        notes: item.notes,
-        rating: item.rating,
-        data: item.data,
-        photo_original_path: photoOriginalPath,
-        photo_display_path: photoDisplayPath,
-        photo_enhanced_path: photoEnhancedPath,
-        seed_key: item.seedKey,
-      };
-      if (SUPABASE_SYNC_TIMESTAMPS) {
-        payload.created_at = item.createdAt;
-        payload.updated_at = item.updatedAt || item.createdAt;
-      }
-      itemsToSync.push(payload);
     }
 
-    let itemsToUpsert = itemsToSync;
-    if (didAwaitMigration) {
-      // Migrating an inline photo awaits Storage/DB work, widening the window
-      // since the pre-loop delete recheck. Re-read local state now so a delete
-      // (or edit) that landed concurrently isn't clobbered by this now-stale
-      // snapshot — the row must not resurrect an item the user just removed.
-      const collectionAfterMigration = await getCurrentLocalCollectionForCloudSync(
-        latestCollectionForItems.id,
-      );
-      if (collectionAfterMigration === null) {
+    const migratedIdSet = new Set(migratedItemIds);
+
+    // Re-read local state after the awaited migration so a delete or edit that
+    // landed concurrently is respected rather than clobbered by a stale
+    // snapshot. Skip the extra read when nothing was migrated (no await
+    // happened, so the pre-loop snapshot is still fresh).
+    let collectionForUpsert = latestCollectionForItems;
+    let deletesForUpsert = pendingDeletes;
+    if (migratedItemIds.length > 0) {
+      const rechecked = await getCurrentLocalCollectionForCloudSync(latestCollectionForItems.id);
+      if (rechecked === null) {
         await deleteStaleCloudCollectionUpsert(latestCollectionForItems.id);
         return;
       }
-      if (collectionAfterMigration === undefined) {
+      if (rechecked === undefined) {
         throw new Error('Local collection recheck failed before items upsert');
       }
-      let deletesAfterMigration: PendingDelete[];
+      collectionForUpsert = rechecked;
       try {
-        deletesAfterMigration = await getPendingDeletes();
+        deletesForUpsert = await getPendingDeletes();
       } catch (error) {
         console.warn('Pending delete recheck failed before items upsert:', error);
         throw new Error('Pending delete recheck failed before items upsert');
       }
-      const deletedItemIdsAfter = new Set(
-        deletesAfterMigration
-          .filter(
-            (entry) => entry.type === 'item' && entry.collectionId === collectionAfterMigration.id,
-          )
-          .map((entry) => entry.itemId),
-      );
-      const liveItemIds = new Set(collectionAfterMigration.items.map((entry) => entry.id));
-      itemsToUpsert = itemsToSync.filter(
-        (payload) => liveItemIds.has(payload.id) && !deletedItemIdsAfter.has(payload.id),
-      );
     }
+
+    const deletedItemIds = new Set(
+      deletesForUpsert
+        .filter((entry) => entry.type === 'item' && entry.collectionId === collectionForUpsert.id)
+        .map((entry) => entry.itemId),
+    );
+
+    // Pass 2 — build payloads from the reconciled collection. No awaits here, so
+    // these values can't go stale before the upsert.
+    const itemsToUpsert = collectionForUpsert.items
+      .filter((item) => !deletedItemIds.has(item.id))
+      .map((item) => {
+        const basePath = `${user.id}/collections/${collectionForUpsert.id}/${item.id}`;
+        const photoUrl = item.photoUrl || '';
+
+        let photoOriginalPath: string | null;
+        let photoDisplayPath: string | null;
+        if (photoUrl === 'asset' || migratedIdSet.has(item.id)) {
+          // 'asset' items, and any just migrated onto the asset track, resolve
+          // to the canonical Storage paths.
+          photoOriginalPath = `${basePath}/original.jpg`;
+          photoDisplayPath = `${basePath}/display.jpg`;
+        } else if (isInlinePhotoUrl(photoUrl)) {
+          // Still inline means the migration above couldn't recover the bytes;
+          // store null rather than the blob and leave the local photo for retry.
+          photoOriginalPath = null;
+          photoDisplayPath = null;
+        } else {
+          const { originalPath, displayPath } = normalizePhotoPaths(photoUrl);
+          photoOriginalPath = originalPath;
+          photoDisplayPath = displayPath;
+        }
+
+        const payload: Record<string, any> = {
+          id: item.id,
+          user_id: user.id,
+          collection_id: collectionForUpsert.id,
+          title: item.title,
+          notes: item.notes,
+          rating: item.rating,
+          data: item.data,
+          photo_original_path: photoOriginalPath,
+          photo_display_path: photoDisplayPath,
+          photo_enhanced_path: normalizeStoragePath(item.photoEnhancedPath) || null,
+          seed_key: item.seedKey,
+        };
+        if (SUPABASE_SYNC_TIMESTAMPS) {
+          payload.created_at = item.createdAt;
+          payload.updated_at = item.updatedAt || item.createdAt;
+        }
+        return payload;
+      });
 
     if (itemsToUpsert.length === 0) {
       return;

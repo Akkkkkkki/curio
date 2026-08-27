@@ -417,6 +417,72 @@ describe('Phase 2.2 — services/db.ts dual-write operations', () => {
     expect(itemsUpsert).not.toHaveBeenCalled();
   });
 
+  it('saveCollection: an edit during inline-photo migration is upserted, not clobbered (#369)', async () => {
+    /**
+     * The upsert must reflect the item's state after the awaited migration, not
+     * the pre-migration snapshot — otherwise a concurrent edit is lost.
+     */
+    const { supabase, itemsUpsert, upload } = createSupabaseMock();
+    const dbMod = await importDbModuleFreshWithSupabaseMock(supabase);
+
+    const db = await dbMod.initDB();
+    openDb = db;
+    await clearStores(db, ['collections', 'assets', 'display', 'settings']);
+
+    // Simulate a concurrent edit: while the migration's Storage upload is in
+    // flight, the item's title changes in the local IndexedDB collection.
+    upload.mockImplementation(async () => {
+      await new Promise<void>((resolve) => {
+        const tx = db.transaction('collections', 'readwrite');
+        const store = tx.objectStore('collections');
+        const getReq = store.get('col-1');
+        getReq.onsuccess = () => {
+          const stored = getReq.result;
+          if (stored?.items?.[0]) {
+            stored.items[0].title = 'Edited during upload';
+            store.put(stored);
+          }
+        };
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => resolve();
+      });
+      return { data: { path: 'ok' }, error: null };
+    });
+
+    const item: CollectionItem = {
+      id: 'item-1',
+      collectionId: 'col-1',
+      photoUrl: `data:image/jpeg;base64,${'AAAA'.repeat(20)}`,
+      title: 'Original title',
+      rating: 4,
+      data: {},
+      createdAt: new Date('2024-01-01T00:00:00Z').toISOString(),
+      updatedAt: new Date('2024-01-02T00:00:00Z').toISOString(),
+      notes: '',
+    };
+
+    const collection: UserCollection = {
+      id: 'col-1',
+      templateId: 'vinyl',
+      name: 'My Collection',
+      icon: '🎵',
+      customFields: [],
+      items: [item],
+      ownerId: 'test-user-id',
+      updatedAt: new Date('2024-01-03T00:00:00Z').toISOString(),
+    };
+
+    await expect(dbMod.saveCollection(collection)).resolves.toBeUndefined();
+
+    // The upsert carries the edited title and still the migrated Storage path.
+    const [itemsPayload] = itemsUpsert.mock.calls[0];
+    expect(itemsPayload[0].title).toBe('Edited during upload');
+    expect(itemsPayload[0].photo_original_path).toBe(
+      'test-user-id/collections/col-1/item-1/original.jpg',
+    );
+    expect(JSON.stringify(itemsPayload[0])).not.toContain('data:image');
+  });
+
   it('saveCollection: cloud failure does not rollback local save (eventual consistency)', async () => {
     /**
      * Roadmap expectation: if cloud fails, local succeeds; callers get eventual consistency.
