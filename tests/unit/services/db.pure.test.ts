@@ -585,6 +585,18 @@ describe('db.ts - Pure Functions', () => {
       expect(blob?.type).toBe('application/octet-stream');
     });
 
+    it('preserves media-type parameters before the base64 marker', () => {
+      const base64 = dataUrlToBlob('data:image/png;charset=UTF-8;base64,aGk=');
+      expect(base64).toBeInstanceOf(Blob);
+      // The Blob constructor normalizes the type to lowercase per spec.
+      expect(base64?.type).toBe('image/png;charset=utf-8');
+      expect(base64?.size).toBe(2);
+
+      const text = dataUrlToBlob('data:image/svg+xml;charset=utf-8,%3Csvg%3E');
+      expect(text).toBeInstanceOf(Blob);
+      expect(text?.type).toBe('image/svg+xml;charset=utf-8');
+    });
+
     it('returns null for blob: URLs and malformed input', () => {
       expect(dataUrlToBlob('blob:http://localhost:3000/abc-123')).toBeNull();
       expect(dataUrlToBlob('not-a-data-url')).toBeNull();

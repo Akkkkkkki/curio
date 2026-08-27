@@ -296,7 +296,7 @@ describe('Phase 2.2 — services/db.ts dual-write operations', () => {
      * moved onto the Storage-backed asset track — bytes stashed locally, an
      * upload queued, and canonical Storage paths written to the row instead.
      */
-    const { supabase, itemsUpsert } = createSupabaseMock();
+    const { supabase, itemsUpsert, upload } = createSupabaseMock();
     const dbMod = await importDbModuleFreshWithSupabaseMock(supabase);
 
     const db = await dbMod.initDB();
@@ -343,7 +343,7 @@ describe('Phase 2.2 — services/db.ts dual-write operations', () => {
     expect(JSON.stringify(itemsPayload[0])).not.toContain('data:image');
 
     // The bytes were stashed in the local asset caches so the photo still
-    // renders and can be uploaded later.
+    // renders offline.
     const originalBlob = await readFromStore<Blob>(db, 'assets', 'item-1');
     const displayBlob = await readFromStore<Blob>(db, 'display', 'item-1');
     expect(originalBlob).toBeTruthy();
@@ -351,17 +351,11 @@ describe('Phase 2.2 — services/db.ts dual-write operations', () => {
     expect(originalBlob?.type).toBe('image/jpeg');
     expect(displayBlob?.type).toBe('image/jpeg');
 
-    // And an upload was queued for retry.
-    const pendingUploads = await readFromStore<Array<{ collectionId: string; itemId: string }>>(
-      db,
-      'settings',
-      'pending_asset_uploads',
-    );
-    expect(pendingUploads).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ collectionId: 'col-1', itemId: 'item-1' }),
-      ]),
-    );
+    // And the recovered bytes were uploaded to Storage now (not left dangling
+    // until the next reconnect), so the row's paths resolve on other devices.
+    const uploadedPaths = upload.mock.calls.map((call) => call[0]);
+    expect(uploadedPaths).toContain('test-user-id/collections/col-1/item-1/original.jpg');
+    expect(uploadedPaths).toContain('test-user-id/collections/col-1/item-1/display.jpg');
   });
 
   it('saveCollection: cloud failure does not rollback local save (eventual consistency)', async () => {

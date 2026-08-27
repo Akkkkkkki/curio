@@ -1489,7 +1489,10 @@ export const isInlinePhotoUrl = (photoUrl: string): boolean =>
 // for `blob:` URLs (their object is not resolvable at sync time) and for
 // malformed input, so callers fall back to storing null rather than a payload.
 export const dataUrlToBlob = (dataUrl: string): Blob | null => {
-  const match = /^data:([^;,]*?)(;base64)?,([\s\S]*)$/.exec(dataUrl);
+  // The media-type portion may carry parameters (e.g. `;charset=utf-8`) before
+  // the optional `;base64` marker, so match everything up to the payload comma
+  // rather than stopping at the first `;`.
+  const match = /^data:([^,]*?)(;base64)?,([\s\S]*)$/.exec(dataUrl);
   if (!match) return null;
   const mimeType = match[1] || 'application/octet-stream';
   const isBase64 = Boolean(match[2]);
@@ -1754,15 +1757,16 @@ const saveCollectionToCloud = async (collection: UserCollection): Promise<void> 
       } else if (isInlinePhotoUrl(photoUrl)) {
         // Never upsert a multi-megabyte data:/blob: payload into the item row
         // (issue #369). Move the inline image onto the Storage-backed asset
-        // track instead: stash the bytes in the local caches, queue an upload,
-        // and record the canonical Storage paths. If the bytes can't be
-        // recovered, store null rather than the blob and leave the local photo
-        // untouched so it still renders and can be retried.
+        // track instead. `saveAsset` mirrors the normal capture path: it stashes
+        // the bytes locally and uploads them to Storage now (queuing for retry
+        // only if that upload fails), so the canonical Storage paths we write
+        // resolve promptly on other devices rather than waiting for the next
+        // reconnect. If the bytes can't be recovered, store null rather than the
+        // blob and leave the local photo untouched so it still renders.
         const blob = dataUrlToBlob(photoUrl);
         if (blob) {
           try {
-            await persistAssetToStores(item.id, blob, blob);
-            await addToPendingAssetUploads(latestCollectionForItems.id, item.id);
+            await saveAsset(latestCollectionForItems.id, item.id, blob, blob);
             photoOriginalPath = `${basePath}/original.jpg`;
             photoDisplayPath = `${basePath}/display.jpg`;
           } catch (e) {
