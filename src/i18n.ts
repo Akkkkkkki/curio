@@ -245,6 +245,7 @@ export const translations = {
     // New features
     batchMode: 'Rapid-Fire Mode',
     batchModeDesc: 'Process multiple items in a single session.',
+    batchModeHint: "Add several photos at once, then review each one's details.",
     addMore: 'Add More',
     archiveArtifact: 'Save {count} piece',
     archiveArtifacts: 'Save {count} pieces',
@@ -819,6 +820,7 @@ export const translations = {
     // New Features ZH
     batchMode: '连拍录入模式',
     batchModeDesc: '在一次会话中处理多件藏品。',
+    batchModeHint: '一次性添加多张照片，之后逐一确认细节。',
     addMore: '继续添加',
     archiveArtifact: '保存 {count} 件藏品',
     archiveArtifacts: '保存 {count} 件藏品',
