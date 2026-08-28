@@ -1721,10 +1721,45 @@ describe('App Integration Tests', () => {
   const applyRatingFilter = async () => {
     fireEvent.click(screen.getByRole('button', { name: 'Filter Collection' }));
     const dialog = await screen.findByRole('dialog', { name: 'Filter Collection' });
-    const ratingSelect = within(dialog).getByRole('combobox');
+    // The dialog can render several comboboxes (rating plus reserved filters
+    // such as the added-month timeline), so select the rating control by label.
+    const ratingSelect = within(dialog).getByLabelText('Rating');
     fireEvent.change(ratingSelect, { target: { value: '5' } });
     fireEvent.click(within(dialog).getByRole('button', { name: /apply/i }));
   };
+
+  // CUR-24: `__addedMonth` is a reserved filter key rather than a custom field,
+  // so the chip has to localize both halves itself; otherwise the active state
+  // leaks the implementation key and an unlocalized `2026-03` value.
+  it('renders the added-month chip with localized label and month name (CUR-24)', async () => {
+    const { ThemeProvider } = await import('@/theme');
+
+    render(
+      <MemoryRouter initialEntries={['/collection/col1']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Test Collection')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Filter Collection' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Filter Collection' });
+    const monthSelect = within(dialog).getByLabelText('Added on');
+    const monthValue = (within(monthSelect).getAllByRole('option')[1] as HTMLOptionElement).value;
+    fireEvent.change(monthSelect, { target: { value: monthValue } });
+    fireEvent.click(within(dialog).getByRole('button', { name: /apply/i }));
+
+    const chip = await screen.findByTestId('active-filter-chip');
+    expect(chip.textContent).toContain('Added on');
+    expect(chip.textContent).not.toContain('__addedMonth');
+    expect(chip.textContent).not.toContain(monthValue);
+  });
 
   it('renders active filter chips with theme-aware tokens on Vault (CUR-93)', async () => {
     const { ThemeProvider } = await import('@/theme');

@@ -18,6 +18,22 @@ const getAddedMonthKey = (createdAt: string): string | null => {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
 };
 
+// Renders a stable `YYYY-MM` filter value as a localized month name. Returns
+// the raw value unchanged when it is not a month key, so callers can use this
+// for display without pre-validating.
+export function formatAddedMonthLabel(value: string, locale: string): string {
+  const match = /^(\d{4})-(\d{2})$/.exec(value);
+  if (!match) return value;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  if (month < 1 || month > 12) return value;
+  return new Intl.DateTimeFormat(locale, {
+    year: 'numeric',
+    month: 'long',
+    timeZone: 'UTC',
+  }).format(new Date(Date.UTC(year, month - 1, 1)));
+}
+
 export function deriveAddedMonthOptions(
   items: CollectionItem[],
   locale: string,
@@ -28,21 +44,12 @@ export function deriveAddedMonthOptions(
     if (key) keys.add(key);
   }
 
-  const formatter = new Intl.DateTimeFormat(locale, {
-    year: 'numeric',
-    month: 'long',
-    timeZone: 'UTC',
-  });
-
   return Array.from(keys)
     .sort((a, b) => b.localeCompare(a))
-    .map((value) => {
-      const [year, month] = value.split('-').map(Number);
-      return {
-        value,
-        label: formatter.format(new Date(Date.UTC(year, month - 1, 1))),
-      };
-    });
+    .map((value) => ({
+      value,
+      label: formatAddedMonthLabel(value, locale),
+    }));
 }
 
 export function matchesItemFilters(

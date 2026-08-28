@@ -26,7 +26,11 @@ import { DeleteCollectionModal } from './DeleteCollectionModal';
 import { DeleteItemsModal } from './DeleteItemsModal';
 import type { StatusTone } from './StatusToast';
 import { sortCollectionItems, type ItemSort } from '../utils/collectionSorting';
-import { matchesItemFilters } from '../utils/itemFilter';
+import {
+  ADDED_MONTH_FILTER_KEY,
+  formatAddedMonthLabel,
+  matchesItemFilters,
+} from '../utils/itemFilter';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 
 // CUR-93: Active filter chips and the "Clear all" link used to hardcode
@@ -90,7 +94,7 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({
   removeCollection,
   showStatus,
 }) => {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const { theme } = useTheme();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -167,6 +171,17 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({
 
   const getFieldLabel = (fieldId: string) =>
     getFieldTranslation(t, fieldId, collection?.customFields.find((f) => f.id === fieldId)?.label);
+
+  // Reserved filter keys are implementation details, not custom fields, so the
+  // active-filter chip has to translate both halves itself. Without this the
+  // chip would read "__addedMonth · 2026-03" in every language.
+  const getFilterLabel = (key: string) =>
+    key === ADDED_MONTH_FILTER_KEY ? t('addedOn', { date: '' }).trim() : getFieldLabel(key);
+
+  const getFilterValueLabel = (key: string, value: string) =>
+    key === ADDED_MONTH_FILTER_KEY
+      ? formatAddedMonthLabel(value, language === 'zh' ? 'zh-CN' : 'en-US')
+      : value;
 
   const handleRemoveFilter = (key: string) => {
     setActiveFilters((prev) => {
@@ -488,9 +503,9 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({
               onClick={() => handleRemoveFilter(key)}
               title={t('clearFilter')}
             >
-              <span className="font-semibold">{getFieldLabel(key)}</span>
+              <span className="font-semibold">{getFilterLabel(key)}</span>
               <span className={filterChipSeparatorClasses[theme]}>·</span>
-              <span className="font-medium">{value}</span>
+              <span className="font-medium">{getFilterValueLabel(key, value)}</span>
               <X size={14} className={filterChipIconClasses[theme]} />
             </button>
           ))}

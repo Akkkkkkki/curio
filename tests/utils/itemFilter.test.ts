@@ -3,6 +3,7 @@ import {
   ADDED_MONTH_FILTER_KEY,
   deriveAddedMonthOptions,
   deriveSelectOptions,
+  formatAddedMonthLabel,
   matchesItemFilters,
 } from '@/utils/itemFilter';
 import { CollectionItem, FieldDefinition } from '@/types';
@@ -72,12 +73,8 @@ describe('matchesItemFilters', () => {
 
   it('filters by the item created month using a stable UTC year-month key', () => {
     const march = createItem({ createdAt: '2026-03-31T23:30:00.000Z' });
-    expect(
-      matchesItemFilters(march, { [ADDED_MONTH_FILTER_KEY]: '2026-03' }, fields),
-    ).toBe(true);
-    expect(
-      matchesItemFilters(march, { [ADDED_MONTH_FILTER_KEY]: '2026-04' }, fields),
-    ).toBe(false);
+    expect(matchesItemFilters(march, { [ADDED_MONTH_FILTER_KEY]: '2026-03' }, fields)).toBe(true);
+    expect(matchesItemFilters(march, { [ADDED_MONTH_FILTER_KEY]: '2026-04' }, fields)).toBe(false);
   });
 
   it('requires all active filters to match', () => {
@@ -89,11 +86,7 @@ describe('matchesItemFilters', () => {
     expect(matchesItemFilters(item, { genre: 'Jazz', artist: 'davis' }, fields)).toBe(false);
     expect(matchesItemFilters(item, { genre: 'Jazz', artist: 'coltrane' }, fields)).toBe(true);
     expect(
-      matchesItemFilters(
-        item,
-        { genre: 'Jazz', [ADDED_MONTH_FILTER_KEY]: '2026-03' },
-        fields,
-      ),
+      matchesItemFilters(item, { genre: 'Jazz', [ADDED_MONTH_FILTER_KEY]: '2026-03' }, fields),
     ).toBe(true);
   });
 });
@@ -151,5 +144,17 @@ describe('deriveAddedMonthOptions', () => {
     expect(option.value).toBe('2026-03');
     expect(option.label).toContain('2026');
     expect(option.label).toContain('3');
+  });
+});
+
+describe('formatAddedMonthLabel', () => {
+  it('localizes a YYYY-MM filter value for chip display', () => {
+    expect(formatAddedMonthLabel('2026-03', 'en-US')).toBe('March 2026');
+    expect(formatAddedMonthLabel('2026-03', 'zh-CN')).toContain('2026');
+  });
+
+  it('returns the raw value when it is not a month key', () => {
+    expect(formatAddedMonthLabel('5', 'en-US')).toBe('5');
+    expect(formatAddedMonthLabel('2026-13', 'en-US')).toBe('2026-13');
   });
 });
