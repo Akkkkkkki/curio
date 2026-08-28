@@ -625,6 +625,28 @@ describe('services/aiService.ts - per-feature capability gating (CUR-166)', () =
     expect(healthCalls).toHaveLength(1);
   });
 
+  it('serves sequential capability checks from the one health response', async () => {
+    // The realistic order: AddItemModal asks about analysis, and only later
+    // does ItemDetailScreen ask about image editing. Sharing just the in-flight
+    // promise would not cover this, since it is cleared once it resolves.
+    const mod = await withHealth({
+      metadataAnalysisAvailable: true,
+      storyPromptsAvailable: true,
+      fieldSuggestionsAvailable: true,
+      imageEditingAvailable: true,
+    });
+
+    await mod.refreshAiEnabled();
+    await mod.refreshStoryPromptsEnabled();
+    await mod.refreshFieldSuggestionsEnabled();
+    await mod.refreshAiImageEditEnabled();
+
+    const healthCalls = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.filter(([url]) =>
+      (url as string).includes('/health'),
+    );
+    expect(healthCalls).toHaveLength(1);
+  });
+
   it('does not call an endpoint health reports as unavailable', async () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const mod = await withHealth({

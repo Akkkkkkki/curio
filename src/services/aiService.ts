@@ -87,11 +87,29 @@ interface AiCapabilities {
 // start — four identical calls where one will do.
 let capabilitiesPromise: Promise<AiCapabilities> | null = null;
 
+// Settle every per-feature cache from the one response. Sharing only the
+// in-flight promise would dedupe a concurrent burst but not the realistic
+// sequential case — analysis checked in AddItemModal, image editing later in
+// ItemDetailScreen — because the promise is cleared once it resolves and each
+// caller only populates its own cache.
+const applyAiCapabilities = (capabilities: AiCapabilities): AiCapabilities => {
+  if (aiEnabledCache === null) aiEnabledCache = capabilities.metadataAnalysisAvailable;
+  if (storyPromptsEnabledCache === null)
+    storyPromptsEnabledCache = capabilities.storyPromptsAvailable;
+  if (fieldSuggestionsEnabledCache === null)
+    fieldSuggestionsEnabledCache = capabilities.fieldSuggestionsAvailable;
+  if (aiImageEditEnabledCache === null)
+    aiImageEditEnabledCache = capabilities.imageEditingAvailable;
+  return capabilities;
+};
+
 const loadAiCapabilities = (): Promise<AiCapabilities> => {
   if (!capabilitiesPromise) {
-    capabilitiesPromise = fetchAiCapabilities().finally(() => {
-      capabilitiesPromise = null;
-    });
+    capabilitiesPromise = fetchAiCapabilities()
+      .then(applyAiCapabilities)
+      .finally(() => {
+        capabilitiesPromise = null;
+      });
   }
   return capabilitiesPromise;
 };
