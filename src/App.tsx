@@ -1469,15 +1469,34 @@ export const AppContent: React.FC = () => {
     }
   };
 
+  // Ready means: initial load settled, auth settled, the admin-profile lookup
+  // settled for the current session, and the last completed collections
+  // refresh served the current user/role identity. The identity key flips in
+  // the same render as an isAdmin/user change, so the marker can never show
+  // ready during the window between an admin lookup resolving and the seeding
+  // re-refresh it triggers.
+  const currentIdentityKey = `${user?.id ?? 'anon'}:${isAdmin ? 'admin' : 'member'}`;
+  const adminLookupSettled = adminCheckedFor === (user ? user.id : ANONYMOUS_ADMIN_SCOPE);
+  const appReady =
+    !isLoading &&
+    (!isSupabaseReady ||
+      (authReady && adminLookupSettled && refreshedForKey === currentIdentityKey));
+
   useEffect(() => {
     if (!isAuthenticated || !authActionQueue) return;
     if (authActionQueue === 'add-item') {
+      // A returning user's own collections load asynchronously after auth.
+      // Resolving the queued intent before that refresh settles would leave
+      // editableCollections empty, so handleAddAction would misread the user as
+      // brand-new and open "Start a collection" instead of Add Item (#436).
+      // Wait for the post-auth refresh before branching on collection count.
+      if (!appReady) return;
       handleAddAction();
     } else if (authActionQueue === 'create-collection') {
       setIsCreateCollectionOpen(true);
     }
     setAuthActionQueue(null);
-  }, [isAuthenticated, authActionQueue, handleAddAction]);
+  }, [isAuthenticated, authActionQueue, handleAddAction, appReady]);
 
   const renderAccessGate = () => (
     <div
@@ -1559,19 +1578,6 @@ export const AppContent: React.FC = () => {
       </div>
     </div>
   );
-
-  // Ready means: initial load settled, auth settled, the admin-profile lookup
-  // settled for the current session, and the last completed collections
-  // refresh served the current user/role identity. The identity key flips in
-  // the same render as an isAdmin/user change, so the marker can never show
-  // ready during the window between an admin lookup resolving and the seeding
-  // re-refresh it triggers.
-  const currentIdentityKey = `${user?.id ?? 'anon'}:${isAdmin ? 'admin' : 'member'}`;
-  const adminLookupSettled = adminCheckedFor === (user ? user.id : ANONYMOUS_ADMIN_SCOPE);
-  const appReady =
-    !isLoading &&
-    (!isSupabaseReady ||
-      (authReady && adminLookupSettled && refreshedForKey === currentIdentityKey));
 
   return (
     <div
