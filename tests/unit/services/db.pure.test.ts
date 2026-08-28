@@ -4,6 +4,8 @@ import {
   normalizePhotoPaths,
   getSyncBackoffMs,
   isQuotaExceededError,
+  isInlinePhotoUrl,
+  dataUrlToBlob,
 } from '@/services/db';
 
 describe('db.ts - Pure Functions', () => {
@@ -544,6 +546,86 @@ describe('db.ts - Pure Functions', () => {
       expect(isQuotaExceededError(null)).toBe(false);
       expect(isQuotaExceededError(undefined)).toBe(false);
       expect(isQuotaExceededError('QuotaExceededError')).toBe(false);
+    });
+  });
+
+  describe('isInlinePhotoUrl', () => {
+    it('flags data: and blob: URLs as inline payloads', () => {
+      expect(isInlinePhotoUrl('data:image/jpeg;base64,/9j/4AAQ==')).toBe(true);
+      expect(isInlinePhotoUrl('blob:http://localhost:3000/abc-123')).toBe(true);
+    });
+
+    it('matches the scheme case-insensitively', () => {
+      expect(isInlinePhotoUrl('DATA:image/jpeg;base64,/9j/4AAQ==')).toBe(true);
+      expect(isInlinePhotoUrl('Blob:http://localhost:3000/abc-123')).toBe(true);
+    });
+
+    it('does not flag Storage paths, remote URLs, the asset sentinel, or empty', () => {
+      expect(isInlinePhotoUrl('user123/collections/col1/item1/display.jpg')).toBe(false);
+      expect(isInlinePhotoUrl('https://cdn.example.com/photo.jpg')).toBe(false);
+      expect(isInlinePhotoUrl('/assets/vinyl/sleeve.jpg')).toBe(false);
+      expect(isInlinePhotoUrl('asset')).toBe(false);
+      expect(isInlinePhotoUrl('')).toBe(false);
+    });
+  });
+
+  describe('dataUrlToBlob', () => {
+    it('decodes a base64 data URL into a Blob with the declared MIME type', () => {
+      // "hi" base64-encoded is "aGk=".
+      const blob = dataUrlToBlob('data:image/jpeg;base64,aGk=');
+      expect(blob).toBeInstanceOf(Blob);
+      expect(blob?.type).toBe('image/jpeg');
+      expect(blob?.size).toBe(2);
+    });
+
+    it('decodes a non-base64 (percent-encoded) data URL', () => {
+      const blob = dataUrlToBlob('data:text/plain,Hello%20world');
+      expect(blob).toBeInstanceOf(Blob);
+      expect(blob?.type).toBe('text/plain');
+      expect(blob?.size).toBe(11);
+    });
+
+    it('encodes non-ASCII percent-encoded text as UTF-8 (not truncated)', () => {
+      // %E2%9C%93 is U+2713 CHECK MARK — three UTF-8 bytes, not one.
+      const blob = dataUrlToBlob('data:text/plain,%E2%9C%93');
+      expect(blob).toBeInstanceOf(Blob);
+      expect(blob?.size).toBe(3);
+    });
+
+    it('defaults the MIME type when none is declared', () => {
+      const blob = dataUrlToBlob('data:;base64,aGk=');
+      expect(blob?.type).toBe('application/octet-stream');
+    });
+
+    it('preserves media-type parameters before the base64 marker', () => {
+      const base64 = dataUrlToBlob('data:image/png;charset=UTF-8;base64,aGk=');
+      expect(base64).toBeInstanceOf(Blob);
+      // The Blob constructor normalizes the type to lowercase per spec.
+      expect(base64?.type).toBe('image/png;charset=utf-8');
+      expect(base64?.size).toBe(2);
+
+      const text = dataUrlToBlob('data:image/svg+xml;charset=utf-8,%3Csvg%3E');
+      expect(text).toBeInstanceOf(Blob);
+      expect(text?.type).toBe('image/svg+xml;charset=utf-8');
+    });
+
+    it('recognizes the base64 marker case-insensitively', () => {
+      const blob = dataUrlToBlob('data:image/png;BASE64,aGk=');
+      expect(blob).toBeInstanceOf(Blob);
+      expect(blob?.size).toBe(2);
+    });
+
+    it('percent-decodes a base64 payload before decoding it', () => {
+      // "Hello" base64-encoded is "SGVsbG8=", with the "=" percent-escaped.
+      const blob = dataUrlToBlob('data:image/jpeg;base64,SGVsbG8%3D');
+      expect(blob).toBeInstanceOf(Blob);
+      expect(blob?.size).toBe(5);
+    });
+
+    it('returns null for blob: URLs and malformed input', () => {
+      expect(dataUrlToBlob('blob:http://localhost:3000/abc-123')).toBeNull();
+      expect(dataUrlToBlob('not-a-data-url')).toBeNull();
+      expect(dataUrlToBlob('data:image/jpeg;base64,!!!not-base64!!!')).toBeNull();
     });
   });
 });
