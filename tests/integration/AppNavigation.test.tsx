@@ -60,6 +60,10 @@ vi.mock('@/services/supabase', () => ({
   },
   isSupabaseConfigured: vi.fn().mockReturnValue(true),
   signOutUser: vi.fn(),
+  signInWithEmail: vi.fn().mockResolvedValue({ session: { user: { id: 'user1' } } }),
+  signUpWithEmail: vi.fn().mockResolvedValue({ session: { user: { id: 'user1' } } }),
+  resetPasswordForEmail: vi.fn().mockResolvedValue(undefined),
+  updateUserPassword: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('@/services/geminiService', () => ({
@@ -568,6 +572,68 @@ describe('App Integration Tests', () => {
     // The manual escape hatch to sign-in stays available.
     fireEvent.click(within(modal).getByText(/Already have an account/i));
     expect(within(modal).getByRole('heading', { name: /welcome back/i })).toBeInTheDocument();
+  });
+
+  // #436: a returning user who taps the landing "Add your first item" CTA and
+  // signs in must resume into Add Item — not "Start a collection". Their
+  // collections load asynchronously after auth, so the queued intent must wait
+  // for that refresh before branching on collection count; resolving it too
+  // early misreads them as brand-new and opens the create-collection flow.
+  it('resumes "Add your first item" into Add Item for a returning user whose collections load after login (#436)', async () => {
+    const { ThemeProvider } = await import('@/theme');
+    // Signed-out landing: no session yet.
+    vi.mocked(supabaseService.supabase!.auth.getSession).mockResolvedValue({
+      data: { session: null },
+    } as never);
+    // Fresh device with no local cache: the returning user's collection lives
+    // only in the cloud and arrives after auth completes — the exact window
+    // where the queued intent used to misfire into "Start a collection".
+    vi.mocked(db.getLocalCollections).mockResolvedValue([]);
+    vi.mocked(db.fetchCloudCollections).mockImplementation(async ({ userId }) =>
+      userId ? [mockCollection] : [],
+    );
+
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('access-gate')).toBeInTheDocument();
+    });
+
+    // Tap the landing CTA, switch to sign-in (returning user), and submit.
+    fireEvent.click(screen.getByTestId('cta-primary-add-first'));
+    const modal = await screen.findByTestId('auth-modal');
+    fireEvent.click(within(modal).getByText(/Already have an account/i));
+    fireEvent.change(within(modal).getByLabelText('Email Address'), {
+      target: { value: 'returning@example.com' },
+    });
+    fireEvent.change(within(modal).getByLabelText('Password'), {
+      target: { value: 'hunter2pw' },
+    });
+    await act(async () => {
+      fireEvent.click(within(modal).getByRole('button', { name: 'Sign In' }));
+    });
+
+    // signInWithEmail is mocked, so drive the auth-state transition Supabase
+    // would otherwise emit. This flips the app to authenticated and resumes the
+    // queued intent while the cloud collections fetch is still in flight.
+    const authCallback = vi.mocked(supabaseService.supabase!.auth.onAuthStateChange).mock
+      .calls[0][0];
+    await act(async () => {
+      authCallback('SIGNED_IN', { user: { id: 'user1' } } as never);
+    });
+
+    // Once their data settles the resume lands on Add Item, never on the
+    // create-collection modal.
+    expect(await screen.findByTestId('add-item-upload-empty')).toBeInTheDocument();
+    expect(screen.queryByTestId('create-collection-modal')).not.toBeInTheDocument();
   });
 
   it('shows one desktop sign-in control that opens sign-in mode (CUR-157, CUR-152)', async () => {

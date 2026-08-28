@@ -1249,13 +1249,19 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
             {t('editPhoto')}
           </Button>
         )}
-        <Button
-          variant="secondary"
-          onClick={() => batchInputRef.current?.click()}
-          icon={<Zap size={18} />}
-        >
-          {t('batchMode')}
-        </Button>
+        <div className="flex flex-col gap-1.5">
+          <Button
+            variant="secondary"
+            onClick={() => batchInputRef.current?.click()}
+            icon={<Zap size={18} />}
+            aria-describedby="add-item-batch-hint"
+          >
+            {t('batchMode')}
+          </Button>
+          <p id="add-item-batch-hint" className={`text-[11px] sm:text-xs ${mutedText}`}>
+            {t('batchModeHint')}
+          </p>
+        </div>
         <button
           onClick={switchToManual}
           data-testid="add-item-skip-manual"
