@@ -33,14 +33,33 @@ _structural_ drift, not content edits — see "Seed versioning" below.)
   no-op.
 - **Only the owner or an admin can write it.** RLS gives everyone public read on
   `is_public` collections/items, but a write requires either being an admin _or_
-  being the row's `user_id` owner — the policy is
-  `auth.uid() = user_id or (is_public and is_admin)` (`supabase/1_schema.sql`). So
-  a visitor or ordinary signed-in user can browse but not change the gallery. One
-  caveat worth knowing: the admin who first publishes a sample becomes its owner,
-  and the owner branch is independent of `is_admin`, so a former admin who is later
-  demoted keeps DB-level write access to the rows they published. Closing that gap
-  is an RLS change beyond this guide's scope — it means reviewing the owner
-  (`auth.uid() = user_id`) write branches in `supabase/1_schema.sql`, which is the
+  being the row's owner — broadly `auth.uid() = user_id or (is_public and
+is_admin)` (`supabase/1_schema.sql`). So a visitor or ordinary signed-in user can
+  browse but not change the gallery.
+
+  One caveat worth knowing: the admin who first publishes a sample becomes its
+  owner, and the owner branch does not re-check `is_admin`, so an admin who is
+  later demoted keeps DB-level write access to the rows they published — the app
+  UI is read-only for them, but Supabase (REST/SQL) is not. Exactly five policies
+  carry that bypass:
+
+  | Policy                    | Owner branch that bypasses `is_admin`                    |
+  | ------------------------- | -------------------------------------------------------- |
+  | `collections: update own` | `auth.uid() = user_id`                                   |
+  | `collections: delete own` | `auth.uid() = user_id`                                   |
+  | `items: insert own`       | `c.user_id = auth.uid()` (the parent collection's owner) |
+  | `items: update own`       | `auth.uid() = user_id`                                   |
+  | `items: delete own`       | `auth.uid() = user_id`                                   |
+
+  The other write policies are already admin-gated and need no change:
+  `collections: insert own` requires admin whenever `is_public = true`, and every
+  `item_images` write policy requires either a private parent collection or a
+  current admin.
+
+  Closing the gap is an RLS change beyond this guide's scope. If you do take it on,
+  restricting only the update/delete policies is incomplete — `items: insert own`
+  would still let a demoted owner add content to the public gallery, so its owner
+  branch has to become private-only too. `supabase/1_schema.sql` remains the
   authoritative definition of who can write.
 
 ### Seed versioning
