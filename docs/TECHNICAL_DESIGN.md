@@ -38,7 +38,7 @@ If a user has existing IndexedDB data from older builds, they can trigger a manu
 
 ### Public Sample Collections
 
-Curated sample collections live in the same tables and are flagged with `is_public = true`. In the current implementation, authenticated users can read them, but only admin users (profiles with `is_admin = true`) can edit or delete them. The client treats public collections as read-only for non-admins.
+Curated sample collections live in the same tables and are flagged with `is_public = true`. In the current implementation, everyone can read them (public read via RLS), while writes are limited to admins and the row's owner — the policy is `auth.uid() = user_id or (is_public and is_admin)` (`supabase/1_schema.sql`). The client treats public collections as read-only for non-admins. See `docs/ops/PUBLIC_SAMPLE_GALLERY.md` for the admin workflow and the owner-exception detail.
 
 For Phase 1, that public-collection foundation should extend into anonymous-readable public museum routes for profile, collection, item, Wrapped, and widget surfaces. Those routes must expose only content derived from explicitly public collections.
 

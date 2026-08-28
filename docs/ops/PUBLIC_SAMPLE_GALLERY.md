@@ -26,11 +26,15 @@ _structural_ drift, not content edits — see "Seed versioning" below.)
   (`buildSeedRepairs` → `saveCollection`, in `src/hooks/useCollections.ts` and the
   matching path in `src/App.tsx`). It upserts the seed rows as `is_public: true`.
   Two kinds of change behave differently: **structural** drift (a missing
-  collection or item, a row toggled private, a null or superseded photo path) is
-  self-healed on _any_ admin load; **content** edits to an existing item (title,
-  notes, rating, `data` fields, a swapped canonical photo) are only re-pushed when
-  the version gate below opens. A healthy, up-to-date cloud copy makes the pass a
-  no-op.
+  collection or item, a null or superseded photo path) is self-healed on _any_
+  admin load; **content** edits to an existing item (title, notes, rating,
+  `data` fields, a swapped canonical photo) are only re-pushed when the version
+  gate below opens. A healthy, up-to-date cloud copy makes the pass a no-op.
+  One exception: a sample row toggled **private** is visible to, and repairable
+  by, only the admin who owns it — RLS (`collections: select own` /
+  `collections: update own`) hides another admin's private row and denies their
+  upsert — so recovering that specific case needs the owning admin, not just any
+  admin load.
 - **Only the owner or an admin can write it.** RLS gives everyone public read on
   `is_public` collections/items, but a write requires either being an admin _or_
   being the row's owner — broadly `auth.uid() = user_id or (is_public and
@@ -93,7 +97,10 @@ everything else from the new seed but leaves an explicitly curated photo alone.
 ## Granting admin access
 
 Admin status is the `is_admin` flag on the `public.profiles` row for a user
-(`supabase/3_profiles.sql`). The app reads it in `src/hooks/useAuthState.ts`.
+(`supabase/3_profiles.sql`). The live app determines it with an inline
+`profiles.is_admin` query in `src/App.tsx` — the `useAuthState` hook runs the same
+query but is currently wired only into its tests, not the app, so debug the
+`App.tsx` path when admin detection misbehaves.
 
 There is **no in-app UI to grant admin** — by design. The `profiles` RLS update
 policy explicitly forbids a user from changing their own `is_admin`. Set it
