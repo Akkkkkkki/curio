@@ -45,7 +45,7 @@ Do not rotate credentials or switch models merely because a request failed once.
 
 **Environment/config regression:** restore the previous Vercel environment variable value, then redeploy. Environment changes do not alter an already-built deployment consistently enough to rely on without a redeploy.
 
-**Provider/model regression:** restore the last known-good provider/model configuration behind Curio's provider adapter. Keep the public `/api/ai/*` contract unchanged. Do not patch product callers to a provider-specific route as an emergency shortcut.
+**Provider/model regression:** restore the last known-good provider/model configuration behind Curio's provider adapter. Keep the public route contract unchanged — today that contract is `/api/gemini/*` (`analyze`, `story-prompts`, `suggest-fields`, `enhance`), served by `api/gemini/*.js` in production and `server/geminiProxy.js` locally. The path name is historical: the routes are provider-agnostic to callers, and deployed clients call them by that path, so a rollback must not rename them. Do not patch product callers to a provider-specific route as an emergency shortcut.
 
 **Optional AI capability failure:** if the affected feature already has a supported unavailable/manual path, prefer disabling only that capability over taking down unrelated AI routes.
 
@@ -103,7 +103,13 @@ After the database change:
 - Create/update one test item through the normal Curio application path and confirm local-first sync completes.
 - Confirm another user cannot read or mutate that private data.
 - Confirm public/sample access still matches the intended policy.
-- Check sync error logs for a new `sync_status_error` spike.
+- Check for new `sync_status_error` events. These are emitted client-side by
+  `src/services/db.ts` as `console.info` JSON and are not ingested anywhere, so
+  Vercel runtime logs will not show them. Verify from a browser instead: open
+  production with the devtools console filtered to `sync_status_error`, complete
+  the test write above, and confirm no error event fires and the in-app status
+  banner does not enter its sync-error state. Treat a report from a single
+  browser as a spot check, not fleet-wide evidence.
 - Compare row counts and any migration-specific invariants captured before the change.
 
 ## Feature flags and staged compatibility
