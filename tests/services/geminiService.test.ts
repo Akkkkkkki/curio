@@ -604,6 +604,27 @@ describe('services/aiService.ts - per-feature capability gating (CUR-166)', () =
     await expect(mod.analyzeImage('BASE64', fields)).resolves.toEqual({ status: 'disabled' });
   });
 
+  it('resolves every capability from a single health request', async () => {
+    const mod = await withHealth({
+      metadataAnalysisAvailable: true,
+      storyPromptsAvailable: true,
+      fieldSuggestionsAvailable: true,
+      imageEditingAvailable: true,
+    });
+
+    await Promise.all([
+      mod.refreshAiEnabled(),
+      mod.refreshStoryPromptsEnabled(),
+      mod.refreshFieldSuggestionsEnabled(),
+      mod.refreshAiImageEditEnabled(),
+    ]);
+
+    const healthCalls = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.filter(([url]) =>
+      (url as string).includes('/health'),
+    );
+    expect(healthCalls).toHaveLength(1);
+  });
+
   it('does not call an endpoint health reports as unavailable', async () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const mod = await withHealth({
