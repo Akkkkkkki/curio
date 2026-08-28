@@ -1517,6 +1517,19 @@ export const dataUrlToBlob = (dataUrl: string): Blob | null => {
   }
 };
 
+// Write a collection back to the local cache without touching the pending-sync
+// queue. Used mid-sync to record bookkeeping the user did not perform (see the
+// inline-photo migration), so it must not look like a fresh user edit.
+const persistCollectionLocally = async (collection: UserCollection): Promise<void> => {
+  const db = await initDB();
+  await new Promise<void>((resolve, reject) => {
+    const transaction = db.transaction(COLLECTIONS_STORE, 'readwrite');
+    transaction.objectStore(COLLECTIONS_STORE).put(collection);
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+  });
+};
+
 // Persist image variants into the local IndexedDB asset caches (no cloud write).
 const persistAssetToStores = async (id: string, original: Blob, display: Blob): Promise<void> => {
   const db = await initDB();
@@ -1751,7 +1764,10 @@ const saveCollectionToCloud = async (collection: UserCollection): Promise<void> 
     // each onto the Storage-backed asset track via `saveAsset` (which stashes
     // the bytes locally and uploads them now, queuing only on failure). This is
     // the only step here that awaits network/DB work.
-    const migratedItemIds: string[] = [];
+    // Keyed by item id, valued with the exact photoUrl that was migrated, so the
+    // local write-back below can tell "still the payload we moved" from "the
+    // user swapped the photo while the upload was in flight".
+    const migratedPhotoUrls = new Map<string, string>();
     for (const item of itemsForSync) {
       const photoUrl = item.photoUrl || '';
       if (photoUrl === 'asset' || !isInlinePhotoUrl(photoUrl)) continue;
@@ -1759,13 +1775,11 @@ const saveCollectionToCloud = async (collection: UserCollection): Promise<void> 
       if (!blob) continue; // undecodable (e.g. blob:) — handled as a null path below
       try {
         await saveAsset(latestCollectionForItems.id, item.id, blob, blob);
-        migratedItemIds.push(item.id);
+        migratedPhotoUrls.set(item.id, photoUrl);
       } catch (e) {
         console.warn(`Failed to migrate inline photo for item ${item.id}:`, e);
       }
     }
-
-    const migratedIdSet = new Set(migratedItemIds);
 
     // Re-read local state after the awaited migration so a delete or edit that
     // landed concurrently is respected rather than clobbered by a stale
@@ -1773,7 +1787,7 @@ const saveCollectionToCloud = async (collection: UserCollection): Promise<void> 
     // happened, so the pre-loop snapshot is still fresh).
     let collectionForUpsert = latestCollectionForItems;
     let deletesForUpsert = pendingDeletes;
-    if (migratedItemIds.length > 0) {
+    if (migratedPhotoUrls.size > 0) {
       const rechecked = await getCurrentLocalCollectionForCloudSync(latestCollectionForItems.id);
       if (rechecked === null) {
         await deleteStaleCloudCollectionUpsert(latestCollectionForItems.id);
@@ -1788,6 +1802,28 @@ const saveCollectionToCloud = async (collection: UserCollection): Promise<void> 
       } catch (error) {
         console.warn('Pending delete recheck failed before items upsert:', error);
         throw new Error('Pending delete recheck failed before items upsert');
+      }
+
+      // The bytes now live on the Storage-backed asset track, so record that in
+      // the local collection too. Without this the item keeps its inline
+      // `data:` photoUrl and every later save of this collection re-decodes and
+      // re-uploads the same multi-megabyte image. Only flip items whose
+      // photoUrl is still the payload we migrated — a concurrent photo swap
+      // must win and be migrated on its own save.
+      const migratedItems = collectionForUpsert.items.map((item) =>
+        migratedPhotoUrls.get(item.id) === item.photoUrl ? { ...item, photoUrl: 'asset' } : item,
+      );
+      if (migratedItems.some((item, index) => item !== collectionForUpsert.items[index])) {
+        const migratedCollection = { ...collectionForUpsert, items: migratedItems };
+        try {
+          await persistCollectionLocally(migratedCollection);
+          collectionForUpsert = migratedCollection;
+        } catch (error) {
+          // The upload succeeded, so the cloud row below is still correct; only
+          // the local shortcut is lost and the next save re-migrates.
+          console.warn('Failed to mark migrated photos as asset-backed locally:', error);
+          collectionForUpsert = migratedCollection;
+        }
       }
     }
 
@@ -1807,9 +1843,9 @@ const saveCollectionToCloud = async (collection: UserCollection): Promise<void> 
 
         let photoOriginalPath: string | null;
         let photoDisplayPath: string | null;
-        if (photoUrl === 'asset' || migratedIdSet.has(item.id)) {
-          // 'asset' items, and any just migrated onto the asset track, resolve
-          // to the canonical Storage paths.
+        if (photoUrl === 'asset') {
+          // 'asset' items — including any just migrated onto that track above —
+          // resolve to the canonical Storage paths.
           photoOriginalPath = `${basePath}/original.jpg`;
           photoDisplayPath = `${basePath}/display.jpg`;
         } else if (isInlinePhotoUrl(photoUrl)) {

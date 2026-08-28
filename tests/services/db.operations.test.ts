@@ -356,6 +356,64 @@ describe('Phase 2.2 — services/db.ts dual-write operations', () => {
     const uploadedPaths = upload.mock.calls.map((call) => call[0]);
     expect(uploadedPaths).toContain('test-user-id/collections/col-1/item-1/original.jpg');
     expect(uploadedPaths).toContain('test-user-id/collections/col-1/item-1/display.jpg');
+
+    // The local collection records that the photo is asset-backed now, so the
+    // item no longer carries the inline payload.
+    const savedLocally = await readFromStore<UserCollection>(db, 'collections', 'col-1');
+    expect(savedLocally?.items[0].photoUrl).toBe('asset');
+  });
+
+  it('saveCollection: a migrated inline photo is not re-uploaded on the next save (#369)', async () => {
+    /**
+     * Migration only rewrote the cloud row, so the local item kept its inline
+     * `data:` photoUrl and every subsequent save of the collection re-decoded
+     * and re-uploaded the same multi-megabyte image, delaying unrelated saves.
+     */
+    const { supabase, upload } = createSupabaseMock();
+    const dbMod = await importDbModuleFreshWithSupabaseMock(supabase);
+
+    const db = await dbMod.initDB();
+    openDb = db;
+    await clearStores(db, ['collections', 'assets', 'display', 'settings']);
+
+    const collection: UserCollection = {
+      id: 'col-1',
+      templateId: 'vinyl',
+      name: 'My Collection',
+      icon: '🎵',
+      customFields: [],
+      items: [
+        {
+          id: 'item-1',
+          collectionId: 'col-1',
+          photoUrl: `data:image/jpeg;base64,${'AAAA'.repeat(20)}`,
+          title: 'Inline photo item',
+          rating: 4,
+          data: {},
+          createdAt: new Date('2024-01-01T00:00:00Z').toISOString(),
+          updatedAt: new Date('2024-01-02T00:00:00Z').toISOString(),
+          notes: '',
+        },
+      ],
+      ownerId: 'test-user-id',
+      updatedAt: new Date('2024-01-03T00:00:00Z').toISOString(),
+    };
+
+    await dbMod.saveCollection(collection);
+    const uploadsAfterMigration = upload.mock.calls.length;
+    expect(uploadsAfterMigration).toBeGreaterThan(0);
+
+    // Save again from the reconciled local state — the same edit a user would
+    // trigger by renaming the collection.
+    const reconciled = await readFromStore<UserCollection>(db, 'collections', 'col-1');
+    expect(reconciled).toBeTruthy();
+    await dbMod.saveCollection({
+      ...(reconciled as UserCollection),
+      name: 'Renamed',
+      updatedAt: new Date('2024-01-04T00:00:00Z').toISOString(),
+    });
+
+    expect(upload.mock.calls.length).toBe(uploadsAfterMigration);
   });
 
   it('saveCollection: a delete landing during inline-photo migration is not resurrected (#369)', async () => {
