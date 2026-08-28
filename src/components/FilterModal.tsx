@@ -1,11 +1,15 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { X, Filter, RotateCcw, ChevronDown } from 'lucide-react';
+import { X, Filter, RotateCcw, ChevronDown, CalendarDays } from 'lucide-react';
 import { CollectionItem, FieldDefinition } from '../types';
 import { Button } from './ui/Button';
 import { useTranslation, getFieldTranslation } from '../i18n';
 import { useTheme, panelSurfaceClasses, overlaySurfaceClasses, mutedTextClasses } from '../theme';
 import { useModalA11y } from '../hooks/useModalA11y';
-import { deriveSelectOptions } from '../utils/itemFilter';
+import {
+  ADDED_MONTH_FILTER_KEY,
+  deriveAddedMonthOptions,
+  deriveSelectOptions,
+} from '../utils/itemFilter';
 
 interface FilterModalProps {
   isOpen: boolean;
@@ -24,7 +28,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
   activeFilters,
   onApply,
 }) => {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const { theme } = useTheme();
   const [localFilters, setLocalFilters] = useState<Record<string, string>>(activeFilters);
   const surfaceClass = panelSurfaceClasses[theme];
@@ -51,6 +55,15 @@ export const FilterModal: React.FC<FilterModalProps> = ({
     return map;
   }, [fields, items]);
 
+  // CUR-24: keep timeline browsing inside the existing filter surface rather
+  // than creating a second navigation mode. Only months that actually contain
+  // items are offered, newest first. Values are stable YYYY-MM keys while labels
+  // follow the active locale (for example "March 2026" / "2026年3月").
+  const addedMonthOptions = useMemo(
+    () => deriveAddedMonthOptions(items, language === 'zh' ? 'zh-CN' : 'en-US'),
+    [items, language],
+  );
+
   useEffect(() => {
     if (isOpen) setLocalFilters(activeFilters);
   }, [isOpen, activeFilters]);
@@ -72,6 +85,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
   };
 
   const activeCount = Object.values(localFilters).filter(Boolean).length;
+  const addedOnLabel = t('addedOn', { date: '' }).trim();
 
   return (
     <div
@@ -108,6 +122,41 @@ export const FilterModal: React.FC<FilterModalProps> = ({
           </button>
         </div>
         <div className="px-6 py-5 pb-24 sm:pb-5 space-y-5 overflow-y-auto flex-1">
+          {addedMonthOptions.length > 0 && (
+            <div className="space-y-2">
+              <label
+                htmlFor="filter-field-added-month"
+                className={`flex items-center gap-1.5 text-[12px] sm:text-[11px] font-semibold uppercase tracking-[0.18em] ${mutedText}`}
+              >
+                <CalendarDays size={13} aria-hidden="true" />
+                {addedOnLabel}
+              </label>
+              <div className="relative">
+                <select
+                  id="filter-field-added-month"
+                  value={localFilters[ADDED_MONTH_FILTER_KEY] || ''}
+                  onChange={(e) =>
+                    setLocalFilters({
+                      ...localFilters,
+                      [ADDED_MONTH_FILTER_KEY]: e.target.value,
+                    })
+                  }
+                  className={`w-full p-3 rounded-2xl text-sm outline-none appearance-none ${inputSurface}`}
+                >
+                  <option value="">{t('anyValue')}</option>
+                  {addedMonthOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown
+                  size={16}
+                  className={`absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none ${theme === 'vault' ? 'text-white/50' : 'text-stone-400'}`}
+                />
+              </div>
+            </div>
+          )}
           <div className="space-y-2">
             <label
               htmlFor="filter-field-rating"
