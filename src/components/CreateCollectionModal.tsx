@@ -123,7 +123,7 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
   const loadingSpinnerClass = {
     gallery: 'bg-amber-50 text-amber-500',
     vault: 'bg-amber-500/15 text-amber-300',
-    atelier: 'bg-amber-100/70 text-[#A86F3C]',
+    atelier: 'bg-amber-100/70 text-[#8B5A2B]',
   }[theme];
 
   const resetState = () => {

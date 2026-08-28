@@ -60,7 +60,7 @@ const filterChipIconClasses: Record<AppTheme, string> = {
 const clearFiltersLinkClasses: Record<AppTheme, string> = {
   gallery: 'text-stone-500 hover:text-stone-800 decoration-stone-300',
   vault: 'text-stone-300 hover:text-white decoration-white/30',
-  atelier: 'text-[#8C7B6B] hover:text-[#3D3530] decoration-[#D4C9B8]',
+  atelier: 'text-[#6F6257] hover:text-[#3D3530] decoration-[#D4C9B8]',
 };
 
 interface CollectionScreenProps {
@@ -251,7 +251,7 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({
             className={`max-w-md w-full text-center border rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-10 shadow-xl ${theme === 'vault' ? 'bg-white/5 border-white/10' : theme === 'atelier' ? 'bg-[#EDE4D3]/70 border-[#D4C9B8]' : 'bg-white/70 border-stone-200'}`}
           >
             <div
-              className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center mx-auto mb-5 sm:mb-6 ${theme === 'vault' ? 'bg-white/10 text-stone-400' : theme === 'atelier' ? 'bg-[#D4C9B8]/50 text-[#8C7B6B]' : 'bg-stone-100 text-stone-500'}`}
+              className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center mx-auto mb-5 sm:mb-6 ${theme === 'vault' ? 'bg-white/10 text-stone-400' : theme === 'atelier' ? 'bg-[#D4C9B8]/50 text-[#6F6257]' : 'bg-stone-100 text-stone-500'}`}
             >
               <Landmark size={24} />
             </div>
@@ -261,7 +261,7 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({
               {t('collectionUnavailableTitle')}
             </h1>
             <p
-              className={`text-sm mb-6 ${theme === 'vault' ? 'text-stone-400' : theme === 'atelier' ? 'text-[#8C7B6B]' : 'text-stone-500'}`}
+              className={`text-sm mb-6 ${theme === 'vault' ? 'text-stone-400' : theme === 'atelier' ? 'text-[#6F6257]' : 'text-stone-500'}`}
             >
               {t('collectionUnavailableDesc')}
             </p>
@@ -421,7 +421,7 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({
                       onClick={() => setViewMode('grid')}
                       aria-label={t('viewGrid')}
                       title={t('viewGrid')}
-                      className={`w-11 h-11 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg transition-all ${viewMode === 'grid' ? (theme === 'vault' ? 'bg-white/10 text-white shadow-sm' : theme === 'atelier' ? 'bg-[#F5EFE4] text-[#3D3530] shadow-sm' : 'bg-white text-stone-900 shadow-sm') : theme === 'vault' ? 'text-stone-500 hover:text-stone-300' : theme === 'atelier' ? 'text-[#8C7B6B] hover:text-[#3D3530]' : 'text-stone-400 hover:text-stone-600'}`}
+                      className={`w-11 h-11 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg transition-all ${viewMode === 'grid' ? (theme === 'vault' ? 'bg-white/10 text-white shadow-sm' : theme === 'atelier' ? 'bg-[#F5EFE4] text-[#3D3530] shadow-sm' : 'bg-white text-stone-900 shadow-sm') : theme === 'vault' ? 'text-stone-500 hover:text-stone-300' : theme === 'atelier' ? 'text-[#6F6257] hover:text-[#3D3530]' : 'text-stone-400 hover:text-stone-600'}`}
                     >
                       <LayoutGrid size={18} />
                     </button>
@@ -429,7 +429,7 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({
                       onClick={() => setViewMode('waterfall')}
                       aria-label={t('viewWaterfall')}
                       title={t('viewWaterfall')}
-                      className={`w-11 h-11 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg transition-all ${viewMode === 'waterfall' ? (theme === 'vault' ? 'bg-white/10 text-white shadow-sm' : theme === 'atelier' ? 'bg-[#F5EFE4] text-[#3D3530] shadow-sm' : 'bg-white text-stone-900 shadow-sm') : theme === 'vault' ? 'text-stone-500 hover:text-stone-300' : theme === 'atelier' ? 'text-[#8C7B6B] hover:text-[#3D3530]' : 'text-stone-400 hover:text-stone-600'}`}
+                      className={`w-11 h-11 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg transition-all ${viewMode === 'waterfall' ? (theme === 'vault' ? 'bg-white/10 text-white shadow-sm' : theme === 'atelier' ? 'bg-[#F5EFE4] text-[#3D3530] shadow-sm' : 'bg-white text-stone-900 shadow-sm') : theme === 'vault' ? 'text-stone-500 hover:text-stone-300' : theme === 'atelier' ? 'text-[#6F6257] hover:text-[#3D3530]' : 'text-stone-400 hover:text-stone-600'}`}
                     >
                       <LayoutTemplate size={18} className="rotate-180" />
                     </button>
@@ -557,7 +557,7 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({
             <p className={`${typographyClasses.titleLarge} italic mb-2`}>
               {t('searchNoResultsTitle')}
             </p>
-            <p className={typographyClasses.labelMuted}>
+            <p className={`${typographyClasses.labelMuted} ${labelColorClasses[theme]}`}>
               {hasFilterInput
                 ? t('collectionSearchNoResults', { query: filterInput.trim() })
                 : t('collectionFilterNoResults')}

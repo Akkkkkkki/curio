@@ -187,7 +187,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
   const warnBannerActionClass = {
     gallery: 'text-amber-800 hover:text-amber-900',
     vault: 'text-amber-100 hover:text-white',
-    atelier: 'text-[#A86F3C] hover:text-[#8B5A2B]',
+    atelier: 'text-[#8B5A2B] hover:text-[#73481F]',
   }[theme];
   // #434: a hard AI failure gets the DESIGN.md error tone (#DC2626 family) so
   // it reads as an error, not a neutral hint. Transient failures reuse the
@@ -238,7 +238,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
   const imageTilePlaceholderClass = {
     gallery: 'text-stone-200',
     vault: 'text-white/25',
-    atelier: 'text-[#8C7B6B]/50',
+    atelier: 'text-[#6F6257]/50',
   }[theme];
   const batchItemCardClass = {
     gallery: 'border-stone-100 bg-white',
@@ -253,7 +253,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
   const addMoreTileClass = {
     gallery: 'border-stone-200 text-stone-400 hover:border-amber-200 hover:bg-stone-50',
     vault: 'border-white/15 text-stone-300 hover:border-amber-400/40 hover:bg-white/5',
-    atelier: 'border-[#D4C9B8] text-[#8C7B6B] hover:border-[#A86F3C]/40 hover:bg-[#EDE4D3]',
+    atelier: 'border-[#D4C9B8] text-[#6F6257] hover:border-[#8B5A2B]/40 hover:bg-[#EDE4D3]',
   }[theme];
   // CUR-22: theme-aware tone tokens for the upload empty state, collection
   // picker tiles, and subtle "skip / hide" links so Vault stops rendering a
@@ -262,7 +262,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     gallery: 'bg-stone-50 border-stone-200 text-stone-400 hover:border-amber-400 hover:bg-amber-50',
     vault: 'bg-white/5 border-white/15 text-stone-300 hover:border-amber-400/60 hover:bg-white/10',
     atelier:
-      'bg-[#EDE4D3] border-[#D4C9B8] text-[#8C7B6B] hover:border-[#A86F3C]/60 hover:bg-[#E6D9C2]',
+      'bg-[#EDE4D3] border-[#D4C9B8] text-[#6F6257] hover:border-[#8B5A2B]/60 hover:bg-[#E6D9C2]',
   }[theme];
   const uploadHeadingClass = {
     gallery: 'text-stone-900',
@@ -272,7 +272,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
   const selectTileClass = {
     gallery: 'border border-stone-100 bg-stone-50/50 hover:border-amber-400 hover:bg-amber-50',
     vault: 'border border-white/10 bg-white/5 hover:border-amber-400/60 hover:bg-white/10',
-    atelier: 'border border-[#D4C9B8] bg-[#EDE4D3]/60 hover:border-[#A86F3C]/60 hover:bg-[#EDE4D3]',
+    atelier: 'border border-[#D4C9B8] bg-[#EDE4D3]/60 hover:border-[#8B5A2B]/60 hover:bg-[#EDE4D3]',
   }[theme];
   const selectTileTitleClass = {
     gallery: 'text-stone-800',

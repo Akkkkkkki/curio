@@ -41,7 +41,7 @@ export const ThemePicker: React.FC<ThemePickerProps> = ({ layout = 'inline' }) =
   const stackedActiveByTheme: Record<AppTheme, string> = {
     gallery: 'border-amber-200 bg-amber-50 text-stone-900 shadow-sm',
     vault: 'border-white/20 bg-white/10 text-white shadow-sm',
-    atelier: 'border-[#A86F3C]/40 bg-[#EDE4D3] text-[#3D3530] shadow-sm',
+    atelier: 'border-[#8B5A2B]/40 bg-[#EDE4D3] text-[#3D3530] shadow-sm',
   };
 
   if (isStacked) {

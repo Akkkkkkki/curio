@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import {
   typographyClasses,
   themeColors,
@@ -14,6 +16,23 @@ import {
   cardHoverClasses,
   inputClasses,
 } from '@/theme';
+
+const relativeLuminance = (hex: string) => {
+  const channels = hex
+    .replace('#', '')
+    .match(/.{2}/g)!
+    .map((channel) => parseInt(channel, 16) / 255)
+    .map((value) => (value <= 0.04045 ? value / 12.92 : Math.pow((value + 0.055) / 1.055, 2.4)));
+  return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+};
+
+const contrastRatio = (foreground: string, background: string) => {
+  const a = relativeLuminance(foreground);
+  const b = relativeLuminance(background);
+  const lighter = Math.max(a, b);
+  const darker = Math.min(a, b);
+  return (lighter + 0.05) / (darker + 0.05);
+};
 
 describe('Theme Utilities', () => {
   describe('typographyClasses', () => {
@@ -39,7 +58,7 @@ describe('Theme Utilities', () => {
 
     it('has labelMuted classes', () => {
       expect(typographyClasses.labelMuted).toContain('font-mono');
-      expect(typographyClasses.labelMuted).toContain('opacity-50');
+      expect(typographyClasses.labelMuted).toContain('font-medium');
     });
 
     it('has body classes with sans font', () => {
@@ -74,7 +93,20 @@ describe('Theme Utilities', () => {
     it('has atelier theme colors', () => {
       expect(themeColors.atelier.mat).toBe('#EDE4D3');
       expect(themeColors.atelier.frameAccent).toBe('#6B5344');
-      expect(themeColors.atelier.accent).toBe('#A86F3C');
+      expect(themeColors.atelier.accent).toBe('#8B5A2B');
+      expect(themeColors.atelier.accentHover).toBe('#73481F');
+      expect(themeColors.atelier.textMuted).toBe('#6F6257');
+    });
+
+    it('keeps Atelier text and accent combinations at WCAG AA contrast', () => {
+      expect(contrastRatio('#FFFFFF', themeColors.atelier.accent)).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio('#FFFFFF', themeColors.atelier.accentHover)).toBeGreaterThanOrEqual(4.5);
+      expect(
+        contrastRatio(themeColors.atelier.textMuted, themeColors.atelier.surface),
+      ).toBeGreaterThanOrEqual(4.5);
+      expect(
+        contrastRatio(themeColors.atelier.textMuted, themeColors.atelier.surfaceMuted),
+      ).toBeGreaterThanOrEqual(4.5);
     });
   });
 
@@ -88,7 +120,7 @@ describe('Theme Utilities', () => {
     it('uses appropriate colors per theme', () => {
       expect(labelColorClasses.gallery).toContain('text-stone');
       expect(labelColorClasses.vault).toContain('text-stone');
-      expect(labelColorClasses.atelier).toContain('text-[#8C7B6B]');
+      expect(labelColorClasses.atelier).toContain('text-[#6F6257]');
     });
 
     // stone-500 (#78716c) fails WCAG AA on the Vault stone-900 surface
@@ -163,7 +195,7 @@ describe('Theme Utilities', () => {
     it('uses amber/brass colors', () => {
       expect(ratingColorClasses.gallery).toContain('amber');
       expect(ratingColorClasses.vault).toContain('#D4A574');
-      expect(ratingColorClasses.atelier).toContain('#A86F3C');
+      expect(ratingColorClasses.atelier).toContain('#8B5A2B');
     });
   });
 
@@ -268,6 +300,54 @@ describe('Theme Utilities', () => {
     // Mirrors labelColorClasses contrast guarantee — see comment above.
     it('uses stone-400 placeholders on Vault for WCAG AA contrast', () => {
       expect(inputClasses.vault).toContain('placeholder:text-stone-400');
+    });
+
+    it('uses the AA-compliant Atelier muted token for placeholders', () => {
+      expect(inputClasses.atelier).toContain('placeholder:text-[#6F6257]');
+    });
+  });
+
+  // CUR-111: retiring the Atelier tokens in this module is only half the fix —
+  // production components hard-code the same hex values in their own per-theme
+  // class maps, so the old palette has to be gone from the whole source tree or
+  // the common flows keep rendering the sub-AA colors.
+  describe('retired Atelier palette', () => {
+    const RETIRED = ['#8C7B6B', '#A86F3C'];
+
+    const sourceFiles = () => {
+      const roots = [resolve(__dirname, '../../src')];
+      const files: string[] = [];
+      while (roots.length) {
+        const dir = roots.pop()!;
+        for (const entry of readdirSync(dir, { withFileTypes: true })) {
+          const full = join(dir, entry.name);
+          if (entry.isDirectory()) roots.push(full);
+          else if (/\.(ts|tsx|css)$/.test(entry.name)) files.push(full);
+        }
+      }
+      return files;
+    };
+
+    it('no longer appears anywhere in src/', () => {
+      const offenders = sourceFiles().filter((file) => {
+        const contents = readFileSync(file, 'utf8');
+        return RETIRED.some((hex) => contents.includes(hex));
+      });
+      expect(offenders).toEqual([]);
+    });
+  });
+
+  // CUR-111: `opacity-50` composited even the AA-compliant #6F6257 down to
+  // ~2:1 against the Atelier surface, so muted labels stayed unreadable while
+  // token-only tests reported compliance. The muting is a color token now.
+  describe('labelMuted', () => {
+    it('does not dim readable labels with opacity', () => {
+      expect(typographyClasses.labelMuted).not.toContain('opacity-');
+    });
+
+    it('still reads as muted through weight rather than transparency', () => {
+      expect(typographyClasses.labelMuted).toContain('font-medium');
+      expect(typographyClasses.label).toContain('font-bold');
     });
   });
 });
