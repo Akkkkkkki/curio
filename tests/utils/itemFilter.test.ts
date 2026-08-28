@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { deriveSelectOptions, matchesItemFilters } from '@/utils/itemFilter';
+import {
+  ADDED_MONTH_FILTER_KEY,
+  deriveAddedMonthOptions,
+  deriveSelectOptions,
+  formatAddedMonthLabel,
+  matchesItemFilters,
+} from '@/utils/itemFilter';
 import { CollectionItem, FieldDefinition } from '@/types';
 
 const createItem = (overrides: Partial<CollectionItem> = {}): CollectionItem => ({
@@ -65,10 +71,23 @@ describe('matchesItemFilters', () => {
     expect(matchesItemFilters(createItem({ rating: 3 }), { rating: '4' }, fields)).toBe(false);
   });
 
+  it('filters by the item created month using a stable UTC year-month key', () => {
+    const march = createItem({ createdAt: '2026-03-31T23:30:00.000Z' });
+    expect(matchesItemFilters(march, { [ADDED_MONTH_FILTER_KEY]: '2026-03' }, fields)).toBe(true);
+    expect(matchesItemFilters(march, { [ADDED_MONTH_FILTER_KEY]: '2026-04' }, fields)).toBe(false);
+  });
+
   it('requires all active filters to match', () => {
-    const item = createItem({ rating: 5, data: { genre: 'Jazz', artist: 'Coltrane' } });
+    const item = createItem({
+      rating: 5,
+      createdAt: '2026-03-15T12:00:00.000Z',
+      data: { genre: 'Jazz', artist: 'Coltrane' },
+    });
     expect(matchesItemFilters(item, { genre: 'Jazz', artist: 'davis' }, fields)).toBe(false);
     expect(matchesItemFilters(item, { genre: 'Jazz', artist: 'coltrane' }, fields)).toBe(true);
+    expect(
+      matchesItemFilters(item, { genre: 'Jazz', [ADDED_MONTH_FILTER_KEY]: '2026-03' }, fields),
+    ).toBe(true);
   });
 });
 
@@ -101,5 +120,41 @@ describe('deriveSelectOptions', () => {
       createItem({ data: {} }),
     ];
     expect(deriveSelectOptions('genre', undefined, items)).toEqual(['Jazz']);
+  });
+});
+
+describe('deriveAddedMonthOptions', () => {
+  it('returns only months represented by valid item dates, newest first', () => {
+    const items = [
+      createItem({ createdAt: '2025-12-04T12:00:00.000Z' }),
+      createItem({ createdAt: '2026-03-02T12:00:00.000Z' }),
+      createItem({ createdAt: '2026-03-28T12:00:00.000Z' }),
+      createItem({ createdAt: 'not-a-date' }),
+    ];
+
+    expect(deriveAddedMonthOptions(items, 'en-US')).toEqual([
+      { value: '2026-03', label: 'March 2026' },
+      { value: '2025-12', label: 'December 2025' },
+    ]);
+  });
+
+  it('formats labels using the active locale without changing filter keys', () => {
+    const items = [createItem({ createdAt: '2026-03-02T12:00:00.000Z' })];
+    const [option] = deriveAddedMonthOptions(items, 'zh-CN');
+    expect(option.value).toBe('2026-03');
+    expect(option.label).toContain('2026');
+    expect(option.label).toContain('3');
+  });
+});
+
+describe('formatAddedMonthLabel', () => {
+  it('localizes a YYYY-MM filter value for chip display', () => {
+    expect(formatAddedMonthLabel('2026-03', 'en-US')).toBe('March 2026');
+    expect(formatAddedMonthLabel('2026-03', 'zh-CN')).toContain('2026');
+  });
+
+  it('returns the raw value when it is not a month key', () => {
+    expect(formatAddedMonthLabel('5', 'en-US')).toBe('5');
+    expect(formatAddedMonthLabel('2026-13', 'en-US')).toBe('2026-13');
   });
 });
