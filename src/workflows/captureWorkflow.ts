@@ -101,24 +101,35 @@ export const createBatchItem = (
   ...overrides,
 });
 
+type AnalyzeOneResult =
+  | { status: 'cancelled' }
+  | { status: 'compression-failed' }
+  | { status: 'complete'; result: AnalyzeResult };
+
 const analyzeOne = async (
   deps: CaptureWorkflowDependencies,
   image: string,
   collection: CaptureCollection,
   locale: string,
-): Promise<{ compressed: boolean; result?: AnalyzeResult }> => {
+  isActive: () => boolean,
+): Promise<AnalyzeOneResult> => {
   const compressed = await deps.compressImage(image);
-  if (!compressed) return { compressed: false };
-  return {
-    compressed: true,
-    result: await deps.analyzeImage(compressed, collection.customFields, {
-      collectionContext: {
-        name: collection.name,
-        description: collection.collectionDescription,
-      },
-      locale,
-    }),
-  };
+  // Compression is asynchronous and can outlive a modal session. Recheck before
+  // spending an AI request so a closed/reopened flow cannot keep executing.
+  if (!isActive()) return { status: 'cancelled' };
+  if (!compressed) return { status: 'compression-failed' };
+
+  const result = await deps.analyzeImage(compressed, collection.customFields, {
+    collectionContext: {
+      name: collection.name,
+      description: collection.collectionDescription,
+    },
+    locale,
+  });
+  // AI responses can also arrive after the session has been replaced. Treat
+  // those as abandoned rather than exposing stale results to the caller.
+  if (!isActive()) return { status: 'cancelled' };
+  return { status: 'complete', result };
 };
 
 export const createCaptureWorkflow = (
@@ -130,11 +141,19 @@ export const createCaptureWorkflow = (
     }
     if (!input.isActive()) return { status: 'cancelled' };
 
-    const analysis = await analyzeOne(deps, input.image, input.collection, input.locale);
-    if (!input.isActive()) return { status: 'cancelled' };
-    if (!analysis.compressed) return { status: 'failed', retryable: true };
+    const analysis = await analyzeOne(
+      deps,
+      input.image,
+      input.collection,
+      input.locale,
+      input.isActive,
+    );
+    if (analysis.status === 'cancelled') return { status: 'cancelled' };
+    if (analysis.status === 'compression-failed') {
+      return { status: 'failed', retryable: true };
+    }
 
-    const result = analysis.result!;
+    const result = analysis.result;
     if (result.status !== 'success') {
       return {
         status: 'failed',
@@ -182,11 +201,19 @@ export const createCaptureWorkflow = (
 
       const image = input.images[index];
       input.onProgress?.(index + 1, input.images.length);
-      const analysis = await analyzeOne(deps, image, input.collection, input.locale);
-      if (!input.isActive()) return { status: 'cancelled', items, hadError };
+      const analysis = await analyzeOne(
+        deps,
+        image,
+        input.collection,
+        input.locale,
+        input.isActive,
+      );
+      if (analysis.status === 'cancelled') {
+        return { status: 'cancelled', items, hadError };
+      }
 
       const existingId = existingIds[index];
-      if (!analysis.compressed || analysis.result?.status !== 'success') {
+      if (analysis.status === 'compression-failed' || analysis.result.status !== 'success') {
         hadError = true;
         items.push(createBatchItem(image, existingId ? { id: existingId } : {}));
         continue;
