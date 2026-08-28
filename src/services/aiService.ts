@@ -103,10 +103,22 @@ const applyAiCapabilities = (capabilities: AiCapabilities): AiCapabilities => {
   return capabilities;
 };
 
+const UNAVAILABLE_CAPABILITIES: AiCapabilities = {
+  metadataAnalysisAvailable: false,
+  fieldSuggestionsAvailable: false,
+  storyPromptsAvailable: false,
+  imageEditingAvailable: false,
+};
+
 const loadAiCapabilities = (): Promise<AiCapabilities> => {
   if (!capabilitiesPromise) {
     capabilitiesPromise = fetchAiCapabilities()
+      // Only a SUCCESSFUL response may settle the other features' caches. A
+      // transient failure must stay confined to the caller: seeding all four
+      // with false would leave every AI feature off for the life of the page,
+      // with nothing left unset to trigger a retry once the backend recovers.
       .then(applyAiCapabilities)
+      .catch(() => UNAVAILABLE_CAPABILITIES)
       .finally(() => {
         capabilitiesPromise = null;
       });
@@ -127,12 +139,9 @@ const fetchAiCapabilities = async (): Promise<AiCapabilities> => {
       imageEditingAvailable: payload?.imageEditingAvailable ?? fallback,
     };
   } catch {
-    return {
-      metadataAnalysisAvailable: false,
-      fieldSuggestionsAvailable: false,
-      storyPromptsAvailable: false,
-      imageEditingAvailable: false,
-    };
+    // Rethrow so loadAiCapabilities can tell "health says unavailable" from
+    // "health could not be reached" — only the former may be cached broadly.
+    throw new Error('AI health unavailable');
   }
 };
 
