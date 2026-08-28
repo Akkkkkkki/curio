@@ -1,5 +1,5 @@
 name: CUR-167 one-shot refactor
-# rerun after stale-session guard fix
+# rerun with repository-standard test discovery
 
 on:
   push:
@@ -21,15 +21,15 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
       - run: npm ci
       - name: Apply deterministic source refactor
         run: node scripts/_cur167_patch.mjs
       - name: Format changed source
-        run: npx prettier --write src/components/AddItemModal.tsx src/workflows/captureWorkflow.ts src/workflows/captureWorkflow.test.ts
+        run: npx prettier --write src/components/AddItemModal.tsx src/workflows/captureWorkflow.ts tests/workflows/captureWorkflow.test.ts
       - name: Validate workflow unit tests
-        run: npx vitest run src/workflows/captureWorkflow.test.ts
+        run: npx vitest run tests/workflows/captureWorkflow.test.ts
       - name: Validate build
         run: npm run build
       - name: Remove one-shot automation files
