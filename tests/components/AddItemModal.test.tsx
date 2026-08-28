@@ -204,6 +204,31 @@ describe('AddItemModal', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('describes the Rapid-Fire batch option on the upload step (#412)', () => {
+    const c1 = createMockCollection({ id: 'c1', name: 'Vinyl Vault' });
+
+    renderWithProviders(
+      <AddItemModal
+        isOpen
+        onClose={mockOnClose}
+        collections={[c1]}
+        defaultCollectionId="c1"
+        onSave={mockOnSave}
+      />,
+    );
+
+    // The emphasized alternate mode must explain itself before selection, so it
+    // reads as a clear choice next to the primary upload — not an opaque button.
+    const hint = screen.getByText("Add several photos at once, then review each one's details.");
+    expect(hint).toBeInTheDocument();
+
+    // The hint must be programmatically tied to the button so screen-reader
+    // users tabbing to it hear the explanation, not just "Rapid-Fire Mode".
+    const batchButton = screen.getByRole('button', { name: /Rapid-Fire Mode/ });
+    expect(batchButton).toHaveAttribute('aria-describedby', hint.id);
+    expect(hint.id).toBeTruthy();
+  });
+
   it('falls back to collection picker when defaultCollectionId does not match any collection', async () => {
     const c1 = createMockCollection({ id: 'c1', name: 'Vinyl Vault' });
     const c2 = createMockCollection({ id: 'c2', name: 'Chocolate Vault' });
