@@ -132,9 +132,7 @@ const analyzeOne = async (
   return { status: 'complete', result };
 };
 
-export const createCaptureWorkflow = (
-  deps: CaptureWorkflowDependencies = defaultDependencies,
-) => ({
+export const createCaptureWorkflow = (deps: CaptureWorkflowDependencies = defaultDependencies) => ({
   async analyzeSingle(input: SingleAnalysisInput): Promise<SingleAnalysisResult> {
     if (!(await deps.refreshAiEnabled())) {
       return input.isActive() ? { status: 'unavailable' } : { status: 'cancelled' };

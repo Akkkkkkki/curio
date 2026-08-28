@@ -19,8 +19,12 @@ import {
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Capacitor } from '@capacitor/core';
 import { UserCollection, CollectionItem } from '../types';
-import { analyzeImage, fetchStoryPrompts, refreshAiEnabled } from '../services/geminiService';
-import { compressImageForAi } from '../services/imageProcessor';
+import { fetchStoryPrompts } from '../services/aiService';
+import {
+  captureWorkflow,
+  createBatchItem,
+  type CaptureBatchItem,
+} from '../workflows/captureWorkflow';
 import { trackEvent, storyLengthBucket } from '../services/analytics';
 import { Button } from './ui/Button';
 import { useTranslation, getFieldTranslation, getFieldHint } from '../i18n';
@@ -51,14 +55,7 @@ interface AddItemModalProps {
   ) => void | Promise<void>;
 }
 
-interface BatchItem {
-  id: string;
-  image: string;
-  title: string;
-  notes: string;
-  data: Record<string, any>;
-  rating: number;
-}
+type BatchItem = CaptureBatchItem;
 
 type FlowStep = 'select-type' | 'upload' | 'analyzing' | 'verify' | 'batch-verify';
 // #73: past this wait the analyzing spinner needs words — surface a calm
@@ -70,18 +67,6 @@ const createEmptyForm = () => ({
   data: {} as Record<string, any>,
   rating: 0,
 });
-
-// Helper to filter out null/undefined values from AI-extracted data
-const cleanAiData = (data: Record<string, any>): Record<string, any> => {
-  const cleaned: Record<string, any> = {};
-  for (const [key, value] of Object.entries(data)) {
-    // Skip if value is null, undefined, or the string "null"
-    if (value !== null && value !== undefined && value !== 'null') {
-      cleaned[key] = value;
-    }
-  }
-  return cleaned;
-};
 
 export const AddItemModal: React.FC<AddItemModalProps> = ({
   isOpen,
@@ -673,101 +658,28 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     }
   };
 
-  const createBatchItem = (image: string, overrides: Partial<BatchItem> = {}): BatchItem => ({
-    id: Math.random().toString(36).slice(2, 10),
-    image,
-    title: '',
-    notes: '',
-    data: {},
-    rating: 0,
-    ...overrides,
-  });
-
   const runBatchAnalysis = async (
     images: string[],
     existingIds: string[] = [],
-    // #366: ties the run to the analysis session it started in. A reset
-    // (close/reopen, switch to single manual) abandons the run silently; a
-    // manual-entry request stops the loop and leaves the unreached photos to
-    // the caller, which decides what those rows should hold.
     runId = analysisRunId.current,
-  ) => {
+  ): Promise<BatchItem[]> => {
     if (!currentCollection) return images.map((image) => createBatchItem(image));
-    const collection = currentCollection;
-    const aiEnabled = await refreshAiEnabled();
-    if (analysisRunId.current !== runId) return [];
-    if (!aiEnabled) {
-      setError(t('aiUnavailableManual'));
-      setAnalysisError(true);
-      return images.map((image, index) =>
-        createBatchItem(image, existingIds[index] ? { id: existingIds[index] } : {}),
-      );
-    }
-    const analyzed: BatchItem[] = [];
-    let hadError = false;
-    for (let idx = 0; idx < images.length; idx += 1) {
-      if (analysisRunId.current !== runId) return analyzed;
-      if (batchManualRef.current) break;
-      const image = images[idx];
-      setBatchProgress((prev) =>
-        prev
-          ? { current: Math.min(prev.current + 1, prev.total), total: prev.total }
-          : { current: idx + 1, total: images.length },
-      );
-      // Downsize before send. Camera photos can blow past Vercel's ~4.5MB
-      // request body cap and surface as a 413 from /api/gemini/analyze.
-      // compressImageForAi falls back to the raw base64 if it can't compress
-      // (e.g. HEIC photos that browsers can't decode), so we never lose the
-      // original payload here.
-      const base64Data = await compressImageForAi(image);
-      // Compression is an await gap (image decode + canvas.toBlob) that can
-      // outlast the modal. Without a recheck here, closing mid-compression
-      // still spends an AI/network request on a photo nobody is waiting for.
-      if (analysisRunId.current !== runId) return analyzed;
-      if (!base64Data) {
-        setError(t('analysisFallback'));
-        hadError = true;
-        analyzed.push(createBatchItem(image, existingIds[idx] ? { id: existingIds[idx] } : {}));
-        continue;
-      }
-      try {
-        const result = await analyzeImage(base64Data, collection.customFields, {
-          collectionContext: {
-            name: collection.name,
-            description: collection.collectionDescription,
-          },
-          locale: language,
-        });
-        if (result.status !== 'success') {
-          if (result.status === 'error') {
-            console.warn('AI analysis failed:', result.message);
-          }
-          setError(t('analysisFallback'));
-          hadError = true;
-          analyzed.push(createBatchItem(image, existingIds[idx] ? { id: existingIds[idx] } : {}));
-          continue;
-        }
-        analyzed.push(
-          createBatchItem(image, {
-            id: existingIds[idx] || Math.random().toString(36).slice(2, 10),
-            title: result.title || '',
-            // notes (Story) is now user-authored only — never AI-filled.
-            notes: '',
-            data: {
-              ...cleanAiData(result.data || {}),
-              ...(result.aiDescription ? { _aiDescription: result.aiDescription } : {}),
-            },
-          }),
-        );
-      } catch (err) {
-        console.error(err);
-        setError(t('analysisFallback'));
-        hadError = true;
-        analyzed.push(createBatchItem(image, existingIds[idx] ? { id: existingIds[idx] } : {}));
-      }
-    }
-    if (analysisRunId.current === runId) setAnalysisError(hadError);
-    return analyzed;
+
+    const result = await captureWorkflow.analyzeBatch({
+      images,
+      existingIds,
+      collection: currentCollection,
+      locale: language,
+      isActive: () => analysisRunId.current === runId,
+      shouldStop: () => batchManualRef.current,
+      onProgress: (current, total) => setBatchProgress({ current, total }),
+    });
+
+    if (result.status === 'cancelled') return result.items;
+    if (result.status === 'unavailable') setError(t('aiUnavailableManual'));
+    else if (result.hadError) setError(t('analysisFallback'));
+    if (analysisRunId.current === runId) setAnalysisError(result.hadError);
+    return result.items;
   };
 
   const handleBatchFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -900,78 +812,41 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     setDetailsOpen(false);
     setAiFieldSuggestions({});
     setFormData(createEmptyForm());
-    const aiEnabled = await refreshAiEnabled();
-    if (analysisRunId.current !== runId) return;
-    if (!aiEnabled) {
-      setError(t('aiUnavailableManual'));
-      setStep('verify');
-      return;
-    }
-    if (analysisRunId.current !== runId) return;
     setStep('analyzing');
+
     try {
-      // Downsize before send. Camera photos can blow past Vercel's ~4.5MB
-      // request body cap and surface as a 413 from /api/gemini/analyze.
-      // compressImageForAi falls back to the raw base64 on any failure so
-      // we never silently lose the original payload here.
-      const base64Data = await compressImageForAi(base64);
-      // Same await gap as the batch loop: the modal can close while the photo
-      // is still being compressed, so recheck before spending the request.
-      if (analysisRunId.current !== runId) return;
-      if (!base64Data) {
-        // Local image processing hiccup — a retry re-runs compression, so keep
-        // the transient (retryable) framing set at the top of analyze().
-        setError(t('analysisBusyDesc'));
-        setAnalysisError(true);
-        setStep('verify');
-        return;
-      }
-      const result = await analyzeImage(base64Data, currentCollection.customFields, {
-        collectionContext: {
-          name: currentCollection.name,
-          description: currentCollection.collectionDescription,
-        },
+      const result = await captureWorkflow.analyzeSingle({
+        image: base64,
+        collection: currentCollection,
         locale: language,
+        isActive: () => analysisRunId.current === runId,
       });
-      if (result.status !== 'success') {
-        const retryable = result.status === 'error' ? result.retryable : true;
-        if (result.status === 'error') {
-          console.warn('AI analysis failed:', result.message);
-        }
-        setAnalysisRetryable(retryable);
-        setError(retryable ? t('analysisBusyDesc') : t('analysisFailedManual'));
+      if (result.status === 'cancelled') return;
+      if (result.status === 'unavailable') {
+        setError(t('aiUnavailableManual'));
+        setStep('verify');
+        return;
+      }
+      if (result.status === 'failed') {
+        setAnalysisRetryable(result.retryable);
+        setError(result.retryable ? t('analysisBusyDesc') : t('analysisFailedManual'));
         setAnalysisError(true);
         setStep('verify');
         return;
       }
-      if (analysisRunId.current !== runId) return;
 
-      const cleanedData = cleanAiData(result.data || {});
-      const suggestedData = Object.fromEntries(
-        Object.entries(cleanedData)
-          .filter(([key]) => currentCollection.customFields.some((field) => field.id === key))
-          .map(([key, value]) => [key, String(value)]),
-      );
-      const isGeneric =
-        (result.title === 'New Item' || !result.title) && Object.keys(cleanedData).length < 2;
-      setLowConfidence(isGeneric);
-      setAiFieldSuggestions(suggestedData);
-
+      setLowConfidence(result.lowConfidence);
+      setAiFieldSuggestions(result.fieldSuggestions);
       setFormData({
-        title: result.title || '',
-        // notes (Story) is now user-authored only — never AI-filled.
+        title: result.title,
         notes: '',
-        data: {
-          ...(result.aiDescription ? { _aiDescription: result.aiDescription } : {}),
-        },
+        data: result.aiDescription ? { _aiDescription: result.aiDescription } : {},
         rating: 0,
       });
       setStep('verify');
-    } catch (e) {
-      console.error(e);
+    } catch (error) {
+      console.error(error);
       if (analysisRunId.current !== runId) return;
-      // Unexpected/thrown failure (usually network) — default to the
-      // retryable framing already set at the top of analyze().
       setError(t('analysisBusyDesc'));
       setAnalysisError(true);
       setStep('verify');
@@ -1082,13 +957,17 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     setIsSaving(true);
     try {
       const story = formData.notes || '';
-      await onSave(currentCollection.id, {
+      await captureWorkflow.saveSingle({
         collectionId: currentCollection.id,
-        photoUrl: imagePreview || '',
-        title: trimmedTitle,
-        rating: formData.rating || 0,
-        notes: story,
-        data: formData.data || {},
+        onSave,
+        item: {
+          collectionId: currentCollection.id,
+          photoUrl: imagePreview || '',
+          title: trimmedTitle,
+          rating: formData.rating || 0,
+          notes: story,
+          data: formData.data || {},
+        },
       });
       trackEvent('item_saved', {
         mode: 'single',
@@ -1097,9 +976,9 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
         story_length_bucket: storyLengthBucket(story.trim().length),
       });
       onClose();
-    } catch (e) {
-      console.error('Save failed:', e);
-      setError(getSaveErrorMessage(e));
+    } catch (error) {
+      console.error('Save failed:', error);
+      setError(getSaveErrorMessage(error));
     } finally {
       setIsSaving(false);
     }
@@ -1124,32 +1003,25 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     }
     setIsSaving(true);
     try {
-      // Iterate over a snapshot and drop each entry as it succeeds, so a
-      // mid-batch failure leaves only the unsaved items behind. Retrying then
-      // reprocesses just those, instead of re-saving already-persisted items
-      // (which would create duplicates with fresh IDs).
-      for (const item of [...batchItems]) {
-        const story = item.notes || '';
-        await onSave(currentCollection.id, {
-          collectionId: currentCollection.id,
-          photoUrl: item.image,
-          title: item.title || 'Untitled',
-          rating: item.rating || 0,
-          notes: story,
-          data: item.data || {},
-        });
-        setBatchItems((prev) => prev.filter((b) => b.id !== item.id));
-        trackEvent('item_saved', {
-          mode: 'batch',
-          has_story: story.trim().length > 0,
-          has_photo: Boolean(item.image),
-          story_length_bucket: storyLengthBucket(story.trim().length),
-        });
-      }
+      await captureWorkflow.saveBatch({
+        collectionId: currentCollection.id,
+        items: [...batchItems],
+        onSave,
+        onItemSaved: (item) => {
+          setBatchItems((prev) => prev.filter((candidate) => candidate.id !== item.id));
+          const story = item.notes || '';
+          trackEvent('item_saved', {
+            mode: 'batch',
+            has_story: story.trim().length > 0,
+            has_photo: Boolean(item.image),
+            story_length_bucket: storyLengthBucket(story.trim().length),
+          });
+        },
+      });
       onClose();
-    } catch (e) {
-      console.error('Batch save failed:', e);
-      setError(getSaveErrorMessage(e));
+    } catch (error) {
+      console.error('Batch save failed:', error);
+      setError(getSaveErrorMessage(error));
     } finally {
       setIsSaving(false);
     }
