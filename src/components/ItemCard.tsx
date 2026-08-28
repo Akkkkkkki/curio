@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { CollectionItem, FieldDefinition } from '../types';
 import { Star, Check } from 'lucide-react';
 import { ItemImage } from './ItemImage';
@@ -47,6 +47,27 @@ export const ItemCard: React.FC<ItemCardProps> = React.memo(function ItemCard({
 
   const { t } = useTranslation();
   const { theme } = useTheme();
+  // The title clamps to two lines. Only mount the full-title reveal when the
+  // text is actually clipped — otherwise a short title pops a redundant
+  // duplicate over the fields below on every hover/focus (reads as a glitch).
+  // The two-line clamp usually overflows vertically (height), but a long
+  // unbroken token (a catalog id or URL) clips horizontally on one line
+  // instead, so check both axes.
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  const [isTitleTruncated, setIsTitleTruncated] = useState(false);
+  useEffect(() => {
+    const el = titleRef.current;
+    if (!el) return;
+    const measure = () =>
+      setIsTitleTruncated(
+        el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1,
+      );
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [item.title]);
   const cardSurface = cardSurfaceClasses[theme];
   const labelText = mutedTextClasses[theme];
   const valueText = theme === 'vault' ? 'text-white' : 'text-stone-700';
@@ -142,17 +163,20 @@ export const ItemCard: React.FC<ItemCardProps> = React.memo(function ItemCard({
       <div className="p-2.5 sm:p-3 md:p-4 flex flex-col flex-grow">
         <div className="relative">
           <h4
+            ref={titleRef}
             title={item.title}
             aria-label={item.title}
             className={`${typographyClasses.title} text-sm sm:text-base line-clamp-2 mb-1`}
           >
             {item.title}
           </h4>
-          <span
-            className={`pointer-events-none absolute left-0 top-full mt-2 w-max max-w-[90vw] rounded-2xl px-3 py-2 text-sm leading-snug shadow-lg opacity-0 scale-95 transition duration-200 ease-out whitespace-normal break-words [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:group-hover:scale-100 group-focus-visible:opacity-100 group-focus-visible:scale-100 sm:max-w-[18rem] ${theme === 'vault' ? 'bg-stone-900 text-white' : 'bg-white text-stone-900 border border-stone-200/70'}`}
-          >
-            {item.title}
-          </span>
+          {isTitleTruncated && (
+            <span
+              className={`pointer-events-none absolute left-0 top-full mt-2 w-max max-w-[90vw] rounded-2xl px-3 py-2 text-sm leading-snug shadow-lg opacity-0 scale-95 transition duration-200 ease-out whitespace-normal break-words [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:group-hover:scale-100 group-focus-visible:opacity-100 group-focus-visible:scale-100 sm:max-w-[18rem] ${theme === 'vault' ? 'bg-stone-900 text-white' : 'bg-white text-stone-900 border border-stone-200/70'}`}
+            >
+              {item.title}
+            </span>
+          )}
         </div>
 
         <div className="space-y-0.5 sm:space-y-1 mb-2 sm:mb-3">
