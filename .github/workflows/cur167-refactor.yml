@@ -1,5 +1,5 @@
 name: CUR-167 one-shot refactor
-# rerun after boundary fix
+# rerun after stale-session guard fix
 
 on:
   push:
