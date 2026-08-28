@@ -1,0 +1,42 @@
+name: CUR-167 one-shot refactor
+
+on:
+  push:
+    branches:
+      - q/cur-167-capture-workflow
+    paths:
+      - .github/workflows/cur167-refactor.yml
+
+permissions:
+  contents: write
+
+jobs:
+  refactor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: q/cur-167-capture-workflow
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Apply deterministic source refactor
+        run: node scripts/_cur167_patch.mjs
+      - name: Format changed source
+        run: npx prettier --write src/components/AddItemModal.tsx src/workflows/captureWorkflow.ts src/workflows/captureWorkflow.test.ts
+      - name: Validate workflow unit tests
+        run: npx vitest run src/workflows/captureWorkflow.test.ts
+      - name: Validate build
+        run: npm run build
+      - name: Remove one-shot automation files
+        run: rm scripts/_cur167_patch.mjs .github/workflows/cur167-refactor.yml
+      - name: Commit refactor
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "CUR-167 wire Add Item to capture workflow"
+          git push origin HEAD:q/cur-167-capture-workflow
