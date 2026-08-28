@@ -11,8 +11,12 @@ const REQUEST_TIMEOUT_MS = 30000;
 const ENHANCEMENT_TIMEOUT_MS = 60000;
 let aiEnabledCache: boolean | null = AI_ENABLED;
 let aiImageEditEnabledCache: boolean | null = AI_IMAGE_EDIT_ENABLED;
+let storyPromptsEnabledCache: boolean | null = AI_ENABLED;
+let fieldSuggestionsEnabledCache: boolean | null = AI_ENABLED;
 let aiEnabledPromise: Promise<boolean> | null = null;
 let aiImageEditEnabledPromise: Promise<boolean> | null = null;
+let storyPromptsEnabledPromise: Promise<boolean> | null = null;
+let fieldSuggestionsEnabledPromise: Promise<boolean> | null = null;
 
 export class AiRequestError extends Error {
   readonly status?: number;
@@ -100,6 +104,10 @@ const fetchAiCapabilities = async (): Promise<AiCapabilities> => {
   }
 };
 
+// Health advertises each AI feature separately, so each one is gated on its own
+// flag. Reusing metadataAnalysisAvailable for all three would both suppress
+// story prompts whenever analysis is down and send requests to an endpoint
+// health has explicitly reported as unavailable.
 export const refreshAiEnabled = async (): Promise<boolean> => {
   if (aiEnabledCache !== null) return aiEnabledCache;
   if (aiEnabledPromise) return aiEnabledPromise;
@@ -115,6 +123,34 @@ export const refreshAiEnabled = async (): Promise<boolean> => {
 };
 
 export const isAiEnabled = () => aiEnabledCache === true;
+
+export const refreshStoryPromptsEnabled = async (): Promise<boolean> => {
+  if (storyPromptsEnabledCache !== null) return storyPromptsEnabledCache;
+  if (storyPromptsEnabledPromise) return storyPromptsEnabledPromise;
+  storyPromptsEnabledPromise = fetchAiCapabilities()
+    .then((capabilities) => {
+      storyPromptsEnabledCache = capabilities.storyPromptsAvailable;
+      return storyPromptsEnabledCache;
+    })
+    .finally(() => {
+      storyPromptsEnabledPromise = null;
+    });
+  return storyPromptsEnabledPromise;
+};
+
+export const refreshFieldSuggestionsEnabled = async (): Promise<boolean> => {
+  if (fieldSuggestionsEnabledCache !== null) return fieldSuggestionsEnabledCache;
+  if (fieldSuggestionsEnabledPromise) return fieldSuggestionsEnabledPromise;
+  fieldSuggestionsEnabledPromise = fetchAiCapabilities()
+    .then((capabilities) => {
+      fieldSuggestionsEnabledCache = capabilities.fieldSuggestionsAvailable;
+      return fieldSuggestionsEnabledCache;
+    })
+    .finally(() => {
+      fieldSuggestionsEnabledPromise = null;
+    });
+  return fieldSuggestionsEnabledPromise;
+};
 
 export const refreshAiImageEditEnabled = async (): Promise<boolean> => {
   if (aiImageEditEnabledCache !== null) return aiImageEditEnabledCache;
@@ -199,7 +235,7 @@ export const fetchStoryPrompts = async (
   req: StoryPromptsRequest,
 ): Promise<{ prompts: string[] }> => {
   try {
-    if (!(await refreshAiEnabled())) return { prompts: [] };
+    if (!(await refreshStoryPromptsEnabled())) return { prompts: [] };
     const result = await postJson<{ prompts?: unknown }>(
       '/api/ai/story-prompts',
       req,
@@ -220,7 +256,7 @@ export const suggestCollectionFields = async (
   locale?: string,
 ): Promise<string[] | null> => {
   try {
-    if (!(await refreshAiEnabled())) return null;
+    if (!(await refreshFieldSuggestionsEnabled())) return null;
     const result = await postJson<{ fields: string[] }>('/api/ai/suggest-fields', {
       description,
       locale,

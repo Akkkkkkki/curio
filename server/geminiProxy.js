@@ -9,6 +9,7 @@ import dotenv from 'dotenv';
 import {
   analyzeItem,
   getGeminiAnalyzeModel,
+  sanitizeAiRequestBody,
   storyPrompts,
   suggestFields,
 } from './ai/operations.js';
@@ -172,10 +173,7 @@ const requireApiKey = (res) => {
 const operationHandler = (operation, errorLabel) => async (req, res) => {
   if (requireApiKey(res)) return;
   try {
-    const requestInput = { ...(req.body || {}) };
-    delete requestInput.apiKey;
-    delete requestInput.client;
-    delete requestInput.provider;
+    const requestInput = sanitizeAiRequestBody(req.body);
     const result = await operation({ ...requestInput, apiKey });
     return res.json(result);
   } catch (error) {

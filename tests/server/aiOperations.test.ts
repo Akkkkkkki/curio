@@ -6,6 +6,7 @@ import {
   getGeminiAnalyzeModel,
   normalizeStoryPrompts,
   normalizeSuggestedFields,
+  sanitizeAiRequestBody,
   storyPrompts,
   suggestFields,
   validateAnalyzeInput,
@@ -108,5 +109,43 @@ describe('shared AI operations', () => {
     });
     expect(provider.analyzeImage).not.toHaveBeenCalled();
     expect(provider.generateStructuredText).not.toHaveBeenCalled();
+  });
+
+  // CUR-166 review: the operations layer takes `provider`/`client`/`apiKey` as
+  // server-side injection points. Every HTTP entry point has to strip them from
+  // the request body first, or an authenticated `{ "provider": {} }` body
+  // displaces the trusted default and turns into a 500.
+  describe('sanitizeAiRequestBody', () => {
+    it('strips server-only injection keys while preserving operation input', () => {
+      expect(
+        sanitizeAiRequestBody({
+          provider: {},
+          client: { fake: true },
+          apiKey: 'leaked',
+          description: 'vintage synths',
+          locale: 'en',
+        }),
+      ).toEqual({ description: 'vintage synths', locale: 'en' });
+    });
+
+    it('returns a fresh object and tolerates a missing body', () => {
+      const body = { locale: 'en' };
+      const sanitized = sanitizeAiRequestBody(body);
+      expect(sanitized).not.toBe(body);
+      expect(sanitizeAiRequestBody(undefined)).toEqual({});
+      expect(sanitizeAiRequestBody(null)).toEqual({});
+    });
+
+    it('leaves the trusted default provider in place for the operation', async () => {
+      const provider = fakeProvider([{ fields: ['Artist', 'Year'] }]);
+      const requestInput = sanitizeAiRequestBody({
+        provider: {},
+        description: 'vintage synths',
+      });
+      await expect(suggestFields({ ...requestInput, provider })).resolves.toEqual({
+        fields: ['Artist', 'Year'],
+      });
+      expect(provider.generateStructuredText).toHaveBeenCalled();
+    });
   });
 });

@@ -39,10 +39,7 @@ export const createGeminiProvider = ({ apiKey, model, client: injectedClient }) 
     model,
     analyzeImage: ({ imageBase64, prompt, schema }) =>
       generateStructured({
-        parts: [
-          { inlineData: { mimeType: 'image/jpeg', data: imageBase64 } },
-          { text: prompt },
-        ],
+        parts: [{ inlineData: { mimeType: 'image/jpeg', data: imageBase64 } }, { text: prompt }],
         schema,
       }),
     generateStructuredText: ({ prompt, schema }) =>

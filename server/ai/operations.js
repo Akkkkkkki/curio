@@ -9,6 +9,18 @@ const MAX_FIELDS_COUNT = 30;
 const createDefaultProvider = (apiKey) =>
   createGeminiProvider({ apiKey, model: getGeminiAnalyzeModel() });
 
+// These operation inputs are server-side injection points (tests and the
+// gateway pick the provider/credentials); a request body must never reach them.
+// Every HTTP entry point runs its body through this before spreading it into an
+// operation, so a `{ "provider": {} }` body cannot displace the trusted default.
+const SERVER_ONLY_INPUT_KEYS = ['apiKey', 'client', 'provider'];
+
+export const sanitizeAiRequestBody = (body) => {
+  const input = { ...(body || {}) };
+  for (const key of SERVER_ONLY_INPUT_KEYS) delete input[key];
+  return input;
+};
+
 const mapFieldTypeToSchemaType = (type) => {
   switch (type) {
     case 'number':
