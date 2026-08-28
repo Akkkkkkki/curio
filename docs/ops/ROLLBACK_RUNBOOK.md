@@ -45,7 +45,13 @@ Do not rotate credentials or switch models merely because a request failed once.
 
 **Environment/config regression:** restore the previous Vercel environment variable value, then redeploy. Environment changes do not alter an already-built deployment consistently enough to rely on without a redeploy.
 
-**Provider/model regression:** restore the last known-good provider/model configuration behind Curio's provider adapter. Keep the public route contract unchanged — today that contract is `/api/gemini/*` (`analyze`, `story-prompts`, `suggest-fields`, `enhance`), served by `api/gemini/*.js` in production and `server/geminiProxy.js` locally. The path name is historical: the routes are provider-agnostic to callers, and deployed clients call them by that path, so a rollback must not rename them. Do not patch product callers to a provider-specific route as an emergency shortcut.
+**Provider/model regression:** restore the last known-good provider/model configuration behind Curio's provider adapter, and keep the public route contract unchanged. Today that contract is:
+
+- `/api/ai/analyze-item`, `/api/ai/story-prompts`, `/api/ai/suggest-fields` — what the current client calls (`src/services/aiService.ts`).
+- `/api/gemini/enhance` — image editing, still on its original path.
+- `/api/gemini/analyze`, `/api/gemini/story-prompts`, `/api/gemini/suggest-fields` — the pre-CUR-166 paths. `api/ai/*.js` are thin re-exports of these handlers, so both spellings hit the same code. Already-deployed clients may still call the `/api/gemini/*` form, so a rollback must keep them serving rather than removing the aliases.
+
+`server/geminiProxy.js` mounts the same set locally. Do not patch product callers to a provider-specific route as an emergency shortcut.
 
 **Optional AI capability failure:** if the affected feature already has a supported unavailable/manual path, prefer disabling only that capability over taking down unrelated AI routes.
 
