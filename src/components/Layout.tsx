@@ -41,7 +41,7 @@ const authChipSignedOutClasses: Record<AppTheme, string> = {
 const authChipUnconfiguredClasses: Record<AppTheme, string> = {
   gallery: 'bg-stone-50 text-stone-400',
   vault: 'bg-white/10 text-white/60',
-  atelier: 'bg-[#EDE4D3] text-[#8C7B6B]',
+  atelier: 'bg-[#EDE4D3] text-[#6F6257]',
 };
 
 const importCardSurfaceClasses: Record<AppTheme, string> = {
@@ -65,7 +65,7 @@ const importCardBodyClasses: Record<AppTheme, string> = {
 const importCardActionClasses: Record<AppTheme, string> = {
   gallery: 'bg-amber-600 text-white hover:bg-amber-700',
   vault: 'bg-[#D4A574] text-stone-950 hover:bg-[#E0B585]',
-  atelier: 'bg-[#A86F3C] text-white hover:bg-[#8B5A2B]',
+  atelier: 'bg-[#8B5A2B] text-white hover:bg-[#73481F]',
 };
 
 const importCardStatusClasses: Record<AppTheme, string> = {
@@ -217,7 +217,7 @@ export const Layout: React.FC<LayoutProps> = ({
     theme === 'vault'
       ? 'bg-[#D4A574]/20 text-[#D4A574]'
       : theme === 'atelier'
-        ? 'bg-[#A86F3C]/15 text-[#A86F3C]'
+        ? 'bg-[#8B5A2B]/15 text-[#8B5A2B]'
         : 'bg-amber-100 text-amber-700';
   const statusBadgeSurface =
     theme === 'vault' ? 'bg-stone-900 border-white/10' : 'bg-white border-stone-200';

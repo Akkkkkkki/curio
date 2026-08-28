@@ -1,7 +1,11 @@
 import { attachMetrics } from '../_metrics.js';
 import { attachRequestLogger, recordApiError } from '../_requestLogging.js';
 import { requireAiAccess } from '../_aiSecurity.js';
-import { GEMINI_ANALYZE_MODEL, storyPrompts } from '../../server/ai/operations.js';
+import {
+  GEMINI_ANALYZE_MODEL,
+  sanitizeAiRequestBody,
+  storyPrompts,
+} from '../../server/ai/operations.js';
 
 export default async function handler(req, res) {
   attachRequestLogger(req, res, {
@@ -27,9 +31,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const requestInput = { ...(req.body || {}) };
-    delete requestInput.apiKey;
-    delete requestInput.client;
+    const requestInput = sanitizeAiRequestBody(req.body);
     const result = await storyPrompts({ ...requestInput, apiKey });
     return res.status(200).json(result);
   } catch (error) {

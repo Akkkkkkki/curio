@@ -230,7 +230,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           className={`max-w-md w-full text-center border rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-10 shadow-xl ${theme === 'vault' ? 'bg-white/5 border-white/10' : theme === 'atelier' ? 'bg-[#EDE4D3]/70 border-[#D4C9B8]' : 'bg-white/70 border-stone-200'}`}
         >
           <div
-            className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center mx-auto mb-5 sm:mb-6 ${theme === 'vault' ? 'bg-amber-500/10 text-amber-400' : theme === 'atelier' ? 'bg-[#A86F3C]/10 text-[#A86F3C]' : 'bg-amber-50 text-amber-600'}`}
+            className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center mx-auto mb-5 sm:mb-6 ${theme === 'vault' ? 'bg-amber-500/10 text-amber-400' : theme === 'atelier' ? 'bg-[#8B5A2B]/10 text-[#8B5A2B]' : 'bg-amber-50 text-amber-600'}`}
           >
             <AlertCircle size={24} />
           </div>
@@ -240,7 +240,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             {t('syncPausedTitle')}
           </h2>
           <p
-            className={`text-sm mb-3 ${theme === 'vault' ? 'text-stone-400' : theme === 'atelier' ? 'text-[#8C7B6B]' : 'text-stone-500'}`}
+            className={`text-sm mb-3 ${theme === 'vault' ? 'text-stone-400' : theme === 'atelier' ? 'text-[#6F6257]' : 'text-stone-500'}`}
           >
             {loadError}
           </p>
@@ -270,25 +270,25 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const newArchiveTileClasses = {
     gallery: 'border-stone-200 hover:border-amber-400 bg-white/50 text-stone-500',
     vault: 'border-white/10 hover:border-amber-400 bg-white/5 text-stone-500',
-    atelier: 'border-[#D4C9B8] hover:border-[#A86F3C] bg-[#EDE4D3]/60 text-[#8C7B6B]',
+    atelier: 'border-[#D4C9B8] hover:border-[#8B5A2B] bg-[#EDE4D3]/60 text-[#6F6257]',
   };
 
   const newArchiveDiscClasses = {
     gallery: 'bg-stone-50 text-stone-300',
     vault: 'bg-white/5 text-stone-500',
-    atelier: 'bg-[#F5EFE4] text-[#8C7B6B]',
+    atelier: 'bg-[#F5EFE4] text-[#6F6257]',
   };
 
   const newArchiveTitleClasses = {
     gallery: 'text-stone-500',
     vault: 'text-white/60',
-    atelier: 'text-[#8C7B6B]',
+    atelier: 'text-[#6F6257]',
   };
 
   const searchPlaceholderClasses = {
     gallery: 'placeholder:text-stone-300',
     vault: 'placeholder:text-stone-400',
-    atelier: 'placeholder:text-[#8C7B6B]',
+    atelier: 'placeholder:text-[#6F6257]',
   };
 
   if (!hasOwnedContent) {
@@ -332,7 +332,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               </Link>
             )}
           </div>
-          <p className={`${typographyClasses.labelMuted} mt-6`}>{t('firstRunFooter')}</p>
+          <p className={`${typographyClasses.labelMuted} ${labelColorClasses[theme]} mt-6`}>
+            {t('firstRunFooter')}
+          </p>
         </section>
       </div>
     );
@@ -354,7 +356,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             theme === 'vault'
               ? 'text-stone-300 decoration-white/25 hover:text-[#D4A574] hover:decoration-[#D4A574]/60'
               : theme === 'atelier'
-                ? 'text-[#6F6257] decoration-[#8C7B6B]/40 hover:text-[#A86F3C] hover:decoration-[#A86F3C]/60'
+                ? 'text-[#6F6257] decoration-[#6F6257]/40 hover:text-[#8B5A2B] hover:decoration-[#8B5A2B]/60'
                 : 'text-stone-600 decoration-stone-300 hover:text-amber-700 hover:decoration-amber-500/60'
           }`}
         >
@@ -410,7 +412,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             <div className="space-y-4">
               <div className="flex items-center justify-between gap-3">
                 <div
-                  className={`flex h-10 w-10 items-center justify-center rounded-xl ${theme === 'vault' ? 'bg-amber-500/10 text-amber-400' : theme === 'atelier' ? 'bg-[#A86F3C]/10 text-[#A86F3C]' : 'bg-amber-50 text-amber-600'}`}
+                  className={`flex h-10 w-10 items-center justify-center rounded-xl ${theme === 'vault' ? 'bg-amber-500/10 text-amber-400' : theme === 'atelier' ? 'bg-[#8B5A2B]/10 text-[#8B5A2B]' : 'bg-amber-50 text-amber-600'}`}
                 >
                   <Calendar size={18} />
                 </div>
@@ -419,7 +421,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 </span>
               </div>
               <div>
-                <p className={`${typographyClasses.labelMuted} mb-1`}>{t('historyTitle')}</p>
+                <p className={`${typographyClasses.labelMuted} ${labelColorClasses[theme]} mb-1`}>
+                  {t('historyTitle')}
+                </p>
                 <h2 className={`${typographyClasses.titleLarge} leading-tight`}>
                   {primaryHistoryItem.title}
                 </h2>
@@ -431,7 +435,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                       <button
                         type="button"
                         onClick={() => navigate(`/collection/${item.collectionId}/item/${item.id}`)}
-                        className={`w-full text-left rounded-xl border px-3 py-2 text-xs sm:text-sm shadow-sm transition ${theme === 'vault' ? 'border-white/10 bg-white/5 hover:border-[#D4A574]/30 hover:bg-white/10' : theme === 'atelier' ? 'border-[#D4C9B8]/60 bg-[#EDE4D3]/70 hover:border-[#A86F3C]/30 hover:bg-[#EDE4D3]' : 'border-stone-200/60 bg-white/70 hover:border-amber-200 hover:bg-amber-50/60'}`}
+                        className={`w-full text-left rounded-xl border px-3 py-2 text-xs sm:text-sm shadow-sm transition ${theme === 'vault' ? 'border-white/10 bg-white/5 hover:border-[#D4A574]/30 hover:bg-white/10' : theme === 'atelier' ? 'border-[#D4C9B8]/60 bg-[#EDE4D3]/70 hover:border-[#8B5A2B]/30 hover:bg-[#EDE4D3]' : 'border-stone-200/60 bg-white/70 hover:border-amber-200 hover:bg-amber-50/60'}`}
                       >
                         <div className="flex items-center justify-between gap-2">
                           <span
@@ -441,7 +445,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                           </span>
                           {showHistoryYearBadge && (
                             <span
-                              className={`text-[11px] uppercase tracking-wide ${theme === 'vault' ? 'text-stone-500' : theme === 'atelier' ? 'text-[#8C7B6B]' : 'text-stone-400'}`}
+                              className={`text-[11px] uppercase tracking-wide ${theme === 'vault' ? 'text-stone-500' : theme === 'atelier' ? 'text-[#6F6257]' : 'text-stone-400'}`}
                             >
                               {new Date(item.createdAt).getFullYear()}
                             </span>
@@ -454,7 +458,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 {historyOverflow > 0 && !historyExpanded && (
                   <>
                     <p
-                      className={`text-xs ${theme === 'vault' ? 'text-stone-500' : theme === 'atelier' ? 'text-[#8C7B6B]' : 'text-stone-400'}`}
+                      className={`text-xs ${theme === 'vault' ? 'text-stone-500' : theme === 'atelier' ? 'text-[#6F6257]' : 'text-stone-400'}`}
                     >
                       {t('onThisDayMore', { count: historyOverflow })}
                     </p>
@@ -529,7 +533,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             <p className={`${typographyClasses.titleLarge} italic mb-2`}>
               {t('searchNoResultsTitle')}
             </p>
-            <p className={typographyClasses.labelMuted}>
+            <p className={`${typographyClasses.labelMuted} ${labelColorClasses[theme]}`}>
               {t('searchNoResultsBody', { query: searchInput.trim() })}
             </p>
             <div className="mt-6 flex justify-center">

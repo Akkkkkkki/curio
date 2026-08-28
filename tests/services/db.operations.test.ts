@@ -289,6 +289,258 @@ describe('Phase 2.2 — services/db.ts dual-write operations', () => {
     expect(itemsPayload[0].updated_at).toBeDefined();
   });
 
+  it('saveCollection: never upserts a data: URL into item photo columns (issue #369)', async () => {
+    /**
+     * Regression guard for #369: an item whose photoUrl is still a raw base64
+     * data URL at sync time must NOT bloat the item row. The inline image is
+     * moved onto the Storage-backed asset track — bytes stashed locally, an
+     * upload queued, and canonical Storage paths written to the row instead.
+     */
+    const { supabase, itemsUpsert, upload } = createSupabaseMock();
+    const dbMod = await importDbModuleFreshWithSupabaseMock(supabase);
+
+    const db = await dbMod.initDB();
+    openDb = db;
+    await clearStores(db, ['collections', 'assets', 'display', 'settings']);
+
+    // A valid base64 payload (length is a multiple of 4). The point is only
+    // that photoUrl is a data URL; its exact bytes don't matter.
+    const dataUrl = `data:image/jpeg;base64,${'AAAA'.repeat(20)}`;
+
+    const item: CollectionItem = {
+      id: 'item-1',
+      collectionId: 'col-1',
+      photoUrl: dataUrl,
+      title: 'Inline photo item',
+      rating: 4,
+      data: {},
+      createdAt: new Date('2024-01-01T00:00:00Z').toISOString(),
+      updatedAt: new Date('2024-01-02T00:00:00Z').toISOString(),
+      notes: '',
+    };
+
+    const collection: UserCollection = {
+      id: 'col-1',
+      templateId: 'vinyl',
+      name: 'My Collection',
+      icon: '🎵',
+      customFields: [],
+      items: [item],
+      ownerId: 'test-user-id',
+      updatedAt: new Date('2024-01-03T00:00:00Z').toISOString(),
+    };
+
+    await expect(dbMod.saveCollection(collection)).resolves.toBeUndefined();
+
+    // The upserted row carries canonical Storage paths, never the data URL.
+    const [itemsPayload] = itemsUpsert.mock.calls[0];
+    expect(itemsPayload[0].photo_original_path).toBe(
+      'test-user-id/collections/col-1/item-1/original.jpg',
+    );
+    expect(itemsPayload[0].photo_display_path).toBe(
+      'test-user-id/collections/col-1/item-1/display.jpg',
+    );
+    expect(JSON.stringify(itemsPayload[0])).not.toContain('data:image');
+
+    // The bytes were stashed in the local asset caches so the photo still
+    // renders offline.
+    const originalBlob = await readFromStore<Blob>(db, 'assets', 'item-1');
+    const displayBlob = await readFromStore<Blob>(db, 'display', 'item-1');
+    expect(originalBlob).toBeTruthy();
+    expect(displayBlob).toBeTruthy();
+    expect(originalBlob?.type).toBe('image/jpeg');
+    expect(displayBlob?.type).toBe('image/jpeg');
+
+    // And the recovered bytes were uploaded to Storage now (not left dangling
+    // until the next reconnect), so the row's paths resolve on other devices.
+    const uploadedPaths = upload.mock.calls.map((call) => call[0]);
+    expect(uploadedPaths).toContain('test-user-id/collections/col-1/item-1/original.jpg');
+    expect(uploadedPaths).toContain('test-user-id/collections/col-1/item-1/display.jpg');
+
+    // The local collection records that the photo is asset-backed now, so the
+    // item no longer carries the inline payload.
+    const savedLocally = await readFromStore<UserCollection>(db, 'collections', 'col-1');
+    expect(savedLocally?.items[0].photoUrl).toBe('asset');
+  });
+
+  it('saveCollection: a migrated inline photo is not re-uploaded on the next save (#369)', async () => {
+    /**
+     * Migration only rewrote the cloud row, so the local item kept its inline
+     * `data:` photoUrl and every subsequent save of the collection re-decoded
+     * and re-uploaded the same multi-megabyte image, delaying unrelated saves.
+     */
+    const { supabase, upload } = createSupabaseMock();
+    const dbMod = await importDbModuleFreshWithSupabaseMock(supabase);
+
+    const db = await dbMod.initDB();
+    openDb = db;
+    await clearStores(db, ['collections', 'assets', 'display', 'settings']);
+
+    const collection: UserCollection = {
+      id: 'col-1',
+      templateId: 'vinyl',
+      name: 'My Collection',
+      icon: '🎵',
+      customFields: [],
+      items: [
+        {
+          id: 'item-1',
+          collectionId: 'col-1',
+          photoUrl: `data:image/jpeg;base64,${'AAAA'.repeat(20)}`,
+          title: 'Inline photo item',
+          rating: 4,
+          data: {},
+          createdAt: new Date('2024-01-01T00:00:00Z').toISOString(),
+          updatedAt: new Date('2024-01-02T00:00:00Z').toISOString(),
+          notes: '',
+        },
+      ],
+      ownerId: 'test-user-id',
+      updatedAt: new Date('2024-01-03T00:00:00Z').toISOString(),
+    };
+
+    await dbMod.saveCollection(collection);
+    const uploadsAfterMigration = upload.mock.calls.length;
+    expect(uploadsAfterMigration).toBeGreaterThan(0);
+
+    // Save again from the reconciled local state — the same edit a user would
+    // trigger by renaming the collection.
+    const reconciled = await readFromStore<UserCollection>(db, 'collections', 'col-1');
+    expect(reconciled).toBeTruthy();
+    await dbMod.saveCollection({
+      ...(reconciled as UserCollection),
+      name: 'Renamed',
+      updatedAt: new Date('2024-01-04T00:00:00Z').toISOString(),
+    });
+
+    expect(upload.mock.calls.length).toBe(uploadsAfterMigration);
+  });
+
+  it('saveCollection: a delete landing during inline-photo migration is not resurrected (#369)', async () => {
+    /**
+     * The inline-photo migration awaits a Storage upload, widening the window
+     * between the delete recheck and the items upsert. If the user deletes the
+     * item during that await, the now-stale snapshot must not upsert it back.
+     */
+    const { supabase, itemsUpsert, upload } = createSupabaseMock();
+    const dbMod = await importDbModuleFreshWithSupabaseMock(supabase);
+
+    const db = await dbMod.initDB();
+    openDb = db;
+    await clearStores(db, ['collections', 'assets', 'display', 'settings']);
+
+    // Simulate a concurrent delete: while the migration's Storage upload is in
+    // flight, a tombstone for the item appears in the pending-delete journal.
+    upload.mockImplementation(async () => {
+      window.localStorage.setItem(
+        PENDING_DELETE_JOURNAL_KEY,
+        JSON.stringify([
+          {
+            type: 'item',
+            collectionId: 'col-1',
+            itemId: 'item-1',
+            createdAt: new Date('2024-01-02T00:00:00Z').toISOString(),
+          },
+        ]),
+      );
+      return { data: { path: 'ok' }, error: null };
+    });
+
+    const item: CollectionItem = {
+      id: 'item-1',
+      collectionId: 'col-1',
+      photoUrl: `data:image/jpeg;base64,${'AAAA'.repeat(20)}`,
+      title: 'Inline photo item',
+      rating: 4,
+      data: {},
+      createdAt: new Date('2024-01-01T00:00:00Z').toISOString(),
+      updatedAt: new Date('2024-01-02T00:00:00Z').toISOString(),
+      notes: '',
+    };
+
+    const collection: UserCollection = {
+      id: 'col-1',
+      templateId: 'vinyl',
+      name: 'My Collection',
+      icon: '🎵',
+      customFields: [],
+      items: [item],
+      ownerId: 'test-user-id',
+      updatedAt: new Date('2024-01-03T00:00:00Z').toISOString(),
+    };
+
+    await expect(dbMod.saveCollection(collection)).resolves.toBeUndefined();
+
+    // The item was dropped from the upsert rather than resurrected.
+    expect(itemsUpsert).not.toHaveBeenCalled();
+  });
+
+  it('saveCollection: an edit during inline-photo migration is upserted, not clobbered (#369)', async () => {
+    /**
+     * The upsert must reflect the item's state after the awaited migration, not
+     * the pre-migration snapshot — otherwise a concurrent edit is lost.
+     */
+    const { supabase, itemsUpsert, upload } = createSupabaseMock();
+    const dbMod = await importDbModuleFreshWithSupabaseMock(supabase);
+
+    const db = await dbMod.initDB();
+    openDb = db;
+    await clearStores(db, ['collections', 'assets', 'display', 'settings']);
+
+    // Simulate a concurrent edit: while the migration's Storage upload is in
+    // flight, the item's title changes in the local IndexedDB collection.
+    upload.mockImplementation(async () => {
+      await new Promise<void>((resolve) => {
+        const tx = db.transaction('collections', 'readwrite');
+        const store = tx.objectStore('collections');
+        const getReq = store.get('col-1');
+        getReq.onsuccess = () => {
+          const stored = getReq.result;
+          if (stored?.items?.[0]) {
+            stored.items[0].title = 'Edited during upload';
+            store.put(stored);
+          }
+        };
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => resolve();
+      });
+      return { data: { path: 'ok' }, error: null };
+    });
+
+    const item: CollectionItem = {
+      id: 'item-1',
+      collectionId: 'col-1',
+      photoUrl: `data:image/jpeg;base64,${'AAAA'.repeat(20)}`,
+      title: 'Original title',
+      rating: 4,
+      data: {},
+      createdAt: new Date('2024-01-01T00:00:00Z').toISOString(),
+      updatedAt: new Date('2024-01-02T00:00:00Z').toISOString(),
+      notes: '',
+    };
+
+    const collection: UserCollection = {
+      id: 'col-1',
+      templateId: 'vinyl',
+      name: 'My Collection',
+      icon: '🎵',
+      customFields: [],
+      items: [item],
+      ownerId: 'test-user-id',
+      updatedAt: new Date('2024-01-03T00:00:00Z').toISOString(),
+    };
+
+    await expect(dbMod.saveCollection(collection)).resolves.toBeUndefined();
+
+    // The upsert carries the edited title and still the migrated Storage path.
+    const [itemsPayload] = itemsUpsert.mock.calls[0];
+    expect(itemsPayload[0].title).toBe('Edited during upload');
+    expect(itemsPayload[0].photo_original_path).toBe(
+      'test-user-id/collections/col-1/item-1/original.jpg',
+    );
+    expect(JSON.stringify(itemsPayload[0])).not.toContain('data:image');
+  });
+
   it('saveCollection: cloud failure does not rollback local save (eventual consistency)', async () => {
     /**
      * Roadmap expectation: if cloud fails, local succeeds; callers get eventual consistency.

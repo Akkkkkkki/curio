@@ -954,7 +954,7 @@ export const ItemDetailScreen: React.FC<ItemDetailScreenProps> = ({
                     field.hint ||
                     '';
                   const showHint = Boolean(hint) && !isReadOnly && isEmpty;
-                  const fieldBaseClass = `${typographyClasses.title} w-full bg-transparent border-none p-0 outline-none focus:text-amber-900 focus:ring-0 transition-colors ${theme === 'vault' ? 'text-white placeholder:text-stone-400' : theme === 'atelier' ? 'text-stone-900 placeholder:text-[#8C7B6B]' : 'text-stone-900 placeholder:text-stone-500'} ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`;
+                  const fieldBaseClass = `${typographyClasses.title} w-full bg-transparent border-none p-0 outline-none focus:text-amber-900 focus:ring-0 transition-colors ${theme === 'vault' ? 'text-white placeholder:text-stone-400' : theme === 'atelier' ? 'text-stone-900 placeholder:text-[#6F6257]' : 'text-stone-900 placeholder:text-stone-500'} ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`;
                   const handleFieldChange = (
                     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
                   ) => {

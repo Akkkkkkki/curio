@@ -9,6 +9,7 @@ import dotenv from 'dotenv';
 import {
   analyzeItem,
   getGeminiAnalyzeModel,
+  sanitizeAiRequestBody,
   storyPrompts,
   suggestFields,
 } from './ai/operations.js';
@@ -29,6 +30,9 @@ const MAX_IMAGE_BASE64_LENGTH = 20 * 1024 * 1024;
 const MAX_LATENCY_SAMPLES = 1000;
 const METRICS_ROUTES = new Set([
   '/api/health',
+  '/api/ai/analyze-item',
+  '/api/ai/suggest-fields',
+  '/api/ai/story-prompts',
   '/api/gemini/analyze',
   '/api/gemini/enhance',
   '/api/gemini/suggest-fields',
@@ -169,9 +173,7 @@ const requireApiKey = (res) => {
 const operationHandler = (operation, errorLabel) => async (req, res) => {
   if (requireApiKey(res)) return;
   try {
-    const requestInput = { ...(req.body || {}) };
-    delete requestInput.apiKey;
-    delete requestInput.client;
+    const requestInput = sanitizeAiRequestBody(req.body);
     const result = await operation({ ...requestInput, apiKey });
     return res.json(result);
   } catch (error) {
@@ -184,27 +186,37 @@ const operationHandler = (operation, errorLabel) => async (req, res) => {
 };
 
 app.get('/api/health', (_req, res) => {
-  res.json({ ok: true, geminiConfigured: Boolean(apiKey), analyzeModel: getGeminiAnalyzeModel() });
+  const available = Boolean(apiKey);
+  res.json({
+    ok: true,
+    metadataAnalysisAvailable: available,
+    fieldSuggestionsAvailable: available,
+    storyPromptsAvailable: available,
+    imageEditingAvailable: available,
+    geminiConfigured: available,
+    provider: 'gemini',
+    analyzeModel: getGeminiAnalyzeModel(),
+  });
 });
 app.get('/api/metrics', requireAuth, (_req, res) => {
   res.json({ generatedAt: new Date().toISOString(), routes: summarizeMetrics() });
 });
 app.post(
-  '/api/gemini/analyze',
+  ['/api/ai/analyze-item', '/api/gemini/analyze'],
   ipLimiter,
   requireAuth,
   userLimiter,
   operationHandler(analyzeItem, 'AI analysis failed'),
 );
 app.post(
-  '/api/gemini/suggest-fields',
+  ['/api/ai/suggest-fields', '/api/gemini/suggest-fields'],
   ipLimiter,
   requireAuth,
   userLimiter,
   operationHandler(suggestFields, 'Field suggestion failed'),
 );
 app.post(
-  '/api/gemini/story-prompts',
+  ['/api/ai/story-prompts', '/api/gemini/story-prompts'],
   ipLimiter,
   requireAuth,
   userLimiter,
@@ -288,7 +300,7 @@ if (isDirectRun) {
     process.exit(1);
   }
   if (!apiKey) console.warn('Warning: GEMINI_API_KEY is not set. AI endpoints will return 503.');
-  app.listen(port, () => console.log(`Gemini proxy listening on :${port}`));
+  app.listen(port, () => console.log(`AI gateway listening on :${port}`));
 }
 
 export default app;

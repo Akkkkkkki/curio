@@ -119,7 +119,7 @@ export const overlaySurfaceClasses: Record<AppTheme, string> = {
 export const mutedTextClasses: Record<AppTheme, string> = {
   gallery: 'text-stone-500',
   vault: 'text-stone-300',
-  atelier: 'text-[#8C7B6B]', // Sepia-toned muted text
+  atelier: 'text-[#6F6257]', // AA-compliant sepia muted text
 };
 
 export const useTheme = () => useContext(ThemeContext);
@@ -143,8 +143,12 @@ export const typographyClasses = {
   // Labels/Metadata: Mono, 11-12px, uppercase, wide tracking (tighter on mobile so they fit narrow grid cells)
   label:
     'font-mono text-[11px] sm:text-[12px] uppercase tracking-[0.1em] sm:tracking-[0.2em] font-bold',
+  // No opacity here on purpose. Muting these labels with `opacity-50` composited
+  // even an AA-compliant token down to ~2:1 against the light Atelier and
+  // Gallery surfaces, so the muting now comes from `labelColorClasses[theme]`
+  // (or `mutedTextClasses[theme]`) plus the lighter weight, which stays legible.
   labelMuted:
-    'font-mono text-[11px] sm:text-[12px] uppercase tracking-[0.1em] sm:tracking-[0.2em] font-medium opacity-50',
+    'font-mono text-[11px] sm:text-[12px] uppercase tracking-[0.1em] sm:tracking-[0.2em] font-medium',
   labelSmall: 'font-mono text-[10px] uppercase tracking-[0.08em] sm:tracking-[0.15em] font-medium',
 
   // Body text: Sans, 14-16px, relaxed leading
@@ -167,7 +171,7 @@ export const typographyClasses = {
 export const labelColorClasses: Record<AppTheme, string> = {
   gallery: 'text-stone-500',
   vault: 'text-stone-400',
-  atelier: 'text-[#8C7B6B]', // Sepia-toned labels
+  atelier: 'text-[#6F6257]', // Sepia-toned labels with AA contrast
 };
 
 // =============================================================================
@@ -207,10 +211,10 @@ export const themeColors = {
     surface: '#F5EFE4', // Warm cream with yellow undertone
     surfaceMuted: '#EDE4D3', // Parchment
     text: '#3D3530', // Warm dark brown (not cool gray)
-    textMuted: '#8C7B6B', // Sepia-toned muted text
+    textMuted: '#6F6257', // Sepia-toned muted text, AA on both warm surfaces
     border: '#D4C9B8', // Warmer, more visible border
-    accent: '#A86F3C', // Rich amber-brown (aged leather)
-    accentHover: '#8B5A2B', // Deeper on hover
+    accent: '#8B5A2B', // Accessible aged-leather brown
+    accentHover: '#73481F', // Deeper accessible hover
   },
 } as const;
 
@@ -237,7 +241,7 @@ export const frameAccentClasses: Record<AppTheme, string> = {
 export const accentColorClasses: Record<AppTheme, string> = {
   gallery: 'text-amber-600 hover:text-amber-700',
   vault: 'text-[#D4A574] hover:text-[#E0B585]',
-  atelier: 'text-[#A86F3C] hover:text-[#8B5A2B]', // Rich amber-brown
+  atelier: 'text-[#8B5A2B] hover:text-[#73481F]', // AA leather brown
 };
 
 // Accent color for small uppercase eyebrow/label text. The interactive accent
@@ -255,14 +259,14 @@ export const accentLabelColorClasses: Record<AppTheme, string> = {
 export const accentBgClasses: Record<AppTheme, string> = {
   gallery: 'bg-amber-500 hover:bg-amber-600 text-white',
   vault: 'bg-[#D4A574] hover:bg-[#E0B585] text-stone-900',
-  atelier: 'bg-[#A86F3C] hover:bg-[#8B5A2B] text-white', // Leather brown
+  atelier: 'bg-[#8B5A2B] hover:bg-[#73481F] text-white', // Accessible leather brown
 };
 
 // Card hover states with enhanced shadows
 export const cardHoverClasses: Record<AppTheme, string> = {
   gallery: 'hover:shadow-gallery-hover hover:border-stone-200 transition-all duration-200',
   vault: 'hover:shadow-vault-hover hover:border-[#D4A574]/30 transition-all duration-200',
-  atelier: 'hover:shadow-atelier-hover hover:border-[#A86F3C]/30 transition-all duration-200',
+  atelier: 'hover:shadow-atelier-hover hover:border-[#8B5A2B]/30 transition-all duration-200',
 };
 
 // Enhanced card surfaces with theme-specific shadows
@@ -283,13 +287,13 @@ export const dividerClasses: Record<AppTheme, string> = {
 export const ratingColorClasses: Record<AppTheme, string> = {
   gallery: 'text-amber-500',
   vault: 'text-[#D4A574]',
-  atelier: 'text-[#A86F3C]', // Leather brown
+  atelier: 'text-[#8B5A2B]', // Accessible leather brown
 };
 
 export const ratingEmptyClasses: Record<AppTheme, string> = {
   gallery: 'text-amber-500/30',
   vault: 'text-[#D4A574]/30',
-  atelier: 'text-[#A86F3C]/30',
+  atelier: 'text-[#8B5A2B]/30',
 };
 
 // Input field classes
@@ -299,5 +303,5 @@ export const inputClasses: Record<AppTheme, string> = {
   vault:
     'bg-stone-900 border-white/10 text-white placeholder:text-stone-400 focus:ring-[#D4A574]/10 focus:border-[#D4A574]/30',
   atelier:
-    'bg-[#F5EFE4] border-[#D4C9B8] text-[#3D3530] placeholder:text-[#8C7B6B] focus:ring-[#A86F3C]/10 focus:border-[#A86F3C]/30',
+    'bg-[#F5EFE4] border-[#D4C9B8] text-[#3D3530] placeholder:text-[#6F6257] focus:ring-[#8B5A2B]/10 focus:border-[#8B5A2B]/30',
 };

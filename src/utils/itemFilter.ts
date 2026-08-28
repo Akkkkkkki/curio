@@ -2,9 +2,55 @@ import { CollectionItem, FieldDefinition } from '../types';
 
 const normalize = (value: string) => value.trim().toLocaleLowerCase();
 
-// `rating` is a reserved filter key that always compares against the item's
-// top-level rating field, not a custom-field lookup on `item.data`.
+// `rating` and `__addedMonth` are reserved filter keys that compare against
+// top-level item properties rather than custom-field values in `item.data`.
 export const RATING_FILTER_KEY = 'rating';
+export const ADDED_MONTH_FILTER_KEY = '__addedMonth';
+
+export type AddedMonthOption = {
+  value: string;
+  label: string;
+};
+
+const getAddedMonthKey = (createdAt: string): string | null => {
+  const date = new Date(createdAt);
+  if (Number.isNaN(date.getTime())) return null;
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
+};
+
+// Renders a stable `YYYY-MM` filter value as a localized month name. Returns
+// the raw value unchanged when it is not a month key, so callers can use this
+// for display without pre-validating.
+export function formatAddedMonthLabel(value: string, locale: string): string {
+  const match = /^(\d{4})-(\d{2})$/.exec(value);
+  if (!match) return value;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  if (month < 1 || month > 12) return value;
+  return new Intl.DateTimeFormat(locale, {
+    year: 'numeric',
+    month: 'long',
+    timeZone: 'UTC',
+  }).format(new Date(Date.UTC(year, month - 1, 1)));
+}
+
+export function deriveAddedMonthOptions(
+  items: CollectionItem[],
+  locale: string,
+): AddedMonthOption[] {
+  const keys = new Set<string>();
+  for (const item of items) {
+    const key = getAddedMonthKey(item.createdAt);
+    if (key) keys.add(key);
+  }
+
+  return Array.from(keys)
+    .sort((a, b) => b.localeCompare(a))
+    .map((value) => ({
+      value,
+      label: formatAddedMonthLabel(value, locale),
+    }));
+}
 
 export function matchesItemFilters(
   item: CollectionItem,
@@ -15,6 +61,7 @@ export function matchesItemFilters(
   return Object.entries(activeFilters).every(([key, value]) => {
     if (!value) return true;
     if (key === RATING_FILTER_KEY) return item.rating >= parseInt(value, 10);
+    if (key === ADDED_MONTH_FILTER_KEY) return getAddedMonthKey(item.createdAt) === value;
     const itemVal = item.data[key];
     if (itemVal === undefined || itemVal === null || itemVal === '') return false;
     const field = fieldById.get(key);

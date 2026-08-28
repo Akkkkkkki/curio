@@ -1479,6 +1479,69 @@ export const normalizePhotoPaths = (photoUrl: string) => {
   return { originalPath: normalizedUrl, displayPath: normalizedUrl };
 };
 
+// A `data:`/`blob:` photoUrl is a raw image payload that never made it onto the
+// Storage-backed asset track. It must never be upserted into `photo_*_path`
+// columns, which are contracted to hold short Storage paths (issue #369).
+export const isInlinePhotoUrl = (photoUrl: string): boolean => /^(?:data|blob):/i.test(photoUrl);
+
+// Decode a `data:` URL into a Blob so it can be moved into Storage. Returns null
+// for `blob:` URLs (their object is not resolvable at sync time) and for
+// malformed input, so callers fall back to storing null rather than a payload.
+export const dataUrlToBlob = (dataUrl: string): Blob | null => {
+  // The scheme and `base64` marker are case-insensitive; the media-type portion
+  // may carry parameters (e.g. `;charset=utf-8`) before the optional `;base64`
+  // marker, so match everything up to the payload comma rather than stopping at
+  // the first `;`.
+  const match = /^data:([^,]*?)(;base64)?,([\s\S]*)$/i.exec(dataUrl);
+  if (!match) return null;
+  const mimeType = match[1] || 'application/octet-stream';
+  const isBase64 = Boolean(match[2]);
+  const rawData = match[3];
+  try {
+    let bytes: Uint8Array;
+    if (isBase64) {
+      // A base64 payload may itself be percent-escaped (e.g. `%3D` for `=`);
+      // decode that first so atob sees the raw base64. atob then yields a binary
+      // string whose char codes are already bytes (0–255).
+      const binary = atob(decodeURIComponent(rawData));
+      bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    } else {
+      // Percent-decoded text may hold non-ASCII characters; encode it as UTF-8
+      // so multi-byte code points aren't truncated into a single byte.
+      bytes = new TextEncoder().encode(decodeURIComponent(rawData));
+    }
+    return new Blob([bytes], { type: mimeType });
+  } catch {
+    return null;
+  }
+};
+
+// Write a collection back to the local cache without touching the pending-sync
+// queue. Used mid-sync to record bookkeeping the user did not perform (see the
+// inline-photo migration), so it must not look like a fresh user edit.
+const persistCollectionLocally = async (collection: UserCollection): Promise<void> => {
+  const db = await initDB();
+  await new Promise<void>((resolve, reject) => {
+    const transaction = db.transaction(COLLECTIONS_STORE, 'readwrite');
+    transaction.objectStore(COLLECTIONS_STORE).put(collection);
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+  });
+};
+
+// Persist image variants into the local IndexedDB asset caches (no cloud write).
+const persistAssetToStores = async (id: string, original: Blob, display: Blob): Promise<void> => {
+  const db = await initDB();
+  await new Promise<void>((resolve, reject) => {
+    const transaction = db.transaction([ASSETS_STORE, DISPLAY_STORE], 'readwrite');
+    transaction.objectStore(ASSETS_STORE).put(original, id);
+    transaction.objectStore(DISPLAY_STORE).put(display, id);
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+  });
+};
+
 const mapCloudCollections = (cols: any[], items: any[]): UserCollection[] => {
   return cols.map((c) => {
     const colItems: CollectionItem[] = (items || [])
@@ -1696,34 +1759,131 @@ const saveCollectionToCloud = async (collection: UserCollection): Promise<void> 
 
   // Sync Items
   if (itemsForSync.length > 0) {
-    const itemsToSync = itemsForSync.map((item) => {
-      const basePath = `${user.id}/collections/${latestCollectionForItems.id}/${item.id}`;
-      const { originalPath, displayPath } = normalizePhotoPaths(item.photoUrl || '');
-      const photoOriginalPath =
-        item.photoUrl === 'asset' ? `${basePath}/original.jpg` : originalPath;
-      const photoDisplayPath = item.photoUrl === 'asset' ? `${basePath}/display.jpg` : displayPath;
-      const photoEnhancedPath = normalizeStoragePath(item.photoEnhancedPath) || null;
-      const payload: Record<string, any> = {
-        id: item.id,
-        user_id: user.id,
-        collection_id: latestCollectionForItems.id,
-        title: item.title,
-        notes: item.notes,
-        rating: item.rating,
-        data: item.data,
-        photo_original_path: photoOriginalPath,
-        photo_display_path: photoDisplayPath,
-        photo_enhanced_path: photoEnhancedPath,
-        seed_key: item.seedKey,
-      };
-      if (SUPABASE_SYNC_TIMESTAMPS) {
-        payload.created_at = item.createdAt;
-        payload.updated_at = item.updatedAt || item.createdAt;
+    // Pass 1 — migrate inline photos. A `data:`/`blob:` photoUrl is a raw image
+    // payload that must never be upserted into the item row (issue #369). Move
+    // each onto the Storage-backed asset track via `saveAsset` (which stashes
+    // the bytes locally and uploads them now, queuing only on failure). This is
+    // the only step here that awaits network/DB work.
+    // Keyed by item id, valued with the exact photoUrl that was migrated, so the
+    // local write-back below can tell "still the payload we moved" from "the
+    // user swapped the photo while the upload was in flight".
+    const migratedPhotoUrls = new Map<string, string>();
+    for (const item of itemsForSync) {
+      const photoUrl = item.photoUrl || '';
+      if (photoUrl === 'asset' || !isInlinePhotoUrl(photoUrl)) continue;
+      const blob = dataUrlToBlob(photoUrl);
+      if (!blob) continue; // undecodable (e.g. blob:) — handled as a null path below
+      try {
+        await saveAsset(latestCollectionForItems.id, item.id, blob, blob);
+        migratedPhotoUrls.set(item.id, photoUrl);
+      } catch (e) {
+        console.warn(`Failed to migrate inline photo for item ${item.id}:`, e);
       }
-      return payload;
-    });
+    }
 
-    const { error: itemsError } = await supabase.from('items').upsert(itemsToSync);
+    // Re-read local state after the awaited migration so a delete or edit that
+    // landed concurrently is respected rather than clobbered by a stale
+    // snapshot. Skip the extra read when nothing was migrated (no await
+    // happened, so the pre-loop snapshot is still fresh).
+    let collectionForUpsert = latestCollectionForItems;
+    let deletesForUpsert = pendingDeletes;
+    if (migratedPhotoUrls.size > 0) {
+      const rechecked = await getCurrentLocalCollectionForCloudSync(latestCollectionForItems.id);
+      if (rechecked === null) {
+        await deleteStaleCloudCollectionUpsert(latestCollectionForItems.id);
+        return;
+      }
+      if (rechecked === undefined) {
+        throw new Error('Local collection recheck failed before items upsert');
+      }
+      collectionForUpsert = rechecked;
+      try {
+        deletesForUpsert = await getPendingDeletes();
+      } catch (error) {
+        console.warn('Pending delete recheck failed before items upsert:', error);
+        throw new Error('Pending delete recheck failed before items upsert');
+      }
+
+      // The bytes now live on the Storage-backed asset track, so record that in
+      // the local collection too. Without this the item keeps its inline
+      // `data:` photoUrl and every later save of this collection re-decodes and
+      // re-uploads the same multi-megabyte image. Only flip items whose
+      // photoUrl is still the payload we migrated — a concurrent photo swap
+      // must win and be migrated on its own save.
+      const migratedItems = collectionForUpsert.items.map((item) =>
+        migratedPhotoUrls.get(item.id) === item.photoUrl ? { ...item, photoUrl: 'asset' } : item,
+      );
+      if (migratedItems.some((item, index) => item !== collectionForUpsert.items[index])) {
+        const migratedCollection = { ...collectionForUpsert, items: migratedItems };
+        try {
+          await persistCollectionLocally(migratedCollection);
+          collectionForUpsert = migratedCollection;
+        } catch (error) {
+          // The upload succeeded, so the cloud row below is still correct; only
+          // the local shortcut is lost and the next save re-migrates.
+          console.warn('Failed to mark migrated photos as asset-backed locally:', error);
+          collectionForUpsert = migratedCollection;
+        }
+      }
+    }
+
+    const deletedItemIds = new Set(
+      deletesForUpsert
+        .filter((entry) => entry.type === 'item' && entry.collectionId === collectionForUpsert.id)
+        .map((entry) => entry.itemId),
+    );
+
+    // Pass 2 — build payloads from the reconciled collection. No awaits here, so
+    // these values can't go stale before the upsert.
+    const itemsToUpsert = collectionForUpsert.items
+      .filter((item) => !deletedItemIds.has(item.id))
+      .map((item) => {
+        const basePath = `${user.id}/collections/${collectionForUpsert.id}/${item.id}`;
+        const photoUrl = item.photoUrl || '';
+
+        let photoOriginalPath: string | null;
+        let photoDisplayPath: string | null;
+        if (photoUrl === 'asset') {
+          // 'asset' items — including any just migrated onto that track above —
+          // resolve to the canonical Storage paths.
+          photoOriginalPath = `${basePath}/original.jpg`;
+          photoDisplayPath = `${basePath}/display.jpg`;
+        } else if (isInlinePhotoUrl(photoUrl)) {
+          // Still inline means the migration above couldn't recover the bytes;
+          // store null rather than the blob and leave the local photo for retry.
+          photoOriginalPath = null;
+          photoDisplayPath = null;
+        } else {
+          const { originalPath, displayPath } = normalizePhotoPaths(photoUrl);
+          photoOriginalPath = originalPath;
+          photoDisplayPath = displayPath;
+        }
+
+        const payload: Record<string, any> = {
+          id: item.id,
+          user_id: user.id,
+          collection_id: collectionForUpsert.id,
+          title: item.title,
+          notes: item.notes,
+          rating: item.rating,
+          data: item.data,
+          photo_original_path: photoOriginalPath,
+          photo_display_path: photoDisplayPath,
+          photo_enhanced_path: normalizeStoragePath(item.photoEnhancedPath) || null,
+          seed_key: item.seedKey,
+        };
+        if (SUPABASE_SYNC_TIMESTAMPS) {
+          payload.created_at = item.createdAt;
+          payload.updated_at = item.updatedAt || item.createdAt;
+        }
+        return payload;
+      });
+
+    if (itemsToUpsert.length === 0) {
+      return;
+    }
+
+    const { error: itemsError } = await supabase.from('items').upsert(itemsToUpsert);
 
     if (itemsError) {
       throw new Error(`Items sync failed: ${itemsError.message}`);
@@ -1866,16 +2026,8 @@ export const saveAsset = async (
   original: Blob,
   display: Blob,
 ): Promise<void> => {
-  const db = await initDB();
-
   // Save to Local
-  await new Promise<void>((resolve, reject) => {
-    const transaction = db.transaction([ASSETS_STORE, DISPLAY_STORE], 'readwrite');
-    transaction.objectStore(ASSETS_STORE).put(original, id);
-    transaction.objectStore(DISPLAY_STORE).put(display, id);
-    transaction.oncomplete = () => resolve();
-    transaction.onerror = () => reject(transaction.error);
-  });
+  await persistAssetToStores(id, original, display);
 
   // Save to Cloud if available
   if (isSupabaseConfigured() && supabase) {

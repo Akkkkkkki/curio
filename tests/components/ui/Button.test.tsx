@@ -250,7 +250,7 @@ describe('Button', () => {
       it('primary uses leather brown on cream', () => {
         renderWithProviders(<Button>Primary</Button>);
         const button = screen.getByRole('button');
-        expect(button).toHaveClass('bg-[#A86F3C]');
+        expect(button).toHaveClass('bg-[#8B5A2B]');
         expect(button).toHaveClass('text-white');
         expect(button).not.toHaveClass('bg-stone-800');
       });
@@ -264,12 +264,12 @@ describe('Button', () => {
 
       it('ghost uses sepia text instead of cool stone', () => {
         renderWithProviders(<Button variant="ghost">Ghost</Button>);
-        expect(screen.getByRole('button')).toHaveClass('text-[#8C7B6B]');
+        expect(screen.getByRole('button')).toHaveClass('text-[#6F6257]');
       });
 
       it('focus ring picks up the leather accent', () => {
         renderWithProviders(<Button>Focus</Button>);
-        expect(screen.getByRole('button')).toHaveClass('focus:ring-[#A86F3C]/40');
+        expect(screen.getByRole('button')).toHaveClass('focus:ring-[#8B5A2B]/40');
       });
     });
 

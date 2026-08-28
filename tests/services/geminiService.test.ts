@@ -55,11 +55,11 @@ describe('services/geminiService.ts - analyzeImage (Phase 3.1)', () => {
     vi.clearAllMocks();
   });
 
-  it('happy path: posts image + field schema to /gemini/analyze and returns {title, aiDescription, notes (alias), data}', async () => {
+  it('happy path: posts image + field schema to /ai/analyze-item and returns {title, aiDescription, notes (alias), data}', async () => {
     const fetchSpy = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url =
         typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
-      if (url.endsWith('/gemini/analyze')) {
+      if (url.endsWith('/ai/analyze-item')) {
         expect(init?.method).toBe('POST');
         const body = JSON.parse(String(init?.body ?? 'null'));
         expect(body).toMatchObject({ imageBase64: 'BASE64', fields });
@@ -91,7 +91,7 @@ describe('services/geminiService.ts - analyzeImage (Phase 3.1)', () => {
     const fetchSpy = vi.fn(async (input: RequestInfo | URL) => {
       const url =
         typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
-      if (url.endsWith('/gemini/analyze')) {
+      if (url.endsWith('/ai/analyze-item')) {
         return createOkJsonResponse({
           title: 'Legacy server',
           notes: 'Only the old field.',
@@ -273,7 +273,7 @@ describe('services/geminiService.ts - fetchStoryPrompts (CUR-13)', () => {
     const fetchSpy = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url =
         typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
-      if (url.endsWith('/gemini/story-prompts')) {
+      if (url.endsWith('/ai/story-prompts')) {
         const body = JSON.parse(String(init?.body ?? 'null'));
         expect(body).toMatchObject({ title: 'Kind of Blue', locale: 'en' });
         return createOkJsonResponse({
@@ -348,11 +348,11 @@ describe('services/geminiService.ts - suggestCollectionFields', () => {
     vi.clearAllMocks();
   });
 
-  it('posts description + locale to /gemini/suggest-fields and returns fields', async () => {
+  it('posts description + locale to /ai/suggest-fields and returns fields', async () => {
     const fetchSpy = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url =
         typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
-      if (url.endsWith('/gemini/suggest-fields')) {
+      if (url.endsWith('/ai/suggest-fields')) {
         expect(init?.method).toBe('POST');
         const body = JSON.parse(String(init?.body ?? 'null'));
         expect(body).toMatchObject({ description: 'Vintage postcards', locale: 'en' });
@@ -543,6 +543,84 @@ describe('services/geminiService.ts - enhanceImage', () => {
     const result = await mod.enhanceImage('BASE64_IMAGE');
     expect(result).toBeNull();
     expect(warnSpy).toHaveBeenCalledWith('AI image editing is disabled');
+
+    warnSpy.mockRestore();
+  });
+});
+
+// CUR-166 review: /api/health advertises each AI feature separately. Gating
+// every operation on metadataAnalysisAvailable both hid story prompts whenever
+// analysis was down and sent requests to endpoints health had reported as
+// unavailable.
+describe('services/aiService.ts - per-feature capability gating (CUR-166)', () => {
+  const fields: FieldDefinition[] = [
+    { id: 'artist', label: 'Artist', type: 'text' } as FieldDefinition,
+  ];
+
+  const withHealth = async (capabilities: Record<string, boolean>) => {
+    vi.resetModules();
+    vi.unstubAllEnvs();
+    // tests/setup.ts pins VITE_AI_ENABLED=true, which is a "force on, skip
+    // health" master switch. Unset it so the health-driven path under test runs.
+    vi.stubEnv('VITE_AI_ENABLED', undefined as unknown as string);
+    vi.stubEnv('VITE_API_BASE_URL', 'http://localhost:8787');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(async (url: string) => {
+        if (url.includes('/health')) return createOkJsonResponse(capabilities);
+        if (url.includes('/ai/story-prompts')) {
+          return createOkJsonResponse({ prompts: ['Where did you find it?'] });
+        }
+        if (url.includes('/ai/suggest-fields')) {
+          return createOkJsonResponse({ fields: ['Artist'] });
+        }
+        if (url.includes('/ai/analyze-item')) {
+          return createOkJsonResponse({ title: 'Record', data: {}, aiDescription: 'A record' });
+        }
+        throw new Error(`Unexpected request: ${url}`);
+      }),
+    );
+    return await import('@/services/aiService');
+  };
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    vi.clearAllMocks();
+  });
+
+  it('serves story prompts when analysis is down but prompts are available', async () => {
+    const mod = await withHealth({
+      metadataAnalysisAvailable: false,
+      storyPromptsAvailable: true,
+      fieldSuggestionsAvailable: true,
+      imageEditingAvailable: false,
+    });
+
+    await expect(mod.fetchStoryPrompts({ title: 'Blue Train' })).resolves.toEqual({
+      prompts: ['Where did you find it?'],
+    });
+    await expect(mod.suggestCollectionFields('vinyl')).resolves.toEqual(['Artist']);
+    await expect(mod.analyzeImage('BASE64', fields)).resolves.toEqual({ status: 'disabled' });
+  });
+
+  it('does not call an endpoint health reports as unavailable', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const mod = await withHealth({
+      metadataAnalysisAvailable: true,
+      storyPromptsAvailable: false,
+      fieldSuggestionsAvailable: false,
+      imageEditingAvailable: false,
+    });
+
+    await expect(mod.fetchStoryPrompts({ title: 'Blue Train' })).resolves.toEqual({ prompts: [] });
+    await expect(mod.suggestCollectionFields('vinyl')).resolves.toBeNull();
+
+    const requested = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.map(
+      ([url]) => url as string,
+    );
+    expect(requested.some((url) => url.includes('/ai/story-prompts'))).toBe(false);
+    expect(requested.some((url) => url.includes('/ai/suggest-fields'))).toBe(false);
 
     warnSpy.mockRestore();
   });

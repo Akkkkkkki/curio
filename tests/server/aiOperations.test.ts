@@ -6,15 +6,17 @@ import {
   getGeminiAnalyzeModel,
   normalizeStoryPrompts,
   normalizeSuggestedFields,
+  sanitizeAiRequestBody,
   storyPrompts,
   suggestFields,
   validateAnalyzeInput,
 } from '../../server/ai/operations.js';
 
-const fakeClient = (payload: unknown) => ({
-  models: {
-    generateContent: vi.fn().mockResolvedValue({ text: JSON.stringify(payload) }),
-  },
+const fakeProvider = (payloads: unknown[]) => ({
+  name: 'fake',
+  model: 'fake-model',
+  analyzeImage: vi.fn().mockResolvedValue(payloads[0]),
+  generateStructuredText: vi.fn().mockImplementation(() => Promise.resolve(payloads.shift())),
 });
 
 describe('shared AI operations', () => {
@@ -48,15 +50,12 @@ describe('shared AI operations', () => {
     expect(prompt).toContain('"ja" language');
   });
 
-  it('normalizes analysis output consistently', async () => {
-    const client = fakeClient({
-      title: 'Leica M6',
-      aiDescription: 'Black rangefinder.',
-      year: 1984,
-    });
+  it('normalizes analysis output consistently through the provider contract', async () => {
+    const provider = fakeProvider([
+      { title: 'Leica M6', aiDescription: 'Black rangefinder.', year: 1984 },
+    ]);
     const result = await analyzeItem({
-      apiKey: 'unused',
-      client,
+      provider,
       imageBase64: 'abc',
       fields: [{ id: 'year', label: 'Year', type: 'number' }],
     });
@@ -74,9 +73,9 @@ describe('shared AI operations', () => {
       'Brand',
       'Model',
     ]);
-    const client = fakeClient({ fields: ['Year', 'Brand', 'Model'] });
+    const provider = fakeProvider([{ fields: ['Year', 'Brand', 'Model'] }]);
     await expect(
-      suggestFields({ apiKey: 'unused', client, description: 'vintage cameras', locale: 'en' }),
+      suggestFields({ provider, description: 'vintage cameras', locale: 'en' }),
     ).resolves.toEqual({ fields: ['Year', 'Brand', 'Model'] });
   });
 
@@ -92,24 +91,61 @@ describe('shared AI operations', () => {
       normalizeStoryPrompts(['Why this mug?', 'Why this mug?', 'Where did you find it?']),
     ).toEqual(['Why this mug?', 'Where did you find it?']);
 
-    const client = fakeClient({
+    const provider = fakeProvider([
+      { prompts: ['Why this mug?', 'Who made it?', 'When did it arrive?'] },
+    ]);
+    await expect(storyPrompts({ provider, title: 'Blue mug', locale: 'en' })).resolves.toEqual({
       prompts: ['Why this mug?', 'Who made it?', 'When did it arrive?'],
     });
-    await expect(
-      storyPrompts({ apiKey: 'unused', client, title: 'Blue mug', locale: 'en' }),
-    ).resolves.toEqual({ prompts: ['Why this mug?', 'Who made it?', 'When did it arrive?'] });
   });
 
   it('rejects invalid shared operation inputs without invoking a provider', async () => {
-    const client = fakeClient({});
-    await expect(
-      suggestFields({ apiKey: 'unused', client, description: '' }),
-    ).rejects.toMatchObject({
+    const provider = fakeProvider([{}]);
+    await expect(suggestFields({ provider, description: '' })).rejects.toMatchObject({
       statusCode: 400,
     });
-    await expect(storyPrompts({ apiKey: 'unused', client, title: ' ' })).rejects.toMatchObject({
+    await expect(storyPrompts({ provider, title: ' ' })).rejects.toMatchObject({
       statusCode: 400,
     });
-    expect(client.models.generateContent).not.toHaveBeenCalled();
+    expect(provider.analyzeImage).not.toHaveBeenCalled();
+    expect(provider.generateStructuredText).not.toHaveBeenCalled();
+  });
+
+  // CUR-166 review: the operations layer takes `provider`/`client`/`apiKey` as
+  // server-side injection points. Every HTTP entry point has to strip them from
+  // the request body first, or an authenticated `{ "provider": {} }` body
+  // displaces the trusted default and turns into a 500.
+  describe('sanitizeAiRequestBody', () => {
+    it('strips server-only injection keys while preserving operation input', () => {
+      expect(
+        sanitizeAiRequestBody({
+          provider: {},
+          client: { fake: true },
+          apiKey: 'leaked',
+          description: 'vintage synths',
+          locale: 'en',
+        }),
+      ).toEqual({ description: 'vintage synths', locale: 'en' });
+    });
+
+    it('returns a fresh object and tolerates a missing body', () => {
+      const body = { locale: 'en' };
+      const sanitized = sanitizeAiRequestBody(body);
+      expect(sanitized).not.toBe(body);
+      expect(sanitizeAiRequestBody(undefined)).toEqual({});
+      expect(sanitizeAiRequestBody(null)).toEqual({});
+    });
+
+    it('leaves the trusted default provider in place for the operation', async () => {
+      const provider = fakeProvider([{ fields: ['Artist', 'Year'] }]);
+      const requestInput = sanitizeAiRequestBody({
+        provider: {},
+        description: 'vintage synths',
+      });
+      await expect(suggestFields({ ...requestInput, provider })).resolves.toEqual({
+        fields: ['Artist', 'Year'],
+      });
+      expect(provider.generateStructuredText).toHaveBeenCalled();
+    });
   });
 });

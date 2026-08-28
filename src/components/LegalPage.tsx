@@ -65,7 +65,7 @@ export const LegalPage: React.FC = () => {
     theme === 'vault'
       ? 'text-[#D4A574] hover:text-[#E0B585]'
       : theme === 'atelier'
-        ? 'text-[#A86F3C] hover:text-[#8B5A2B]'
+        ? 'text-[#8B5A2B] hover:text-[#73481F]'
         : 'text-amber-700 hover:text-amber-800';
 
   return (
