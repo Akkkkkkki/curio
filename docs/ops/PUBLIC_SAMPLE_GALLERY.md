@@ -13,10 +13,14 @@ _structural_ drift, not content edits — see "Seed versioning" below.)
 
 ## How it works
 
-- **Source of truth is code.** `INITIAL_COLLECTIONS` in
+- **Source of truth is code — for content that exists.** `INITIAL_COLLECTIONS` in
   `src/services/seedCollections.ts` defines every sample collection and item
-  (currently "The Vinyl Vault"). Supabase holds a mirror of this, not the
-  original.
+  (currently "The Vinyl Vault"); Supabase holds a mirror of this, not the
+  original. One asymmetry: **removals are not reconciled.** `buildSeedRepairs`
+  iterates only the seeds still present in code and preserves any unmatched cloud
+  row as a curator item, so deleting a collection or item from
+  `INITIAL_COLLECTIONS` leaves its cloud row live and still visible in the gallery.
+  To retire a sample, delete its row (and its images) directly in Supabase.
 - **Images are public files.** Sample photos live in `public/assets/` and are
   referenced with the `sampleAsset()` helper, so they resolve to plain public
   URLs (`<BASE_URL>assets/<file>`). The gallery never depends on private Supabase
@@ -144,8 +148,10 @@ as few accounts as possible.
    carried the previous seed version (its recorded `seed_version` is now below the
    new `CURRENT_SEED_VERSION`) — usually the admin browser you published from last
    time — so the forced pass upserts your change. A **structural** addition (a new
-   collection or item, a restored/broken photo) publishes from any admin load,
-   including a fresh browser. If your only admin browser is fresh and the change is
+   collection or item, or repairing a photo path that is null or the superseded
+   #373 shared image) publishes from any admin load, including a fresh browser;
+   swapping an existing photo to a _different_ canonical asset is a content edit,
+   not structural. If your only admin browser is fresh and the change is
    content-only, update the affected rows directly in Supabase. Confirm as a
    signed-out visitor — hard-reload (or use a fresh browser) if you changed an
    image under an existing filename, since the service worker serves it
