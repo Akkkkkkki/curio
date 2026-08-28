@@ -55,8 +55,10 @@ test.describe('Authenticated User Experience', () => {
     await expect(page.getByText('E2E Collection')).toBeVisible({ timeout: 15000 });
     await page.getByText('E2E Collection').click();
 
-    // Add item (manual path — recoverable AI)
-    await page.getByRole('button', { name: /add item/i }).click();
+    // Add item (manual path — recoverable AI). Target the in-screen CTA by
+    // testid: on desktop the global header Add Item button (CURIO-410) shares
+    // the same accessible name, so a name-based locator is ambiguous here.
+    await page.getByTestId('collection-add-item').click();
     await page.getByText(/skip and add manually/i).click();
 
     const title = page.getByRole('textbox').first();
@@ -88,7 +90,7 @@ test.describe('Authenticated User Experience', () => {
     await expect(page.getByText(name).first()).toBeVisible({ timeout: 15000 });
     await page.getByText(name).first().click();
 
-    await page.getByRole('button', { name: /add item/i }).click();
+    await page.getByTestId('collection-add-item').click();
     await page.getByText(/skip and add manually/i).click();
 
     await page.getByRole('textbox').first().fill('CUR-142 Item');

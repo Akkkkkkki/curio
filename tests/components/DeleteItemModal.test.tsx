@@ -45,6 +45,19 @@ describe('DeleteItemModal', () => {
     expect(screen.getByText(/Arcade Cabinet/)).toBeInTheDocument();
   });
 
+  // CUR-163 added an "Untitled" fallback for blank titles; this pins the
+  // rendered warning copy so a future change to the confirmation text cannot
+  // silently drop it. (Coverage originally proposed in the closed #418.)
+  it('falls back to Untitled in the warning when the item title is blank', () => {
+    const untitledItem = createMockItem({ title: '   ' });
+
+    renderWithProviders(<DeleteItemModal {...defaultProps} item={untitledItem} />);
+
+    expect(
+      screen.getByText('This will permanently delete "Untitled". This action cannot be undone.'),
+    ).toBeInTheDocument();
+  });
+
   it('calls onClose when cancel is clicked', async () => {
     const user = userEvent.setup();
     renderWithProviders(<DeleteItemModal {...defaultProps} />);
