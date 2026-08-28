@@ -1488,7 +1488,7 @@ export const AppContent: React.FC = () => {
         className={`max-w-md w-full text-center border rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-10 shadow-xl ${theme === 'vault' ? 'bg-white/5 border-white/10' : theme === 'atelier' ? 'bg-[#EDE4D3]/70 border-[#D4C9B8]' : 'bg-white/70 border-stone-200'}`}
       >
         <div
-          className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center mx-auto mb-5 sm:mb-6 ${theme === 'vault' ? 'bg-white/10 text-stone-400' : theme === 'atelier' ? 'bg-[#D4C9B8]/50 text-[#8C7B6B]' : 'bg-stone-100 text-stone-500'}`}
+          className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center mx-auto mb-5 sm:mb-6 ${theme === 'vault' ? 'bg-white/10 text-stone-400' : theme === 'atelier' ? 'bg-[#D4C9B8]/50 text-[#6F6257]' : 'bg-stone-100 text-stone-500'}`}
         >
           {!authReady && isSupabaseReady ? (
             <Loader2 size={24} className="animate-spin" />
@@ -1515,7 +1515,7 @@ export const AppContent: React.FC = () => {
           </p>
         )}
         <p
-          className={`text-sm mb-6 ${theme === 'vault' ? 'text-stone-400' : theme === 'atelier' ? 'text-[#8C7B6B]' : 'text-stone-500'}`}
+          className={`text-sm mb-6 ${theme === 'vault' ? 'text-stone-400' : theme === 'atelier' ? 'text-[#6F6257]' : 'text-stone-500'}`}
         >
           {!authReady && isSupabaseReady
             ? t('authLoadingDesc')
@@ -1545,14 +1545,14 @@ export const AppContent: React.FC = () => {
           )}
           {!isSupabaseReady ? (
             <div
-              className={`text-[11px] font-semibold uppercase tracking-[0.16em] ${theme === 'vault' ? 'text-stone-500' : theme === 'atelier' ? 'text-[#8C7B6B]' : 'text-stone-400'}`}
+              className={`text-[11px] font-semibold uppercase tracking-[0.16em] ${theme === 'vault' ? 'text-stone-500' : theme === 'atelier' ? 'text-[#6F6257]' : 'text-stone-400'}`}
             >
               {t('cloudRequiredAction')}
             </div>
           ) : null}
         </div>
         <p
-          className={`text-[12px] mt-5 leading-relaxed ${theme === 'vault' ? 'text-stone-500' : theme === 'atelier' ? 'text-[#8C7B6B]' : 'text-stone-500'}`}
+          className={`text-[12px] mt-5 leading-relaxed ${theme === 'vault' ? 'text-stone-500' : theme === 'atelier' ? 'text-[#6F6257]' : 'text-stone-500'}`}
         >
           {t('ctaPromise')}
         </p>

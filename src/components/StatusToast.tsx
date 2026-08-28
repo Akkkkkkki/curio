@@ -75,7 +75,7 @@ const toneIcons: Record<StatusTone, React.ComponentType<{ size?: number }>> = {
 const actionClasses: Record<AppTheme, string> = {
   gallery: 'text-amber-700 hover:text-amber-900',
   vault: 'text-amber-200 hover:text-amber-100',
-  atelier: 'text-[#A86F3C] hover:text-[#8B5A2B]',
+  atelier: 'text-[#8B5A2B] hover:text-[#73481F]',
 };
 
 const dismissClasses: Record<AppTheme, string> = {

@@ -70,18 +70,18 @@
 
 ### Atelier (Warm)
 
-| Token         | Value                             | Usage                                      |
-| ------------- | --------------------------------- | ------------------------------------------ |
-| Surface       | `#F5EFE4`                         | Warm cream with yellow undertone           |
-| Surface Muted | `#EDE4D3`                         | Parchment mat                              |
-| Text          | `#3D3530`                         | Warm dark brown                            |
-| Text Muted    | `#6F6257`                         | AA-compliant sepia muted text              |
-| Border        | `#D4C9B8`                         | Warm, visible dividers                     |
-| Accent        | `#8B5A2B`                         | Accessible aged-leather brown              |
-| Accent Hover  | `#73481F`                         | Deeper accessible hover state              |
-| Frame Accent  | `#6B5344`                         | Aged wood brown                            |
-| Shadow        | `0 2px 12px rgba(139,90,43,0.10)` | Card resting state                         |
-| Shadow Hover  | `0 4px 20px rgba(139,90,43,0.14)` | Card hover state                           |
+| Token         | Value                             | Usage                            |
+| ------------- | --------------------------------- | -------------------------------- |
+| Surface       | `#F5EFE4`                         | Warm cream with yellow undertone |
+| Surface Muted | `#EDE4D3`                         | Parchment mat                    |
+| Text          | `#3D3530`                         | Warm dark brown                  |
+| Text Muted    | `#6F6257`                         | AA-compliant sepia muted text    |
+| Border        | `#D4C9B8`                         | Warm, visible dividers           |
+| Accent        | `#8B5A2B`                         | Accessible aged-leather brown    |
+| Accent Hover  | `#73481F`                         | Deeper accessible hover state    |
+| Frame Accent  | `#6B5344`                         | Aged wood brown                  |
+| Shadow        | `0 2px 12px rgba(139,90,43,0.10)` | Card resting state               |
+| Shadow Hover  | `0 4px 20px rgba(139,90,43,0.14)` | Card hover state                 |
 
 Atelier's accent colors are chosen to keep white text above the WCAG AA 4.5:1 threshold. The muted token also clears 4.5:1 against both the cream (`#F5EFE4`) and parchment (`#EDE4D3`) surfaces, so labels, placeholders, badges, and secondary copy can share one system token without per-component overrides.
 

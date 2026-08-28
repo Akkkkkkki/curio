@@ -143,8 +143,12 @@ export const typographyClasses = {
   // Labels/Metadata: Mono, 11-12px, uppercase, wide tracking (tighter on mobile so they fit narrow grid cells)
   label:
     'font-mono text-[11px] sm:text-[12px] uppercase tracking-[0.1em] sm:tracking-[0.2em] font-bold',
+  // No opacity here on purpose. Muting these labels with `opacity-50` composited
+  // even an AA-compliant token down to ~2:1 against the light Atelier and
+  // Gallery surfaces, so the muting now comes from `labelColorClasses[theme]`
+  // (or `mutedTextClasses[theme]`) plus the lighter weight, which stays legible.
   labelMuted:
-    'font-mono text-[11px] sm:text-[12px] uppercase tracking-[0.1em] sm:tracking-[0.2em] font-medium opacity-50',
+    'font-mono text-[11px] sm:text-[12px] uppercase tracking-[0.1em] sm:tracking-[0.2em] font-medium',
   labelSmall: 'font-mono text-[10px] uppercase tracking-[0.08em] sm:tracking-[0.15em] font-medium',
 
   // Body text: Sans, 14-16px, relaxed leading

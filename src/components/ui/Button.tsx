@@ -30,17 +30,17 @@ const variantClasses: Record<AppTheme, Record<Variant, string>> = {
     ghost: 'text-stone-300 hover:bg-white/5 hover:text-white',
   },
   atelier: {
-    primary: 'bg-[#A86F3C] text-white hover:bg-[#8B5A2B] shadow-atelier',
-    secondary: 'bg-[#A86F3C]/15 text-[#8B5A2B] hover:bg-[#A86F3C]/25',
+    primary: 'bg-[#8B5A2B] text-white hover:bg-[#73481F] shadow-atelier',
+    secondary: 'bg-[#8B5A2B]/15 text-[#73481F] hover:bg-[#8B5A2B]/25',
     outline: 'border border-[#D4C9B8] text-[#3D3530] hover:bg-[#EDE4D3]',
-    ghost: 'text-[#8C7B6B] hover:bg-[#EDE4D3]/60 hover:text-[#3D3530]',
+    ghost: 'text-[#6F6257] hover:bg-[#EDE4D3]/60 hover:text-[#3D3530]',
   },
 };
 
 const focusRingClasses: Record<AppTheme, string> = {
   gallery: 'focus:ring-amber-500/40',
   vault: 'focus:ring-[#D4A574]/40',
-  atelier: 'focus:ring-[#A86F3C]/40',
+  atelier: 'focus:ring-[#8B5A2B]/40',
 };
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function Button(

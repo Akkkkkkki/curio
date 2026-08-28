@@ -515,7 +515,7 @@ describe('Layout Component', () => {
       it.each([
         { theme: 'gallery' as const, expected: ['bg-amber-100', 'text-amber-700'] },
         { theme: 'vault' as const, expected: ['bg-[#D4A574]/20', 'text-[#D4A574]'] },
-        { theme: 'atelier' as const, expected: ['bg-[#A86F3C]/15', 'text-[#A86F3C]'] },
+        { theme: 'atelier' as const, expected: ['bg-[#8B5A2B]/15', 'text-[#8B5A2B]'] },
       ])('uses theme accent in $theme', ({ theme, expected }) => {
         setMockTheme(theme);
         renderWithProviders(<Layout {...defaultProps} />);
@@ -899,7 +899,7 @@ describe('Layout Component', () => {
         theme: 'atelier' as const,
         signedIn: ['bg-emerald-100/70', 'text-emerald-700'],
         signedOut: ['bg-amber-100/70', 'text-amber-800'],
-        unconfigured: ['bg-[#EDE4D3]', 'text-[#8C7B6B]'],
+        unconfigured: ['bg-[#EDE4D3]', 'text-[#6F6257]'],
       },
     ])('Auth-status chip in $theme', ({ theme, signedIn, signedOut, unconfigured }) => {
       beforeEach(() => {
@@ -949,7 +949,7 @@ describe('Layout Component', () => {
         surface: ['border-amber-300/60', 'bg-amber-100/70'],
         title: 'text-amber-900',
         body: 'text-[#3D3530]',
-        action: 'bg-[#A86F3C]',
+        action: 'bg-[#8B5A2B]',
         status: 'text-amber-900',
         error: 'text-red-700',
       },

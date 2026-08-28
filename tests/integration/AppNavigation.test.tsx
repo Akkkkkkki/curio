@@ -1811,7 +1811,7 @@ describe('App Integration Tests', () => {
     expect(chip.classList).toContain('text-amber-900');
 
     const clearAll = screen.getByTestId('active-filter-clear-all');
-    expect(clearAll.classList).toContain('text-[#8C7B6B]');
+    expect(clearAll.classList).toContain('text-[#6F6257]');
   });
 
   // CUR-135: Item Detail undo/redo can be reached from the keyboard so power
