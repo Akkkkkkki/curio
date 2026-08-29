@@ -58,8 +58,18 @@ describe('validateChangeSet', () => {
     const result = validateChangeSet({
       id: 'unsafe',
       changes: [
-        { ...validChangeSet.changes[0], id: 'owner', entity: 'collection', field: 'ownerId' },
-        { ...validChangeSet.changes[0], id: 'publish', entity: 'collection', field: 'isPublic' },
+        {
+          ...validChangeSet.changes[0],
+          id: 'owner',
+          entity: 'collection',
+          field: 'ownerId',
+        },
+        {
+          ...validChangeSet.changes[0],
+          id: 'publish',
+          entity: 'collection',
+          field: 'isPublic',
+        },
         { ...validChangeSet.changes[0], id: 'system', field: 'data._aiDescription' },
       ],
     });
@@ -122,7 +132,7 @@ describe('applyApprovedChangeSet', () => {
     expect(result.collection.items[0].title).toBe('My newer title');
   });
 
-  it('keeps approval separate from persistence so callers can use the existing local-first save path', () => {
+  it('keeps approval separate from persistence for the local-first save path', () => {
     const result = applyApprovedChangeSet(
       collection,
       validChangeSet as Parameters<typeof applyApprovedChangeSet>[1],
