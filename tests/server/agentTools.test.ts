@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import { AGENT_READ_TOOL_NAMES, AGENT_TOOL_LIMITS, createCurioReadTools } from '../../server/agent/tools.js';
+import {
+  AGENT_READ_TOOL_NAMES,
+  AGENT_TOOL_LIMITS,
+  createCurioReadTools,
+} from '../../server/agent/tools.js';
 
 const ownedCollection = {
   id: 'collection-1',
@@ -8,7 +12,9 @@ const ownedCollection = {
   name: 'Tea tins',
   icon: '🫖',
   is_public: false,
-  settings: { customFields: [{ id: 'origin', label: 'Origin', type: 'text', displayMode: 'detail' }] },
+  settings: {
+    customFields: [{ id: 'origin', label: 'Origin', type: 'text', displayMode: 'detail' }],
+  },
 };
 
 const makeGateway = () => ({
@@ -40,12 +46,19 @@ const makeGateway = () => ({
     notes: 'Bought on a rainy afternoon.',
     data: { origin: 'Kyoto' },
   })),
-  computeCollectionStats: vi.fn(async () => ({ itemCount: 1, ratedItemCount: 1, averageRating: 4 })),
+  computeCollectionStats: vi.fn(async () => ({
+    itemCount: 1,
+    ratedItemCount: 1,
+    averageRating: 4,
+  })),
 });
 
 describe('createCurioReadTools', () => {
   it('exposes only the narrow read-only domain surface', () => {
-    const tools = createCurioReadTools({ gateway: makeGateway(), context: { userId: 'user-1' } });
+    const tools = createCurioReadTools({
+      gateway: makeGateway(),
+      context: { userId: 'user-1' },
+    });
     expect(Object.keys(tools).sort()).toEqual([...AGENT_READ_TOOL_NAMES].sort());
     expect('querySql' in tools).toBe(false);
     expect('updateItem' in tools).toBe(false);
@@ -73,7 +86,7 @@ describe('createCurioReadTools', () => {
     );
   });
 
-  it('allows an explicitly public collection while still using the authenticated context', async () => {
+  it('allows an explicitly public collection while still using authenticated context', async () => {
     const gateway = makeGateway();
     gateway.getCollection.mockResolvedValueOnce({
       ...ownedCollection,
@@ -90,7 +103,10 @@ describe('createCurioReadTools', () => {
     const gateway = makeGateway();
     const tools = createCurioReadTools({ gateway, context: { userId: 'user-1' } });
 
-    const result = await tools.listCollectionItems({ collectionId: 'collection-1', limit: 10_000 });
+    const result = await tools.listCollectionItems({
+      collectionId: 'collection-1',
+      limit: 10_000,
+    });
 
     expect(gateway.listCollectionItems).toHaveBeenCalledWith({
       collectionId: 'collection-1',
