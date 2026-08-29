@@ -86,27 +86,47 @@ export const validateChangeSet = (input: unknown): ChangeSetValidationResult => 
     const reason = raw.reason;
     const confidence = raw.confidence;
 
-    if (typeof id !== 'string' || id.trim().length === 0) errors.push(`${prefix}.id is required`);
-    else if (seenIds.has(id)) errors.push(`${prefix}.id must be unique`);
-    else seenIds.add(id);
+    if (typeof id !== 'string' || id.trim().length === 0) {
+      errors.push(`${prefix}.id is required`);
+    } else if (seenIds.has(id)) {
+      errors.push(`${prefix}.id must be unique`);
+    } else {
+      seenIds.add(id);
+    }
 
-    if (entity !== 'collection' && entity !== 'item') errors.push(`${prefix}.entity is invalid`);
+    if (entity !== 'collection' && entity !== 'item') {
+      errors.push(`${prefix}.entity is invalid`);
+    }
     if (typeof entityId !== 'string' || entityId.trim().length === 0) {
       errors.push(`${prefix}.entityId is required`);
     }
     if (typeof field !== 'string' || field.trim().length === 0) {
       errors.push(`${prefix}.field is required`);
-    } else if ((entity === 'collection' || entity === 'item') && !isSupportedChangeField(entity, field)) {
+    } else if (
+      (entity === 'collection' || entity === 'item') &&
+      !isSupportedChangeField(entity, field)
+    ) {
       errors.push(`${prefix}.field is not writable through ChangeSet`);
     }
-    if (!isChangeValue(raw.before)) errors.push(`${prefix}.before must be a scalar JSON value`);
-    if (!isChangeValue(raw.after)) errors.push(`${prefix}.after must be a scalar JSON value`);
-    if (typeof reason !== 'string' || reason.trim().length === 0) errors.push(`${prefix}.reason is required`);
-    if (typeof confidence !== 'number' || !Number.isFinite(confidence) || confidence < 0 || confidence > 1) {
+    if (!isChangeValue(raw.before)) {
+      errors.push(`${prefix}.before must be a scalar JSON value`);
+    }
+    if (!isChangeValue(raw.after)) {
+      errors.push(`${prefix}.after must be a scalar JSON value`);
+    }
+    if (typeof reason !== 'string' || reason.trim().length === 0) {
+      errors.push(`${prefix}.reason is required`);
+    }
+    if (
+      typeof confidence !== 'number' ||
+      !Number.isFinite(confidence) ||
+      confidence < 0 ||
+      confidence > 1
+    ) {
       errors.push(`${prefix}.confidence must be between 0 and 1`);
     }
 
-    if (
+    const canBuildChange =
       typeof id === 'string' &&
       (entity === 'collection' || entity === 'item') &&
       typeof entityId === 'string' &&
@@ -114,9 +134,19 @@ export const validateChangeSet = (input: unknown): ChangeSetValidationResult => 
       isChangeValue(raw.before) &&
       isChangeValue(raw.after) &&
       typeof reason === 'string' &&
-      typeof confidence === 'number'
-    ) {
-      changes.push({ id, entity, entityId, field, before: raw.before, after: raw.after, reason, confidence });
+      typeof confidence === 'number';
+
+    if (canBuildChange) {
+      changes.push({
+        id,
+        entity,
+        entityId,
+        field,
+        before: raw.before,
+        after: raw.after,
+        reason,
+        confidence,
+      });
     }
   });
 
@@ -132,7 +162,11 @@ const getItemField = (item: CollectionItem, field: string): unknown => {
   return undefined;
 };
 
-const applyItemField = (item: CollectionItem, field: string, value: ChangeValue): CollectionItem => {
+const applyItemField = (
+  item: CollectionItem,
+  field: string,
+  value: ChangeValue,
+): CollectionItem => {
   if (field === 'title' && typeof value === 'string') return { ...item, title: value };
   if (field === 'rating' && typeof value === 'number' && value >= 0 && value <= 5) {
     return { ...item, rating: value };
@@ -178,7 +212,10 @@ export const applyApprovedChangeSet = (
   changeSet: ChangeSet,
   approvedChangeIds: ReadonlySet<string>,
 ): ApplyChangeSetResult => {
-  let next = { ...collection, items: collection.items.map((item) => ({ ...item, data: { ...item.data } })) };
+  let next = {
+    ...collection,
+    items: collection.items.map((item) => ({ ...item, data: { ...item.data } })),
+  };
   const appliedChangeIds: string[] = [];
   const conflictedChangeIds: string[] = [];
 
@@ -190,13 +227,17 @@ export const applyApprovedChangeSet = (
     }
 
     if (change.entity === 'collection') {
-      if (change.entityId !== next.id || !valuesEqual(getCollectionField(next, change.field), change.before)) {
+      const isStale =
+        change.entityId !== next.id ||
+        !valuesEqual(getCollectionField(next, change.field), change.before);
+      if (isStale) {
         conflictedChangeIds.push(change.id);
         continue;
       }
       const updated = applyCollectionField(next, change.field, change.after);
-      if (updated === next) conflictedChangeIds.push(change.id);
-      else {
+      if (updated === next) {
+        conflictedChangeIds.push(change.id);
+      } else {
         next = updated;
         appliedChangeIds.push(change.id);
       }
@@ -204,13 +245,16 @@ export const applyApprovedChangeSet = (
     }
 
     const index = next.items.findIndex((item) => item.id === change.entityId);
-    if (index < 0 || !valuesEqual(getItemField(next.items[index], change.field), change.before)) {
+    const isStale =
+      index < 0 || !valuesEqual(getItemField(next.items[index], change.field), change.before);
+    if (isStale) {
       conflictedChangeIds.push(change.id);
       continue;
     }
     const updatedItem = applyItemField(next.items[index], change.field, change.after);
-    if (updatedItem === next.items[index]) conflictedChangeIds.push(change.id);
-    else {
+    if (updatedItem === next.items[index]) {
+      conflictedChangeIds.push(change.id);
+    } else {
       next.items[index] = updatedItem;
       appliedChangeIds.push(change.id);
     }
