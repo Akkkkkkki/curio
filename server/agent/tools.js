@@ -25,9 +25,13 @@ const publicCollectionShape = (collection) => ({
   templateId: collection.templateId ?? collection.template_id,
   name: collection.name,
   icon: collection.icon ?? '',
-  customFields: collection.customFields ?? collection.custom_fields ?? collection.settings?.customFields ?? [],
+  customFields:
+    collection.customFields ?? collection.custom_fields ?? collection.settings?.customFields ?? [],
   collectionDescription:
-    collection.collectionDescription ?? collection.collection_description ?? collection.settings?.description ?? '',
+    collection.collectionDescription ??
+    collection.collection_description ??
+    collection.settings?.description ??
+    '',
   isPublic: collection.isPublic ?? collection.is_public ?? false,
 });
 
@@ -57,7 +61,10 @@ export const createCurioReadTools = ({ gateway, context }) => {
     if (typeof collectionId !== 'string' || collectionId.trim().length === 0) {
       throw new Error('collectionId is required');
     }
-    const collection = await gateway.getCollection({ collectionId, userId: context.userId });
+    const collection = await gateway.getCollection({
+      collectionId,
+      userId: context.userId,
+    });
     return assertCollectionVisible(collection, context.userId);
   };
 
@@ -84,7 +91,9 @@ export const createCurioReadTools = ({ gateway, context }) => {
     },
 
     async getItem({ itemId }) {
-      if (typeof itemId !== 'string' || itemId.trim().length === 0) throw new Error('itemId is required');
+      if (typeof itemId !== 'string' || itemId.trim().length === 0) {
+        throw new Error('itemId is required');
+      }
       const item = await gateway.getItem({ itemId, userId: context.userId });
       if (!item) return null;
       const collectionId = item.collectionId ?? item.collection_id;
@@ -98,14 +107,21 @@ export const createCurioReadTools = ({ gateway, context }) => {
       return {
         collectionId: collection.id,
         templateId: collection.templateId ?? collection.template_id,
-        fields: collection.customFields ?? collection.custom_fields ?? collection.settings?.customFields ?? [],
+        fields:
+          collection.customFields ??
+          collection.custom_fields ??
+          collection.settings?.customFields ??
+          [],
       };
     },
 
     async computeCollectionStats({ collectionId }) {
       const collection = await getVisibleCollection(collectionId);
       if (!collection) return null;
-      const stats = await gateway.computeCollectionStats({ collectionId, userId: context.userId });
+      const stats = await gateway.computeCollectionStats({
+        collectionId,
+        userId: context.userId,
+      });
       return {
         collectionId,
         itemCount: Number(stats?.itemCount ?? 0),
