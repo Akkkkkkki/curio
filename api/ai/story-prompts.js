@@ -1,1 +1,3 @@
-export { default } from '../gemini/story-prompts.js';
+import { createStoryPromptsHandler } from '../gemini/story-prompts.js';
+
+export default createStoryPromptsHandler('/api/ai/story-prompts');
