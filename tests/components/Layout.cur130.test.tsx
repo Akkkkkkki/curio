@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { screen, within } from '@testing-library/react';
 import { Layout } from '@/components/Layout';
-import { renderWithProviders, createThemeMock } from '../utils/test-utils';
+import { renderWithProviders } from '../utils/test-utils';
 
 vi.mock('@/theme', async () => {
   const { createThemeMock } = await import('../utils/test-utils');
