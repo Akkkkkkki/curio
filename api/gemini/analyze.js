@@ -9,6 +9,8 @@ import {
 
 export { buildAnalysisPrompt } from '../../server/ai/operations.js';
 
+const RATE_LIMIT_ROUTE = '/api/gemini/analyze';
+
 export const createAnalyzeHandler =
   (route = '/api/gemini/analyze') =>
   async (req, res) => {
@@ -25,7 +27,7 @@ export const createAnalyzeHandler =
       return res.status(405).json({ error: 'Method Not Allowed' });
     }
 
-    const denied = await requireAiAccess(req, res, route);
+    const denied = await requireAiAccess(req, res, RATE_LIMIT_ROUTE);
     if (denied) return denied;
 
     const apiKey = process.env.GEMINI_API_KEY;

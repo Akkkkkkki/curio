@@ -7,6 +7,8 @@ import {
   storyPrompts,
 } from '../../server/ai/operations.js';
 
+const RATE_LIMIT_ROUTE = '/api/gemini/story-prompts';
+
 export const createStoryPromptsHandler =
   (route = '/api/gemini/story-prompts') =>
   async (req, res) => {
@@ -23,7 +25,7 @@ export const createStoryPromptsHandler =
       return res.status(405).json({ error: 'Method Not Allowed' });
     }
 
-    const denied = await requireAiAccess(req, res, route);
+    const denied = await requireAiAccess(req, res, RATE_LIMIT_ROUTE);
     if (denied) return denied;
 
     const apiKey = process.env.GEMINI_API_KEY;
