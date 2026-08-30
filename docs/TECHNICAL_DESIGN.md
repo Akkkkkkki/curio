@@ -204,7 +204,19 @@ If no match exists, the card is hidden.
   - Item titles within a collection
 - If the collection name doesn’t match but an item title does, the UI shows an **item-match badge** on the collection card.
 
-## 4.3 PWA and cache behavior
+## 4.3 Large collection rendering
+
+Curio uses incremental client-side rendering for large collection grids:
+
+- Collections with up to 100 matching items render in one pass.
+- Above 100 matching items, `CollectionScreen` initially mounts 50 cards and exposes 50 more per explicit **Load more** action.
+- Changing collection, search, filters, or sort order resets the visible window to the first 50 matching items.
+- Explicit loading keeps native browser scrolling and the responsive masonry/grid layout intact on mobile; it does not move focus or programmatically change the scroll position.
+- A component regression test exercises a 500-item collection, verifies the initial DOM bound, and confirms every item remains reachable.
+
+The complete collection remains in the local-first data model so offline access, client search, filters, sorting, bulk selection, and Exhibition continue to operate over the full dataset. This strategy primarily bounds React/card/image DOM work. If profiling shows that retaining the full collection in memory becomes the bottleneck, add data-layer paging or grid virtualization without changing this UI contract.
+
+## 4.4 PWA and cache behavior
 
 The service worker should stay minimal and predictable.
 

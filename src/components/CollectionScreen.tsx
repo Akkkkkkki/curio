@@ -63,6 +63,13 @@ const clearFiltersLinkClasses: Record<AppTheme, string> = {
   atelier: 'text-[#6F6257] hover:text-[#3D3530] decoration-[#D4C9B8]',
 };
 
+// Keep the local-first collection available for search, sorting, filters, and
+// offline use while bounding the expensive card/image DOM mounted at once.
+// An explicit Load more action preserves the browser's scroll position on
+// mobile and avoids an observer repeatedly firing inside the masonry layout.
+const LARGE_COLLECTION_THRESHOLD = 100;
+const COLLECTION_PAGE_SIZE = 50;
+
 interface CollectionScreenProps {
   collections: UserCollection[];
   isAdmin: boolean;
@@ -110,13 +117,10 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({
   const [activeFilters, setActiveFilters] = useState<Record<string, string>>({});
   const [isExhibitionOpen, setIsExhibitionOpen] = useState(false);
   const [isDeleteCollectionModalOpen, setIsDeleteCollectionModalOpen] = useState(false);
-  const [visibleCount, setVisibleCount] = useState(60);
+  const [visibleCount, setVisibleCount] = useState(COLLECTION_PAGE_SIZE);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
-
-  const PAGINATION_THRESHOLD = 120;
-  const PAGE_SIZE = 60;
 
   const debouncedFilter = useDebouncedValue(filterInput, 200);
   const hasFilterInput = filterInput.trim().length > 0;
@@ -151,17 +155,17 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({
 
   useEffect(() => {
     if (!collection) return;
-    setVisibleCount(PAGE_SIZE);
+    setVisibleCount(COLLECTION_PAGE_SIZE);
     setSelectedItemIds([]);
     setIsSelectionMode(false);
   }, [collection?.id, debouncedFilter, activeFilters, sortBy]);
 
-  const shouldPaginate = sortedItems.length > PAGINATION_THRESHOLD;
+  const shouldPaginate = sortedItems.length > LARGE_COLLECTION_THRESHOLD;
   const visibleItems = shouldPaginate ? sortedItems.slice(0, visibleCount) : sortedItems;
   const canLoadMore = shouldPaginate && visibleCount < sortedItems.length;
 
   const handleLoadMore = () => {
-    setVisibleCount((prev) => Math.min(prev + PAGE_SIZE, sortedItems.length));
+    setVisibleCount((prev) => Math.min(prev + COLLECTION_PAGE_SIZE, sortedItems.length));
   };
 
   const activeFilterCount = Object.values(activeFilters).filter(Boolean).length;
