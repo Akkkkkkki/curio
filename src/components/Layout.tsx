@@ -114,7 +114,7 @@ export const Layout: React.FC<LayoutProps> = ({
   onAddItem,
   onExploreSamples,
 }) => {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const { theme } = useTheme();
   const location = useLocation();
   const isHome = location.pathname === '/';
@@ -125,8 +125,6 @@ export const Layout: React.FC<LayoutProps> = ({
   const previousProfileSourceRef = useRef<ProfileSource | null>(null);
   const closeProfile = useCallback(() => setProfileSource(null), []);
 
-  // Restore focus to the bottom-nav profile trigger after the sheet closes,
-  // so keyboard and screen-reader users land back where they invoked it.
   useEffect(() => {
     const prev = previousProfileSourceRef.current;
     if (profileSource === null && prev === 'bottomNav') {
@@ -135,8 +133,6 @@ export const Layout: React.FC<LayoutProps> = ({
     previousProfileSourceRef.current = profileSource;
   }, [profileSource]);
 
-  // Click-outside applies only to the header-anchored dropdown.
-  // The mobile bottom sheet has its own backdrop.
   useEffect(() => {
     if (profileSource !== 'header') return;
     const handleClick = (e: MouseEvent) => {
@@ -148,7 +144,6 @@ export const Layout: React.FC<LayoutProps> = ({
     return () => document.removeEventListener('mousedown', handleClick);
   }, [profileSource, closeProfile]);
 
-  // Escape closes either surface.
   useEffect(() => {
     if (!isProfileOpen) return;
     const onKey = (e: KeyboardEvent) => {
@@ -157,6 +152,7 @@ export const Layout: React.FC<LayoutProps> = ({
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [isProfileOpen, closeProfile]);
+
   const isAuthenticated = Boolean(user);
   const showSignInAffordance = isSupabaseConfigured && !isAuthenticated;
   const statusLabel = !isSupabaseConfigured
@@ -228,10 +224,8 @@ export const Layout: React.FC<LayoutProps> = ({
     (sampleCollectionId
       ? location.pathname.startsWith(`/collection/${sampleCollectionId}`)
       : false);
+  const mobileProfileLabel = language === 'zh' ? '你' : 'You';
 
-  // CUR-127: the menu was a single flat grab-bag (status, theme, legal, import,
-  // sign-out). Theme moved out to the header ThemeQuickToggle; the rest is
-  // grouped into scannable sections: Account / About / Data.
   const profileMenuBody = (
     <>
       <div data-testid="profile-account-section" className={`border-b ${borderClass} mb-1`}>
@@ -392,15 +386,6 @@ export const Layout: React.FC<LayoutProps> = ({
           </Link>
 
           <nav className="flex items-center gap-2 justify-end">
-            {/* CURIO-410: the global Add-item affordance lived only on the
-                mobile bottom-nav Add pill (`sm:hidden`), so a signed-in desktop
-                user on the home screen had no way to add an item without first
-                drilling into a collection. This mirrors that pill on desktop
-                widths (`hidden sm:inline-flex`, so the two never overlap) using
-                the same `onAddItem` handler, which already routes through auth /
-                collection-picker gating. Gated on `isAuthenticated` to keep the
-                pre-auth first run single-path — signed-out users still land on
-                the access gate's one primary CTA. */}
             {isAuthenticated && onAddItem && (
               <Button
                 variant="primary"
@@ -428,19 +413,6 @@ export const Layout: React.FC<LayoutProps> = ({
                 aria-expanded={profileSource === 'header'}
                 className={`${showSignInAffordance ? 'pl-3 pr-4 py-2 rounded-full flex items-center gap-2' : 'p-2 rounded-full'} transition-colors ${navGhost} ${statusColor}`}
               >
-                {/* CUR-158 / CUR-153: anchor the status badge to the account
-                    icon itself, not the button box. Positioning it on the box
-                    (bottom-0 right-0) kept it beside the glyph in the compact
-                    icon-only button, but once CUR-49 widened the signed-out
-                    control into a labelled "Sign In" pill, that same corner
-                    landed outside the pill's rounded edge and read as a stray
-                    orange glyph. Wrapping the icon in a positioning context
-                    keeps the badge on the glyph in both layouts. Screen
-                    readers flatten a button's descendants, so the status
-                    reaches them via the button's aria-describedby -> this
-                    badge's aria-label; the title covers hover. Both reuse the
-                    profile menu's status vocabulary so every surface uses one
-                    consistent term. */}
                 <span className="relative flex items-center justify-center">
                   <User size={20} />
                   <span
@@ -492,9 +464,6 @@ export const Layout: React.FC<LayoutProps> = ({
 
       {statusBanner && <div className="max-w-4xl mx-auto px-4 pt-4 sm:pt-5">{statusBanner}</div>}
 
-      {/* CUR-97: reserve clearance for the bottom nav only where it actually
-          renders (< sm). On desktop the nav is `sm:hidden`, so `sm:pb-8` drops
-          the ~5.5rem of dead space back to the standard `py-8` rhythm. */}
       <main
         id="main-content"
         className="max-w-4xl mx-auto px-4 py-8 pb-[calc(var(--bottom-nav-height,5.5rem)+env(safe-area-inset-bottom,0px))] sm:pb-8"
@@ -508,7 +477,10 @@ export const Layout: React.FC<LayoutProps> = ({
         style={{ height: 'var(--bottom-nav-height, 5.5rem)' }}
       >
         <div className="mx-auto max-w-4xl h-full px-2 pb-[env(safe-area-inset-bottom,0px)] pt-2 flex items-center">
-          <div className={`grid ${exploreTo ? 'grid-cols-4' : 'grid-cols-3'} items-center w-full`}>
+          {/* CUR-130: keep the five-position IA even before Wrapped exists. The
+              fourth slot stays inert until CUR-129 ships, so Add remains the
+              physical center without exposing a dead destination. */}
+          <div className="grid grid-cols-5 items-center w-full">
             <Link
               to="/"
               aria-current={location.pathname === '/' ? 'page' : undefined}
@@ -518,7 +490,7 @@ export const Layout: React.FC<LayoutProps> = ({
               {t('navHome')}
             </Link>
 
-            {exploreTo && (
+            {exploreTo ? (
               <Link
                 to={exploreTo}
                 onClick={onExploreSamples}
@@ -528,31 +500,47 @@ export const Layout: React.FC<LayoutProps> = ({
                 <Compass size={22} />
                 {t('exploreSample')}
               </Link>
+            ) : (
+              <span aria-hidden="true" />
             )}
 
             <button
               onClick={onAddItem}
-              className={`flex flex-col items-center justify-center gap-1 min-h-[44px] text-[11px] font-semibold transition-colors ${bottomNavMuted}`}
+              aria-label={t('addItem')}
+              className={`relative z-10 flex flex-col items-center justify-center gap-0.5 min-h-[44px] text-[11px] font-semibold transition-transform active:scale-95 ${bottomNavMuted}`}
             >
-              <div
+              <span
                 data-testid="bottom-nav-add-pill"
-                className={`p-1 rounded-full -mt-1 ${bottomNavAddPill}`}
+                className={`-mt-5 w-14 h-14 rounded-full flex items-center justify-center border-4 shadow-[0_8px_22px_rgba(15,23,42,0.18)] ${theme === 'vault' ? 'border-stone-900' : theme === 'atelier' ? 'border-[#F5EFE4]' : 'border-white'} ${bottomNavAddPill}`}
               >
-                <Plus size={20} strokeWidth={2.5} />
-              </div>
-              {t('add')}
+                <Plus size={26} strokeWidth={2.5} />
+              </span>
+              <span>{t('add')}</span>
             </button>
+
+            {/* Reserved for Wrapped (CUR-129). No link/button is rendered until
+                that surface is live, which keeps the nav honest. */}
+            <span aria-hidden="true" data-testid="bottom-nav-wrapped-slot" />
 
             <button
               ref={bottomNavProfileButtonRef}
               onClick={() => setProfileSource('bottomNav')}
               aria-haspopup="dialog"
               aria-expanded={profileSource === 'bottomNav'}
-              aria-label={showSignInAffordance ? t('login') : t('profile')}
+              aria-label={showSignInAffordance ? t('login') : mobileProfileLabel}
               className={`flex flex-col items-center justify-center gap-1 min-h-[44px] text-[11px] font-semibold transition-colors ${profileSource === 'bottomNav' ? 'text-amber-500' : bottomNavMuted}`}
             >
               <User size={22} />
-              {showSignInAffordance ? t('login') : t('profile')}
+              {showSignInAffordance ? (
+                t('login')
+              ) : (
+                <>
+                  <span>{mobileProfileLabel}</span>
+                  {/* Keep the established localized noun available to screen
+                      readers/search while the visible IA uses the warmer label. */}
+                  <span className="sr-only">{t('profile')}</span>
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -595,8 +583,6 @@ export const Layout: React.FC<LayoutProps> = ({
         </div>
       )}
 
-      {/* CUR-97: the fade only reads as intentional above the bottom nav, so it
-          rides the same `sm:hidden` breakpoint and is not drawn on desktop. */}
       <footer
         className={`fixed bottom-0 left-0 w-full bg-gradient-to-t ${footerGradient} pointer-events-none h-12 z-10 sm:hidden`}
       />
