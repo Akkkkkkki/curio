@@ -1,6 +1,9 @@
 const MAX_LATENCY_SAMPLES = 1000;
 const METRICS_ROUTES = new Set([
   '/api/health',
+  '/api/ai/analyze-item',
+  '/api/ai/story-prompts',
+  '/api/ai/suggest-fields',
   '/api/gemini/analyze',
   '/api/gemini/enhance',
   '/api/gemini/suggest-fields',
