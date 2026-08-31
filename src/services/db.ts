@@ -1759,6 +1759,17 @@ const saveCollectionToCloud = async (collection: UserCollection): Promise<void> 
 
   // Sync Items
   if (itemsForSync.length > 0) {
+    // Public sample collections are exempt from the inline-photo migration.
+    // `curio-assets` is a PRIVATE bucket (`public = false`) whose select policy
+    // is `auth.uid() = split_part(name, '/', 1)`, so an object uploaded there is
+    // unreadable by the signed-out visitors the Public Sample Gallery exists
+    // for. That is exactly why `applyEditedPhoto` keeps an admin-curated public
+    // photo as an inline `data:` URL instead of calling `saveAsset`. Migrating
+    // it would repoint the public row at an object anonymous readers get a 400
+    // on, rendering a broken card on the pre-login gallery. Row bloat on a
+    // handful of curated samples is the lesser cost.
+    const migrateInlinePhotos = !latestCollectionForItems.isPublic;
+
     // Pass 1 — migrate inline photos. A `data:`/`blob:` photoUrl is a raw image
     // payload that must never be upserted into the item row (issue #369). Move
     // each onto the Storage-backed asset track via `saveAsset` (which stashes
@@ -1768,7 +1779,7 @@ const saveCollectionToCloud = async (collection: UserCollection): Promise<void> 
     // local write-back below can tell "still the payload we moved" from "the
     // user swapped the photo while the upload was in flight".
     const migratedPhotoUrls = new Map<string, string>();
-    for (const item of itemsForSync) {
+    for (const item of migrateInlinePhotos ? itemsForSync : []) {
       const photoUrl = item.photoUrl || '';
       if (photoUrl === 'asset' || !isInlinePhotoUrl(photoUrl)) continue;
       const blob = dataUrlToBlob(photoUrl);
@@ -1849,10 +1860,19 @@ const saveCollectionToCloud = async (collection: UserCollection): Promise<void> 
           photoOriginalPath = `${basePath}/original.jpg`;
           photoDisplayPath = `${basePath}/display.jpg`;
         } else if (isInlinePhotoUrl(photoUrl)) {
-          // Still inline means the migration above couldn't recover the bytes;
-          // store null rather than the blob and leave the local photo for retry.
-          photoOriginalPath = null;
-          photoDisplayPath = null;
+          // On a public collection the inline URL is the intended, readable
+          // form, so keep it in the row — the anonymous gallery depends on it.
+          // On a private one, still-inline means the migration above couldn't
+          // recover the bytes; store null rather than the blob and leave the
+          // local photo for retry.
+          if (!migrateInlinePhotos) {
+            const { originalPath, displayPath } = normalizePhotoPaths(photoUrl);
+            photoOriginalPath = originalPath;
+            photoDisplayPath = displayPath;
+          } else {
+            photoOriginalPath = null;
+            photoDisplayPath = null;
+          }
         } else {
           const { originalPath, displayPath } = normalizePhotoPaths(photoUrl);
           photoOriginalPath = originalPath;
@@ -1891,11 +1911,45 @@ const saveCollectionToCloud = async (collection: UserCollection): Promise<void> 
   }
 };
 
+// Once an inline photo has been migrated onto the asset track, the stored
+// record says `photoUrl: 'asset'` but the caller's in-memory collection still
+// carries the original `data:` URL — App.tsx saves from React state, which is
+// not re-hydrated from IndexedDB after a sync. Writing that stale value back
+// would undo the migration and make the next sync decode and re-upload the same
+// multi-megabyte payload, in-session, on every edit.
+//
+// Only a private collection is reconciled: on a public one an inline `data:`
+// URL is the intended form (see the migration guard in saveCollectionToCloud),
+// so `applyEditedPhoto` legitimately moves a public item from 'asset' back to an
+// inline URL and that must be honoured.
+const reconcileMigratedPhotoUrls = (
+  incoming: UserCollection,
+  stored: UserCollection | undefined,
+): UserCollection => {
+  if (!stored || incoming.isPublic) return incoming;
+  const storedById = new Map(stored.items.map((item) => [item.id, item]));
+  let changed = false;
+  const items = incoming.items.map((item) => {
+    if (storedById.get(item.id)?.photoUrl !== 'asset') return item;
+    if (!isInlinePhotoUrl(item.photoUrl || '')) return item;
+    changed = true;
+    return { ...item, photoUrl: 'asset' };
+  });
+  return changed ? { ...incoming, items } : incoming;
+};
+
 export const saveCollection = async (collection: UserCollection): Promise<void> => {
   const db = await initDB();
-  const collectionToSave = collection.updatedAt
-    ? collection
-    : { ...collection, updatedAt: new Date().toISOString() };
+  const storedCollection = await new Promise<UserCollection | undefined>((resolve) => {
+    const transaction = db.transaction(COLLECTIONS_STORE, 'readonly');
+    const request = transaction.objectStore(COLLECTIONS_STORE).get(collection.id);
+    request.onsuccess = () => resolve(request.result || undefined);
+    request.onerror = () => resolve(undefined);
+  });
+  const reconciled = reconcileMigratedPhotoUrls(collection, storedCollection);
+  const collectionToSave = reconciled.updatedAt
+    ? reconciled
+    : { ...reconciled, updatedAt: new Date().toISOString() };
   const shouldSyncToCloud = isSupabaseConfigured() && Boolean(supabase);
 
   // 1. Local Persistence (IndexedDB) - always succeeds. When a cloud sync will

@@ -363,6 +363,118 @@ describe('Phase 2.2 — services/db.ts dual-write operations', () => {
     expect(savedLocally?.items[0].photoUrl).toBe('asset');
   });
 
+  it('saveCollection: a stale in-memory inline photoUrl does not trigger a re-upload (#369)', async () => {
+    /**
+     * The migration flips the LOCAL record to `photoUrl: 'asset'`, but App.tsx
+     * calls saveCollection with the in-memory React collection, which still
+     * holds the inline `data:` URL until a reload re-hydrates from IndexedDB.
+     * Without a guard that stale object overwrites the flip on the next save
+     * and the same multi-megabyte payload is decoded and uploaded again — the
+     * exact in-session repeat the migration was supposed to end.
+     */
+    const { supabase, upload } = createSupabaseMock();
+    const dbMod = await importDbModuleFreshWithSupabaseMock(supabase);
+
+    const db = await dbMod.initDB();
+    openDb = db;
+    await clearStores(db, ['collections', 'assets', 'display', 'settings']);
+
+    const collection: UserCollection = {
+      id: 'col-1',
+      templateId: 'vinyl',
+      name: 'My Collection',
+      icon: '🎵',
+      customFields: [],
+      items: [
+        {
+          id: 'item-1',
+          collectionId: 'col-1',
+          photoUrl: `data:image/jpeg;base64,${'AAAA'.repeat(20)}`,
+          title: 'Inline photo item',
+          rating: 4,
+          data: {},
+          createdAt: new Date('2024-01-01T00:00:00Z').toISOString(),
+          updatedAt: new Date('2024-01-02T00:00:00Z').toISOString(),
+          notes: '',
+        },
+      ],
+      ownerId: 'test-user-id',
+      updatedAt: new Date('2024-01-03T00:00:00Z').toISOString(),
+    };
+
+    await dbMod.saveCollection(collection);
+    const uploadsAfterMigration = upload.mock.calls.length;
+    expect(uploadsAfterMigration).toBeGreaterThan(0);
+
+    // Save again from the SAME in-memory object the app still holds — it was
+    // never refreshed from IndexedDB, so it still carries the data: URL.
+    await dbMod.saveCollection({
+      ...collection,
+      name: 'Renamed',
+      updatedAt: new Date('2024-01-04T00:00:00Z').toISOString(),
+    });
+
+    expect(upload.mock.calls.length).toBe(uploadsAfterMigration);
+  });
+
+  it("saveCollection: leaves a public collection's inline photo inline (#369)", async () => {
+    /**
+     * Public sample collections deliberately keep an admin-curated photo as an
+     * inline `data:` URL: `applyEditedPhoto` skips `saveAsset` when
+     * `collection.isPublic`, because `curio-assets` is a PRIVATE bucket whose
+     * select policy is `auth.uid() = split_part(name,'/',1)`. Migrating such a
+     * photo into Storage points the public item row at an object no signed-out
+     * visitor can read, so the pre-login gallery renders a broken card.
+     */
+    const { supabase, itemsUpsert, upload } = createSupabaseMock();
+    const dbMod = await importDbModuleFreshWithSupabaseMock(supabase);
+
+    const db = await dbMod.initDB();
+    openDb = db;
+    await clearStores(db, ['collections', 'assets', 'display', 'settings']);
+
+    const dataUrl = `data:image/jpeg;base64,${'AAAA'.repeat(20)}`;
+    const collection: UserCollection = {
+      id: 'col-public',
+      templateId: 'vinyl',
+      name: 'The Vinyl Vault',
+      icon: '🎵',
+      isPublic: true,
+      customFields: [],
+      items: [
+        {
+          id: 'item-1',
+          collectionId: 'col-public',
+          photoUrl: dataUrl,
+          title: 'Curated sample',
+          rating: 4,
+          data: {},
+          createdAt: new Date('2024-01-01T00:00:00Z').toISOString(),
+          updatedAt: new Date('2024-01-02T00:00:00Z').toISOString(),
+          notes: '',
+        },
+      ],
+      ownerId: 'test-user-id',
+      updatedAt: new Date('2024-01-03T00:00:00Z').toISOString(),
+    } as UserCollection;
+
+    await dbMod.saveCollection(collection);
+
+    // Nothing was pushed into the private bucket for a public collection.
+    expect(upload.mock.calls.map((call) => call[0])).toEqual([]);
+
+    // And the row still carries the inline photo rather than a private path
+    // the anonymous gallery cannot read.
+    const [itemsPayload] = itemsUpsert.mock.calls[0];
+    expect(itemsPayload[0].photo_original_path).not.toContain('test-user-id/collections');
+    expect(itemsPayload[0].photo_display_path).not.toContain('test-user-id/collections');
+
+    // The local record keeps the inline URL too, so the admin's curated photo
+    // survives the next seed reconciliation (isCustomSeedPhoto).
+    const savedLocally = await readFromStore<UserCollection>(db, 'collections', 'col-public');
+    expect(savedLocally?.items[0].photoUrl).toBe(dataUrl);
+  });
+
   it('saveCollection: a migrated inline photo is not re-uploaded on the next save (#369)', async () => {
     /**
      * Migration only rewrote the cloud row, so the local item kept its inline

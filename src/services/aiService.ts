@@ -82,6 +82,50 @@ interface AiCapabilities {
   imageEditingAvailable: boolean;
 }
 
+// One /api/health round trip serves every capability question. Without this
+// share, the four per-feature refreshers each issue their own request on a cold
+// start — four identical calls where one will do.
+let capabilitiesPromise: Promise<AiCapabilities> | null = null;
+
+// Settle every per-feature cache from the one response. Sharing only the
+// in-flight promise would dedupe a concurrent burst but not the realistic
+// sequential case — analysis checked in AddItemModal, image editing later in
+// ItemDetailScreen — because the promise is cleared once it resolves and each
+// caller only populates its own cache.
+const applyAiCapabilities = (capabilities: AiCapabilities): AiCapabilities => {
+  if (aiEnabledCache === null) aiEnabledCache = capabilities.metadataAnalysisAvailable;
+  if (storyPromptsEnabledCache === null)
+    storyPromptsEnabledCache = capabilities.storyPromptsAvailable;
+  if (fieldSuggestionsEnabledCache === null)
+    fieldSuggestionsEnabledCache = capabilities.fieldSuggestionsAvailable;
+  if (aiImageEditEnabledCache === null)
+    aiImageEditEnabledCache = capabilities.imageEditingAvailable;
+  return capabilities;
+};
+
+const UNAVAILABLE_CAPABILITIES: AiCapabilities = {
+  metadataAnalysisAvailable: false,
+  fieldSuggestionsAvailable: false,
+  storyPromptsAvailable: false,
+  imageEditingAvailable: false,
+};
+
+const loadAiCapabilities = (): Promise<AiCapabilities> => {
+  if (!capabilitiesPromise) {
+    capabilitiesPromise = fetchAiCapabilities()
+      // Only a SUCCESSFUL response may settle the other features' caches. A
+      // transient failure must stay confined to the caller: seeding all four
+      // with false would leave every AI feature off for the life of the page,
+      // with nothing left unset to trigger a retry once the backend recovers.
+      .then(applyAiCapabilities)
+      .catch(() => UNAVAILABLE_CAPABILITIES)
+      .finally(() => {
+        capabilitiesPromise = null;
+      });
+  }
+  return capabilitiesPromise;
+};
+
 const fetchAiCapabilities = async (): Promise<AiCapabilities> => {
   try {
     const response = await fetch(`${API_BASE_URL}/api/health`);
@@ -95,12 +139,9 @@ const fetchAiCapabilities = async (): Promise<AiCapabilities> => {
       imageEditingAvailable: payload?.imageEditingAvailable ?? fallback,
     };
   } catch {
-    return {
-      metadataAnalysisAvailable: false,
-      fieldSuggestionsAvailable: false,
-      storyPromptsAvailable: false,
-      imageEditingAvailable: false,
-    };
+    // Rethrow so loadAiCapabilities can tell "health says unavailable" from
+    // "health could not be reached" — only the former may be cached broadly.
+    throw new Error('AI health unavailable');
   }
 };
 
@@ -111,7 +152,7 @@ const fetchAiCapabilities = async (): Promise<AiCapabilities> => {
 export const refreshAiEnabled = async (): Promise<boolean> => {
   if (aiEnabledCache !== null) return aiEnabledCache;
   if (aiEnabledPromise) return aiEnabledPromise;
-  aiEnabledPromise = fetchAiCapabilities()
+  aiEnabledPromise = loadAiCapabilities()
     .then((capabilities) => {
       aiEnabledCache = capabilities.metadataAnalysisAvailable;
       return aiEnabledCache;
@@ -127,7 +168,7 @@ export const isAiEnabled = () => aiEnabledCache === true;
 export const refreshStoryPromptsEnabled = async (): Promise<boolean> => {
   if (storyPromptsEnabledCache !== null) return storyPromptsEnabledCache;
   if (storyPromptsEnabledPromise) return storyPromptsEnabledPromise;
-  storyPromptsEnabledPromise = fetchAiCapabilities()
+  storyPromptsEnabledPromise = loadAiCapabilities()
     .then((capabilities) => {
       storyPromptsEnabledCache = capabilities.storyPromptsAvailable;
       return storyPromptsEnabledCache;
@@ -141,7 +182,7 @@ export const refreshStoryPromptsEnabled = async (): Promise<boolean> => {
 export const refreshFieldSuggestionsEnabled = async (): Promise<boolean> => {
   if (fieldSuggestionsEnabledCache !== null) return fieldSuggestionsEnabledCache;
   if (fieldSuggestionsEnabledPromise) return fieldSuggestionsEnabledPromise;
-  fieldSuggestionsEnabledPromise = fetchAiCapabilities()
+  fieldSuggestionsEnabledPromise = loadAiCapabilities()
     .then((capabilities) => {
       fieldSuggestionsEnabledCache = capabilities.fieldSuggestionsAvailable;
       return fieldSuggestionsEnabledCache;
@@ -159,7 +200,7 @@ export const refreshAiImageEditEnabled = async (): Promise<boolean> => {
     return false;
   }
   if (aiImageEditEnabledPromise) return aiImageEditEnabledPromise;
-  aiImageEditEnabledPromise = fetchAiCapabilities()
+  aiImageEditEnabledPromise = loadAiCapabilities()
     .then((capabilities) => {
       aiImageEditEnabledCache = capabilities.imageEditingAvailable;
       return aiImageEditEnabledCache;

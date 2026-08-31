@@ -604,6 +604,86 @@ describe('services/aiService.ts - per-feature capability gating (CUR-166)', () =
     await expect(mod.analyzeImage('BASE64', fields)).resolves.toEqual({ status: 'disabled' });
   });
 
+  it('resolves every capability from a single health request', async () => {
+    const mod = await withHealth({
+      metadataAnalysisAvailable: true,
+      storyPromptsAvailable: true,
+      fieldSuggestionsAvailable: true,
+      imageEditingAvailable: true,
+    });
+
+    await Promise.all([
+      mod.refreshAiEnabled(),
+      mod.refreshStoryPromptsEnabled(),
+      mod.refreshFieldSuggestionsEnabled(),
+      mod.refreshAiImageEditEnabled(),
+    ]);
+
+    const healthCalls = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.filter(([url]) =>
+      (url as string).includes('/health'),
+    );
+    expect(healthCalls).toHaveLength(1);
+  });
+
+  it('serves sequential capability checks from the one health response', async () => {
+    // The realistic order: AddItemModal asks about analysis, and only later
+    // does ItemDetailScreen ask about image editing. Sharing just the in-flight
+    // promise would not cover this, since it is cleared once it resolves.
+    const mod = await withHealth({
+      metadataAnalysisAvailable: true,
+      storyPromptsAvailable: true,
+      fieldSuggestionsAvailable: true,
+      imageEditingAvailable: true,
+    });
+
+    await mod.refreshAiEnabled();
+    await mod.refreshStoryPromptsEnabled();
+    await mod.refreshFieldSuggestionsEnabled();
+    await mod.refreshAiImageEditEnabled();
+
+    const healthCalls = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.filter(([url]) =>
+      (url as string).includes('/health'),
+    );
+    expect(healthCalls).toHaveLength(1);
+  });
+
+  it('does not let a failed health check disable features that never asked', async () => {
+    // A transient failure must not seed every cache with false: with nothing
+    // left unset, no later feature would retry and the whole AI surface would
+    // stay off for the life of the page even once the backend recovered.
+    vi.resetModules();
+    vi.unstubAllEnvs();
+    vi.stubEnv('VITE_AI_ENABLED', undefined as unknown as string);
+    vi.stubEnv('VITE_API_BASE_URL', 'http://localhost:8787');
+
+    let healthCalls = 0;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(async (url: string) => {
+        if (url.includes('/health')) {
+          healthCalls += 1;
+          // First check fails; the backend recovers before the second feature asks.
+          if (healthCalls === 1) throw new Error('Network down');
+          return createOkJsonResponse({
+            metadataAnalysisAvailable: true,
+            storyPromptsAvailable: true,
+            fieldSuggestionsAvailable: true,
+            imageEditingAvailable: true,
+          });
+        }
+        throw new Error(`Unexpected request: ${url}`);
+      }),
+    );
+
+    const mod = await import('@/services/aiService');
+
+    // The feature that hit the outage is disabled, as before.
+    await expect(mod.refreshAiEnabled()).resolves.toBe(false);
+    // A different feature asked later still retries and sees the recovery.
+    await expect(mod.refreshAiImageEditEnabled()).resolves.toBe(true);
+    expect(healthCalls).toBe(2);
+  });
+
   it('does not call an endpoint health reports as unavailable', async () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const mod = await withHealth({
