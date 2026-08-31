@@ -67,6 +67,22 @@ describe('seedCollections.ts — buildSeedRepairs (CUR-143)', () => {
     expect(repairs[0].items[0].photoUrl).toBe(masterSeed.items[0].photoUrl);
   });
 
+  it('repairs a public seed photo that was migrated into private Storage (#447)', () => {
+    const items = masterSeed.items.map((item, index) =>
+      index === 0
+        ? {
+            ...item,
+            photoUrl: `${ADMIN_ID}/collections/${masterSeed.id}/${item.id}/display.jpg`,
+          }
+        : { ...item },
+    );
+
+    const repairs = buildSeedRepairs([healthyCloudSeed({ items })], ADMIN_ID);
+
+    expect(repairs).toHaveLength(1);
+    expect(repairs[0].items[0].photoUrl).toBe(masterSeed.items[0].photoUrl);
+  });
+
   it('repairs a cloud seed item whose photo path is stale after a content bump (#373)', () => {
     // Pre-#373 cloud: items 2–5 still point at the shared sample-vinyl.jpg.
     // A fresh admin device (seed version 0) skips the force path, so drift
