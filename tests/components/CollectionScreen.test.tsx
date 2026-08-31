@@ -1,7 +1,7 @@
 import type { ComponentProps } from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { LanguageProvider } from '@/i18n';
 import { ThemeProvider } from '@/theme';
 import { CollectionScreen } from '@/components/CollectionScreen';
@@ -10,6 +10,16 @@ import { UserCollection } from '@/types';
 // Mock the debounce so search state settles synchronously in tests.
 vi.mock('@/hooks/useDebouncedValue', () => ({
   useDebouncedValue: (value: unknown) => value,
+}));
+
+// ItemCard has its own rendering suite. Keep the 500-item pagination fixture
+// focused on how many cards CollectionScreen mounts rather than image loading.
+vi.mock('@/components/ItemCard', () => ({
+  ItemCard: ({ item }: { item: { id: string; title: string } }) => (
+    <div data-testid="item-card" data-item-id={item.id}>
+      {item.title}
+    </div>
+  ),
 }));
 
 function makeCollection(overrides: Partial<UserCollection> = {}): UserCollection {
@@ -102,6 +112,38 @@ describe('CollectionScreen action bar (CUR-160)', () => {
     expect(screen.getByRole('button', { name: /filter collection/i })).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/search this collection/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /delete collection/i })).toBeInTheDocument();
+  });
+});
+
+describe('CollectionScreen large collections (CUR-19)', () => {
+  it('renders collections of 100 items without pagination', () => {
+    const items = Array.from({ length: 100 }, (_, index) => makeItem(String(index)));
+
+    renderScreen(makeCollection({ items }));
+
+    expect(screen.getAllByTestId('item-card')).toHaveLength(100);
+    expect(screen.queryByRole('button', { name: /load more/i })).not.toBeInTheDocument();
+  });
+
+  it('bounds initial DOM work and exposes every item in a 500-item collection', () => {
+    const items = Array.from({ length: 500 }, (_, index) => makeItem(String(index)));
+
+    renderScreen(makeCollection({ items }));
+
+    expect(screen.getAllByTestId('item-card')).toHaveLength(50);
+    expect(screen.getByText('Showing 50 of 500 items')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /load more/i }));
+    expect(screen.getAllByTestId('item-card')).toHaveLength(100);
+    expect(screen.getByText('Showing 100 of 500 items')).toBeInTheDocument();
+
+    for (let page = 0; page < 8; page += 1) {
+      fireEvent.click(screen.getByRole('button', { name: /load more/i }));
+    }
+
+    expect(screen.getAllByTestId('item-card')).toHaveLength(500);
+    expect(screen.getByText('Showing 500 of 500 items')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /all items loaded/i })).toBeDisabled();
   });
 });
 
