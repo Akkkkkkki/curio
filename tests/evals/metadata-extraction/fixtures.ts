@@ -22,6 +22,15 @@ import type { EvalCase } from './types';
  * the repo yet; adding them is a tracked follow-up on CUR-173.
  */
 
+/**
+ * Language of the acceptable answers below. The production prompt translates
+ * titles/values when a non-English locale is passed, but this fixture set and
+ * its exact-match scorer are English-only — so the harness grades at this
+ * locale and does not forward an arbitrary one. Localized fixtures are a
+ * follow-up.
+ */
+export const FIXTURE_LOCALE = 'en';
+
 const vinylTemplate: CollectionTemplate = TEMPLATES.find((t) => t.id === 'vinyl')!;
 const vinylFields: FieldDefinition[] = vinylTemplate.fields;
 
@@ -94,9 +103,12 @@ export const METADATA_EVAL_CASES: EvalCase[] = [
     forbiddenStoryPhrases: ['reminds me', 'a gift from', 'i remember'],
   },
   // --- Collection-context pair -------------------------------------------
-  // Same image, two contexts. With a music context the electronic sub-genre is
-  // the useful read; with a neutral archive the model has less to lean on. The
-  // pair lets a candidate's context-sensitivity be measured rather than assumed.
+  // Same image under two contexts. Both accept the correct genre (a factually
+  // right answer must not be marked wrong just because context differs), so the
+  // per-case rates alone can't prove context-sensitivity. What this pair
+  // establishes is that context is forwarded distinctly and the raw values are
+  // retained on each CaseScore, so a caller can compare the two answers. A
+  // built-in pairwise sensitivity metric is a follow-up (see README).
   {
     id: 'vinyl-context-electronic',
     description: 'Collection context (electronic vinyl) should sharpen the genre read.',

@@ -110,6 +110,14 @@ export interface CaseScore {
   caseId: string;
   /** Analyzer returned `status: 'success'` and parsed into the schema. */
   schemaValid: boolean;
+  /** Raw title the analyzer produced ('' on a non-success result). */
+  title: string;
+  /**
+   * Raw value per schema field id (as the analyzer returned it, `undefined`
+   * when blank). Retained so callers can compare cases — e.g. the same image
+   * under two contexts — which the boolean rates alone cannot express.
+   */
+  values: Record<string, unknown>;
   titleCorrect: boolean;
   fields: FieldScore[];
   /** The factual description avoided invented story/memory phrases. */
@@ -128,8 +136,11 @@ export interface AggregateMetrics {
   titleCorrectRate: number;
   /** Correct values ÷ gradeable (`match`/`abstain`) fields. */
   fieldCorrectnessRate: number;
-  /** Non-empty values ÷ fields expected to be answerable (`match`/`optional`). */
-  fieldFillRate: number;
+  /**
+   * Correct non-empty values ÷ answerable (`match`/`optional`) fields. A wrong
+   * value is not a useful fill, so it does not count toward the numerator.
+   */
+  usefulFillRate: number;
   /** Hallucinated fields ÷ all graded fields. */
   hallucinationRate: number;
   /** Correct abstentions ÷ fields that should abstain. `null` when none exist. */

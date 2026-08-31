@@ -131,9 +131,17 @@ export const scoreCase = (evalCase: EvalCase, result: AnalyzeResult): CaseScore 
   const storyClean = !hasForbiddenSubstring(description, evalCase.forbiddenStoryPhrases);
   if (!storyClean) issues.push('description contains invented story/memory language');
 
+  // Retain the raw title + per-field values the analyzer produced. Rates alone
+  // can't compare two cases (e.g. the same image under two contexts), so a
+  // pairwise/context-sensitivity check needs the actual values, not just booleans.
+  const values: Record<string, unknown> = {};
+  for (const field of evalCase.fields) values[field.id] = data[field.id];
+
   return {
     caseId: evalCase.id,
     schemaValid,
+    title,
+    values,
     titleCorrect: result.status === 'success' && scoreTitle(evalCase.expectedTitle, title),
     fields,
     storyClean,
@@ -171,7 +179,14 @@ export const aggregateScores = (scores: CaseScore[]): AggregateMetrics => {
     schemaValidRate: rate(scores.filter((s) => s.schemaValid).length, scores.length),
     titleCorrectRate: rate(scores.filter((s) => s.titleCorrect).length, scores.length),
     fieldCorrectnessRate: rate(gradedFields.filter((f) => f.correct).length, gradedFields.length),
-    fieldFillRate: rate(answerableFields.filter((f) => f.filled).length, answerableFields.length),
+    // Only a *correct* non-empty value is a useful fill. Counting any non-empty
+    // value would reward a wrong optional guess (which is neither penalized as a
+    // hallucination nor counted against correctness), letting an inferior
+    // candidate inflate its fill rate without improving anything.
+    usefulFillRate: rate(
+      answerableFields.filter((f) => f.filled && f.correct).length,
+      answerableFields.length,
+    ),
     hallucinationRate: rate(allFields.filter((f) => f.hallucinated).length, allFields.length),
     abstentionQuality:
       abstainFields.length === 0

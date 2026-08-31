@@ -1,5 +1,6 @@
 import type { CaseScore, EvalCase, EvalReport, ImageLoader, MetadataAnalyzer } from './types';
 import { aggregateScores, scoreCase } from './scoring';
+import { FIXTURE_LOCALE } from './fixtures';
 
 /**
  * Runs the metadata-extraction eval (CUR-173, first step).
@@ -12,8 +13,6 @@ import { aggregateScores, scoreCase } from './scoring';
  * the Gemini baseline and any future candidate on equal footing.
  */
 export interface RunEvalOptions {
-  /** Passed straight through to the analyzer, matching the product call. */
-  locale?: string;
   /**
    * Optional per-case timing. When provided it wraps the analyzer call and
    * records wall-clock latency onto the score; live runners use this, the
@@ -37,7 +36,9 @@ export const runEval = async (
       imageBase64,
       fields: evalCase.fields,
       collectionContext: evalCase.collectionContext,
-      locale: options.locale,
+      // Pinned to the fixture language: the acceptable answers are English and
+      // the scorer is exact-match, so grading a translated result would be wrong.
+      locale: FIXTURE_LOCALE,
     });
     const score = scoreCase(evalCase, result);
     if (options.now && start !== undefined) {

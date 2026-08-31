@@ -95,6 +95,7 @@ describe('metadata-extraction eval harness (CUR-173)', () => {
     expect(report.aggregate.schemaValidRate).toBe(1);
     expect(report.aggregate.titleCorrectRate).toBe(1);
     expect(report.aggregate.fieldCorrectnessRate).toBe(1);
+    expect(report.aggregate.usefulFillRate).toBe(1);
     expect(report.aggregate.hallucinationRate).toBe(0);
     expect(report.aggregate.abstentionQuality).toBe(1);
     expect(report.aggregate.storyCleanRate).toBe(1);
@@ -217,6 +218,8 @@ describe('metadata-extraction eval harness (CUR-173)', () => {
       {
         caseId: 'x',
         schemaValid: true,
+        title: 'X',
+        values: { a: 'v' },
         titleCorrect: true,
         fields: [
           { fieldId: 'a', grade: 'match', filled: true, correct: true, hallucinated: false },
@@ -226,5 +229,31 @@ describe('metadata-extraction eval harness (CUR-173)', () => {
       },
     ]);
     expect(noAbstain.abstentionQuality).toBeNull();
+  });
+
+  it('does not count a wrong optional guess as a useful fill', () => {
+    const evalCase = findCase('vinyl-context-electronic');
+    // `year` is optional/acceptable=[2001]; a wrong guess is neither a
+    // hallucination nor counted against correctness, so it must not inflate fill.
+    const wrongOptional = success('Discovery', {
+      artist: 'Daft Punk',
+      genre: 'French House',
+      year: 1998, // wrong, but a plausible-looking guess
+    });
+    const score = scoreCase(evalCase, wrongOptional);
+    const year = score.fields.find((f) => f.fieldId === 'year');
+    expect(year?.filled).toBe(true);
+    expect(year?.correct).toBe(false);
+    expect(year?.hallucinated).toBe(false);
+
+    const agg = aggregateScores([score]);
+    // artist + genre are correct answerable fills; the wrong year is excluded.
+    const answerable = evalCase.fields.filter(
+      (f) => (evalCase.fieldExpectations[f.id]?.grade ?? 'optional') !== 'abstain',
+    ).length;
+    expect(agg.usefulFillRate).toBeCloseTo(2 / answerable);
+    // Raw values are retained for pairwise comparison.
+    expect(score.values.genre).toBe('French House');
+    expect(score.values.year).toBe(1998);
   });
 });

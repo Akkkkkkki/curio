@@ -44,12 +44,17 @@ Each field is graded one of three ways:
 
 The set deliberately includes a clear-identity case, an **abstention** case
 (blank beats a guess), and a **collection-context pair** (same image, two
-contexts) so context-sensitivity can be measured.
+contexts). The pair forwards context distinctly and each `CaseScore` retains the
+raw values, so a caller can compare the two answers; both cases still accept the
+factually-correct genre (a right answer isn't marked wrong for context), so a
+built-in pairwise sensitivity metric is a follow-up rather than something the
+per-case rates measure today.
 
 ## Metrics (`AggregateMetrics`)
 
 Deterministic today: `schemaValidRate`, `titleCorrectRate`,
-`fieldCorrectnessRate`, `fieldFillRate`, `hallucinationRate`,
+`fieldCorrectnessRate`, `usefulFillRate` (only a _correct_ non-empty value
+counts — a wrong guess is not a useful fill), `hallucinationRate`,
 `abstentionQuality`, `storyCleanRate`. Populated only on a live run:
 `p50/p95LatencyMs`, `avgCostUsd` (the harness accepts a clock; cost is reported
 by the live adapter).
@@ -64,6 +69,11 @@ never the owner's story, so invented memories/emotional claims fail the case.
 - **Live baseline** (opt-in, cost-bearing): not wired yet. It will supply a real
   `MetadataAnalyzer` (Gemini adapter over `analyzeImage`) and an `ImageLoader`
   that reads `public/assets/<file>`, then record the baseline aggregate.
+
+The harness grades at `FIXTURE_LOCALE` (English). The acceptable answers and the
+exact-match scorer are English-only, so an arbitrary `locale` is deliberately
+**not** forwarded — a correctly-translated result would otherwise score wrong.
+Localized fixtures are a follow-up.
 
 ## Decision rule (for adopting a future model/provider)
 
@@ -85,5 +95,7 @@ candidate's aggregate alongside the `EVAL_SET_VERSION` they ran against.
 
 - Live Gemini baseline run + recorded aggregate.
 - Latency/cost capture through a real adapter.
+- A pairwise context-sensitivity metric over the retained `CaseScore.values`.
+- Localized fixtures + locale-aware scoring (so a non-English `locale` can be graded).
 - Fixture breadth beyond vinyl (tea tins, chocolate wrappers, bottles/labels,
   tickets/posters, cameras) using approved assets.
