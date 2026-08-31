@@ -148,8 +148,25 @@ const isCodeDefinedSeedAsset = (photoUrl: string): boolean => {
   return /(?:^|\/)assets\/sample-[^/?#]+\.(?:jpe?g|png|webp)(?:[?#].*)?$/i.test(photoUrl);
 };
 
+const isPrivateCurioAssetPath = (photoUrl: string): boolean => {
+  let normalized = photoUrl;
+  try {
+    normalized = decodeURIComponent(photoUrl);
+  } catch {
+    normalized = photoUrl;
+  }
+  return (
+    /(?:^|\/)curio-assets\/[^/?#]+\/collections\/[^/?#]+\/[^/?#]+\/(?:original|display)\.[^/?#]+(?:[?#].*)?$/i.test(
+      normalized,
+    ) ||
+    /^[^/?#]+\/collections\/[^/?#]+\/[^/?#]+\/(?:original|display)\.[^/?#]+(?:[?#].*)?$/i.test(
+      normalized,
+    )
+  );
+};
+
 const isCustomSeedPhoto = (photoUrl?: string): boolean =>
-  Boolean(photoUrl && !isCodeDefinedSeedAsset(photoUrl));
+  Boolean(photoUrl && !isCodeDefinedSeedAsset(photoUrl) && !isPrivateCurioAssetPath(photoUrl));
 
 const hasSeedDrift = (seed: UserCollection, cloud: UserCollection | undefined): boolean => {
   if (!cloud) return true;
@@ -161,6 +178,9 @@ const hasSeedDrift = (seed: UserCollection, cloud: UserCollection | undefined): 
     // A seed item that lost its photo path (e.g. drifted to NULL in cloud)
     // renders as a broken card on the exact surface meant to delight.
     if (!cloudItem.photoUrl) return true;
+    // Private Storage paths are never a valid public sample photo: signed-out
+    // visitors cannot read them, so repair the row back to shipped sample art.
+    if (isPrivateCurioAssetPath(cloudItem.photoUrl)) return true;
     // #373 migration: items 2–5 whose cloud copy is still the pre-#373 shared
     // image, while the code now gives each its own art. Scoped to that exact
     // superseded path so any admin load repairs it (even a fresh, seed-version-0
