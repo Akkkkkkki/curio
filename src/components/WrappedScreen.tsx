@@ -85,11 +85,20 @@ export const WrappedScreen: React.FC<WrappedScreenProps> = ({
     <section className="mx-auto max-w-4xl px-4 py-8 sm:py-12">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="font-mono text-xs uppercase tracking-[0.24em] text-[#8B5A2B]">Year in objects</p>
-          <h1 className="mt-2 font-serif text-4xl text-[#3D3530] sm:text-5xl">Your {year} museum</h1>
+          <p className="font-mono text-xs uppercase tracking-[0.24em] text-[#8B5A2B]">
+            Year in objects
+          </p>
+          <h1 className="mt-2 font-serif text-4xl text-[#3D3530] sm:text-5xl">
+            Your {year} museum
+          </h1>
         </div>
         <div className="flex gap-2 print:hidden">
-          <Button variant="secondary" onClick={download} disabled={isExporting} icon={<Download size={16} />}>
+          <Button
+            variant="secondary"
+            onClick={download}
+            disabled={isExporting}
+            icon={<Download size={16} />}
+          >
             Save image
           </Button>
           <Button onClick={share} disabled={isExporting} icon={<Share2 size={16} />}>
@@ -103,23 +112,31 @@ export const WrappedScreen: React.FC<WrappedScreenProps> = ({
         className="overflow-hidden rounded-[2rem] border border-[#D4C9B8] bg-[#F5EFE4] p-5 text-[#3D3530] shadow-xl sm:p-10"
       >
         <header className="border-b border-[#D4C9B8] pb-8">
-          <p className="font-mono text-xs uppercase tracking-[0.28em] text-[#8B5A2B]">Curio · {year}</p>
+          <p className="font-mono text-xs uppercase tracking-[0.28em] text-[#8B5A2B]">
+            Curio · {year}
+          </p>
           <h2 className="mt-4 max-w-2xl font-serif text-4xl leading-tight sm:text-6xl">
             {summary.itemsAddedThisYear} objects joined your museum.
           </h2>
           <p className="mt-4 max-w-xl font-serif text-lg italic text-[#6F6257]">
-            Across {summary.totalCollections} {summary.totalCollections === 1 ? 'collection' : 'collections'}, your archive grew through the pieces you chose to remember.
+            Across {summary.totalCollections}{' '}
+            {summary.totalCollections === 1 ? 'collection' : 'collections'}, your archive grew
+            through the pieces you chose to remember.
           </p>
         </header>
 
         <div className="grid gap-5 py-6 sm:grid-cols-3">
           <div className="rounded-2xl bg-white/55 p-5">
-            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#8B5A2B]">Added</p>
+            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#8B5A2B]">
+              Added
+            </p>
             <p className="mt-2 font-serif text-4xl">{summary.itemsAddedThisYear}</p>
             <p className="mt-1 text-sm text-[#6F6257]">new objects in {year}</p>
           </div>
           <div className="rounded-2xl bg-white/55 p-5">
-            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#8B5A2B]">Busiest chapter</p>
+            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#8B5A2B]">
+              Busiest chapter
+            </p>
             <p className="mt-2 font-serif text-2xl">
               {summary.busiestMonth ? monthLabel(year, summary.busiestMonth.month) : '—'}
             </p>
@@ -128,7 +145,9 @@ export const WrappedScreen: React.FC<WrappedScreenProps> = ({
             </p>
           </div>
           <div className="rounded-2xl bg-white/55 p-5">
-            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#8B5A2B]">Museum size</p>
+            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#8B5A2B]">
+              Museum size
+            </p>
             <p className="mt-2 font-serif text-4xl">{summary.totalItems}</p>
             <p className="mt-1 text-sm text-[#6F6257]">objects in your archive now</p>
           </div>
@@ -148,9 +167,13 @@ export const WrappedScreen: React.FC<WrappedScreenProps> = ({
               />
             </div>
             <div>
-              <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[#8B5A2B]">A standout piece</p>
+              <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[#8B5A2B]">
+                A standout piece
+              </p>
               <h3 className="mt-3 font-serif text-3xl">{summary.standoutItem.title}</h3>
-              {standoutCollection && <p className="mt-2 text-sm text-[#6F6257]">From {standoutCollection.name}</p>}
+              {standoutCollection && (
+                <p className="mt-2 text-sm text-[#6F6257]">From {standoutCollection.name}</p>
+              )}
               {summary.standoutItem.notes?.trim() && (
                 <p className="mt-5 line-clamp-4 border-l-2 border-[#8B5A2B]/40 pl-4 font-serif italic leading-relaxed text-[#6F6257]">
                   “{summary.standoutItem.notes.trim()}”
@@ -162,10 +185,15 @@ export const WrappedScreen: React.FC<WrappedScreenProps> = ({
 
         {summary.collectionBreakdown.length > 0 && (
           <div className="border-t border-[#D4C9B8] pt-8">
-            <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[#8B5A2B]">Where the year grew</p>
+            <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[#8B5A2B]">
+              Where the year grew
+            </p>
             <div className="mt-4 grid gap-2 sm:grid-cols-2">
               {summary.collectionBreakdown.slice(0, 6).map((collection) => (
-                <div key={collection.collectionId} className="flex items-center justify-between rounded-xl bg-white/45 px-4 py-3">
+                <div
+                  key={collection.collectionId}
+                  className="flex items-center justify-between rounded-xl bg-white/45 px-4 py-3"
+                >
                   <span className="font-serif">{collection.name}</span>
                   <span className="font-mono text-xs text-[#6F6257]">{collection.itemCount}</span>
                 </div>
