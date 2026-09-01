@@ -119,7 +119,7 @@ GEMINI_IMAGE_MODEL=gemini-2.5-flash-image
 - **Frontend**: React 19 + TypeScript 5.8
 - **Build Tool**: Vite 6 with `@/` path alias to root
 - **Routing**: React Router v7 with HashRouter (SPA-compatible)
-- **AI**: Google Gemini (metadata extraction via vision analysis); audio guide is deferred
+- **AI**: Provider-neutral AI layer (`server/ai/`), currently backed by Google Gemini for vision-based metadata extraction; audio guide is deferred
 - **Database**: Supabase (source of truth) + IndexedDB (cache)
 - **Styling**: Tailwind CSS with custom themes
 - **Icons**: Lucide React
@@ -153,7 +153,8 @@ GEMINI_IMAGE_MODEL=gemini-2.5-flash-image
 **Services:**
 
 - `services/db.ts` - IndexedDB operations, Supabase sync logic, and merge strategies
-- `services/geminiService.ts` - Image analysis (vision-based metadata extraction)
+- `services/aiService.ts` - Provider-neutral AI client (metadata extraction, story prompts, field suggestions) that calls the `/api/ai/*` routes
+- `services/geminiService.ts` - Compatibility shim re-exporting `aiService` for callers still using the old name (CUR-166 migration)
 - `services/supabase.ts` - Authentication (email/password) and client configuration
 - `services/imageProcessor.ts` - Image resizing and optimization (original + display)
 - `src/services/seedCollections.ts` - Public sample data (Vinyl Vault with 4 items)
@@ -165,7 +166,9 @@ GEMINI_IMAGE_MODEL=gemini-2.5-flash-image
 
 **Server:**
 
-- `server/geminiProxy.js` - Express server (port 8787) that proxies Gemini API requests, keeping API keys server-side
+- `server/geminiProxy.js` - Express server (port 8787) that exposes the provider-neutral `/api/ai/*` routes (with legacy `/api/gemini/*` aliases), keeping API keys server-side
+- `server/ai/operations.js` - Shared, provider-agnostic AI operations (analyze item, suggest fields, story prompts, request sanitization)
+- `server/ai/providers/gemini.js` - Google Gemini provider adapter used by `operations.js`
 
 **Components:**
 
@@ -208,13 +211,13 @@ GEMINI_IMAGE_MODEL=gemini-2.5-flash-image
 - Modal states for add item, create collection
 - `saveTimeoutRef` - Debounce timer for cloud sync
 
-### Gemini AI Integration
+### AI Integration (provider-neutral, Gemini-backed)
 
 **Image Analysis (active):**
 
-- Model: `gemini-3-flash-preview` (vision)
+- Model: `gemini-2.5-flash` by default (vision), overridable via `GEMINI_ANALYZE_MODEL`
 - Converts uploaded photo to base64
-- Sends dynamic JSON schema based on collection template fields via `server/geminiProxy.js`
+- Sends a dynamic JSON schema based on collection template fields to the provider-neutral `/api/ai/analyze-item` route (served by `server/geminiProxy.js`), which delegates to `server/ai/operations.js` and the active provider adapter
 - Returns structured metadata (title, field values)
 - AI-generated descriptions are treated as hidden metadata; the visible narrative (Story) is human-authored
 
@@ -414,7 +417,7 @@ Configured in vite.config.ts and tsconfig.json.
 1. Add template definition to `constants.ts` in the `TEMPLATES` array
 2. Define `icon` (emoji), `accentColor` (Tailwind class), and `fields` (FieldDefinition[])
 3. Specify `displayFields` and `badgeFields` for card UI
-4. The Gemini proxy automatically handles new field types via `mapFieldTypeToSchemaType()`
+4. The shared AI layer automatically handles new field types via `mapFieldTypeToSchemaType()` in `server/ai/operations.js`
 5. If it's a public sample, update `src/services/seedCollections.ts` and increment `CURRENT_SEED_VERSION`
 
 ### Modifying Sync Logic
