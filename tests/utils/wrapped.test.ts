@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { buildWrappedSummary } from '../../src/utils/wrapped';
 import type { CollectionItem, UserCollection } from '../../src/types';
 
-const item = (overrides: Partial<CollectionItem> & Pick<CollectionItem, 'id' | 'createdAt'>): CollectionItem => ({
+const item = (
+  overrides: Partial<CollectionItem> & Pick<CollectionItem, 'id' | 'createdAt'>,
+): CollectionItem => ({
   id: overrides.id,
   collectionId: overrides.collectionId ?? 'c1',
   photoUrl: overrides.photoUrl ?? '',
@@ -30,7 +32,9 @@ describe('buildWrappedSummary', () => {
           item({ id: 'a', createdAt: '2026-01-05T10:00:00Z', rating: 4 }),
           item({ id: 'b', createdAt: '2026-01-20T10:00:00Z', rating: 5 }),
         ]),
-        collection('c2', 'Books', [item({ id: 'old', createdAt: '2025-01-20T10:00:00Z' })]),
+        collection('c2', 'Books', [
+          item({ id: 'old', createdAt: '2025-01-20T10:00:00Z' }),
+        ]),
       ],
       2026,
       new Date('2026-09-01T12:00:00Z'),
@@ -72,7 +76,11 @@ describe('buildWrappedSummary', () => {
         rating: index,
       }),
     );
-    const currentYear = item({ id: 'current', createdAt: '2026-09-01T08:00:00Z', rating: 5 });
+    const currentYear = item({
+      id: 'current',
+      createdAt: '2026-09-01T08:00:00Z',
+      rating: 5,
+    });
 
     const summary = buildWrappedSummary(
       [collection('c1', 'Archive', [...sameDay, currentYear])],
