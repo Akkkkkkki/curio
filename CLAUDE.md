@@ -152,11 +152,11 @@ GEMINI_IMAGE_MODEL=gemini-2.5-flash-image
 
 **Services:**
 
-- `services/db.ts` - IndexedDB operations, Supabase sync logic, and merge strategies
-- `services/aiService.ts` - Provider-neutral AI client (metadata extraction, story prompts, field suggestions) that calls the `/api/ai/*` routes
-- `services/geminiService.ts` - Compatibility shim re-exporting `aiService` for callers still using the old name (CUR-166 migration)
-- `services/supabase.ts` - Authentication (email/password) and client configuration
-- `services/imageProcessor.ts` - Image resizing and optimization (original + display)
+- `src/services/db.ts` - IndexedDB operations, Supabase sync logic, and merge strategies
+- `src/services/aiService.ts` - Provider-neutral AI client (metadata extraction, story prompts, field suggestions) that calls the `/api/ai/*` routes
+- `src/services/geminiService.ts` - Compatibility shim re-exporting `aiService` for callers still using the old name (CUR-166 migration)
+- `src/services/supabase.ts` - Authentication (email/password) and client configuration
+- `src/services/imageProcessor.ts` - Image resizing and optimization (original + display)
 - `src/services/seedCollections.ts` - Public sample data (Vinyl Vault with 4 items)
 
 **Hooks:**
