@@ -46,7 +46,9 @@ export const buildWrappedSummary = (
   now: Date = new Date(),
 ): WrappedSummary => {
   const items = collections.flatMap((collection) => collection.items);
-  const itemsThisYear = items.filter((item) => parseDate(item.createdAt)?.getUTCFullYear() === year);
+  const itemsThisYear = items.filter(
+    (item) => parseDate(item.createdAt)?.getUTCFullYear() === year,
+  );
 
   const monthCounts = new Map<number, number>();
   for (const item of itemsThisYear) {
