@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React from 'react';
 import { UserCollection } from '../types';
 import { ChevronRight, Search } from 'lucide-react';
 import { TEMPLATES } from '../constants';
@@ -25,21 +25,6 @@ export const CollectionCard: React.FC<CollectionCardProps> = React.memo(function
 }) {
   const { t } = useTranslation();
   const { theme } = useTheme();
-  // The single-line title truncates with an ellipsis. Only reveal the full-name
-  // tooltip when the name is actually clipped — otherwise it pops a redundant
-  // duplicate over the description on every hover/focus (reads as a glitch).
-  const titleRef = useRef<HTMLHeadingElement>(null);
-  const [isNameTruncated, setIsNameTruncated] = useState(false);
-  useEffect(() => {
-    const el = titleRef.current;
-    if (!el) return;
-    const measure = () => setIsNameTruncated(el.scrollWidth > el.clientWidth + 1);
-    measure();
-    if (typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(measure);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [collection.name]);
   const template = TEMPLATES.find((t) => t.id === collection.templateId) || TEMPLATES[0];
   const itemCount = collection.items.length;
   const isSample = Boolean(collection.isPublic) || collection.id.startsWith('sample');
@@ -108,23 +93,15 @@ export const CollectionCard: React.FC<CollectionCardProps> = React.memo(function
       </div>
 
       <div className="relative z-10">
-        <div className="flex items-center gap-2 mb-1 flex-wrap">
-          <div className="relative flex-1 min-w-0 max-w-[80%]">
+        <div className="flex items-start gap-2 mb-1 flex-wrap">
+          <div className="flex-1 min-w-0 max-w-[80%]">
             <h3
-              ref={titleRef}
               title={collection.name}
               aria-label={collection.name}
-              className={`${typographyClasses.titleLarge} group-hover:${accentColorClasses[theme]} leading-tight truncate`}
+              className={`${typographyClasses.titleLarge} group-hover:${accentColorClasses[theme]} leading-tight line-clamp-2 break-words`}
             >
               {collection.name}
             </h3>
-            {isNameTruncated && (
-              <span
-                className={`pointer-events-none absolute left-0 top-full mt-2 w-max max-w-[90vw] rounded-2xl px-3 py-2 text-sm leading-snug shadow-lg opacity-0 scale-95 transition duration-200 ease-out whitespace-normal break-words [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:group-hover:scale-100 group-focus-visible:opacity-100 group-focus-visible:scale-100 sm:max-w-[18rem] ${theme === 'vault' ? 'bg-stone-900 text-white' : 'bg-white text-stone-900 border border-stone-200/70'}`}
-              >
-                {collection.name}
-              </span>
-            )}
           </div>
           {isSample && (
             <span
