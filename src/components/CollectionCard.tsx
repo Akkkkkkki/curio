@@ -86,7 +86,7 @@ export const CollectionCard: React.FC<CollectionCardProps> = React.memo(function
       }}
       data-testid="collection-card"
       data-collection-id={collection.id}
-      className={`group relative p-5 sm:p-8 rounded-[2.5rem] border ${baseSurface} ${accentBorder[template.accentColor] || accentBorder['stone']} transition-all duration-500 ease-out cursor-pointer motion-safe:active:scale-[0.98] ${tapShadow} ${tapRing} focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/70 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent flex flex-col justify-between min-h-[11rem] sm:h-52 overflow-hidden motion-card`}
+      className={`group relative p-5 sm:p-8 rounded-[2.5rem] border ${baseSurface} ${accentBorder[template.accentColor] || accentBorder['stone']} transition-all duration-500 ease-out cursor-pointer motion-safe:active:scale-[0.98] ${tapShadow} ${tapRing} focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/70 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent flex flex-col justify-between min-h-[11rem] sm:min-h-52 overflow-hidden motion-card`}
     >
       <div className="absolute top-0 right-0 p-5 sm:p-8 opacity-10 text-6xl sm:text-7xl select-none group-hover:scale-110 group-hover:rotate-12 transition-transform duration-700 pointer-events-none">
         {displayIcon}
