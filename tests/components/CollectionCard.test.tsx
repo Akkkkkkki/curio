@@ -5,7 +5,7 @@
  * Validates rendering, accessibility, theme support, and interaction behavior.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   renderWithProviders,
   screen,
@@ -115,8 +115,7 @@ describe('CollectionCard Component', () => {
 
       renderWithProviders(<CollectionCard collection={collection} onClick={onClick} />);
 
-      // Name renders once as the heading (the reveal tooltip only mounts when the
-      // title is actually truncated), never as the description.
+      // Name renders once as the heading, never as the description.
       expect(screen.queryAllByText('Supplement')).toHaveLength(1);
       expect(
         screen.getByText('Track terroir, cocoa percentages, and nuanced flavor profiles.'),
@@ -366,7 +365,7 @@ describe('CollectionCard Component', () => {
   });
 
   describe('Edge Cases', () => {
-    it('handles very long collection name with truncation', () => {
+    it('allows a very long collection name to wrap across two lines', () => {
       const longName =
         'This is a very long collection name that should be truncated in the UI to prevent layout issues';
       const collection = createMockCollection({ name: longName });
@@ -376,7 +375,9 @@ describe('CollectionCard Component', () => {
 
       const nameElement = screen.getByRole('heading', { name: longName });
       expect(nameElement).toBeInTheDocument();
-      expect(nameElement.className).toContain('truncate');
+      expect(nameElement).toHaveClass('line-clamp-2');
+      expect(nameElement).not.toHaveClass('truncate');
+      expect(nameElement).toHaveAttribute('title', longName);
     });
 
     it('handles collection with no items array', () => {
@@ -419,70 +420,6 @@ describe('CollectionCard Component', () => {
 
       const card = screen.getByTestId('collection-card');
       expect(card.className).toContain('cursor-pointer');
-    });
-  });
-
-  describe('Full-Name Tooltip Reveal', () => {
-    const getTooltip = () => {
-      const heading = screen.getByRole('heading', { name: 'My Vinyl Collection' });
-      return heading.nextElementSibling as HTMLElement | null;
-    };
-
-    // Force the title to report as clipped so the truncation-gated tooltip renders.
-    const mockTitleTruncation = (truncated: boolean) => {
-      Object.defineProperty(HTMLElement.prototype, 'scrollWidth', {
-        configurable: true,
-        get: () => (truncated ? 500 : 100),
-      });
-      Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
-        configurable: true,
-        get: () => 100,
-      });
-    };
-
-    afterEach(() => {
-      delete (HTMLElement.prototype as unknown as Record<string, unknown>).scrollWidth;
-      delete (HTMLElement.prototype as unknown as Record<string, unknown>).clientWidth;
-    });
-
-    it('does not render the reveal tooltip when the title fits', () => {
-      mockTitleTruncation(false);
-      const collection = createMockCollection();
-
-      renderWithProviders(<CollectionCard collection={collection} onClick={vi.fn()} />);
-
-      // No duplicate name pill overlapping the description for untruncated titles.
-      expect(getTooltip()).toBeNull();
-      // The native affordance still exposes the full name.
-      const heading = screen.getByRole('heading', { name: 'My Vinyl Collection' });
-      expect(heading).toHaveAttribute('title', 'My Vinyl Collection');
-    });
-
-    it('reveals on hover for hover-capable pointers only when the title is truncated', () => {
-      mockTitleTruncation(true);
-      const collection = createMockCollection();
-
-      renderWithProviders(<CollectionCard collection={collection} onClick={vi.fn()} />);
-
-      const tooltip = getTooltip();
-      expect(tooltip).not.toBeNull();
-      expect(tooltip!.className).toContain('[@media(hover:hover)]:group-hover:opacity-100');
-      // Bare group-hover / group-active reveals stick open after tap on touch devices
-      expect(tooltip!.className).not.toMatch(/(^|\s)group-hover:/);
-      expect(tooltip!.className).not.toContain('group-active:');
-    });
-
-    it('still reveals on keyboard focus via focus-visible when truncated', () => {
-      mockTitleTruncation(true);
-      const collection = createMockCollection();
-
-      renderWithProviders(<CollectionCard collection={collection} onClick={vi.fn()} />);
-
-      const tooltip = getTooltip();
-      expect(tooltip).not.toBeNull();
-      expect(tooltip!.className).toContain('group-focus-visible:opacity-100');
-      // Plain focus-within would also match tap-focus on the card
-      expect(tooltip!.className).not.toContain('group-focus-within:');
     });
   });
 
