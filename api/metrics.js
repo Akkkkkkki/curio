@@ -1,4 +1,4 @@
-import { summarizeMetrics } from './_metrics.js';
+import { evaluateMetricAlerts, summarizeMetrics } from './_metrics.js';
 import { attachRequestLogger, recordApiError } from './_requestLogging.js';
 
 export default function handler(req, res) {
@@ -9,8 +9,12 @@ export default function handler(req, res) {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
+  const routes = summarizeMetrics();
+  const alerts = evaluateMetricAlerts(routes);
   res.status(200).json({
     generatedAt: new Date().toISOString(),
-    routes: summarizeMetrics(),
+    status: alerts.length > 0 ? 'degraded' : 'ok',
+    alerts,
+    routes,
   });
 }
