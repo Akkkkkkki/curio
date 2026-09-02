@@ -1221,9 +1221,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
         >
           {t('uploadPhoto')}
         </h3>
-        <p className={`text-sm sm:text-base ${mutedText} max-w-xs mx-auto`}>
-          {t('geminiWillExtract')}
-        </p>
+        <p className={`text-sm sm:text-base ${mutedText} max-w-xs mx-auto`}>{t('aiWillExtract')}</p>
       </div>
       <div className="flex flex-col gap-2 sm:gap-3">
         {cameraCaptureAvailable && (
@@ -1449,9 +1447,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
         >
           {t('analyzingPhoto')}
         </h3>
-        <p className={`text-sm sm:text-base italic font-serif ${mutedText}`}>
-          {t('geminiExtracting')}
-        </p>
+        <p className={`text-sm sm:text-base italic font-serif ${mutedText}`}>{t('aiExtracting')}</p>
         {batchProgress && batchProgress.total > 1 && (
           <p className={`text-xs mt-2 ${mutedText}`}>
             {t('batchProgress', {

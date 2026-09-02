@@ -196,11 +196,9 @@ describe('AddItemModal', () => {
 
     // Idle upload state: nothing is being extracted yet, so the copy must
     // promise the future rather than claim analysis is already running.
+    expect(screen.getByText('Add a photo and AI will suggest the details.')).toBeInTheDocument();
     expect(
-      screen.getByText('Add a photo and Gemini will suggest the details.'),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByText('Gemini is extracting details for your collection.'),
+      screen.queryByText('AI is extracting details for your collection.'),
     ).not.toBeInTheDocument();
   });
 
@@ -775,9 +773,9 @@ describe('AddItemModal', () => {
     expect(heading.className).toContain('text-white');
     expect(heading.className).not.toContain('text-stone-900');
 
-    // Helper copy ("Gemini is extracting…") must stay above WCAG AA on stone-900,
+    // Helper copy ("AI is extracting…") must stay above WCAG AA on stone-900,
     // i.e. it must not regress to stone-500 (~3.77:1).
-    const helper = screen.getByText('Gemini is extracting details for your collection.');
+    const helper = screen.getByText('AI is extracting details for your collection.');
     expect(helper.className).not.toContain('text-stone-500');
 
     // CUR-92: the Sparkles pill behind the icon must drop the Gallery-only

@@ -56,4 +56,22 @@ describe('CUR-122 — warm product vocabulary', () => {
     expect(translations.zh.statusSaved).toBe('已保存');
     expect(translations.zh.statusSynced).toBe('已保存并备份');
   });
+
+  // CUR-166 made the AI layer provider-neutral. Flow microcopy must not name a
+  // specific vendor, or it re-introduces the coupling the refactor removed and
+  // reads as wrong the moment the deployed provider changes. The privacy
+  // disclosure is the one intentional exception: it names "Google Gemini" for
+  // data-transparency about where uploaded photos go. (Issue #452)
+  const VENDOR = /gemini/i;
+  const PRIVACY_DISCLOSURE_KEYS = ['legalPrivacyAiBody'];
+
+  for (const locale of ['en', 'zh'] as const) {
+    it(`${locale} i18n values name no AI vendor outside the privacy disclosure`, () => {
+      const offenders = Object.entries(translations[locale])
+        .filter(([key]) => !PRIVACY_DISCLOSURE_KEYS.includes(key))
+        .filter(([, value]) => typeof value === 'string' && VENDOR.test(value))
+        .map(([key, value]) => `${key} → ${value}`);
+      expect(offenders).toEqual([]);
+    });
+  }
 });
