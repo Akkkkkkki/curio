@@ -82,10 +82,14 @@ A candidate replaces the default only when, on this eval at the current
 
 1. does **not** regress `hallucinationRate` or `abstentionQuality` versus the
    recorded Gemini baseline (trust before growth — a model that fabricates more
-   is disqualified even if it fills more);
-2. does **not** regress `titleCorrectRate` or `fieldCorrectnessRate` on any
+   is disqualified even if it fills more). Off-schema fabrication counts toward
+   `hallucinationRate`, and a blank factual description fails `storyClean`, so
+   neither can be gamed for a perfect trust score;
+2. keeps `schemaValidRate` at **1.0** — inventing off-schema keys or emitting an
+   invalid `select` option is a hard blocker, not a trade-off;
+3. does **not** regress `titleCorrectRate` or `fieldCorrectnessRate` on any
    weighted category;
-3. improves the weighted trade-off of correctness, useful fill, latency, and
+4. improves the weighted trade-off of correctness, useful fill, latency, and
    cost, with any per-category regression documented and accepted.
 
 Winning a single metric is not sufficient. Record the baseline and each

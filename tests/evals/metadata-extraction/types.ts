@@ -120,7 +120,15 @@ export interface CaseScore {
   values: Record<string, unknown>;
   titleCorrect: boolean;
   fields: FieldScore[];
-  /** The factual description avoided invented story/memory phrases. */
+  /**
+   * Count of invented off-schema keys (non-underscore keys not in the schema).
+   * These are fabrication with no declared field, folded into hallucinationRate.
+   */
+  offSchemaHallucinations: number;
+  /**
+   * A non-blank factual description that avoided invented story/memory phrases.
+   * A blank description is not clean — it produced nothing to grade.
+   */
   storyClean: boolean;
   /** Present only when the analyzer/runner reported it (live runs). */
   latencyMs?: number;

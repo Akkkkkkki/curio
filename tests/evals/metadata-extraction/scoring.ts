@@ -128,8 +128,26 @@ export const scoreCase = (evalCase: EvalCase, result: AnalyzeResult): CaseScore 
     return scoreField(field.id, expectation, data[field.id]);
   });
 
-  const storyClean = !hasForbiddenSubstring(description, evalCase.forbiddenStoryPhrases);
-  if (!storyClean) issues.push('description contains invented story/memory language');
+  // Invented off-schema keys are fabrication too, but they aren't declared
+  // fields so they never become a FieldScore. Count them so hallucinationRate
+  // reflects them — otherwise a candidate could invent extra metadata and still
+  // report a zero hallucination rate.
+  const knownIds = new Set(evalCase.fields.map((f) => f.id));
+  const offSchemaHallucinations =
+    result.status === 'success'
+      ? Object.keys(data).filter((key) => !key.startsWith('_') && !knownIds.has(key)).length
+      : 0;
+
+  // A blank factual description is not "clean" — it just produced nothing.
+  // Requiring a non-blank description keeps a candidate that stops describing
+  // objects from scoring a perfect storyCleanRate.
+  const descriptionPresent = result.status === 'success' && !isBlank(description);
+  const inventedStory = hasForbiddenSubstring(description, evalCase.forbiddenStoryPhrases);
+  const storyClean = descriptionPresent && !inventedStory;
+  if (result.status === 'success') {
+    if (!descriptionPresent) issues.push('missing factual description');
+    else if (inventedStory) issues.push('description contains invented story/memory language');
+  }
 
   // Retain the raw title + per-field values the analyzer produced. Rates alone
   // can't compare two cases (e.g. the same image under two contexts), so a
@@ -144,6 +162,7 @@ export const scoreCase = (evalCase: EvalCase, result: AnalyzeResult): CaseScore 
     values,
     titleCorrect: result.status === 'success' && scoreTitle(evalCase.expectedTitle, title),
     fields,
+    offSchemaHallucinations,
     storyClean,
     issues,
   };
@@ -168,6 +187,10 @@ export const aggregateScores = (scores: CaseScore[]): AggregateMetrics => {
   const answerableFields = allFields.filter((f) => f.grade === 'match' || f.grade === 'optional');
   const abstainFields = allFields.filter((f) => f.grade === 'abstain');
 
+  // Off-schema fabrications are hallucinated "units" with no declared field, so
+  // add them to both sides: a candidate that invents keys can't keep a zero rate.
+  const extraHallucinations = scores.reduce((sum, s) => sum + s.offSchemaHallucinations, 0);
+
   const latencies = scores
     .map((s) => s.latencyMs)
     .filter((v): v is number => typeof v === 'number');
@@ -187,7 +210,10 @@ export const aggregateScores = (scores: CaseScore[]): AggregateMetrics => {
       answerableFields.filter((f) => f.filled && f.correct).length,
       answerableFields.length,
     ),
-    hallucinationRate: rate(allFields.filter((f) => f.hallucinated).length, allFields.length),
+    hallucinationRate: rate(
+      allFields.filter((f) => f.hallucinated).length + extraHallucinations,
+      allFields.length + extraHallucinations,
+    ),
     abstentionQuality:
       abstainFields.length === 0
         ? null

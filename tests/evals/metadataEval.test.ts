@@ -168,6 +168,25 @@ describe('metadata-extraction eval harness (CUR-173)', () => {
     );
   });
 
+  it('counts an off-schema key as a hallucination, not just a schema issue', () => {
+    const evalCase = findCase('vinyl-kind-of-blue');
+    // All declared fields answered correctly, but the candidate invents an
+    // extra key. hallucinationRate must reflect that rather than staying zero.
+    const withExtra = success('Kind of Blue', {
+      artist: 'Miles Davis',
+      label: 'Columbia',
+      year: 1959,
+      genre: 'Modal Jazz',
+      provenance: 'formerly owned by a jazz critic', // fabricated, off-schema
+    });
+    const score = scoreCase(evalCase, withExtra);
+    expect(score.offSchemaHallucinations).toBe(1);
+    expect(score.fields.every((f) => !f.hallucinated)).toBe(true); // declared fields are clean
+    const agg = aggregateScores([score]);
+    expect(agg.schemaValidRate).toBe(0);
+    expect(agg.hallucinationRate).toBeGreaterThan(0);
+  });
+
   it('catches invented owner memories in the factual description', () => {
     const evalCase = findCase('vinyl-kind-of-blue');
     const withStory = success(
@@ -178,6 +197,14 @@ describe('metadata-extraction eval harness (CUR-173)', () => {
     const score = scoreCase(evalCase, withStory);
     expect(score.storyClean).toBe(false);
     expect(score.issues.some((i) => i.includes('invented story'))).toBe(true);
+  });
+
+  it('does not treat a blank factual description as clean', () => {
+    const evalCase = findCase('vinyl-kind-of-blue');
+    const noDescription = success('Kind of Blue', { artist: 'Miles Davis' }, '');
+    const score = scoreCase(evalCase, noDescription);
+    expect(score.storyClean).toBe(false);
+    expect(score.issues.some((i) => i.includes('missing factual description'))).toBe(true);
   });
 
   it('treats an errored analysis as schema-invalid without throwing', () => {
@@ -224,6 +251,7 @@ describe('metadata-extraction eval harness (CUR-173)', () => {
         fields: [
           { fieldId: 'a', grade: 'match', filled: true, correct: true, hallucinated: false },
         ],
+        offSchemaHallucinations: 0,
         storyClean: true,
         issues: [],
       },
