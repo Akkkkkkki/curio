@@ -363,6 +363,59 @@ describe('Phase 2.2 — services/db.ts dual-write operations', () => {
     expect(savedLocally?.items[0].photoUrl).toBe('asset');
   });
 
+  it('saveCollection: keeps private blob: photos local and writes null cloud paths (#369)', async () => {
+    /**
+     * Object URLs are inline photo placeholders, but their bytes cannot be
+     * recovered later during sync. Private rows must store null paths instead
+     * of leaking the blob URL into Supabase, while the local item keeps the
+     * object URL so a later retry/edit can recover through the normal asset path.
+     */
+    const { supabase, itemsUpsert, upload } = createSupabaseMock();
+    const dbMod = await importDbModuleFreshWithSupabaseMock(supabase);
+
+    const db = await dbMod.initDB();
+    openDb = db;
+    await clearStores(db, ['collections', 'assets', 'display', 'settings']);
+
+    const blobUrl = 'blob:http://localhost:3000/photo-object-url';
+    const item: CollectionItem = {
+      id: 'item-blob',
+      collectionId: 'col-1',
+      photoUrl: blobUrl,
+      title: 'Object URL photo item',
+      rating: 4,
+      data: {},
+      createdAt: new Date('2024-01-01T00:00:00Z').toISOString(),
+      updatedAt: new Date('2024-01-02T00:00:00Z').toISOString(),
+      notes: '',
+    };
+
+    const collection: UserCollection = {
+      id: 'col-1',
+      templateId: 'vinyl',
+      name: 'My Collection',
+      icon: '🎵',
+      customFields: [],
+      items: [item],
+      ownerId: 'test-user-id',
+      updatedAt: new Date('2024-01-03T00:00:00Z').toISOString(),
+    };
+
+    await expect(dbMod.saveCollection(collection)).resolves.toBeUndefined();
+
+    expect(upload).not.toHaveBeenCalled();
+    const [itemsPayload] = itemsUpsert.mock.calls[0];
+    expect(itemsPayload[0]).toMatchObject({
+      id: 'item-blob',
+      photo_original_path: null,
+      photo_display_path: null,
+    });
+    expect(JSON.stringify(itemsPayload[0])).not.toContain('blob:');
+
+    const savedLocally = await readFromStore<UserCollection>(db, 'collections', 'col-1');
+    expect(savedLocally?.items[0].photoUrl).toBe(blobUrl);
+  });
+
   it('saveCollection: a stale in-memory inline photoUrl does not trigger a re-upload (#369)', async () => {
     /**
      * The migration flips the LOCAL record to `photoUrl: 'asset'`, but App.tsx
