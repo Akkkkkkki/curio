@@ -1343,7 +1343,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
                     <input
                       type="text"
                       placeholder={t('titlePlaceholder')}
-                      className={`w-full text-sm font-semibold bg-transparent border-b ${borderClass} focus:border-amber-500 outline-none pb-1 transition-colors ${theme === 'vault' ? 'text-white placeholder:text-stone-400' : 'text-stone-900 placeholder:text-stone-400'}`}
+                      className={`w-full text-sm font-semibold bg-transparent border-b ${borderClass} focus:border-amber-500 outline-none pb-1 transition-colors ${theme === 'vault' ? 'text-white placeholder:text-stone-400' : theme === 'atelier' ? 'text-stone-900 placeholder:text-[#6F6257]' : 'text-stone-900 placeholder:text-stone-500'}`}
                       value={item.title}
                       onChange={(e) => updateBatchItem(item.id, { title: e.target.value })}
                     />
@@ -1627,7 +1627,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
           type="text"
           ref={titleInputRef}
           placeholder={t('titlePlaceholder')}
-          className={`w-full text-lg sm:text-xl font-bold bg-transparent border-b ${titleError ? 'border-red-400 focus:border-red-500' : borderClass} focus:border-amber-500 outline-none pb-1 transition-colors ${theme === 'vault' ? 'text-white placeholder:text-stone-400' : 'text-stone-900 placeholder:text-stone-400'}`}
+          className={`w-full text-lg sm:text-xl font-bold bg-transparent border-b ${titleError ? 'border-red-400 focus:border-red-500' : borderClass} focus:border-amber-500 outline-none pb-1 transition-colors ${theme === 'vault' ? 'text-white placeholder:text-stone-400' : theme === 'atelier' ? 'text-stone-900 placeholder:text-[#6F6257]' : 'text-stone-900 placeholder:text-stone-500'}`}
           value={formData.title}
           onChange={(e) => {
             setFormData({ ...formData, title: e.target.value });
