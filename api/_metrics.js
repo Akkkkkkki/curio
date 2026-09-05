@@ -9,7 +9,14 @@ const METRICS_ROUTES = new Set([
   '/api/gemini/suggest-fields',
   '/api/gemini/story-prompts',
 ]);
+const AI_ROUTES = new Set([...METRICS_ROUTES].filter((route) => route !== '/api/health'));
 const metrics = new Map();
+
+export const DEFAULT_ALERT_THRESHOLDS = Object.freeze({
+  minimumRequests: 5,
+  errorRate: 0.2,
+  p95LatencyMs: 5000,
+});
 
 const ensureMetric = (route) => {
   if (!metrics.has(route)) {
@@ -55,6 +62,38 @@ export const summarizeMetrics = () => {
     };
   });
   return summary;
+};
+
+export const evaluateMetricAlerts = (
+  summary,
+  thresholds = DEFAULT_ALERT_THRESHOLDS,
+) => {
+  const alerts = [];
+  for (const [route, metric] of Object.entries(summary)) {
+    if (!AI_ROUTES.has(route) || metric.requestCount < thresholds.minimumRequests) continue;
+
+    if (metric.errorRate >= thresholds.errorRate) {
+      alerts.push({
+        route,
+        kind: 'error_rate',
+        value: metric.errorRate,
+        threshold: thresholds.errorRate,
+        requestCount: metric.requestCount,
+      });
+    }
+
+    const p95LatencyMs = metric.latencyMs?.p95;
+    if (typeof p95LatencyMs === 'number' && p95LatencyMs >= thresholds.p95LatencyMs) {
+      alerts.push({
+        route,
+        kind: 'p95_latency',
+        value: p95LatencyMs,
+        threshold: thresholds.p95LatencyMs,
+        requestCount: metric.requestCount,
+      });
+    }
+  }
+  return alerts;
 };
 
 export const resetMetrics = () => {
