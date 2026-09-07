@@ -43,9 +43,13 @@ const getErrorStatus = (error) => {
 };
 
 const isRetryableError = (error) => {
+  // A definitive numeric status decides on its own: a non-retryable 4xx (auth,
+  // safety, bad request) must surface immediately even when its human-readable
+  // message happens to contain heuristic wording like "try again". Fall back to
+  // message matching only when no numeric status is available.
   const status = getErrorStatus(error);
-  if (status && RETRYABLE_STATUS.has(status)) return true;
-  return RETRYABLE_MESSAGE.test(String(error?.message ?? error?.status ?? ''));
+  if (status !== undefined) return RETRYABLE_STATUS.has(status);
+  return RETRYABLE_MESSAGE.test(String(error?.status ?? error?.message ?? ''));
 };
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));

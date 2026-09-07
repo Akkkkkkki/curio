@@ -52,6 +52,19 @@ describe('Gemini provider transient-error retry', () => {
     expect(generateContent).toHaveBeenCalledTimes(1);
   });
 
+  it('honors a definitive non-retryable status even when the message reads transient', async () => {
+    // A safety rejection is a 4xx but its message can say "please try again";
+    // the numeric status must win so it is not retried.
+    const generateContent = vi.fn().mockRejectedValue(
+      Object.assign(new Error('Blocked by safety filters. Please try again with a new prompt.'), {
+        status: 400,
+      }),
+    );
+
+    await expect(analyze(generateContent)).rejects.toThrow('safety filters');
+    expect(generateContent).toHaveBeenCalledTimes(1);
+  });
+
   it('gives up after the bounded attempt count and rethrows the last error', async () => {
     const generateContent = vi
       .fn()
