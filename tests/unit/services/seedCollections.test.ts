@@ -67,6 +67,37 @@ describe('seedCollections.ts — buildSeedRepairs (CUR-143)', () => {
     expect(repairs[0].items[0].photoUrl).toBe(masterSeed.items[0].photoUrl);
   });
 
+  it('repairs a cloud seed item repointed at a private storage object (#447)', () => {
+    const privatePath = [
+      ADMIN_ID,
+      'collections',
+      masterSeed.id,
+      masterSeed.items[0].id,
+      'display.jpg',
+    ].join('/');
+    const items = masterSeed.items.map((item, index) =>
+      index === 0 ? { ...item, photoUrl: privatePath } : { ...item },
+    );
+
+    const repairs = buildSeedRepairs([healthyCloudSeed({ items })], ADMIN_ID);
+
+    expect(repairs).toHaveLength(1);
+    expect(repairs[0].items[0].photoUrl).toBe(masterSeed.items[0].photoUrl);
+  });
+
+  it('does not preserve a migrated private seed photo during a forced upgrade (#447)', () => {
+    const privateObjectUrl =
+      'https://example.supabase.co/storage/v1/object/curio-assets/admin-1/collections/sample-vinyl/seed-vinyl-2/original.jpg';
+    const items = masterSeed.items.map((item, index) =>
+      index === 1 ? { ...item, photoUrl: privateObjectUrl } : { ...item },
+    );
+
+    const repairs = buildSeedRepairs([healthyCloudSeed({ items })], ADMIN_ID, { force: true });
+
+    expect(repairs).toHaveLength(1);
+    expect(repairs[0].items[1].photoUrl).toBe(masterSeed.items[1].photoUrl);
+  });
+
   it('repairs a cloud seed item whose photo path is stale after a content bump (#373)', () => {
     // Pre-#373 cloud: items 2–5 still point at the shared sample-vinyl.jpg.
     // A fresh admin device (seed version 0) skips the force path, so drift
