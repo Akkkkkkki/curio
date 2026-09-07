@@ -30,8 +30,12 @@ const toGeminiSchema = (schema) => {
 const DEFAULT_MAX_ATTEMPTS = 3;
 const DEFAULT_BASE_DELAY_MS = 300;
 const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
+// `@google/genai` wraps a failed underlying fetch (socket reset, DNS blip,
+// dropped connection) into a generic "fetch failed" / "socket hang up"
+// TypeError with no numeric status and the nested Undici code discarded, so
+// those forms are listed explicitly alongside the status-bearing messages.
 const RETRYABLE_MESSAGE =
-  /overload|unavailable|try again|temporarily|deadline exceeded|timeout|econnreset|etimedout|503|502|504/i;
+  /overload|unavailable|try again|temporarily|deadline exceeded|timeout|econnreset|etimedout|fetch failed|socket hang up|network error|503|502|504/i;
 
 // Google GenAI surfaces the HTTP status as a number on the error, or embeds it
 // in the message; a 429 here is Gemini rate-limiting us, distinct from the
@@ -49,7 +53,12 @@ const isRetryableError = (error) => {
   // message matching only when no numeric status is available.
   const status = getErrorStatus(error);
   if (status !== undefined) return RETRYABLE_STATUS.has(status);
-  return RETRYABLE_MESSAGE.test(String(error?.status ?? error?.message ?? ''));
+  // No numeric status: match on the message plus the wrapped `cause` chain,
+  // where the SDK often preserves the original transport code/message.
+  const text = [error?.status, error?.message, error?.cause?.code, error?.cause?.message]
+    .filter(Boolean)
+    .join(' ');
+  return RETRYABLE_MESSAGE.test(text);
 };
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));

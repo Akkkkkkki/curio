@@ -43,6 +43,30 @@ describe('Gemini provider transient-error retry', () => {
     expect(generateContent).toHaveBeenCalledTimes(2);
   });
 
+  it('retries the SDK-wrapped "fetch failed" transport error', async () => {
+    // @google/genai rethrows a failed underlying fetch as a generic TypeError
+    // with no status; a dropped connection must still reach the retry path.
+    const generateContent = vi
+      .fn()
+      .mockRejectedValueOnce(new TypeError('exception TypeError: fetch failed sending request'))
+      .mockResolvedValueOnce(OK_RESPONSE);
+
+    await expect(analyze(generateContent)).resolves.toEqual({ title: 'Leica M6' });
+    expect(generateContent).toHaveBeenCalledTimes(2);
+  });
+
+  it('retries when the transient code is only on the wrapped cause', async () => {
+    const generateContent = vi
+      .fn()
+      .mockRejectedValueOnce(
+        Object.assign(new Error('fetch failed'), { cause: { code: 'ECONNRESET' } }),
+      )
+      .mockResolvedValueOnce(OK_RESPONSE);
+
+    await expect(analyze(generateContent)).resolves.toEqual({ title: 'Leica M6' });
+    expect(generateContent).toHaveBeenCalledTimes(2);
+  });
+
   it('does not retry a non-transient error', async () => {
     const generateContent = vi
       .fn()
