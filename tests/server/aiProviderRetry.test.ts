@@ -31,6 +31,18 @@ describe('Gemini provider transient-error retry', () => {
     expect(generateContent).toHaveBeenCalledTimes(2);
   });
 
+  it('retries a numeric 408 Request Timeout status', async () => {
+    // 408 arrives as a numeric status, so it must be in the retryable set to be
+    // retried — matching the client classifier in src/services/aiService.ts.
+    const generateContent = vi
+      .fn()
+      .mockRejectedValueOnce(Object.assign(new Error('Request Timeout'), { status: 408 }))
+      .mockResolvedValueOnce(OK_RESPONSE);
+
+    await expect(analyze(generateContent)).resolves.toEqual({ title: 'Leica M6' });
+    expect(generateContent).toHaveBeenCalledTimes(2);
+  });
+
   it('detects transience from the message when no status code is present', async () => {
     const generateContent = vi
       .fn()

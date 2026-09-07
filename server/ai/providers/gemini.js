@@ -29,7 +29,11 @@ const toGeminiSchema = (schema) => {
 // surface immediately, and callers keep their manual fallback either way.
 const DEFAULT_MAX_ATTEMPTS = 3;
 const DEFAULT_BASE_DELAY_MS = 300;
-const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
+// Kept in sync with the client-side classifier (src/services/aiService.ts):
+// 408 Request Timeout and 425 Too Early are transient, plus 429 and the 5xx
+// family. A numeric status decides on its own (see isRetryableError), so a
+// timeout that arrives as a status code must be listed here to be retried.
+const RETRYABLE_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
 // `@google/genai` wraps a failed underlying fetch (socket reset, DNS blip,
 // dropped connection) into a generic "fetch failed" / "socket hang up"
 // TypeError with no numeric status and the nested Undici code discarded, so
