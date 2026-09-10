@@ -142,6 +142,41 @@ describe('FilterModal', () => {
     });
   });
 
+  describe('added month filter (CUR-24)', () => {
+    it('lists represented months newest-first and applies the reserved month key', () => {
+      const onApply = vi.fn();
+      renderWithProviders(
+        <FilterModal
+          {...defaultProps}
+          items={[
+            createItem({ createdAt: '2025-12-04T12:00:00.000Z' }),
+            createItem({ createdAt: '2026-03-02T12:00:00.000Z' }),
+            createItem({ createdAt: '2026-03-28T12:00:00.000Z' }),
+            createItem({ createdAt: 'not-a-date' }),
+          ]}
+          onApply={onApply}
+        />,
+      );
+
+      const control = screen.getByLabelText(/Added on/i) as HTMLSelectElement;
+      expect(Array.from(control.options).map((option) => option.value)).toEqual([
+        '',
+        '2026-03',
+        '2025-12',
+      ]);
+      expect(Array.from(control.options).map((option) => option.textContent)).toEqual([
+        'Any',
+        'March 2026',
+        'December 2025',
+      ]);
+
+      fireEvent.change(control, { target: { value: '2026-03' } });
+      fireEvent.click(screen.getByRole('button', { name: /Apply/i }));
+
+      expect(onApply).toHaveBeenCalledWith({ __addedMonth: '2026-03' });
+    });
+  });
+
   describe('dropdown touch targets', () => {
     it('keeps select chevrons pointer-transparent so taps reach the select control', () => {
       renderWithProviders(<FilterModal {...defaultProps} fields={[selectField]} />);
