@@ -227,6 +227,29 @@ describe('AddItemModal', () => {
     expect(hint.id).toBeTruthy();
   });
 
+  it('guides the required title on the manual verify step (#466)', async () => {
+    const user = userEvent.setup();
+
+    renderWithProviders(
+      <AddItemModal
+        isOpen
+        onClose={mockOnClose}
+        collections={[createMockCollection()]}
+        onSave={mockOnSave}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Skip and add manually' }));
+
+    const titleInput = screen.getByPlaceholderText('Name this item');
+    expect(titleInput).toHaveAttribute('id', 'add-item-title');
+
+    await user.click(screen.getByRole('button', { name: 'Save without story' }));
+
+    expect(screen.getByText('Title is required')).toBeInTheDocument();
+    expect(titleInput).toHaveFocus();
+  });
+
   it('falls back to collection picker when defaultCollectionId does not match any collection', async () => {
     const c1 = createMockCollection({ id: 'c1', name: 'Vinyl Vault' });
     const c2 = createMockCollection({ id: 'c2', name: 'Chocolate Vault' });
@@ -545,6 +568,33 @@ describe('AddItemModal', () => {
         story_length_bucket: '0',
       });
     });
+  });
+
+  it('guides blank batch-review titles when AI does not suggest a name (#466)', async () => {
+    const user = userEvent.setup();
+    mockRefreshAiEnabled.mockResolvedValue(true);
+    mockAnalyzeImage.mockResolvedValue({
+      status: 'success',
+      title: '',
+      notes: '',
+      data: {},
+    });
+
+    const collection = createMockCollection({
+      name: 'Artifacts',
+      customFields: [],
+    });
+
+    renderWithProviders(
+      <AddItemModal isOpen onClose={mockOnClose} collections={[collection]} onSave={mockOnSave} />,
+    );
+
+    const file = new File(['fake'], 'artifact.png', { type: 'image/png' });
+    await user.upload(screen.getByTestId('add-item-batch-input') as HTMLInputElement, file);
+
+    const batchTitleInput = await screen.findByPlaceholderText('Name this item');
+    expect(batchTitleInput).toHaveValue('');
+    expect(screen.getByRole('button', { name: 'Save 1 piece' })).toBeDisabled();
   });
 
   it('shows a hard-failure error panel (not raw AI errors) after a non-retryable single-photo analysis failure', async () => {
