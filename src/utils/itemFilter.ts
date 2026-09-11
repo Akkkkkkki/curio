@@ -77,6 +77,29 @@ export function matchesItemFilters(
   });
 }
 
+// Free-text search matches only user-visible content: the title, the
+// human-authored Story (notes), and declared custom-field values. It walks
+// `fields` rather than every key in `item.data` so the underscore-prefixed
+// system keys (e.g. _aiDescription, _storyMigrationDismissed) never surface a
+// result with no visible reason. This keeps hidden AI metadata hidden — the
+// "acceleration before automation" principle — and mirrors the field set used
+// by matchesItemFilters, FilterModal, and ItemCard.
+export function matchesSearchTerm(
+  item: CollectionItem,
+  term: string,
+  fields: FieldDefinition[],
+): boolean {
+  if (!term) return true;
+  const needle = term.toLocaleLowerCase();
+  if (item.title.toLocaleLowerCase().includes(needle)) return true;
+  if (item.notes?.toLocaleLowerCase().includes(needle)) return true;
+  return fields.some((field) => {
+    const value = item.data[field.id];
+    if (value === undefined || value === null || value === '') return false;
+    return String(value).toLocaleLowerCase().includes(needle);
+  });
+}
+
 export function deriveSelectOptions(
   fieldId: string,
   declaredOptions: string[] | undefined,
