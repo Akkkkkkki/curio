@@ -5,6 +5,7 @@ import {
   deriveSelectOptions,
   formatAddedMonthLabel,
   matchesItemFilters,
+  matchesSearchTerm,
 } from '@/utils/itemFilter';
 import { CollectionItem, FieldDefinition } from '@/types';
 
@@ -88,6 +89,47 @@ describe('matchesItemFilters', () => {
     expect(
       matchesItemFilters(item, { genre: 'Jazz', [ADDED_MONTH_FILTER_KEY]: '2026-03' }, fields),
     ).toBe(true);
+  });
+});
+
+describe('matchesSearchTerm', () => {
+  it('matches every item when the term is empty', () => {
+    expect(matchesSearchTerm(createItem(), '', fields)).toBe(true);
+  });
+
+  it('matches the title and the human-authored story (notes), case-insensitively', () => {
+    const item = createItem({ title: 'Kind of Blue', notes: 'A gift from my father.' });
+    expect(matchesSearchTerm(item, 'blue', fields)).toBe(true);
+    expect(matchesSearchTerm(item, 'FATHER', fields)).toBe(true);
+  });
+
+  it('matches declared custom-field values', () => {
+    const item = createItem({ data: { artist: 'John Coltrane', genre: 'Jazz' } });
+    expect(matchesSearchTerm(item, 'coltrane', fields)).toBe(true);
+    expect(matchesSearchTerm(item, 'jazz', fields)).toBe(true);
+  });
+
+  it('does not match hidden underscore-prefixed AI metadata', () => {
+    const item = createItem({
+      title: 'Untitled',
+      data: { _aiDescription: 'A worn vinyl sleeve with faded gold lettering' },
+    });
+    expect(matchesSearchTerm(item, 'faded', fields)).toBe(false);
+    // The visible title still matches as normal.
+    expect(matchesSearchTerm(item, 'untitled', fields)).toBe(true);
+  });
+
+  it('does not match internal boolean flags stringified as true/false', () => {
+    const item = createItem({
+      data: { _storyMigrationDismissed: true, _isLegacyAiNotes: false },
+    });
+    expect(matchesSearchTerm(item, 'true', fields)).toBe(false);
+    expect(matchesSearchTerm(item, 'false', fields)).toBe(false);
+  });
+
+  it('ignores data keys that are not declared fields even without an underscore', () => {
+    const item = createItem({ data: { strayInternalKey: 'orphaned' } });
+    expect(matchesSearchTerm(item, 'orphaned', fields)).toBe(false);
   });
 });
 

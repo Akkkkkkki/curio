@@ -30,6 +30,7 @@ import {
   ADDED_MONTH_FILTER_KEY,
   formatAddedMonthLabel,
   matchesItemFilters,
+  matchesSearchTerm,
 } from '../utils/itemFilter';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 
@@ -127,15 +128,11 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({
 
   const filteredItems = useMemo(() => {
     if (!collection) return [];
-    return collection.items.filter((item) => {
-      const term = debouncedFilter.toLowerCase();
-      const matchesSearch =
-        !term ||
-        item.title.toLowerCase().includes(term) ||
-        item.notes?.toLowerCase().includes(term) ||
-        Object.values(item.data).some((val) => String(val).toLowerCase().includes(term));
-      return matchesSearch && matchesItemFilters(item, activeFilters, collection.customFields);
-    });
+    return collection.items.filter(
+      (item) =>
+        matchesSearchTerm(item, debouncedFilter, collection.customFields) &&
+        matchesItemFilters(item, activeFilters, collection.customFields),
+    );
   }, [collection, debouncedFilter, activeFilters]);
 
   const sortedItems = useMemo(

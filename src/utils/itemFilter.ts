@@ -77,6 +77,33 @@ export function matchesItemFilters(
   });
 }
 
+// Free-text search matches only user-visible content: the title, the
+// human-authored Story (notes), and declared custom-field values. It walks
+// `fields` rather than every key in `item.data` so the underscore-prefixed
+// system keys (e.g. _aiDescription, _storyMigrationDismissed) never surface a
+// result with no visible reason. This keeps hidden AI metadata hidden — the
+// "acceleration before automation" principle — and mirrors the field set used
+// by matchesItemFilters, FilterModal, and ItemCard.
+//
+// Case folding is deliberately locale-independent (`toLowerCase`, not
+// `toLocaleLowerCase`): on a Turkish/Azerbaijani host locale the locale-aware
+// variant folds `I`→`ı`, so `VINYL` would stop matching the query `vinyl`.
+export function matchesSearchTerm(
+  item: CollectionItem,
+  term: string,
+  fields: FieldDefinition[],
+): boolean {
+  if (!term) return true;
+  const needle = term.toLowerCase();
+  if (item.title.toLowerCase().includes(needle)) return true;
+  if (item.notes?.toLowerCase().includes(needle)) return true;
+  return fields.some((field) => {
+    const value = item.data[field.id];
+    if (value === undefined || value === null || value === '') return false;
+    return String(value).toLowerCase().includes(needle);
+  });
+}
+
 export function deriveSelectOptions(
   fieldId: string,
   declaredOptions: string[] | undefined,
