@@ -126,6 +126,12 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
   );
   const [titleError, setTitleError] = useState<string | null>(null);
   const [batchTitleErrors, setBatchTitleErrors] = useState<Record<string, boolean>>({});
+  // CUR-178: the batch save stays clickable even with blank titles, so the
+  // existing validation can run and point the user at the offending rows. The
+  // first untitled row may be paginated off-screen; we reveal it and hold its
+  // id here so an effect can scroll to it once the expanded rows have rendered.
+  const batchRowRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const [pendingBatchScrollId, setPendingBatchScrollId] = useState<string | null>(null);
   const [isImageEditorOpen, setIsImageEditorOpen] = useState(false);
   const [confirmingDiscard, setConfirmingDiscard] = useState(false);
   const [promptsOpen, setPromptsOpen] = useState(false);
@@ -161,6 +167,18 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     if (!isOpen) return;
     trackEvent('item_creation_started', { surface: 'add_item_modal' });
   }, [isOpen]);
+
+  // CUR-178: once a blocked batch save has expanded pagination to the first
+  // untitled row, bring it into view so the user can act on the error. Runs
+  // after render so the row exists; scrollIntoView is guarded for jsdom.
+  useEffect(() => {
+    if (!pendingBatchScrollId) return;
+    batchRowRefs.current[pendingBatchScrollId]?.scrollIntoView?.({
+      behavior: 'smooth',
+      block: 'center',
+    });
+    setPendingBatchScrollId(null);
+  }, [pendingBatchScrollId, batchVisibleCount]);
 
   const surfaceClass = panelSurfaceClasses[theme];
   const overlayClass = `${overlaySurfaceClasses[theme]} motion-overlay`;
@@ -1112,14 +1130,19 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
       recoverMissingCollection();
       return;
     }
-    const missingTitles = batchItems.filter((item) => !item.title.trim());
-    if (missingTitles.length > 0) {
-      const errors = missingTitles.reduce<Record<string, boolean>>((acc, item) => {
-        acc[item.id] = true;
+    const firstMissingIndex = batchItems.findIndex((item) => !item.title.trim());
+    if (firstMissingIndex >= 0) {
+      const errors = batchItems.reduce<Record<string, boolean>>((acc, item) => {
+        if (!item.title.trim()) acc[item.id] = true;
         return acc;
       }, {});
       setBatchTitleErrors(errors);
       setError(t('batchTitleRequired'));
+      // Make sure the first untitled row is rendered (it may be past the
+      // pagination window) and scroll to it, so the blocked save points the
+      // user straight at the photo that still needs a title.
+      setBatchVisibleCount((prev) => Math.max(prev, firstMissingIndex + 1));
+      setPendingBatchScrollId(batchItems[firstMissingIndex].id);
       return;
     }
     setIsSaving(true);
@@ -1315,7 +1338,15 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
         )}
         <div className="space-y-4 px-1">
           {visibleBatchItems.map((item) => (
-            <div key={item.id} className={`rounded-2xl border ${batchItemCardClass} p-3 shadow-sm`}>
+            <div
+              key={item.id}
+              ref={(node) => {
+                batchRowRefs.current[item.id] = node;
+              }}
+              className={`rounded-2xl border ${batchItemCardClass} p-3 shadow-sm transition-shadow ${
+                batchTitleErrors[item.id] ? 'ring-2 ring-red-400/70' : ''
+              }`}
+            >
               <div className="flex gap-3 items-start">
                 <div
                   className={`group relative w-20 h-20 rounded-xl overflow-hidden border ${imageTileClass} shrink-0`}
@@ -2015,11 +2046,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
                     <ArrowRight size={18} />
                   )
                 }
-                disabled={
-                  batchItems.length === 0 ||
-                  isSaving ||
-                  batchItems.some((item) => !item.title.trim())
-                }
+                disabled={batchItems.length === 0 || isSaving}
               >
                 {isSaving
                   ? t('analyzingPhoto').split('...')[0]
