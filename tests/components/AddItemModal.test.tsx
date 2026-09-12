@@ -633,9 +633,11 @@ describe('AddItemModal', () => {
     expect(screen.getByText('Title is required')).toBeInTheDocument();
     expect(mockOnSave).not.toHaveBeenCalled();
 
-    // Typing a title clears the error; the batch then saves as before.
+    // Typing a title clears both the per-row error and the warning banner, so
+    // the batch saves cleanly with no stale "Add titles before saving" message.
     await user.type(screen.getByPlaceholderText('Name this item'), 'Named artifact');
     expect(screen.queryByText('Title is required')).not.toBeInTheDocument();
+    expect(screen.queryByText('Add titles before saving')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Save 1 piece' }));
     await waitFor(() => expect(mockOnSave).toHaveBeenCalledTimes(1));
   });

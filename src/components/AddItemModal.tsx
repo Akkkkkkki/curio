@@ -1137,7 +1137,8 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
         return acc;
       }, {});
       setBatchTitleErrors(errors);
-      setError(t('batchTitleRequired'));
+      // The banner is derived from batchTitleErrors (see renderBatchVerify), so
+      // it clears on its own as rows are titled or removed — no stale warning.
       // Make sure the first untitled row is rendered (it may be past the
       // pagination window) and scroll to it, so the blocked save points the
       // user straight at the photo that still needs a title.
@@ -1324,6 +1325,14 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
             className={`p-3 text-xs rounded-xl border font-medium ${warnBannerClass}`}
           >
             {error}
+          </div>
+        )}
+        {Object.keys(batchTitleErrors).length > 0 && (
+          <div
+            data-testid="add-item-batch-title-warning"
+            className={`p-3 text-xs rounded-xl border font-medium ${warnBannerClass}`}
+          >
+            {t('batchTitleRequired')}
           </div>
         )}
         {analysisError && (
