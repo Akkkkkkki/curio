@@ -1,11 +1,21 @@
 import type { ComponentProps } from 'react';
-import { describe, it, expect, vi } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { LanguageProvider } from '@/i18n';
 import { ThemeProvider } from '@/theme';
 import { CollectionScreen } from '@/components/CollectionScreen';
 import { UserCollection } from '@/types';
+import { setMockTheme } from '../utils/test-utils';
+
+// Route the component's useTheme through the configurable mock so read-only
+// banner styling can be asserted per theme (CUR-94). Real class maps are kept
+// via `...actual`; only the active theme is overridden. Defaults to Gallery, so
+// every existing test in this suite is unaffected.
+vi.mock('@/theme', async () => {
+  const { createThemeMock } = await import('../utils/test-utils');
+  return createThemeMock();
+});
 
 // Mock the debounce so search state settles synchronously in tests.
 vi.mock('@/hooks/useDebouncedValue', () => ({
@@ -181,5 +191,37 @@ describe('CollectionScreen read-only notice consolidation (#411)', () => {
 
     expect(screen.queryByTestId('read-only-banner')).not.toBeInTheDocument();
     expect(screen.queryByText(/sign in to duplicate or edit/i)).not.toBeInTheDocument();
+  });
+});
+
+describe('CollectionScreen read-only banner theming (CUR-94)', () => {
+  afterEach(() => setMockTheme('gallery'));
+
+  // The lock tile is the element wrapping the Lock icon inside the banner.
+  const lockTile = () =>
+    screen.getByTestId('read-only-banner').querySelector('svg')?.parentElement as HTMLElement;
+
+  it('gives the Vault lock tile a theme-aware amber accent, not raw Gallery amber', () => {
+    setMockTheme('vault');
+    renderScreen(makeCollection({ isPublic: true, items: [makeItem('a')] }), {
+      isAuthenticated: false,
+    });
+
+    const tile = lockTile();
+    // bg-amber-50 punched a bright square through the dark Vault surface.
+    // classList matches exact tokens (bg-amber-500/20 must not count as bg-amber-50).
+    expect(tile.classList.contains('bg-amber-50')).toBe(false);
+    expect(tile.classList.contains('bg-amber-500/20')).toBe(true);
+  });
+
+  it('leaves the Gallery lock tile unchanged', () => {
+    setMockTheme('gallery');
+    renderScreen(makeCollection({ isPublic: true, items: [makeItem('a')] }), {
+      isAuthenticated: false,
+    });
+
+    const tile = lockTile();
+    expect(tile.classList.contains('bg-amber-50')).toBe(true);
+    expect(tile.classList.contains('text-amber-700')).toBe(true);
   });
 });

@@ -122,6 +122,18 @@ export const mutedTextClasses: Record<AppTheme, string> = {
   atelier: 'text-[#6F6257]', // AA-compliant sepia muted text
 };
 
+// CUR-94: the lock-icon tile on the read-only banner (Collection + Item Detail).
+// It used to hardcode Gallery's `bg-amber-50 text-amber-700`, which punched a
+// bright yellow square through the dark Vault surface and clashed with Atelier's
+// warmth. Gallery is preserved exactly; Vault/Atelier reuse the warm-metallic
+// amber tones from the StatusBanner warning palette (CUR-81) so the read-only
+// signal reads as one system across themes.
+export const readOnlyBadgeClasses: Record<AppTheme, string> = {
+  gallery: 'bg-amber-50 text-amber-700',
+  vault: 'bg-amber-500/20 text-amber-200',
+  atelier: 'bg-amber-100/70 text-amber-800',
+};
+
 export const useTheme = () => useContext(ThemeContext);
 
 // =============================================================================

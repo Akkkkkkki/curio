@@ -15,7 +15,13 @@ import {
   X,
 } from 'lucide-react';
 import { useTranslation, getFieldTranslation } from '../i18n';
-import { useTheme, typographyClasses, labelColorClasses } from '../theme';
+import {
+  useTheme,
+  typographyClasses,
+  labelColorClasses,
+  mutedTextClasses,
+  readOnlyBadgeClasses,
+} from '../theme';
 import { UserCollection, AppTheme } from '../types';
 import { Button } from './ui/Button';
 import { CollectionScreenSkeleton } from './ui/Skeleton';
@@ -301,7 +307,7 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({
           data-testid="read-only-banner"
           className={`flex items-center gap-3 p-4 rounded-2xl border shadow-sm ${theme === 'vault' ? 'bg-white/5 border-white/10' : 'bg-white/80 border-stone-100'}`}
         >
-          <div className="p-2 rounded-xl bg-amber-50 text-amber-700 shadow-inner">
+          <div className={`p-2 rounded-xl shadow-inner ${readOnlyBadgeClasses[theme]}`}>
             <Lock size={16} />
           </div>
           <div>
@@ -310,7 +316,7 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({
             >
               {t('readOnlyMode')}
             </p>
-            <p className="text-xs text-stone-500">{t('readOnlyCollectionDesc')}</p>
+            <p className={`text-xs ${mutedTextClasses[theme]}`}>{t('readOnlyCollectionDesc')}</p>
             {!isAuthenticated && (
               <p className="text-xs font-semibold text-amber-600 mt-1">
                 {t('readOnlyCollectionEditHint')}
