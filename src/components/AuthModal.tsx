@@ -415,9 +415,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <div
                 className={`p-4 rounded-2xl border flex gap-3 ${theme === 'vault' ? 'bg-white/5 border-white/10' : 'bg-amber-50 border-amber-100'}`}
               >
-                <Info className="text-amber-600 shrink-0 mt-0.5" size={18} />
+                <Info
+                  className={`${theme === 'vault' ? 'text-amber-200' : 'text-amber-600'} shrink-0 mt-0.5`}
+                  size={18}
+                />
                 <div className="space-y-1">
-                  <p className="text-[12px] font-bold text-amber-900">{t('cloudSyncTitle')}</p>
+                  <p
+                    className={`text-[12px] font-bold ${theme === 'vault' ? 'text-amber-200' : 'text-amber-900'}`}
+                  >
+                    {t('cloudSyncTitle')}
+                  </p>
                   <p className={`text-[11px] ${mutedText} leading-relaxed`}>{t('cloudSyncDesc')}</p>
                 </div>
               </div>

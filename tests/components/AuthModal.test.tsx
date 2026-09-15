@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { renderWithProviders } from '../utils/test-utils';
+import { renderWithProviders, setMockTheme } from '../utils/test-utils';
 import { AuthModal } from '@/components/AuthModal';
 import { translations } from '@/i18n';
 
@@ -14,13 +14,11 @@ vi.mock('@/services/supabase', () => ({
   updateUserPassword: vi.fn(),
 }));
 
-// Mock the theme module to use our test theme context
+// Mock the theme module to use the configurable test theme context so
+// individual tests can exercise theme-specific styling via setMockTheme().
 vi.mock('@/theme', async () => {
-  const actual = await vi.importActual('@/theme');
-  return {
-    ...actual,
-    useTheme: () => ({ theme: 'gallery', setTheme: vi.fn() }),
-  };
+  const { createThemeMock } = await import('../utils/test-utils');
+  return createThemeMock();
 });
 
 // Import the mocked functions
@@ -51,6 +49,9 @@ describe('AuthModal', () => {
   beforeEach(() => {
     window.localStorage.clear();
     vi.clearAllMocks();
+    // Default every test to the Gallery (light) theme; tests that need a
+    // specific theme opt in with setMockTheme().
+    setMockTheme('gallery');
     mockIsSupabaseConfigured.mockReturnValue(true);
     mockSignIn.mockResolvedValue({ user: { id: 'test-user' } });
     // Default to the confirmation-disabled shape: a session exists, so
@@ -447,6 +448,27 @@ describe('AuthModal', () => {
     it('renders correctly with atelier theme', () => {
       renderWithProviders(<AuthModal {...defaultProps} />, { initialTheme: 'atelier' });
       expect(screen.getByText(/Cloud Sync/i)).toBeInTheDocument();
+    });
+  });
+
+  describe('CUR-177: Cloud Account callout legibility in Vault theme', () => {
+    it('uses a light amber title in Vault so it is legible on the dark callout', () => {
+      setMockTheme('vault');
+      renderWithProviders(<AuthModal {...defaultProps} />);
+
+      const title = screen.getByText(translations.en.cloudSyncTitle);
+      expect(title).toHaveClass('text-amber-200');
+      // The old dark-on-dark amber-900 title must be gone in Vault.
+      expect(title).not.toHaveClass('text-amber-900');
+    });
+
+    it('keeps the dark amber title in Gallery (light) unchanged', () => {
+      setMockTheme('gallery');
+      renderWithProviders(<AuthModal {...defaultProps} />);
+
+      const title = screen.getByText(translations.en.cloudSyncTitle);
+      expect(title).toHaveClass('text-amber-900');
+      expect(title).not.toHaveClass('text-amber-200');
     });
   });
 
