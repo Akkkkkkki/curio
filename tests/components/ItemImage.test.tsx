@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { renderWithProviders, screen, fireEvent } from '../utils/test-utils';
+import { renderWithProviders, screen, fireEvent, act, waitFor } from '../utils/test-utils';
 import { setMockTheme } from '../utils/test-utils';
 import { ItemImage } from '@/components/ItemImage';
+import { getAsset } from '@/services/db';
 
 vi.mock('@/services/db', () => ({
   extractCurioAssetPath: vi.fn(() => null),
@@ -89,6 +90,62 @@ describe('ItemImage', () => {
       expect(placeholder).not.toBeNull();
       expect(placeholder!.className).toMatch(/bg-\[#1C1917\]/);
       expect(placeholder!.className).not.toMatch(/bg-stone-100/);
+    });
+  });
+
+  describe('viewport-deferred asset loading (#147)', () => {
+    it('does not fetch a DB-backed asset until the tile scrolls near the viewport', async () => {
+      // Controllable IntersectionObserver that captures the callback instead of
+      // firing it, so we can prove the fetch is gated on intersection.
+      let trigger: ((isIntersecting: boolean) => void) | null = null;
+      const observe = vi.fn();
+      const disconnect = vi.fn();
+      const originalIO = global.IntersectionObserver;
+      global.IntersectionObserver = class {
+        constructor(cb: (entries: { isIntersecting: boolean }[]) => void) {
+          trigger = (isIntersecting) => cb([{ isIntersecting }]);
+        }
+        observe = observe;
+        disconnect = disconnect;
+        unobserve() {}
+        takeRecords() {
+          return [];
+        }
+      } as unknown as typeof IntersectionObserver;
+
+      try {
+        vi.mocked(getAsset).mockResolvedValue(new Blob(['x'], { type: 'image/jpeg' }));
+        renderWithProviders(<ItemImage itemId="asset-1" photoUrl="asset" alt="Deferred" />);
+
+        // Mounted but offscreen: the observer is watching, nothing fetched yet.
+        expect(observe).toHaveBeenCalled();
+        expect(getAsset).not.toHaveBeenCalled();
+
+        // Scroll into view.
+        await act(async () => {
+          trigger?.(true);
+        });
+
+        await waitFor(() => expect(getAsset).toHaveBeenCalled());
+        expect(disconnect).toHaveBeenCalled();
+      } finally {
+        global.IntersectionObserver = originalIO;
+      }
+    });
+
+    it('fetches immediately when IntersectionObserver is unavailable', async () => {
+      const originalIO = global.IntersectionObserver;
+      // Simulate an environment without IntersectionObserver support.
+      delete (global as { IntersectionObserver?: unknown }).IntersectionObserver;
+
+      try {
+        vi.mocked(getAsset).mockResolvedValue(new Blob(['x'], { type: 'image/jpeg' }));
+        renderWithProviders(<ItemImage itemId="asset-2" photoUrl="asset" alt="Immediate" />);
+
+        await waitFor(() => expect(getAsset).toHaveBeenCalled());
+      } finally {
+        global.IntersectionObserver = originalIO;
+      }
     });
   });
 
