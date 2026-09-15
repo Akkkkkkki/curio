@@ -31,9 +31,9 @@ Issue prioritization and TODO tracking live in **GitHub Issues**, not in docs. P
 
 ### Other docs (organized)
 
-- **Operations**: `docs/ops/AI_GATEWAY_MONITORING.md`, `docs/ops/INDEXEDDB_RELIABILITY.md`, `docs/ops/PWA_CACHE_STRATEGY.md`, `docs/ops/PUBLIC_SAMPLE_GALLERY.md` (admin guide for the pre-login sample gallery)
+- **Operations**: `docs/ops/AI_GATEWAY_MONITORING.md`, `docs/ops/ROLLBACK_RUNBOOK.md`, `docs/PRODUCTION_AI_SECURITY.md`, `docs/ops/PUBLIC_SAMPLE_GALLERY.md` (admin guide for the pre-login sample gallery)
 - **Product analytics**: `docs/ops/PRODUCT_ANALYTICS.md`
-- **Release**: `docs/GOOGLE_PLAY_SUBMISSION_GUIDE.md`, `docs/ANDROID_PRODUCTION_REVIEW.md`
+- **Release**: `docs/GOOGLE_PLAY_SUBMISSION_GUIDE.md`
 - **Plans**: `docs/plan/` (forward-looking design specs; deleted after shipping)
 - **Reviews**: `docs/reviews/` (point-in-time UX/design reviews, kept for reference between product iterations — e.g. `2026-06-23-ux-review.md` + its original `.html` artefact)
 - **Archive**: `docs/archive/` (point-in-time reports)
@@ -44,7 +44,7 @@ Issue prioritization and TODO tracking live in **GitHub Issues**, not in docs. P
 - **UX constraints + design**: `docs/PRODUCT_DESIGN.md` (5-minute time-to-value rules)
 - **Execution roadmap**: `docs/ROADMAP.md`
 - **System architecture + data flow**: `docs/TECHNICAL_DESIGN.md`
-- **Sync reliability expectations**: `docs/ops/INDEXEDDB_RELIABILITY.md`
+- **Sync reliability expectations**: `docs/TECHNICAL_DESIGN.md` (§2 Identity & Sync Logic, §4 UI Synchronization Feedback)
 - **Testing workflow**: `docs/TESTING.md` and `tests/README.md`
 - **Issue protocol**: `docs/GITHUB_ISSUES_PROTOCOL.md`
 
