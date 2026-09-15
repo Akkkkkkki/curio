@@ -2008,7 +2008,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
             (() => {
               const storyEmpty = !(formData.notes || '').trim();
               const label = isSaving
-                ? t('analyzingPhoto').split('...')[0]
+                ? t('saving')
                 : storyEmpty
                   ? t('storySaveWithout')
                   : t('saveToMuseum');
@@ -2058,7 +2058,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
                 disabled={batchItems.length === 0 || isSaving}
               >
                 {isSaving
-                  ? t('analyzingPhoto').split('...')[0]
+                  ? t('saving')
                   : t(batchItems.length === 1 ? 'archiveArtifact' : 'archiveArtifacts', {
                       count: batchItems.length,
                     })}
