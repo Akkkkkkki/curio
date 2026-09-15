@@ -21,6 +21,7 @@ import {
   typographyClasses,
   labelColorClasses,
   mutedTextClasses,
+  readOnlyBadgeClasses,
   accentColorClasses,
   dividerClasses,
   ratingColorClasses,
@@ -592,7 +593,7 @@ export const ItemDetailScreen: React.FC<ItemDetailScreenProps> = ({
             <div
               className={`flex items-center gap-3 p-4 rounded-2xl border ${theme === 'vault' ? 'bg-white/5 border-white/10' : 'bg-stone-50 border-stone-100'}`}
             >
-              <div className="p-2 rounded-xl bg-amber-50 text-amber-700 shadow-inner">
+              <div className={`p-2 rounded-xl shadow-inner ${readOnlyBadgeClasses[theme]}`}>
                 <Lock size={16} />
               </div>
               <div>
@@ -601,7 +602,7 @@ export const ItemDetailScreen: React.FC<ItemDetailScreenProps> = ({
                 >
                   {t('readOnlyMode')}
                 </p>
-                <p className="text-xs text-stone-500">{t('readOnlyItemDesc')}</p>
+                <p className={`text-xs ${mutedTextClasses[theme]}`}>{t('readOnlyItemDesc')}</p>
               </div>
             </div>
           )}
