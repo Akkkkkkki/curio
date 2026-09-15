@@ -324,9 +324,11 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({
         <div className="flex items-center gap-4 sm:gap-6">
           <Link
             to="/"
+            aria-label={t('back')}
+            title={t('back')}
             className={`w-11 h-11 sm:w-12 sm:h-12 flex items-center justify-center border rounded-2xl shadow-md transition-all hover:scale-105 active:scale-95 ${theme === 'vault' ? 'bg-stone-900 border-white/5 text-stone-400' : 'bg-white border-stone-100 text-stone-400'}`}
           >
-            <ArrowLeft size={20} className="sm:w-6 sm:h-6" />
+            <ArrowLeft size={20} className="sm:w-6 sm:h-6" aria-hidden="true" />
           </Link>
           <div>
             <h1
