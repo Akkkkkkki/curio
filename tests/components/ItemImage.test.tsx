@@ -133,6 +133,33 @@ describe('ItemImage', () => {
       }
     });
 
+    it('reserves placeholder height for a deferred tile so masonry columns do not collapse', () => {
+      // IO that never fires — the tile stays in the pending (offscreen) state.
+      const originalIO = global.IntersectionObserver;
+      global.IntersectionObserver = class {
+        constructor() {}
+        observe() {}
+        disconnect() {}
+        unobserve() {}
+        takeRecords() {
+          return [];
+        }
+      } as unknown as typeof IntersectionObserver;
+
+      try {
+        const { container } = renderWithProviders(
+          <ItemImage itemId="asset-3" photoUrl="asset" alt="Pending" className="w-full h-auto" />,
+        );
+        // The pending skeleton must reserve vertical space; without it the
+        // masonry wrapper (h-auto + absolute pulse) would be zero-height.
+        const skeleton = container.firstElementChild as HTMLElement | null;
+        expect(skeleton).not.toBeNull();
+        expect(skeleton!.className).toMatch(/min-h-\[100px\]/);
+      } finally {
+        global.IntersectionObserver = originalIO;
+      }
+    });
+
     it('fetches immediately when IntersectionObserver is unavailable', async () => {
       const originalIO = global.IntersectionObserver;
       // Simulate an environment without IntersectionObserver support.

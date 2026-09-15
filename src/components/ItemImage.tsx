@@ -218,7 +218,11 @@ export const ItemImage: React.FC<ItemImageProps> = ({
     return (
       <div
         ref={wrapperRef}
-        className={`relative overflow-hidden ${placeholderSurface} ${className}`}
+        // `min-h` keeps a deferred tile from collapsing to zero height in the
+        // masonry layout (where the image is `h-auto` with no aspect box), which
+        // would otherwise balance the columns as text-only cards and reflow them
+        // as assets load in on scroll. Matches the no-photo/error placeholders.
+        className={`relative overflow-hidden min-h-[100px] ${placeholderSurface} ${className}`}
       >
         <div className={`absolute inset-0 animate-pulse ${placeholderSurface}`} />
         {loading && (
