@@ -594,7 +594,96 @@ describe('AddItemModal', () => {
 
     const batchTitleInput = await screen.findByPlaceholderText('Name this item');
     expect(batchTitleInput).toHaveValue('');
-    expect(screen.getByRole('button', { name: 'Save 1 piece' })).toBeDisabled();
+    // CUR-178: the save stays clickable so its validation can run and point the
+    // user at the blank row, rather than presenting a silently dead CTA.
+    expect(screen.getByRole('button', { name: 'Save 1 piece' })).toBeEnabled();
+  });
+
+  it('surfaces a clear reason (not a silent dead CTA) when a batch title is blank (CUR-178)', async () => {
+    const user = userEvent.setup();
+    mockRefreshAiEnabled.mockResolvedValue(true);
+    mockAnalyzeImage.mockResolvedValue({
+      status: 'success',
+      title: '',
+      notes: '',
+      data: {},
+    });
+
+    renderWithProviders(
+      <AddItemModal
+        isOpen
+        onClose={mockOnClose}
+        collections={[createMockCollection({ name: 'Artifacts', customFields: [] })]}
+        onSave={mockOnSave}
+      />,
+    );
+
+    const file = new File(['fake'], 'artifact.png', { type: 'image/png' });
+    await user.upload(screen.getByTestId('add-item-batch-input') as HTMLInputElement, file);
+
+    await screen.findByPlaceholderText('Name this item');
+    const saveButton = screen.getByRole('button', { name: 'Save 1 piece' });
+    expect(saveButton).toBeEnabled();
+
+    await user.click(saveButton);
+
+    // Instead of silently doing nothing, the blocked save explains why and
+    // highlights the offending row, matching the single-item flow.
+    expect(await screen.findByText('Add titles before saving')).toBeInTheDocument();
+    expect(screen.getByText('Title is required')).toBeInTheDocument();
+    expect(mockOnSave).not.toHaveBeenCalled();
+
+    // Typing a title clears both the per-row error and the warning banner, so
+    // the batch saves cleanly with no stale "Add titles before saving" message.
+    await user.type(screen.getByPlaceholderText('Name this item'), 'Named artifact');
+    expect(screen.queryByText('Title is required')).not.toBeInTheDocument();
+    expect(screen.queryByText('Add titles before saving')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Save 1 piece' }));
+    await waitFor(() => expect(mockOnSave).toHaveBeenCalledTimes(1));
+  });
+
+  it('reveals an untitled batch row that is paginated off-screen on a blocked save (CUR-178)', async () => {
+    const user = userEvent.setup();
+    mockRefreshAiEnabled.mockResolvedValue(true);
+    // The first 8 photos get titles; the 9th stays blank and sits past the
+    // initial 8-row pagination window, so it is not rendered at first.
+    let call = 0;
+    mockAnalyzeImage.mockImplementation(async () => {
+      call += 1;
+      return { status: 'success', title: call <= 8 ? `Item ${call}` : '', notes: '', data: {} };
+    });
+
+    renderWithProviders(
+      <AddItemModal
+        isOpen
+        onClose={mockOnClose}
+        collections={[createMockCollection({ name: 'Artifacts', customFields: [] })]}
+        onSave={mockOnSave}
+      />,
+    );
+
+    const files = Array.from(
+      { length: 9 },
+      (_, i) => new File(['fake'], `artifact-${i}.png`, { type: 'image/png' }),
+    );
+    await user.upload(screen.getByTestId('add-item-batch-input') as HTMLInputElement, files);
+
+    await screen.findByTestId('add-item-batch-info');
+    await waitFor(() => {
+      expect(screen.getAllByPlaceholderText('Name this item')).toHaveLength(8);
+    });
+    expect(screen.queryByText('Title is required')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Save 9 pieces' }));
+
+    // The blocked save expands pagination so the off-screen untitled row is
+    // rendered and its error is visible, instead of hiding the blocker.
+    expect(await screen.findByText('Add titles before saving')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getAllByPlaceholderText('Name this item')).toHaveLength(9);
+    });
+    expect(screen.getByText('Title is required')).toBeInTheDocument();
+    expect(mockOnSave).not.toHaveBeenCalled();
   });
 
   it('shows a hard-failure error panel (not raw AI errors) after a non-retryable single-photo analysis failure', async () => {
