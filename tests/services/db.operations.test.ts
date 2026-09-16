@@ -1536,6 +1536,58 @@ describe('deleteCollection', () => {
     expect(merged[0]?.items).toEqual([]);
   });
 
+  it('pending collection delete survives IndexedDB maintenance and still filters the cloud collection', async () => {
+    const { supabase } = createDeleteSupabaseMock();
+    const dbMod = await importDbModuleFreshWithSupabaseMock(supabase);
+
+    const db = await dbMod.initDB();
+    openDb = db;
+    await clearStores(db, ['collections', 'assets', 'display', 'settings']);
+
+    await dbMod.addToPendingDeletes({
+      type: 'collection',
+      collectionId: 'col-offline',
+      createdAt: '2026-06-22T00:00:00.000Z',
+    });
+
+    // Simulate IndexedDB maintenance wiping the settings store; the durable
+    // localStorage journal must still recover the collection tombstone so an
+    // offline collection delete cannot resurrect on the next cloud refresh.
+    await clearStores(db, ['settings']);
+
+    const pendingDeletes = await dbMod.getPendingDeletes();
+    expect(pendingDeletes).toEqual([
+      {
+        type: 'collection',
+        collectionId: 'col-offline',
+        createdAt: '2026-06-22T00:00:00.000Z',
+      },
+    ]);
+
+    const cloudCollection: UserCollection = {
+      id: 'col-offline',
+      templateId: 'vinyl',
+      name: 'Cloud collection',
+      icon: '☁️',
+      customFields: [],
+      items: [
+        {
+          id: 'item-offline',
+          collectionId: 'col-offline',
+          photoUrl: 'cloud.jpg',
+          title: 'Should not resurrect',
+          rating: 3,
+          data: {},
+          createdAt: '2026-06-21T00:00:00.000Z',
+          notes: '',
+        },
+      ],
+    };
+
+    const merged = dbMod.mergeCollections([], [cloudCollection], { pendingDeletes });
+    expect(merged).toEqual([]);
+  });
+
   it('falls back to IndexedDB when browser storage access is blocked', async () => {
     const { supabase } = createDeleteSupabaseMock();
     const dbMod = await importDbModuleFreshWithSupabaseMock(supabase);
