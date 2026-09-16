@@ -211,10 +211,11 @@ describe('ExhibitionView', () => {
         items: [{ ...collection.items[0], title: '' }],
       };
       renderWithProviders(<ExhibitionView collection={untitled} isOpen={true} onClose={vi.fn()} />);
-      // A missing title must never collapse to an empty alt — the archival
-      // fallback keeps the image announced instead of silent.
+      // A missing title must never collapse to an empty (or whitespace-only)
+      // alt — the exhibition falls back to the localized "archival record"
+      // label so the image stays meaningfully announced instead of silent.
       for (const image of screen.getAllByTestId('mock-item-image')) {
-        expect(image.getAttribute('aria-label')).toBeTruthy();
+        expect(image).toHaveAttribute('aria-label', 'From my museum');
       }
     });
   });
