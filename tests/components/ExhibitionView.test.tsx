@@ -190,6 +190,35 @@ describe('ExhibitionView', () => {
     });
   });
 
+  describe('image alt text (CUR-31)', () => {
+    it('labels the exhibit image with the item title on both layouts', () => {
+      renderWithProviders(
+        <ExhibitionView collection={collection} isOpen={true} onClose={vi.fn()} />,
+      );
+      // Both the mobile and desktop layouts mount an ItemImage; each must carry
+      // the item title as alt so screen readers announce the object rather than
+      // an unlabelled frame, matching the alt pattern used in the other views.
+      const images = screen.getAllByTestId('mock-item-image');
+      expect(images).toHaveLength(2);
+      for (const image of images) {
+        expect(image).toHaveAttribute('aria-label', 'Blue Train');
+      }
+    });
+
+    it('falls back to a descriptive label when an item has no title', () => {
+      const untitled: UserCollection = {
+        ...collection,
+        items: [{ ...collection.items[0], title: '' }],
+      };
+      renderWithProviders(<ExhibitionView collection={untitled} isOpen={true} onClose={vi.fn()} />);
+      // A missing title must never collapse to an empty alt — the archival
+      // fallback keeps the image announced instead of silent.
+      for (const image of screen.getAllByTestId('mock-item-image')) {
+        expect(image.getAttribute('aria-label')).toBeTruthy();
+      }
+    });
+  });
+
   describe('large-collection navigation (CUR-51)', () => {
     it('jumps to the last and first exhibit with End / Home keys', async () => {
       renderWithProviders(
