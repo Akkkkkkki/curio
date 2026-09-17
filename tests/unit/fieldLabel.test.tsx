@@ -49,13 +49,14 @@ describe('CUR-29 — getFieldTranslation', () => {
   });
 
   it('gives every built-in template field both an EN and a ZH label', () => {
+    // Assert the dictionaries directly: a `t`-based check would let ZH silently
+    // fall back to the English string (mixed EN/ZH), which is the exact drift
+    // this guard exists to catch.
     for (const id of TEMPLATE_FIELD_IDS) {
-      const en = getFieldTranslation(tEn, id);
-      const zh = getFieldTranslation(tZh, id);
-      // A missing key would fall back to the id, so a resolved label proves the
-      // localized string exists for that locale.
-      expect(en, `EN label for ${id}`).not.toBe(id);
-      expect(zh, `ZH label for ${id}`).not.toBe(id);
+      const key = `label_${id}`;
+      expect(translations.en, `EN label for ${id}`).toHaveProperty(key);
+      expect(translations.zh, `ZH label for ${id}`).toHaveProperty(key);
+      expect((translations.zh as Record<string, string>)[key], `ZH label for ${id}`).toBeTruthy();
     }
   });
 
