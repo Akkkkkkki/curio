@@ -190,6 +190,44 @@ describe('ExhibitionView', () => {
     });
   });
 
+  describe('localized field labels (CUR-28)', () => {
+    afterEach(() => {
+      window.localStorage.removeItem('curio_language');
+    });
+
+    const withFields = (fields: UserCollection['customFields'], data: Record<string, string>) => ({
+      ...collection,
+      customFields: fields,
+      items: [{ ...collection.items[0], data }],
+    });
+
+    it('renders exhibition metadata labels in the active locale', () => {
+      // Exhibition mode is the "show off" surface; localized filters elsewhere
+      // must not sit beside an English metadata label for a returning ZH user.
+      window.localStorage.setItem('curio_language', 'zh');
+      const col = withFields(
+        [{ id: 'artist', label: 'Artist', type: 'text', displayMode: 'primary' }],
+        { artist: 'John Coltrane' },
+      );
+      renderWithProviders(<ExhibitionView collection={col} isOpen={true} onClose={vi.fn()} />);
+
+      // Both mobile and desktop layouts mount, so the label appears twice.
+      expect(screen.getAllByText('艺术家').length).toBeGreaterThanOrEqual(1);
+      expect(screen.queryByText('Artist')).not.toBeInTheDocument();
+    });
+
+    it("falls back to a custom field's own label when no translation exists", () => {
+      window.localStorage.setItem('curio_language', 'zh');
+      const col = withFields(
+        [{ id: 'provenance', label: 'Provenance', type: 'text', displayMode: 'primary' }],
+        { provenance: 'Estate sale, 1998' },
+      );
+      renderWithProviders(<ExhibitionView collection={col} isOpen={true} onClose={vi.fn()} />);
+
+      expect(screen.getAllByText('Provenance').length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
   describe('large-collection navigation (CUR-51)', () => {
     it('jumps to the last and first exhibit with End / Home keys', async () => {
       renderWithProviders(

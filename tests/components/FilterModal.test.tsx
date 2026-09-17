@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { renderWithProviders, setMockTheme } from '../utils/test-utils';
 import { FilterModal } from '@/components/FilterModal';
@@ -174,6 +174,38 @@ describe('FilterModal', () => {
       fireEvent.click(screen.getByRole('button', { name: /Apply/i }));
 
       expect(onApply).toHaveBeenCalledWith({ __addedMonth: '2026-03' });
+    });
+  });
+
+  describe('localized field labels (CUR-28)', () => {
+    afterEach(() => {
+      window.localStorage.removeItem('curio_language');
+    });
+
+    it('renders built-in field labels in the active locale', () => {
+      // The language toggle persists to localStorage; a returning ZH user must
+      // not see English `field.label` chrome next to their localized filters.
+      window.localStorage.setItem('curio_language', 'zh');
+      renderWithProviders(<FilterModal {...defaultProps} />);
+
+      expect(screen.getByText('艺术家')).toBeInTheDocument();
+      expect(screen.getByText('年份')).toBeInTheDocument();
+      // The English source labels must not leak through once localized.
+      expect(screen.queryByText('Artist')).not.toBeInTheDocument();
+      expect(screen.queryByText('Year')).not.toBeInTheDocument();
+    });
+
+    it("falls back to a custom field's own label when no translation exists", () => {
+      window.localStorage.setItem('curio_language', 'zh');
+      const customField: FieldDefinition = {
+        id: 'provenance',
+        label: 'Provenance',
+        type: 'text',
+        displayMode: 'primary',
+      };
+      renderWithProviders(<FilterModal {...defaultProps} fields={[customField]} />);
+
+      expect(screen.getByText('Provenance')).toBeInTheDocument();
     });
   });
 
