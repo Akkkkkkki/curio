@@ -403,6 +403,37 @@ describe('AddItemModal', () => {
     expect(mockOnClose).not.toHaveBeenCalled();
   });
 
+  it('labels the single-item save button as saving while onSave is pending', async () => {
+    const user = userEvent.setup();
+    let resolveSave: () => void = () => {};
+    mockOnSave.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveSave = resolve;
+        }),
+    );
+
+    renderWithProviders(
+      <AddItemModal
+        isOpen
+        onClose={mockOnClose}
+        collections={[createMockCollection()]}
+        onSave={mockOnSave}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Skip and add manually' }));
+    await user.type(screen.getAllByRole('textbox')[0], 'Pending Artifact');
+    await user.click(screen.getByRole('button', { name: 'Save without story' }));
+
+    const saveButton = await screen.findByRole('button', { name: 'Saving…' });
+    expect(saveButton).toBeDisabled();
+    expect(screen.queryByRole('button', { name: /analyzing photo/i })).not.toBeInTheDocument();
+
+    resolveSave();
+    await waitFor(() => expect(mockOnClose).toHaveBeenCalledTimes(1));
+  });
+
   it('makes the single-item verify step photo-first with details collapsed by default (CUR-125)', async () => {
     const user = userEvent.setup();
 
