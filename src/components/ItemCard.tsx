@@ -89,7 +89,14 @@ export const ItemCard: React.FC<ItemCardProps> = React.memo(function ItemCard({
     const def = fields.find((f) => f.id === fieldId);
 
     if (def?.type === 'boolean') return val ? t('yes') : t('no');
-    if (def?.type === 'number' && fieldId.includes('percent')) return `${val}%`;
+    if (def?.type === 'number') {
+      // Align with ItemDetailScreen, which renders a falsy number (e.g. 0) as
+      // unset ("—"). Without this, an unset/zero cocoa % rendered as "0%" on the
+      // card while the detail view showed nothing for the same value — an
+      // inconsistent, misleading representation.
+      if (!val) return null;
+      return fieldId.includes('percent') ? `${val}%` : val.toString();
+    }
     return val.toString();
   };
 
