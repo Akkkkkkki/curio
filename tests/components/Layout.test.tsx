@@ -1263,6 +1263,23 @@ describe('Layout Component', () => {
         expect(item!.className).toContain('justify-center');
       }
     });
+
+    // CUR-180: the header Home link (shown on non-home routes, including item
+    // detail) rendered at ~36px — below the 44px minimum — while the sibling
+    // theme/language toggles already met it. Gate the same coarse-pointer hit
+    // area on it so touch users get a consistent target without resizing the
+    // glyph on pure non-touch desktops.
+    it('gives the header Home link a >=44px touch-capable hit area off the home route', () => {
+      window.location.hash = '#/collection/sample-vinyl-1';
+      renderWithProviders(<Layout {...defaultProps} />);
+
+      const header = screen.getByRole('banner');
+      const homeLink = within(header).getByRole('link', { name: /home/i });
+      expect(homeLink.className).toContain('[@media(any-pointer:coarse)]:min-h-[44px]');
+      expect(homeLink.className).toContain('[@media(any-pointer:coarse)]:min-w-[44px]');
+      expect(homeLink.className).toContain('justify-center');
+      window.location.hash = '#/';
+    });
   });
 
   describe('Edge Cases', () => {
