@@ -203,6 +203,18 @@ describe('ItemCard Component', () => {
 
       expect(screen.getByText('72%')).toBeInTheDocument();
     });
+
+    it('hides an unset/zero number field instead of showing "0%" (matches item detail)', () => {
+      const item = createMockItem({
+        data: { cacao_percent: 0 },
+      });
+      const onClick = vi.fn();
+      const fieldsWithDisplay = createFieldsWithModes(['cacao_percent'], []);
+
+      renderWithProviders(<ItemCard item={item} fields={fieldsWithDisplay} onClick={onClick} />);
+
+      expect(screen.queryByText('0%')).not.toBeInTheDocument();
+    });
   });
 
   describe('Badge Fields', () => {
