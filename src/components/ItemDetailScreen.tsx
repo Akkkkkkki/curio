@@ -743,7 +743,7 @@ export const ItemDetailScreen: React.FC<ItemDetailScreenProps> = ({
                   disabled={history.length === 0}
                   aria-label={t('undo')}
                   title={`${t('undo')} (${UNDO_SHORTCUT_LABEL})`}
-                  className={`p-3 sm:p-4 rounded-full transition-colors ${mutedTextClasses[theme]} ${
+                  className={`inline-flex items-center justify-center p-3 sm:p-4 rounded-full transition-colors [@media(any-pointer:coarse)]:min-h-[44px] [@media(any-pointer:coarse)]:min-w-[44px] ${mutedTextClasses[theme]} ${
                     history.length === 0
                       ? 'opacity-50 cursor-not-allowed'
                       : theme === 'vault'
@@ -758,7 +758,7 @@ export const ItemDetailScreen: React.FC<ItemDetailScreenProps> = ({
                   disabled={future.length === 0}
                   aria-label={t('redo')}
                   title={`${t('redo')} (${REDO_SHORTCUT_LABEL})`}
-                  className={`p-3 sm:p-4 rounded-full transition-colors ${mutedTextClasses[theme]} ${
+                  className={`inline-flex items-center justify-center p-3 sm:p-4 rounded-full transition-colors [@media(any-pointer:coarse)]:min-h-[44px] [@media(any-pointer:coarse)]:min-w-[44px] ${mutedTextClasses[theme]} ${
                     future.length === 0
                       ? 'opacity-50 cursor-not-allowed'
                       : theme === 'vault'
@@ -834,13 +834,27 @@ export const ItemDetailScreen: React.FC<ItemDetailScreenProps> = ({
                       >
                         <p className="text-sm leading-relaxed mb-3">{t('storyMigrationBanner')}</p>
                         <div className="flex flex-wrap gap-2">
-                          <Button size="sm" onClick={startFresh}>
+                          <Button
+                            size="sm"
+                            onClick={startFresh}
+                            className="[@media(any-pointer:coarse)]:min-h-[44px]"
+                          >
                             {t('storyMigrationStart')}
                           </Button>
-                          <Button size="sm" variant="outline" onClick={editLegacy}>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={editLegacy}
+                            className="[@media(any-pointer:coarse)]:min-h-[44px]"
+                          >
                             {t('storyMigrationEdit')}
                           </Button>
-                          <Button size="sm" variant="ghost" onClick={dismissMigration}>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={dismissMigration}
+                            className="[@media(any-pointer:coarse)]:min-h-[44px]"
+                          >
                             {t('storyMigrationKeep')}
                           </Button>
                         </div>

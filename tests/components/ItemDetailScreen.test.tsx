@@ -84,3 +84,35 @@ describe('ItemDetailScreen accessibility (CURIO-372)', () => {
     }
   });
 });
+
+// CUR-180: the item-detail Undo/Redo icon buttons (~42px) and the legacy
+// story-migration pills (~32px) rendered below the 44px minimum touch target.
+// Reserve the same coarse-pointer hit area used by the header toggles so touch
+// users get a consistent target without resizing the glyph/label on desktop.
+// The default fixture item predates the story feature launch, so the migration
+// banner (and its three pills) renders alongside the editable Undo/Redo row.
+describe('ItemDetailScreen touch targets (CUR-180)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('gives the Undo and Redo controls a >=44px touch-capable hit area', () => {
+    renderItemDetail();
+
+    for (const name of ['Undo', 'Redo']) {
+      const button = screen.getByRole('button', { name });
+      expect(button.className).toContain('[@media(any-pointer:coarse)]:min-h-[44px]');
+      expect(button.className).toContain('[@media(any-pointer:coarse)]:min-w-[44px]');
+      expect(button.className).toContain('justify-center');
+    }
+  });
+
+  it('gives the story-migration pills a >=44px tall touch hit area', () => {
+    renderItemDetail();
+
+    for (const name of ['Start fresh', 'Edit current', 'Keep AI text']) {
+      const button = screen.getByRole('button', { name });
+      expect(button.className).toContain('[@media(any-pointer:coarse)]:min-h-[44px]');
+    }
+  });
+});

@@ -478,7 +478,7 @@ export const Layout: React.FC<LayoutProps> = ({
             {!isHome && (
               <Link
                 to="/"
-                className={`inline-flex items-center justify-center p-2 rounded-full transition-colors ${navGhost}`}
+                className={`inline-flex items-center justify-center p-2 rounded-full transition-colors [@media(any-pointer:coarse)]:min-h-[44px] [@media(any-pointer:coarse)]:min-w-[44px] ${navGhost}`}
                 aria-label={t('navHome')}
                 title={t('navHome')}
               >
