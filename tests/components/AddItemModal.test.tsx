@@ -761,6 +761,122 @@ describe('AddItemModal', () => {
     warnSpy.mockRestore();
   });
 
+  it('preserves manual single-photo edits when retrying analysis', async () => {
+    const user = userEvent.setup();
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    mockRefreshAiEnabled.mockResolvedValue(true);
+    mockAnalyzeImage
+      .mockResolvedValueOnce({
+        status: 'error',
+        message: 'AI request failed (503)',
+        retryable: true,
+      })
+      .mockResolvedValueOnce({
+        status: 'success',
+        title: 'AI Retried Artifact',
+        data: { artist: 'AI Artist' },
+        aiDescription: 'Fresh AI observation',
+      });
+    mockGetPhoto.mockResolvedValue({
+      dataUrl: 'data:image/png;base64,ZmFrZQ==',
+      format: 'png',
+    });
+
+    const collection = createMockCollection();
+    renderWithProviders(
+      <AddItemModal isOpen onClose={mockOnClose} collections={[collection]} onSave={mockOnSave} />,
+    );
+
+    await user.click(screen.getAllByRole('button', { name: /upload photo/i })[0]);
+    expect(await screen.findByText('AI is busy right now')).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText('Title'), 'Manual Artifact');
+    await user.type(screen.getByLabelText('Story'), 'A story I wrote.');
+    await user.click(screen.getByTestId('add-item-more-details-toggle'));
+    await user.type(screen.getByLabelText('Artist'), 'Manual Artist');
+    await user.click(screen.getByRole('button', { name: 'Rate 4 stars' }));
+
+    await user.click(screen.getByRole('button', { name: 'Retry analysis' }));
+
+    await waitFor(() => expect(mockAnalyzeImage).toHaveBeenCalledTimes(2));
+    expect(await screen.findByDisplayValue('Manual Artifact')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('A story I wrote.')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Save to your museum' }));
+
+    await waitFor(() => expect(mockOnSave).toHaveBeenCalledTimes(1));
+    expect(mockOnSave).toHaveBeenCalledWith(
+      collection.id,
+      expect.objectContaining({
+        title: 'Manual Artifact',
+        notes: 'A story I wrote.',
+        rating: 4,
+        data: expect.objectContaining({
+          artist: 'Manual Artist',
+          _aiDescription: 'Fresh AI observation',
+        }),
+      }),
+    );
+
+    warnSpy.mockRestore();
+  });
+
+  it('preserves manual batch row edits when retrying analysis', async () => {
+    const user = userEvent.setup();
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    mockRefreshAiEnabled.mockResolvedValue(true);
+    mockAnalyzeImage
+      .mockResolvedValueOnce({
+        status: 'error',
+        message: 'HTTP 503 from /api/gemini/analyze',
+      })
+      .mockResolvedValueOnce({
+        status: 'success',
+        title: 'AI Retried Batch Artifact',
+        data: { artist: 'AI Batch Artist', album: 'AI Batch Album' },
+        aiDescription: 'Batch AI observation',
+      });
+
+    const collection = createMockCollection({ name: 'Artifacts' });
+    renderWithProviders(
+      <AddItemModal isOpen onClose={mockOnClose} collections={[collection]} onSave={mockOnSave} />,
+    );
+
+    const file = new File(['fake'], 'artifact.png', { type: 'image/png' });
+    const input = screen.getByTestId('add-item-batch-input') as HTMLInputElement;
+    await user.upload(input, file);
+
+    expect(
+      await screen.findByText('Analysis failed. Continue with manual entry.'),
+    ).toBeInTheDocument();
+    await user.type(screen.getByPlaceholderText('Name this item'), 'Manual Batch Artifact');
+    await user.type(screen.getAllByRole('textbox')[1], 'Manual Batch Artist');
+    await user.click(screen.getByRole('button', { name: 'Rate 4 stars' }));
+
+    await user.click(screen.getByRole('button', { name: 'Retry analysis' }));
+
+    await waitFor(() => expect(mockAnalyzeImage).toHaveBeenCalledTimes(2));
+    expect(await screen.findByDisplayValue('Manual Batch Artifact')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Save 1 piece' }));
+
+    await waitFor(() => expect(mockOnSave).toHaveBeenCalledTimes(1));
+    expect(mockOnSave).toHaveBeenCalledWith(
+      collection.id,
+      expect.objectContaining({
+        title: 'Manual Batch Artifact',
+        rating: 4,
+        data: expect.objectContaining({
+          artist: 'Manual Batch Artist',
+          album: 'AI Batch Album',
+          _aiDescription: 'Batch AI observation',
+        }),
+      }),
+    );
+
+    warnSpy.mockRestore();
+  });
+
   it('shows localized fallback copy, not raw AI errors, after batch analysis fails', async () => {
     const user = userEvent.setup();
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});

@@ -83,6 +83,28 @@ const cleanAiData = (data: Record<string, any>): Record<string, any> => {
   return cleaned;
 };
 
+const dataValueIsFilled = (value: unknown) =>
+  value !== undefined && value !== null && (typeof value !== 'string' || value.trim() !== '');
+
+const withAiDescription = (data: Record<string, any>, aiDescription?: string) => {
+  const { _aiDescription, ...visibleData } = data;
+  return aiDescription ? { ...visibleData, _aiDescription: aiDescription } : visibleData;
+};
+
+const mergeBatchAiData = (
+  existingData: Record<string, any> | undefined,
+  aiData: Record<string, any>,
+  aiDescription?: string,
+) => {
+  const merged = { ...aiData };
+  Object.entries(existingData || {}).forEach(([key, value]) => {
+    if (key !== '_aiDescription' && dataValueIsFilled(value)) {
+      merged[key] = value;
+    }
+  });
+  return withAiDescription(merged, aiDescription);
+};
+
 export const AddItemModal: React.FC<AddItemModalProps> = ({
   isOpen,
   onClose,
@@ -703,23 +725,24 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
 
   const runBatchAnalysis = async (
     images: string[],
-    existingIds: string[] = [],
+    existingItems: BatchItem[] = [],
     // #366: ties the run to the analysis session it started in. A reset
     // (close/reopen, switch to single manual) abandons the run silently; a
     // manual-entry request stops the loop and leaves the unreached photos to
     // the caller, which decides what those rows should hold.
     runId = analysisRunId.current,
   ) => {
-    if (!currentCollection) return images.map((image) => createBatchItem(image));
+    const fallbackBatchItem = (image: string, index: number) =>
+      createBatchItem(image, existingItems[index] ? { ...existingItems[index], image } : {});
+
+    if (!currentCollection) return images.map(fallbackBatchItem);
     const collection = currentCollection;
     const aiEnabled = await refreshAiEnabled();
     if (analysisRunId.current !== runId) return [];
     if (!aiEnabled) {
       setError(t('aiUnavailableManual'));
       setAnalysisError(true);
-      return images.map((image, index) =>
-        createBatchItem(image, existingIds[index] ? { id: existingIds[index] } : {}),
-      );
+      return images.map(fallbackBatchItem);
     }
     const analyzed: BatchItem[] = [];
     let hadError = false;
@@ -745,7 +768,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
       if (!base64Data) {
         setError(t('analysisFallback'));
         hadError = true;
-        analyzed.push(createBatchItem(image, existingIds[idx] ? { id: existingIds[idx] } : {}));
+        analyzed.push(fallbackBatchItem(image, idx));
         continue;
       }
       try {
@@ -762,26 +785,30 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
           }
           setError(t('analysisFallback'));
           hadError = true;
-          analyzed.push(createBatchItem(image, existingIds[idx] ? { id: existingIds[idx] } : {}));
+          analyzed.push(fallbackBatchItem(image, idx));
           continue;
         }
+        const existingItem = existingItems[idx];
+        const existingTitle = existingItem?.title?.trim();
         analyzed.push(
           createBatchItem(image, {
-            id: existingIds[idx] || Math.random().toString(36).slice(2, 10),
-            title: result.title || '',
+            id: existingItem?.id || Math.random().toString(36).slice(2, 10),
+            title: existingTitle ? existingItem.title : result.title || '',
             // notes (Story) is now user-authored only — never AI-filled.
-            notes: '',
-            data: {
-              ...cleanAiData(result.data || {}),
-              ...(result.aiDescription ? { _aiDescription: result.aiDescription } : {}),
-            },
+            notes: existingItem?.notes || '',
+            data: mergeBatchAiData(
+              existingItem?.data,
+              cleanAiData(result.data || {}),
+              result.aiDescription,
+            ),
+            rating: existingItem?.rating || 0,
           }),
         );
       } catch (err) {
         console.error(err);
         setError(t('analysisFallback'));
         hadError = true;
-        analyzed.push(createBatchItem(image, existingIds[idx] ? { id: existingIds[idx] } : {}));
+        analyzed.push(fallbackBatchItem(image, idx));
       }
     }
     if (analysisRunId.current === runId) setAnalysisError(hadError);
@@ -906,7 +933,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     });
   };
 
-  const analyze = async (base64: string) => {
+  const analyze = async (base64: string, options: { preserveFormData?: boolean } = {}) => {
     if (!currentCollection) return;
     const runId = ++analysisRunId.current;
     setError(null);
@@ -917,7 +944,9 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     setTitleError(null);
     setDetailsOpen(false);
     setAiFieldSuggestions({});
-    setFormData(createEmptyForm());
+    if (!options.preserveFormData) {
+      setFormData(createEmptyForm());
+    }
     const aiEnabled = await refreshAiEnabled();
     if (analysisRunId.current !== runId) return;
     if (!aiEnabled) {
@@ -975,15 +1004,23 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
       setLowConfidence(isGeneric);
       setAiFieldSuggestions(suggestedData);
 
-      setFormData({
-        title: result.title || '',
-        // notes (Story) is now user-authored only — never AI-filled.
-        notes: '',
-        data: {
-          ...(result.aiDescription ? { _aiDescription: result.aiDescription } : {}),
-        },
-        rating: 0,
-      });
+      if (options.preserveFormData) {
+        setFormData((prev) => ({
+          title: prev.title.trim() ? prev.title : result.title || '',
+          // notes (Story) is now user-authored only — never AI-filled.
+          notes: prev.notes || '',
+          data: withAiDescription(prev.data || {}, result.aiDescription),
+          rating: prev.rating || 0,
+        }));
+      } else {
+        setFormData({
+          title: result.title || '',
+          // notes (Story) is now user-authored only — never AI-filled.
+          notes: '',
+          data: withAiDescription({}, result.aiDescription),
+          rating: 0,
+        });
+      }
       setStep('verify');
     } catch (e) {
       console.error(e);
@@ -1001,7 +1038,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     setError(null);
     setAnalysisError(false);
     setAnalysisNeedsReview(false);
-    analyze(imagePreview);
+    analyze(imagePreview, { preserveFormData: true });
   };
 
   const retryBatchAnalysis = async () => {
@@ -1016,8 +1053,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     setStep('analyzing');
     try {
       const images = batchItems.map((item) => item.image);
-      const ids = batchItems.map((item) => item.id);
-      const updatedItems = await runBatchAnalysis(images, ids, runId);
+      const updatedItems = await runBatchAnalysis(images, batchItems, runId);
       if (analysisRunId.current !== runId) return;
       // Items the retry never reached (manual-entry escape) keep their
       // previous titles and edits instead of being re-blanked.
