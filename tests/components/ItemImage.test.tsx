@@ -2,6 +2,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderWithProviders, screen, fireEvent } from '../utils/test-utils';
 import { setMockTheme } from '../utils/test-utils';
 import { ItemImage } from '@/components/ItemImage';
+import { translations } from '@/i18n';
+
+const LANGUAGE_STORAGE_KEY = 'curio_language';
 
 vi.mock('@/services/db', () => ({
   extractCurioAssetPath: vi.fn(() => null),
@@ -20,10 +23,14 @@ describe('ItemImage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     setMockTheme('gallery');
+    // Reset the persisted language so each case starts from the English default
+    // (the language toggle stores its choice here, mirrored below for ZH cases).
+    window.localStorage.removeItem(LANGUAGE_STORAGE_KEY);
   });
 
   afterEach(() => {
     setMockTheme('gallery');
+    window.localStorage.removeItem(LANGUAGE_STORAGE_KEY);
   });
 
   describe('Direct-source fallback (CUR-120)', () => {
@@ -121,6 +128,45 @@ describe('ItemImage', () => {
       // over object-contain, silently cropping the exhibition hero.
       expect(img.className).toContain('object-contain');
       expect(img.className).not.toMatch(/\bobject-cover\b/);
+    });
+  });
+
+  describe('localized placeholder strings (CUR-26)', () => {
+    // The placeholders are the only text ItemImage renders, so a regression back
+    // to hardcoded English would leave a ZH reader with mixed-locale chrome. The
+    // English-only tests above pass whether or not the strings go through i18n,
+    // so these lock the translation contract by driving the real ZH locale.
+    it('renders the ZH no-photo placeholder when the language is Chinese', () => {
+      window.localStorage.setItem(LANGUAGE_STORAGE_KEY, 'zh');
+
+      renderWithProviders(<ItemImage itemId="empty-zh" photoUrl="" alt="Empty" />);
+
+      expect(screen.getByText(translations.zh.noPhoto)).toBeInTheDocument();
+      expect(screen.queryByText(translations.en.noPhoto)).not.toBeInTheDocument();
+    });
+
+    it('renders the ZH image-error placeholder when a direct-URL photo fails', () => {
+      window.localStorage.setItem(LANGUAGE_STORAGE_KEY, 'zh');
+
+      renderWithProviders(
+        <ItemImage itemId="err-zh" photoUrl="https://example.com/missing.jpg" alt="Broken" />,
+      );
+
+      const img = screen.getByAltText('Broken') as HTMLImageElement;
+      fireEvent.error(img);
+
+      expect(screen.getByText(translations.zh.imageError)).toBeInTheDocument();
+      expect(screen.queryByText(translations.en.imageError)).not.toBeInTheDocument();
+    });
+
+    it('ships a distinct EN and ZH string for every placeholder key', () => {
+      for (const key of ['noPhoto', 'imageError'] as const) {
+        expect(translations.en[key]?.trim()).toBeTruthy();
+        expect(translations.zh[key]?.trim()).toBeTruthy();
+        // A copied English string would satisfy "exists" but still read wrong in
+        // ZH, so require the localized value to actually differ.
+        expect(translations.zh[key]).not.toBe(translations.en[key]);
+      }
     });
   });
 });
