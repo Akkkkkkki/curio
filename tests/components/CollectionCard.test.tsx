@@ -176,31 +176,52 @@ describe('CollectionCard Component', () => {
   });
 
   describe('Sample/Public Collection Indicator', () => {
-    it('displays read-only badge for public collection', () => {
+    // The card has no `isAdmin` prop, so it cannot know whether the viewer can
+    // edit a public collection. It must use the neutral "Sample" label that the
+    // collection detail header (CollectionScreen) also renders, not "Read-only",
+    // which is inaccurate for an admin viewing their own public collection.
+    it('displays the Sample badge for a public collection', () => {
       const collection = createMockCollection({ isPublic: true });
       const onClick = vi.fn();
 
       renderWithProviders(<CollectionCard collection={collection} onClick={onClick} />);
 
-      expect(screen.getByText('Read-only')).toBeInTheDocument();
+      expect(screen.getByText('Sample')).toBeInTheDocument();
+      expect(screen.queryByText('Read-only')).not.toBeInTheDocument();
     });
 
-    it('displays read-only badge for sample collection (id starts with sample)', () => {
+    it('displays the Sample badge for a sample collection (id starts with sample)', () => {
       const collection = createMockCollection({ id: 'sample-vinyl-1', isPublic: false });
       const onClick = vi.fn();
 
       renderWithProviders(<CollectionCard collection={collection} onClick={onClick} />);
 
-      expect(screen.getByText('Read-only')).toBeInTheDocument();
+      expect(screen.getByText('Sample')).toBeInTheDocument();
+      expect(screen.queryByText('Read-only')).not.toBeInTheDocument();
     });
 
-    it('does not display read-only badge for regular collection', () => {
+    it('does not display the Sample badge for a regular collection', () => {
       const collection = createMockCollection({ isPublic: false });
       const onClick = vi.fn();
 
       renderWithProviders(<CollectionCard collection={collection} onClick={onClick} />);
 
-      expect(screen.queryByText('Read-only')).not.toBeInTheDocument();
+      expect(screen.queryByText('Sample')).not.toBeInTheDocument();
+    });
+
+    it('themes the Sample badge for the Vault surface instead of a bright amber-50 chip', () => {
+      setMockTheme('vault');
+      const collection = createMockCollection({ isPublic: true });
+      const onClick = vi.fn();
+
+      renderWithProviders(<CollectionCard collection={collection} onClick={onClick} />);
+
+      const badge = screen.getByText('Sample');
+      const badgeTokens = badge.className.split(/\s+/);
+      expect(badgeTokens).toContain('bg-amber-500/20');
+      expect(badgeTokens).toContain('text-amber-200');
+      // The Gallery-only bright chip must not leak onto the dark Vault surface.
+      expect(badgeTokens).not.toContain('bg-amber-50');
     });
   });
 
