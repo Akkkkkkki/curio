@@ -85,7 +85,7 @@ export const TEMPLATES: CollectionTemplate[] = [
   {
     id: 'perfume',
     name: 'Scent Library',
-    icon: '✨',
+    icon: '🌸',
     description: 'Manage your fragrances, olfactive notes, and perfumery houses.',
     accentColor: 'rose',
     fields: [
