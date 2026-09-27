@@ -65,11 +65,16 @@ const toneSurfaceClasses: Record<StatusTone, Record<AppTheme, string>> = {
   },
 };
 
+// Icon per tone, kept identical to StatusBanner so the same event never shows
+// a triangle in a toast and a circle in a banner. Error uses the circle glyph
+// (matching the HomeScreen sync-error card), warning uses the triangle — the
+// conventional split. Previously these two were swapped here (CUR-81 aligned the
+// palette but not the icons).
 const toneIcons: Record<StatusTone, React.ComponentType<{ size?: number }>> = {
   success: CheckCircle,
-  error: AlertTriangle,
+  error: AlertCircle,
   info: Info,
-  warning: AlertCircle,
+  warning: AlertTriangle,
 };
 
 const actionClasses: Record<AppTheme, string> = {
