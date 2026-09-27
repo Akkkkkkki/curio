@@ -955,7 +955,12 @@ export const ItemDetailScreen: React.FC<ItemDetailScreenProps> = ({
                     field.hint ||
                     '';
                   const showHint = Boolean(hint) && !isReadOnly && isEmpty;
-                  const fieldBaseClass = `${typographyClasses.title} w-full bg-transparent border-none p-0 outline-none focus:text-amber-900 focus:ring-0 transition-colors ${theme === 'vault' ? 'text-white placeholder:text-stone-400' : theme === 'atelier' ? 'text-stone-900 placeholder:text-[#6F6257]' : 'text-stone-900 placeholder:text-stone-500'} ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`;
+                  // These inline placard fields use no border/ring, so a warm
+                  // text tint is the focus affordance. Keep it theme-aware: a deep
+                  // amber-900 reads on the light Gallery/Atelier surfaces, but on
+                  // Vault (near-black) it would turn the text near-invisible, so use
+                  // the light brass amber-300 the rest of the Vault accents already use.
+                  const fieldBaseClass = `${typographyClasses.title} w-full bg-transparent border-none p-0 outline-none focus:ring-0 transition-colors ${theme === 'vault' ? 'text-white placeholder:text-stone-400 focus:text-amber-300' : theme === 'atelier' ? 'text-stone-900 placeholder:text-[#6F6257] focus:text-amber-900' : 'text-stone-900 placeholder:text-stone-500 focus:text-amber-900'} ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`;
                   const handleFieldChange = (
                     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
                   ) => {
