@@ -30,9 +30,9 @@ vi.mock('@/theme', async () => {
   return createThemeMock();
 });
 
-function renderItemDetail() {
+function renderItemDetail(collection = mockCollectionWithItems) {
   const noop = vi.fn();
-  const path = `/collection/${mockCollectionWithItems.id}/item/${mockItem.id}`;
+  const path = `/collection/${collection.id}/item/${mockItem.id}`;
   return render(
     <MemoryRouter initialEntries={[path]}>
       <LanguageProvider>
@@ -41,7 +41,7 @@ function renderItemDetail() {
             path="/collection/:id/item/:itemId"
             element={
               <ItemDetailScreen
-                collections={[mockCollectionWithItems]}
+                collections={[collection]}
                 isAdmin={false}
                 isLoading={false}
                 itemSaveStates={{}}
@@ -58,6 +58,10 @@ function renderItemDetail() {
     </MemoryRouter>,
   );
 }
+
+// A public collection viewed by a non-admin renders read-only
+// (isReadOnly = Boolean(collection.isPublic) && !isAdmin).
+const readOnlyCollection = { ...mockCollectionWithItems, isPublic: true };
 
 describe('ItemDetailScreen accessibility (CURIO-372)', () => {
   beforeEach(() => {
@@ -82,5 +86,27 @@ describe('ItemDetailScreen accessibility (CURIO-372)', () => {
     for (const box of screen.getAllByRole('textbox')) {
       expect(box).toHaveAccessibleName();
     }
+  });
+});
+
+describe('read-only Story field (#492)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('renders the read-only Story with no resize handle', () => {
+    renderItemDetail(readOnlyCollection);
+    const story = screen.getByRole('textbox', { name: 'Story' });
+    expect(story).toBeDisabled();
+    // `resize-none` removes the native resize grabber so the read-only story
+    // reads as finished prose, matching the disabled title/detail fields.
+    expect(story).toHaveClass('resize-none');
+  });
+
+  it('keeps the editable Story resizable for owners', () => {
+    renderItemDetail();
+    const story = screen.getByRole('textbox', { name: 'Story' });
+    expect(story).not.toBeDisabled();
+    expect(story).not.toHaveClass('resize-none');
   });
 });
