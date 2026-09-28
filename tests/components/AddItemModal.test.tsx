@@ -403,6 +403,42 @@ describe('AddItemModal', () => {
     expect(mockOnClose).not.toHaveBeenCalled();
   });
 
+  it('labels a pending single-item save as saving instead of analyzing', async () => {
+    const user = userEvent.setup();
+    let resolveSave: (() => void) | undefined;
+    mockOnSave.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveSave = resolve;
+        }),
+    );
+
+    renderWithProviders(
+      <AddItemModal
+        isOpen
+        onClose={mockOnClose}
+        collections={[createMockCollection()]}
+        onSave={mockOnSave}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Skip and add manually' }));
+    await user.type(screen.getAllByRole('textbox')[0], 'Fragile Artifact');
+    await user.click(screen.getByRole('button', { name: 'Save without story' }));
+
+    const savingButton = await screen.findByRole('button', { name: 'Saving…' });
+    expect(savingButton).toBeDisabled();
+    expect(screen.queryByRole('button', { name: /Analyzing photo/i })).not.toBeInTheDocument();
+
+    fireEvent.click(savingButton);
+    expect(mockOnSave).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveSave?.();
+    });
+    await waitFor(() => expect(mockOnClose).toHaveBeenCalledTimes(1));
+  });
+
   it('makes the single-item verify step photo-first with details collapsed by default (CUR-125)', async () => {
     const user = userEvent.setup();
 
@@ -969,6 +1005,50 @@ describe('AddItemModal', () => {
       collection.id,
       expect.objectContaining({ title: 'Artifact A' }),
     );
+  });
+
+  it('labels a pending batch save as saving instead of analyzing', async () => {
+    const user = userEvent.setup();
+    mockRefreshAiEnabled.mockResolvedValue(true);
+    mockAnalyzeImage.mockResolvedValue({
+      status: 'success',
+      title: 'Artifact A',
+      notes: '',
+      data: {},
+    });
+    let resolveSave: (() => void) | undefined;
+
+    const collection = createMockCollection({ name: 'Artifacts', customFields: [] });
+
+    renderWithProviders(
+      <AddItemModal isOpen onClose={mockOnClose} collections={[collection]} onSave={mockOnSave} />,
+    );
+
+    const input = screen.getByTestId('add-item-batch-input') as HTMLInputElement;
+    await user.upload(input, new File(['a'], 'a.png', { type: 'image/png' }));
+    expect(await screen.findByDisplayValue('Artifact A')).toBeInTheDocument();
+
+    mockOnSave.mockReset();
+    mockOnSave.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveSave = resolve;
+        }),
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Save 1 piece' }));
+
+    const savingButton = await screen.findByRole('button', { name: 'Saving…' });
+    expect(savingButton).toBeDisabled();
+    expect(screen.queryByRole('button', { name: /Analyzing photo/i })).not.toBeInTheDocument();
+
+    fireEvent.click(savingButton);
+    expect(mockOnSave).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveSave?.();
+    });
+    await waitFor(() => expect(mockOnClose).toHaveBeenCalledTimes(1));
   });
 
   it('exposes the upload-step circle as a keyboard-activatable button (CUR-119)', async () => {
