@@ -1,9 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { LanguageProvider } from '@/i18n';
 import { ItemDetailScreen } from '@/components/ItemDetailScreen';
 import { mockCollectionWithItems, mockItem } from '../utils/fixtures/collections';
+import { setMockTheme } from '../utils/test-utils';
 
 vi.mock('@/services/db', () => ({
   clearEnhancedReference: vi.fn(),
@@ -108,5 +109,34 @@ describe('read-only Story field (#492)', () => {
     const story = screen.getByRole('textbox', { name: 'Story' });
     expect(story).not.toBeDisabled();
     expect(story).not.toHaveClass('resize-none');
+  });
+});
+
+describe('ItemDetailScreen metadata field focus tint stays legible per theme', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    setMockTheme('gallery');
+  });
+
+  it('tints the focused metadata field with a light brass on Vault, not near-black amber-900', () => {
+    setMockTheme('vault');
+    renderItemDetail();
+    const field = screen.getByRole('textbox', { name: 'Artist' });
+    // On Vault the base text is white; a dark focus:text-amber-900 would render
+    // typed text near-invisible on the dark surface, so it must use the light
+    // brass focus tint instead.
+    expect(field.className).toContain('focus:text-amber-300');
+    expect(field.className).not.toContain('focus:text-amber-900');
+  });
+
+  it('keeps the deep amber focus tint on the light Gallery surface', () => {
+    setMockTheme('gallery');
+    renderItemDetail();
+    const field = screen.getByRole('textbox', { name: 'Artist' });
+    expect(field.className).toContain('focus:text-amber-900');
+    expect(field.className).not.toContain('focus:text-amber-300');
   });
 });
