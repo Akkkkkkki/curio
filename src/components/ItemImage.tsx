@@ -35,7 +35,9 @@ export const ItemImage: React.FC<ItemImageProps> = ({
   const [dbUrl, setDbUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
+  const [shouldLoad, setShouldLoad] = useState(false);
   const currentUrlRef = useRef<string | null>(null);
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
   const remoteAssetPath = useMemo(() => {
     if (!photoUrl) return null;
     if (photoUrl === 'asset') return null;
@@ -76,9 +78,42 @@ export const ItemImage: React.FC<ItemImageProps> = ({
   const isDirectSource =
     resolvedPhotoUrl && resolvedPhotoUrl !== 'asset' && resolvedPhotoUrl !== '';
 
+  // Only IndexedDB/cloud-backed sources go through the deferred-fetch gate below.
+  const needsDbFetch =
+    !isDirectSource && Boolean(itemId) && (photoUrl === 'asset' || Boolean(remoteAssetPath));
+
   useEffect(() => {
     setError(false);
   }, [photoUrl]);
+
+  // Defer the IndexedDB/cloud fetch until the tile is near the viewport so a full
+  // grid (up to COLLECTION_PAGE_SIZE tiles mounted at once) doesn't fan out every
+  // asset download on mount (#147). Direct-URL sources are untouched — they already
+  // rely on the browser's native `loading="lazy"`. Falls back to loading right away
+  // when IntersectionObserver is unavailable so an image is never stranded.
+  useEffect(() => {
+    if (!needsDbFetch || shouldLoad) return;
+    if (typeof IntersectionObserver === 'undefined') {
+      setShouldLoad(true);
+      return;
+    }
+    const el = wrapperRef.current;
+    if (!el) {
+      setShouldLoad(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setShouldLoad(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '300px' },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [needsDbFetch, shouldLoad]);
 
   useEffect(() => {
     // If it's a direct source, we don't look in IndexedDB
@@ -89,8 +124,9 @@ export const ItemImage: React.FC<ItemImageProps> = ({
       return;
     }
 
-    // If it's the 'asset' keyword, we fetch from IndexedDB
-    if (itemId && (photoUrl === 'asset' || remoteAssetPath)) {
+    // If it's the 'asset' keyword, we fetch from IndexedDB — but only once the
+    // tile has scrolled near the viewport (see the IntersectionObserver above).
+    if (shouldLoad && itemId && (photoUrl === 'asset' || remoteAssetPath)) {
       let isMounted = true;
       const loadFromDB = async () => {
         setLoading(true);
@@ -150,7 +186,16 @@ export const ItemImage: React.FC<ItemImageProps> = ({
       setLoading(false);
       setError(false);
     }
-  }, [itemId, photoUrl, type, isDirectSource, remoteAssetPath, collectionId, enhancedPath]);
+  }, [
+    itemId,
+    photoUrl,
+    type,
+    isDirectSource,
+    remoteAssetPath,
+    collectionId,
+    enhancedPath,
+    shouldLoad,
+  ]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -164,13 +209,27 @@ export const ItemImage: React.FC<ItemImageProps> = ({
 
   const finalSrc = isDirectSource ? resolvedPhotoUrl : dbUrl;
 
-  if (loading && !finalSrc) {
+  // Show the skeleton both while a fetch is in flight and while a DB-backed tile
+  // is still waiting to scroll into view — the wrapper ref is what the observer
+  // watches, so it must be mounted during that pending phase.
+  const isPending = needsDbFetch && !shouldLoad;
+
+  if ((loading || isPending) && !finalSrc) {
     return (
-      <div className={`relative overflow-hidden ${placeholderSurface} ${className}`}>
+      <div
+        ref={wrapperRef}
+        // `min-h` keeps a deferred tile from collapsing to zero height in the
+        // masonry layout (where the image is `h-auto` with no aspect box), which
+        // would otherwise balance the columns as text-only cards and reflow them
+        // as assets load in on scroll. Matches the no-photo/error placeholders.
+        className={`relative overflow-hidden min-h-[100px] ${placeholderSurface} ${className}`}
+      >
         <div className={`absolute inset-0 animate-pulse ${placeholderSurface}`} />
-        <div className="absolute inset-0 flex items-center justify-center">
-          <Loader2 className="animate-spin text-stone-300" size={24} />
-        </div>
+        {loading && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Loader2 className="animate-spin text-stone-300" size={24} />
+          </div>
+        )}
       </div>
     );
   }
