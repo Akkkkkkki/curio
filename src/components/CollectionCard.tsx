@@ -32,7 +32,7 @@ export const CollectionCard: React.FC<CollectionCardProps> = React.memo(function
   const mutedText = mutedTextClasses[theme];
   const accentBorder: Record<string, string> = {
     orange: 'border-orange-100/80',
-    indigo: 'border-indigo-100/70',
+    amber: 'border-amber-100/70',
     rose: 'border-rose-100/70',
     emerald: 'border-emerald-100/70',
     stone: 'border-stone-200',

@@ -53,7 +53,7 @@ export const TEMPLATES: CollectionTemplate[] = [
     name: 'Vinyl Archives',
     icon: '🎵',
     description: 'Organize your analog sound library by artist, pressings, and quality.',
-    accentColor: 'indigo',
+    accentColor: 'amber',
     fields: [
       { id: 'artist', label: 'Artist', type: 'text', displayMode: 'primary' },
       { id: 'label', label: 'Label', type: 'text', displayMode: 'detail' },
