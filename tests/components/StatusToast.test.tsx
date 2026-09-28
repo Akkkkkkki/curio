@@ -165,6 +165,26 @@ describe('StatusToast', () => {
     });
   });
 
+  describe('touch targets (#498)', () => {
+    it('gives the action and dismiss buttons a >=44px tall hit area', () => {
+      // Retry / Close are the trust-critical taps on the app's most frequent
+      // feedback surface; on mobile they were only ~16px tall (below WCAG
+      // 2.5.8). Guard the comfortable 44px target so a future edit can't quietly
+      // shrink them back.
+      renderWithProviders(
+        <StatusToast
+          message="Sync failed"
+          tone="error"
+          actionLabel="Retry"
+          onAction={vi.fn()}
+          onDismiss={vi.fn()}
+        />,
+      );
+      expect(screen.getByRole('button', { name: /retry/i })).toHaveClass('min-h-[44px]');
+      expect(screen.getByRole('button', { name: /close/i })).toHaveClass('min-h-[44px]');
+    });
+  });
+
   describe('getStatusToastDurationMs (CUR-109)', () => {
     it('keeps trust-bearing tones on screen at least 3 seconds', () => {
       // Critical Saved / Synced / Will sync / Sync error feedback used to share

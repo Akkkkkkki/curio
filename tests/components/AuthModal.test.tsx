@@ -311,6 +311,15 @@ describe('AuthModal', () => {
       renderWithProviders(<AuthModal {...defaultProps} />);
       expect(screen.getByPlaceholderText(/••••••••/)).toHaveAttribute('type', 'password');
     });
+
+    it('show/hide password toggle meets the 44px touch target (#498)', () => {
+      // The eye toggle was ~28px (passed AA but under the app's 44px comfort
+      // standard). Guard the 44x44 hit area used elsewhere in the app.
+      renderWithProviders(<AuthModal {...defaultProps} />);
+      const toggle = screen.getByRole('button', { name: /show password/i });
+      expect(toggle).toHaveClass('h-11');
+      expect(toggle).toHaveClass('w-11');
+    });
   });
 
   describe('Loading State', () => {
