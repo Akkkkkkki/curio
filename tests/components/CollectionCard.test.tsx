@@ -15,6 +15,7 @@ import {
 } from '../utils/test-utils';
 import { CollectionCard } from '@/components/CollectionCard';
 import { UserCollection } from '@/types';
+import { TEMPLATES } from '@/constants';
 
 // Use centralized configurable theme mock
 vi.mock('@/theme', async () => {
@@ -342,14 +343,33 @@ describe('CollectionCard Component', () => {
       expect(card.className).toMatch(/border-orange/);
     });
 
-    it('applies indigo accent for vinyl template', () => {
+    it('applies a warm amber accent (never blue) for vinyl template', () => {
       const collection = createMockCollection({ templateId: 'vinyl' });
       const onClick = vi.fn();
 
       renderWithProviders(<CollectionCard collection={collection} onClick={onClick} />);
 
       const card = screen.getByTestId('collection-card');
-      expect(card.className).toMatch(/border-indigo/);
+      expect(card.className).toMatch(/border-amber/);
+    });
+
+    // DESIGN.md hard rule: "No blue anywhere". Guard the collection cards
+    // (including the pre-login sample gallery) against a blue-family accent
+    // border creeping back into any template.
+    it('never applies a blue-family accent border for any template', () => {
+      const onClick = vi.fn();
+
+      TEMPLATES.forEach((template) => {
+        const { unmount } = renderWithProviders(
+          <CollectionCard
+            collection={createMockCollection({ templateId: template.id })}
+            onClick={onClick}
+          />,
+        );
+        const card = screen.getByTestId('collection-card');
+        expect(card.className).not.toMatch(/border-(blue|indigo|violet|sky|cyan)/);
+        unmount();
+      });
     });
 
     it('falls back to stone accent for unknown template', () => {
