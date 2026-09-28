@@ -41,6 +41,15 @@ export const CollectionCard: React.FC<CollectionCardProps> = React.memo(function
     theme === 'vault'
       ? 'bg-white/10 text-white border border-white/10'
       : 'bg-white/80 text-stone-700 border border-white/60';
+  // Sample badge, themed like the read-only lock tile (CUR-94): Gallery keeps the
+  // original amber-50 chip; Vault/Atelier reuse the warm-metallic amber tones so a
+  // bright light-amber box doesn't punch through the dark/cream surface.
+  const sampleBadgeClass =
+    theme === 'vault'
+      ? 'bg-amber-500/20 text-amber-200 border-amber-500/30'
+      : theme === 'atelier'
+        ? 'bg-amber-100/70 text-amber-800 border-amber-200/70'
+        : 'bg-amber-50 text-amber-700 border-amber-100';
   const tapRing = theme === 'vault' ? 'ring-1 ring-white/10' : 'ring-1 ring-black/5';
   const tapShadow =
     theme === 'vault'
@@ -105,9 +114,9 @@ export const CollectionCard: React.FC<CollectionCardProps> = React.memo(function
           </div>
           {isSample && (
             <span
-              className={`${typographyClasses.labelSmall} px-2 py-0.5 rounded border shrink-0 bg-amber-50 text-amber-700 border-amber-100`}
+              className={`${typographyClasses.labelSmall} px-2 py-0.5 rounded border shrink-0 ${sampleBadgeClass}`}
             >
-              {t('readOnlyMode')}
+              {t('sampleBadge')}
             </span>
           )}
           {matchBadge && (
