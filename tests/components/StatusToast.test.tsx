@@ -18,6 +18,7 @@ import {
   getStatusToastDurationMs,
   STATUS_TOAST_DURATIONS,
 } from '@/components/StatusToast';
+import { StatusBanner, BannerTone } from '@/components/StatusBanner';
 import { AppTheme } from '@/types';
 
 vi.mock('@/theme', async () => {
@@ -194,6 +195,34 @@ describe('StatusToast', () => {
     it('respects an explicit durationMs override', () => {
       expect(getStatusToastDurationMs('success', { durationMs: 9999 })).toBe(9999);
       expect(getStatusToastDurationMs('info', { durationMs: 100 })).toBe(100);
+    });
+  });
+
+  describe('tone icons stay one system with StatusBanner', () => {
+    const iconClassOf = (el: HTMLElement) => el.querySelector('svg')?.getAttribute('class') ?? '';
+    const tones: StatusTone[] = ['success', 'error', 'info', 'warning'];
+
+    it.each(tones)('%s tone uses the same glyph as the matching StatusBanner', (tone) => {
+      const { unmount } = renderWithProviders(<StatusToast message="m" tone={tone} />);
+      const toastIcon = iconClassOf(getToast());
+      unmount();
+
+      renderWithProviders(<StatusBanner title="t" message="m" tone={tone as BannerTone} />);
+      const bannerIcon = iconClassOf(screen.getByRole('status'));
+
+      expect(toastIcon).toBe(bannerIcon);
+    });
+
+    it('renders the conventional error/warning glyphs (error = circle, warning = triangle)', () => {
+      // Regression guard: the toast previously flipped these two, so a sync
+      // error showed a triangle in the toast but a circle in the banner /
+      // HomeScreen card for the very same event.
+      const { unmount } = renderWithProviders(<StatusToast message="Sync failed" tone="error" />);
+      expect(iconClassOf(getToast())).toContain('lucide-circle-alert');
+      unmount();
+
+      renderWithProviders(<StatusToast message="Will sync later" tone="warning" />);
+      expect(iconClassOf(getToast())).toContain('lucide-triangle-alert');
     });
   });
 });
