@@ -245,7 +245,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
         >
           <button
             onClick={handleClear}
-            className="text-stone-500 hover:text-stone-800 text-sm font-medium flex items-center gap-1 px-2"
+            className="text-stone-500 hover:text-stone-800 text-sm font-medium flex items-center gap-1 px-2 min-h-[44px]"
           >
             <RotateCcw size={14} /> {t('clear')}
           </button>

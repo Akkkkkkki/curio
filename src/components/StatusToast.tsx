@@ -151,10 +151,16 @@ export const StatusToast: React.FC<StatusToastProps> = ({
       <span className="text-sm font-semibold leading-tight" data-testid="status-toast-message">
         {message}
       </span>
+      {/*
+        Action / dismiss are the trust-critical taps (retry a failed sync,
+        clear the toast), so they need a comfortable 44px target on mobile
+        (WCAG 2.5.8). min-h-[44px] grows the hit area; the -my-3 cancels the
+        row's py-3 so the visible toast height stays put (CUR / #498).
+      */}
       {actionLabel && onAction && (
         <button
           onClick={onAction}
-          className={`ml-2 text-xs font-bold uppercase tracking-[0.08em] ${actionClasses[theme]}`}
+          className={`ml-2 inline-flex items-center min-h-[44px] px-2 -my-3 text-xs font-bold uppercase tracking-[0.08em] ${actionClasses[theme]}`}
         >
           {actionLabel}
         </button>
@@ -162,7 +168,7 @@ export const StatusToast: React.FC<StatusToastProps> = ({
       {onDismiss && (
         <button
           onClick={onDismiss}
-          className={`ml-2 text-xs font-bold uppercase tracking-[0.08em] ${dismissClasses[theme]}`}
+          className={`ml-2 inline-flex items-center min-h-[44px] px-2 -my-3 text-xs font-bold uppercase tracking-[0.08em] ${dismissClasses[theme]}`}
         >
           {t('close')}
         </button>

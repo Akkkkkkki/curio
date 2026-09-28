@@ -624,7 +624,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       disabled={loading}
                       aria-label={showPassword ? t('hidePassword') : t('showPassword')}
                       aria-pressed={showPassword}
-                      className={`absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-full transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${theme === 'vault' ? 'text-stone-400 hover:text-white hover:bg-white/5' : 'text-stone-400 hover:text-stone-700 hover:bg-stone-100'}`}
+                      className={`absolute right-1 top-1/2 -translate-y-1/2 flex items-center justify-center h-11 w-11 rounded-full transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${theme === 'vault' ? 'text-stone-400 hover:text-white hover:bg-white/5' : 'text-stone-400 hover:text-stone-700 hover:bg-stone-100'}`}
                     >
                       {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
@@ -667,7 +667,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                         disabled={loading}
                         aria-label={showNewPassword ? t('hidePassword') : t('showPassword')}
                         aria-pressed={showNewPassword}
-                        className={`absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-full transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${theme === 'vault' ? 'text-stone-400 hover:text-white hover:bg-white/5' : 'text-stone-400 hover:text-stone-700 hover:bg-stone-100'}`}
+                        className={`absolute right-1 top-1/2 -translate-y-1/2 flex items-center justify-center h-11 w-11 rounded-full transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${theme === 'vault' ? 'text-stone-400 hover:text-white hover:bg-white/5' : 'text-stone-400 hover:text-stone-700 hover:bg-stone-100'}`}
                       >
                         {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                       </button>
@@ -704,7 +704,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                         disabled={loading}
                         aria-label={showConfirmPassword ? t('hidePassword') : t('showPassword')}
                         aria-pressed={showConfirmPassword}
-                        className={`absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-full transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${theme === 'vault' ? 'text-stone-400 hover:text-white hover:bg-white/5' : 'text-stone-400 hover:text-stone-700 hover:bg-stone-100'}`}
+                        className={`absolute right-1 top-1/2 -translate-y-1/2 flex items-center justify-center h-11 w-11 rounded-full transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${theme === 'vault' ? 'text-stone-400 hover:text-white hover:bg-white/5' : 'text-stone-400 hover:text-stone-700 hover:bg-stone-100'}`}
                       >
                         {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                       </button>

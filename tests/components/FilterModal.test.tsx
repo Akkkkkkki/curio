@@ -187,5 +187,11 @@ describe('FilterModal', () => {
       expect(ratingChevron).toHaveClass('pointer-events-none');
       expect(genreChevron).toHaveClass('pointer-events-none');
     });
+
+    it('gives the Clear button a >=44px tall hit area (#498)', () => {
+      // The footer "Clear" text-button was ~20px tall, below WCAG 2.5.8.
+      renderWithProviders(<FilterModal {...defaultProps} />);
+      expect(screen.getByRole('button', { name: /clear/i })).toHaveClass('min-h-[44px]');
+    });
   });
 });
