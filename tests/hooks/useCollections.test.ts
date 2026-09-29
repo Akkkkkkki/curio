@@ -114,11 +114,14 @@ describe('hooks/useCollections.ts (Phase 3.3)', () => {
     expect(showStatus).toHaveBeenCalledWith('statusSyncPaused', 'error');
   });
 
-  it('offline: when cloud fetch fails and there is no cache, surfaces a blocking sync-paused error', async () => {
+  it('offline: when cloud fetch fails and there is no cache, surfaces the blocking card without a duplicate sync-paused toast (#499)', async () => {
     /**
      * Verifies the genuine dead-end case:
      * - No local cache AND cloud unreachable for a signed-in user
-     * - A blocking error is shown so the user can retry
+     * - A blocking error (full-screen "Sync paused" card) is shown so the user
+     *   can retry
+     * - The global sync-paused toast is suppressed while that card is visible,
+     *   so the same error is not surfaced twice at once (#499)
      */
     dbMocks.getLocalCollections.mockResolvedValue([]);
     dbMocks.fetchCloudCollections.mockRejectedValue(new Error('Network down'));
@@ -138,7 +141,37 @@ describe('hooks/useCollections.ts (Phase 3.3)', () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.collections).toEqual([]);
     expect(result.current.loadError).toContain('Unable to sync with Supabase');
-    expect(showStatus).toHaveBeenCalledWith('statusSyncPaused', 'error');
+    expect(showStatus).not.toHaveBeenCalledWith('statusSyncPaused', 'error');
+  });
+
+  it('init failure: when merge throws and there is no cache, shows the blocking card without a duplicate sync-paused toast (#499)', async () => {
+    /**
+     * The post-fetch merge/seed path can throw for a signed-in user. With no
+     * local cache to fall back on, the hook renders the full-screen "Sync
+     * paused" card — and must not also fire the redundant global toast (#499).
+     */
+    dbMocks.getLocalCollections.mockResolvedValue([]);
+    dbMocks.fetchCloudCollections.mockResolvedValue([minimalCollection({ id: 'cloud' })]);
+    dbMocks.mergeCollections.mockImplementation(() => {
+      throw new Error('merge blew up');
+    });
+
+    const { useCollections } = await import('@/hooks/useCollections');
+    const { result } = renderHook(() =>
+      useCollections({
+        user: { id: 'u1' } as any,
+        isAdmin: false,
+        isSupabaseReady: true,
+        fallbackSampleCollections,
+        t,
+        showStatus,
+      }),
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.collections).toEqual([]);
+    expect(result.current.loadError).toContain('Failed to load collections');
+    expect(showStatus).not.toHaveBeenCalledWith('statusSyncPaused', 'error');
   });
 
   it('happy path: with a user, merges local+cloud, persists merged snapshot, and reports synced', async () => {

@@ -214,6 +214,7 @@ export const useCollections = ({
       setHasLocalImport(false);
       // Prefer showing whatever we already have cached over a blocking error
       // screen. Only hard-block when there is genuinely nothing to display.
+      let showSyncPausedToast = true;
       if (localCollections.length > 0) {
         setCollections(localCollections);
         setLoadError(null);
@@ -223,8 +224,12 @@ export const useCollections = ({
       } else {
         setCollections([]);
         setLoadError('Unable to sync with Supabase. Check your connection and Supabase settings.');
+        // The full-screen "Sync paused" card (HomeScreen loadError branch)
+        // already carries the message and a retry; skip the redundant global
+        // toast so only one sync-paused surface shows at a time (#499).
+        showSyncPausedToast = false;
       }
-      showStatus(t('statusSyncPaused'), 'error');
+      if (showSyncPausedToast) showStatus(t('statusSyncPaused'), 'error');
       setIsLoading(false);
       return;
     }
@@ -314,11 +319,12 @@ export const useCollections = ({
       if (localCollections.length > 0) {
         setCollections(localCollections);
         setLoadError(null);
+        showStatus(t('statusSyncPaused'), 'error');
       } else {
         setCollections([]);
         setLoadError('Failed to load collections. Please try again.');
+        // Full-screen "Sync paused" card renders; skip the redundant toast (#499).
       }
-      showStatus(t('statusSyncPaused'), 'error');
       setIsLoading(false);
     }
   }, [fallbackSampleCollections, isAdmin, isSupabaseReady, showStatus, t, user, withTimeout]);
