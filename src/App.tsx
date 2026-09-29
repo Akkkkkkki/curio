@@ -724,6 +724,15 @@ export const AppContent: React.FC = () => {
       setRefreshedForKey(refreshIdentityKey);
       if (showSyncedStatus) {
         showStatusRef.current(tRef.current('statusSynced'), 'success');
+      } else {
+        // A successful load supersedes any earlier "Sync paused" surface, even
+        // when there's nothing new to confirm (e.g. an anonymous samples load
+        // after signing out). Without this, a toast raised during the identity
+        // transition would linger for its full timeout though loading recovered
+        // (#499).
+        setStatus((current) =>
+          current && current.kind === SYNC_PAUSED_STATUS_KIND ? null : current,
+        );
       }
 
       void (async () => {

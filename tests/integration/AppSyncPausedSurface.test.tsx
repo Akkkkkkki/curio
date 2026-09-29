@@ -353,4 +353,44 @@ describe('App sync-paused surface (#499)', () => {
       expect(screen.queryByTestId('status-toast-message')).toBeNull();
     });
   });
+
+  it('a successful anonymous load after sign-out clears the transition toast', async () => {
+    // Signing out while the Home card is shown flips the gate on and briefly
+    // resurfaces a toast from the previous identity's loadError. If the anon
+    // reload then succeeds (samples, no "Synced" status), that stale toast must
+    // still be cleared rather than linger for its timeout (#499 review).
+    let authCallback: ((event: string, session: unknown) => void) | null = null;
+    vi.mocked(supabaseService.supabase!.auth.getSession).mockResolvedValue({
+      data: { session: { user: { id: 'user1', email: 'collector@example.com' } } },
+    } as never);
+    vi.mocked(supabaseService.supabase!.auth.onAuthStateChange).mockImplementation((cb: any) => {
+      authCallback = cb;
+      return { data: { subscription: { unsubscribe: vi.fn() } } } as never;
+    });
+    vi.mocked(db.getLocalCollections).mockResolvedValue([]);
+    // Signed-in load hard-fails (card, no toast); the later anonymous load
+    // succeeds with no public collections (samples fallback, no "Synced").
+    vi.mocked(db.fetchCloudCollections)
+      .mockRejectedValueOnce(new Error('Network down'))
+      .mockResolvedValue([]);
+
+    await renderApp('/');
+
+    // Signed-in dead-end: the full-screen card shows, no toast.
+    await screen.findByRole('heading', { name: 'Sync paused' });
+    expect(screen.queryByTestId('status-toast-message')).toBeNull();
+
+    // Sign out: the reload recovers anonymously with samples.
+    await waitFor(() => expect(authCallback).toBeTruthy());
+    act(() => {
+      authCallback?.('SIGNED_OUT', null);
+    });
+
+    // Any transition toast raised while the gate took over is cleared once the
+    // anonymous load settles.
+    await waitFor(() => {
+      expect(screen.queryByTestId('status-toast-message')).toBeNull();
+    });
+    expect(screen.queryByRole('heading', { name: 'Sync paused' })).toBeNull();
+  });
 });
