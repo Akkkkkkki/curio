@@ -743,7 +743,7 @@ export const ItemDetailScreen: React.FC<ItemDetailScreenProps> = ({
                   disabled={history.length === 0}
                   aria-label={t('undo')}
                   title={`${t('undo')} (${UNDO_SHORTCUT_LABEL})`}
-                  className={`p-3 sm:p-4 rounded-full transition-colors ${mutedTextClasses[theme]} ${
+                  className={`inline-flex items-center justify-center p-3 sm:p-4 rounded-full transition-colors [@media(any-pointer:coarse)]:min-h-[44px] [@media(any-pointer:coarse)]:min-w-[44px] ${mutedTextClasses[theme]} ${
                     history.length === 0
                       ? 'opacity-50 cursor-not-allowed'
                       : theme === 'vault'
@@ -758,7 +758,7 @@ export const ItemDetailScreen: React.FC<ItemDetailScreenProps> = ({
                   disabled={future.length === 0}
                   aria-label={t('redo')}
                   title={`${t('redo')} (${REDO_SHORTCUT_LABEL})`}
-                  className={`p-3 sm:p-4 rounded-full transition-colors ${mutedTextClasses[theme]} ${
+                  className={`inline-flex items-center justify-center p-3 sm:p-4 rounded-full transition-colors [@media(any-pointer:coarse)]:min-h-[44px] [@media(any-pointer:coarse)]:min-w-[44px] ${mutedTextClasses[theme]} ${
                     future.length === 0
                       ? 'opacity-50 cursor-not-allowed'
                       : theme === 'vault'
@@ -834,13 +834,27 @@ export const ItemDetailScreen: React.FC<ItemDetailScreenProps> = ({
                       >
                         <p className="text-sm leading-relaxed mb-3">{t('storyMigrationBanner')}</p>
                         <div className="flex flex-wrap gap-2">
-                          <Button size="sm" onClick={startFresh}>
+                          <Button
+                            size="sm"
+                            onClick={startFresh}
+                            className="[@media(any-pointer:coarse)]:min-h-[44px]"
+                          >
                             {t('storyMigrationStart')}
                           </Button>
-                          <Button size="sm" variant="outline" onClick={editLegacy}>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={editLegacy}
+                            className="[@media(any-pointer:coarse)]:min-h-[44px]"
+                          >
                             {t('storyMigrationEdit')}
                           </Button>
-                          <Button size="sm" variant="ghost" onClick={dismissMigration}>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={dismissMigration}
+                            className="[@media(any-pointer:coarse)]:min-h-[44px]"
+                          >
                             {t('storyMigrationKeep')}
                           </Button>
                         </div>
@@ -955,7 +969,12 @@ export const ItemDetailScreen: React.FC<ItemDetailScreenProps> = ({
                     field.hint ||
                     '';
                   const showHint = Boolean(hint) && !isReadOnly && isEmpty;
-                  const fieldBaseClass = `${typographyClasses.title} w-full bg-transparent border-none p-0 outline-none focus:text-amber-900 focus:ring-0 transition-colors ${theme === 'vault' ? 'text-white placeholder:text-stone-400' : theme === 'atelier' ? 'text-stone-900 placeholder:text-[#6F6257]' : 'text-stone-900 placeholder:text-stone-500'} ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`;
+                  // These inline placard fields use no border/ring, so a warm
+                  // text tint is the focus affordance. Keep it theme-aware: a deep
+                  // amber-900 reads on the light Gallery/Atelier surfaces, but on
+                  // Vault (near-black) it would turn the text near-invisible, so use
+                  // the light brass amber-300 the rest of the Vault accents already use.
+                  const fieldBaseClass = `${typographyClasses.title} w-full bg-transparent border-none p-0 outline-none focus:ring-0 transition-colors ${theme === 'vault' ? 'text-white placeholder:text-stone-400 focus:text-amber-300' : theme === 'atelier' ? 'text-stone-900 placeholder:text-[#6F6257] focus:text-amber-900' : 'text-stone-900 placeholder:text-stone-500 focus:text-amber-900'} ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`;
                   const handleFieldChange = (
                     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
                   ) => {
