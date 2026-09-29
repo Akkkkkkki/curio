@@ -122,11 +122,6 @@ export const AppContent: React.FC = () => {
   } | null>(null);
   const tRef = useRef(t);
   const showStatusRef = useRef<(message: string, tone?: StatusTone) => void>(() => undefined);
-  // The full-screen "Sync paused" load-error card only renders inside
-  // HomeScreen (the "/" route). Tracked in a ref so the load path can tell
-  // whether that card is visible without adding a route dependency that would
-  // re-trigger refreshCollections on every navigation (#499).
-  const isHomeRouteRef = useRef(true);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
   const [syncError, setSyncError] = useState<string | null>(null);
   const [itemSaveStates, setItemSaveStates] = useState<Record<string, ItemSaveState>>({});
@@ -293,9 +288,22 @@ export const AppContent: React.FC = () => {
     showStatusRef.current = showStatus;
   }, [t, showStatus]);
 
+  // A collections load failure has exactly one visible surface: the full-screen
+  // "Sync paused" card, which only renders inside HomeScreen (the "/" route), or
+  // a "Sync paused" toast on any other route where that card never mounts.
+  // Deriving it here (rather than at failure time) reconciles the surface across
+  // navigation too: leaving Home re-surfaces the failure as a toast, and
+  // returning to Home drops the now-duplicate toast so the two never stack (#499).
   useEffect(() => {
-    isHomeRouteRef.current = location.pathname === '/';
-  }, [location.pathname]);
+    if (!loadError) return;
+    if (location.pathname === '/') {
+      setStatus((current) =>
+        current && current.message === tRef.current('statusSyncPaused') ? null : current,
+      );
+    } else {
+      showStatusRef.current(tRef.current('statusSyncPaused'), 'error');
+    }
+  }, [loadError, location.pathname]);
 
   useEffect(() => {
     return () => {
@@ -636,25 +644,21 @@ export const AppContent: React.FC = () => {
       // Prefer showing whatever we already have (cached or sample) over a
       // blocking error screen. Only hard-block when there is genuinely nothing
       // to display so the user can retry.
-      let showSyncPausedToast = true;
       if (localCollections.length > 0) {
         setCollections(localCollections);
         setLoadError(null);
+        // No full-screen card in this path, so the toast is the sole signal.
+        showStatusRef.current(tRef.current('statusSyncPaused'), 'error');
       } else if (!user) {
         setCollections(fallbackSampleCollections);
         setLoadError(null);
+        showStatusRef.current(tRef.current('statusSyncPaused'), 'error');
       } else {
         setCollections([]);
         setLoadError(tRef.current('loadErrorCloudFetch'));
-        // The full-screen "Sync paused" card (HomeScreen loadError branch)
-        // already carries the message and a retry, so skip the redundant global
-        // toast — but only when that card is actually on screen. On non-Home
-        // routes the card never mounts, so the toast stays as the sole error
-        // surface (#499).
-        showSyncPausedToast = !isHomeRouteRef.current;
-      }
-      if (showSyncPausedToast) {
-        showStatusRef.current(tRef.current('statusSyncPaused'), 'error');
+        // The load-error effect reconciles the visible surface: the full-screen
+        // card on Home, or a "Sync paused" toast on any other route. Don't fire
+        // the toast here, or it would double the card on Home (#499).
       }
       setIsLoading(false);
       setRefreshedForKey(refreshIdentityKey);
@@ -749,15 +753,13 @@ export const AppContent: React.FC = () => {
       if (localCollections.length > 0) {
         setCollections(localCollections);
         setLoadError(null);
+        // No full-screen card in this path, so the toast is the sole signal.
         showStatusRef.current(tRef.current('statusSyncPaused'), 'error');
       } else {
         setCollections([]);
         setLoadError(tRef.current('loadErrorGeneric'));
-        // The full-screen card renders only on the Home route; elsewhere the
-        // toast is the sole error surface, so keep it there (#499).
-        if (!isHomeRouteRef.current) {
-          showStatusRef.current(tRef.current('statusSyncPaused'), 'error');
-        }
+        // The load-error effect reconciles the visible surface (card on Home,
+        // toast elsewhere); firing the toast here would double the card (#499).
       }
       setIsLoading(false);
       setRefreshedForKey(refreshIdentityKey);

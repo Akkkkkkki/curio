@@ -1,7 +1,8 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import userEvent from '@testing-library/user-event';
+import { MemoryRouter, useNavigate } from 'react-router-dom';
 import type { UserCollection } from '@/types';
 import { AppContent } from '@/App';
 import { LanguageProvider } from '@/i18n';
@@ -107,12 +108,27 @@ vi.mock('@/theme', async () => {
   };
 });
 
+function TestNavigator() {
+  const navigate = useNavigate();
+  return (
+    <div>
+      <button type="button" data-testid="nav-home" onClick={() => navigate('/')}>
+        home
+      </button>
+      <button type="button" data-testid="nav-explore" onClick={() => navigate('/explore')}>
+        explore
+      </button>
+    </div>
+  );
+}
+
 async function renderApp(initialPath = '/') {
   const { ThemeProvider } = await import('@/theme');
   render(
     <MemoryRouter initialEntries={[initialPath]}>
       <ThemeProvider>
         <LanguageProvider>
+          <TestNavigator />
           <AppContent />
         </LanguageProvider>
       </ThemeProvider>
@@ -196,5 +212,49 @@ describe('App sync-paused surface (#499)', () => {
     });
     // The Home error card is not mounted on this route.
     expect(screen.queryByRole('button', { name: 'Retry now' })).toBeNull();
+  });
+
+  it('reconciles the surface across navigation: leaving Home after a failure re-surfaces the toast', async () => {
+    // Regression for the snapshot-at-failure-time gap: a no-cache failure on
+    // "/" shows the card (no toast), but navigating away unmounts the card, so
+    // the failure must re-surface as a toast rather than vanish (#499 review).
+    const user = userEvent.setup();
+    vi.mocked(db.getLocalCollections).mockResolvedValue([]);
+    vi.mocked(db.fetchCloudCollections).mockRejectedValue(new Error('Network down'));
+
+    await renderApp('/');
+
+    // Home: card shown, no toast.
+    await screen.findByRole('heading', { name: 'Sync paused' });
+    expect(screen.queryByTestId('status-toast-message')).toBeNull();
+
+    // Navigate away from Home: the card unmounts, so the toast takes over.
+    await user.click(screen.getByTestId('nav-explore'));
+    await waitFor(() => {
+      expect(screen.getByTestId('status-toast-message')).toHaveTextContent('Sync paused');
+    });
+    expect(screen.queryByRole('heading', { name: 'Sync paused' })).toBeNull();
+  });
+
+  it('reconciles the surface across navigation: returning to Home drops the duplicate toast', async () => {
+    // The converse gap: a failure on a non-Home route shows the toast; arriving
+    // on Home (where the card renders) must clear the toast so they never stack.
+    const user = userEvent.setup();
+    vi.mocked(db.getLocalCollections).mockResolvedValue([]);
+    vi.mocked(db.fetchCloudCollections).mockRejectedValue(new Error('Network down'));
+
+    await renderApp('/explore');
+
+    // Non-Home: toast shown, no card.
+    await waitFor(() => {
+      expect(screen.getByTestId('status-toast-message')).toHaveTextContent('Sync paused');
+    });
+
+    // Navigate Home: the card takes over and the duplicate toast is cleared.
+    await user.click(screen.getByTestId('nav-home'));
+    await screen.findByRole('heading', { name: 'Sync paused' });
+    await waitFor(() => {
+      expect(screen.queryByTestId('status-toast-message')).toBeNull();
+    });
   });
 });
