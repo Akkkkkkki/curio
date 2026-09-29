@@ -107,10 +107,10 @@ vi.mock('@/theme', async () => {
   };
 });
 
-async function renderApp() {
+async function renderApp(initialPath = '/') {
   const { ThemeProvider } = await import('@/theme');
   render(
-    <MemoryRouter initialEntries={['/']}>
+    <MemoryRouter initialEntries={[initialPath]}>
       <ThemeProvider>
         <LanguageProvider>
           <AppContent />
@@ -179,6 +179,22 @@ describe('App sync-paused surface (#499)', () => {
       expect(screen.getByTestId('status-toast-message')).toHaveTextContent('Sync paused');
     });
     // No full-screen error card in this path.
+    expect(screen.queryByRole('button', { name: 'Retry now' })).toBeNull();
+  });
+
+  it('signed-in on a non-Home route with no cache + cloud fetch failure still shows the toast (no card mounts)', async () => {
+    // The full-screen loadError card only renders inside HomeScreen ("/"). On
+    // routes like /explore it never mounts, so the toast must remain the error
+    // surface rather than being suppressed (#499 review follow-up).
+    vi.mocked(db.getLocalCollections).mockResolvedValue([]);
+    vi.mocked(db.fetchCloudCollections).mockRejectedValue(new Error('Network down'));
+
+    await renderApp('/explore');
+
+    await waitFor(() => {
+      expect(screen.getByTestId('status-toast-message')).toHaveTextContent('Sync paused');
+    });
+    // The Home error card is not mounted on this route.
     expect(screen.queryByRole('button', { name: 'Retry now' })).toBeNull();
   });
 });
