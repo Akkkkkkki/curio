@@ -288,23 +288,6 @@ export const AppContent: React.FC = () => {
     showStatusRef.current = showStatus;
   }, [t, showStatus]);
 
-  // A collections load failure has exactly one visible surface: the full-screen
-  // "Sync paused" card, which only renders inside HomeScreen (the "/" route), or
-  // a "Sync paused" toast on any other route where that card never mounts.
-  // Deriving it here (rather than at failure time) reconciles the surface across
-  // navigation too: leaving Home re-surfaces the failure as a toast, and
-  // returning to Home drops the now-duplicate toast so the two never stack (#499).
-  useEffect(() => {
-    if (!loadError) return;
-    if (location.pathname === '/') {
-      setStatus((current) =>
-        current && current.message === tRef.current('statusSyncPaused') ? null : current,
-      );
-    } else {
-      showStatusRef.current(tRef.current('statusSyncPaused'), 'error');
-    }
-  }, [loadError, location.pathname]);
-
   useEffect(() => {
     return () => {
       if (statusTimeoutRef.current) clearTimeout(statusTimeoutRef.current);
@@ -1311,6 +1294,25 @@ export const AppContent: React.FC = () => {
   const isCollectionRoute = location.pathname.startsWith('/collection/');
   const shouldShowAccessGate =
     showAccessGate && !isExploreRoute && !isLegalRoute && !isCollectionRoute;
+
+  // A collections load failure has exactly one visible surface: the full-screen
+  // "Sync paused" card, or a "Sync paused" toast. The card renders only inside
+  // HomeScreen — the "/" route AND only when the access gate is not standing in
+  // for it — so that exact condition decides which surface is shown. Deriving it
+  // reactively (rather than at failure time) reconciles the surface across
+  // navigation and gate changes: whenever the card isn't on screen the toast
+  // takes over, and whenever it is, the now-duplicate toast is cleared (#499).
+  const isHomeErrorCardVisible = location.pathname === '/' && !shouldShowAccessGate;
+  useEffect(() => {
+    if (!loadError) return;
+    if (isHomeErrorCardVisible) {
+      setStatus((current) =>
+        current && current.message === tRef.current('statusSyncPaused') ? null : current,
+      );
+    } else {
+      showStatusRef.current(tRef.current('statusSyncPaused'), 'error');
+    }
+  }, [loadError, isHomeErrorCardVisible]);
   // A signed-out visitor who arrives on a collection deep link is already
   // exploring, so latch public browsing — the same contract as the Explore
   // CTAs (handleExploreSamples / handleExploreFromNav). Navigating Home from

@@ -257,4 +257,26 @@ describe('App sync-paused surface (#499)', () => {
       expect(screen.queryByTestId('status-toast-message')).toBeNull();
     });
   });
+
+  it('signed-out on the access-gated Home still shows the toast (the card is replaced by the gate)', async () => {
+    // On "/" the welcome gate can stand in for HomeScreen (signed out, no public
+    // browse), so the error card never mounts. A load failure must therefore
+    // surface as a toast rather than be cleared on pathname alone (#499 review).
+    vi.mocked(supabaseService.supabase!.auth.getSession).mockResolvedValue({
+      data: { session: null },
+    } as never);
+    vi.mocked(db.getLocalCollections).mockResolvedValue([]);
+    vi.mocked(db.fetchCloudCollections).mockResolvedValue([]);
+    // Force the post-fetch initialization block to throw with no cache to fall
+    // back on, which sets loadError for the signed-out user.
+    vi.mocked(db.getPendingDeletes).mockRejectedValue(new Error('IndexedDB read failed'));
+
+    await renderApp('/');
+
+    await waitFor(() => {
+      expect(screen.getByTestId('status-toast-message')).toHaveTextContent('Sync paused');
+    });
+    // The full-screen error card is not mounted — the gate stands in for it.
+    expect(screen.queryByRole('button', { name: 'Retry now' })).toBeNull();
+  });
 });
