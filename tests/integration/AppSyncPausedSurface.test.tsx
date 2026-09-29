@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, useNavigate } from 'react-router-dom';
 import type { UserCollection } from '@/types';
@@ -154,6 +154,13 @@ describe('App sync-paused surface (#499)', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    // Reset persisted language so a test that switches to zh can't leak into
+    // the next (LanguageProvider seeds its initial language from localStorage).
+    try {
+      localStorage.clear();
+    } catch {
+      // ignore — not all environments expose localStorage
+    }
     vi.mocked(supabaseService.isSupabaseConfigured).mockReturnValue(true);
     vi.mocked(supabaseService.supabase!.auth.getSession).mockResolvedValue({
       data: { session: { user: { id: 'user1', email: 'collector@example.com' } } },
@@ -305,6 +312,43 @@ describe('App sync-paused surface (#499)', () => {
     // Arrive Home: the localized card takes over and the stale-text toast clears.
     await user.click(screen.getByTestId('nav-home'));
     await screen.findByRole('heading', { name: '同步暂停' });
+    await waitFor(() => {
+      expect(screen.queryByTestId('status-toast-message')).toBeNull();
+    });
+  });
+
+  it('a fallback toast is cleared when a later hard-failure brings up the Home card', async () => {
+    // A signed-out fallback shows a "Sync paused" toast (no card). If the user
+    // then signs in while the cloud is still down (no cache), the Home card
+    // appears — and the earlier toast must clear rather than stack. This only
+    // works if the fallback toast is tagged with the same kind (#499 review).
+    let authCallback: ((event: string, session: unknown) => void) | null = null;
+    vi.mocked(supabaseService.supabase!.auth.getSession).mockResolvedValue({
+      data: { session: null },
+    } as never);
+    vi.mocked(supabaseService.supabase!.auth.onAuthStateChange).mockImplementation((cb: any) => {
+      authCallback = cb;
+      return { data: { subscription: { unsubscribe: vi.fn() } } } as never;
+    });
+    vi.mocked(db.getLocalCollections).mockResolvedValue([]);
+    vi.mocked(db.fetchCloudCollections).mockRejectedValue(new Error('Network down'));
+
+    await renderApp('/');
+
+    // Signed-out fallback: the toast is the surface (welcome gate, no card).
+    await waitFor(() => {
+      expect(screen.getByTestId('status-toast-message')).toHaveTextContent('Sync paused');
+    });
+    expect(screen.queryByRole('button', { name: 'Retry now' })).toBeNull();
+
+    // Sign in while the cloud is still unavailable and there is no cache.
+    await waitFor(() => expect(authCallback).toBeTruthy());
+    act(() => {
+      authCallback?.('SIGNED_IN', { user: { id: 'user1', email: 'collector@example.com' } });
+    });
+
+    // The Home card now renders and the earlier fallback toast is cleared.
+    await screen.findByRole('heading', { name: 'Sync paused' });
     await waitFor(() => {
       expect(screen.queryByTestId('status-toast-message')).toBeNull();
     });

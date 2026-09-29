@@ -645,11 +645,16 @@ export const AppContent: React.FC = () => {
         setCollections(localCollections);
         setLoadError(null);
         // No full-screen card in this path, so the toast is the sole signal.
-        showStatusRef.current(tRef.current('statusSyncPaused'), 'error');
+        // Tag it so a later hard-failure card can reliably clear it (#499).
+        showStatusRef.current(tRef.current('statusSyncPaused'), 'error', {
+          kind: SYNC_PAUSED_STATUS_KIND,
+        });
       } else if (!user) {
         setCollections(fallbackSampleCollections);
         setLoadError(null);
-        showStatusRef.current(tRef.current('statusSyncPaused'), 'error');
+        showStatusRef.current(tRef.current('statusSyncPaused'), 'error', {
+          kind: SYNC_PAUSED_STATUS_KIND,
+        });
       } else {
         setCollections([]);
         setLoadError(tRef.current('loadErrorCloudFetch'));
@@ -751,7 +756,10 @@ export const AppContent: React.FC = () => {
         setCollections(localCollections);
         setLoadError(null);
         // No full-screen card in this path, so the toast is the sole signal.
-        showStatusRef.current(tRef.current('statusSyncPaused'), 'error');
+        // Tag it so a later hard-failure card can reliably clear it (#499).
+        showStatusRef.current(tRef.current('statusSyncPaused'), 'error', {
+          kind: SYNC_PAUSED_STATUS_KIND,
+        });
       } else {
         setCollections([]);
         setLoadError(tRef.current('loadErrorGeneric'));
