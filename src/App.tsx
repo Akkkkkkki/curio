@@ -83,6 +83,10 @@ import { CollectionScreen } from './components/CollectionScreen';
 import { ItemDetailScreen, type ItemSaveState } from './components/ItemDetailScreen';
 import { useAndroidBackButton } from './hooks/useAndroidBackButton';
 
+// Stable identifier for the "Sync paused" load-error toast, used to clear it
+// without comparing its localized message (which changes with the language).
+const SYNC_PAUSED_STATUS_KIND = 'sync-paused';
+
 export const AppContent: React.FC = () => {
   const { t, language } = useTranslation();
   const { theme, setTheme } = useTheme();
@@ -119,9 +123,18 @@ export const AppContent: React.FC = () => {
     tone: StatusTone;
     actionLabel?: string;
     onAction?: () => void;
+    // A stable, language-independent identifier for the current toast, so it can
+    // be matched/cleared without comparing its localized message text (#499).
+    kind?: string;
   } | null>(null);
   const tRef = useRef(t);
-  const showStatusRef = useRef<(message: string, tone?: StatusTone) => void>(() => undefined);
+  const showStatusRef = useRef<
+    (
+      message: string,
+      tone?: StatusTone,
+      options?: { actionLabel?: string; onAction?: () => void; durationMs?: number; kind?: string },
+    ) => void
+  >(() => undefined);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
   const [syncError, setSyncError] = useState<string | null>(null);
   const [itemSaveStates, setItemSaveStates] = useState<Record<string, ItemSaveState>>({});
@@ -172,7 +185,7 @@ export const AppContent: React.FC = () => {
     (
       message: string,
       tone: StatusTone = 'info',
-      options?: { actionLabel?: string; onAction?: () => void; durationMs?: number },
+      options?: { actionLabel?: string; onAction?: () => void; durationMs?: number; kind?: string },
     ) => {
       if (statusTimeoutRef.current) {
         clearTimeout(statusTimeoutRef.current);
@@ -182,6 +195,7 @@ export const AppContent: React.FC = () => {
         tone,
         actionLabel: options?.actionLabel,
         onAction: options?.onAction,
+        kind: options?.kind,
       });
       const durationMs = getStatusToastDurationMs(tone, options);
       statusTimeoutRef.current = window.setTimeout(() => setStatus(null), durationMs);
@@ -1306,11 +1320,16 @@ export const AppContent: React.FC = () => {
   useEffect(() => {
     if (!loadError) return;
     if (isHomeErrorCardVisible) {
+      // Match by the stable kind, not the localized text: a language switch
+      // between showing the toast and arriving Home would otherwise leave the
+      // stale-language toast stacked on the card (#499).
       setStatus((current) =>
-        current && current.message === tRef.current('statusSyncPaused') ? null : current,
+        current && current.kind === SYNC_PAUSED_STATUS_KIND ? null : current,
       );
     } else {
-      showStatusRef.current(tRef.current('statusSyncPaused'), 'error');
+      showStatusRef.current(tRef.current('statusSyncPaused'), 'error', {
+        kind: SYNC_PAUSED_STATUS_KIND,
+      });
     }
   }, [loadError, isHomeErrorCardVisible]);
   // A signed-out visitor who arrives on a collection deep link is already

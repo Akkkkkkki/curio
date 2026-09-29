@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, useNavigate } from 'react-router-dom';
 import type { UserCollection } from '@/types';
 import { AppContent } from '@/App';
-import { LanguageProvider } from '@/i18n';
+import { LanguageProvider, useTranslation } from '@/i18n';
 import * as db from '@/services/db';
 import * as supabaseService from '@/services/supabase';
 
@@ -110,6 +110,7 @@ vi.mock('@/theme', async () => {
 
 function TestNavigator() {
   const navigate = useNavigate();
+  const { setLanguage } = useTranslation();
   return (
     <div>
       <button type="button" data-testid="nav-home" onClick={() => navigate('/')}>
@@ -117,6 +118,9 @@ function TestNavigator() {
       </button>
       <button type="button" data-testid="nav-explore" onClick={() => navigate('/explore')}>
         explore
+      </button>
+      <button type="button" data-testid="lang-zh" onClick={() => setLanguage('zh')}>
+        zh
       </button>
     </div>
   );
@@ -278,5 +282,31 @@ describe('App sync-paused surface (#499)', () => {
     });
     // The full-screen error card is not mounted — the gate stands in for it.
     expect(screen.queryByRole('button', { name: 'Retry now' })).toBeNull();
+  });
+
+  it('clears the toast on arriving Home even after a language switch (matches by kind, not text)', async () => {
+    // The toast keeps the message it was shown with; switching language makes
+    // that text stale. Clearing by the stable kind (not the localized string)
+    // ensures the toast still drops when the card takes over on Home (#499).
+    const user = userEvent.setup();
+    vi.mocked(db.getLocalCollections).mockResolvedValue([]);
+    vi.mocked(db.fetchCloudCollections).mockRejectedValue(new Error('Network down'));
+
+    await renderApp('/explore');
+
+    // Non-Home failure: English toast shown.
+    await waitFor(() => {
+      expect(screen.getByTestId('status-toast-message')).toHaveTextContent('Sync paused');
+    });
+
+    // Switch language (the visible toast text is now stale relative to `t`).
+    await user.click(screen.getByTestId('lang-zh'));
+
+    // Arrive Home: the localized card takes over and the stale-text toast clears.
+    await user.click(screen.getByTestId('nav-home'));
+    await screen.findByRole('heading', { name: '同步暂停' });
+    await waitFor(() => {
+      expect(screen.queryByTestId('status-toast-message')).toBeNull();
+    });
   });
 });
