@@ -627,6 +627,7 @@ export const AppContent: React.FC = () => {
       // Prefer showing whatever we already have (cached or sample) over a
       // blocking error screen. Only hard-block when there is genuinely nothing
       // to display so the user can retry.
+      let showSyncPausedToast = true;
       if (localCollections.length > 0) {
         setCollections(localCollections);
         setLoadError(null);
@@ -636,8 +637,14 @@ export const AppContent: React.FC = () => {
       } else {
         setCollections([]);
         setLoadError(tRef.current('loadErrorCloudFetch'));
+        // The full-screen "Sync paused" card (HomeScreen loadError branch)
+        // already carries the message and a retry; skip the redundant global
+        // toast so only one sync-paused surface shows at a time (#499).
+        showSyncPausedToast = false;
       }
-      showStatusRef.current(tRef.current('statusSyncPaused'), 'error');
+      if (showSyncPausedToast) {
+        showStatusRef.current(tRef.current('statusSyncPaused'), 'error');
+      }
       setIsLoading(false);
       setRefreshedForKey(refreshIdentityKey);
       return;
@@ -731,11 +738,12 @@ export const AppContent: React.FC = () => {
       if (localCollections.length > 0) {
         setCollections(localCollections);
         setLoadError(null);
+        showStatusRef.current(tRef.current('statusSyncPaused'), 'error');
       } else {
         setCollections([]);
         setLoadError(tRef.current('loadErrorGeneric'));
+        // Full-screen "Sync paused" card renders; skip the redundant toast (#499).
       }
-      showStatusRef.current(tRef.current('statusSyncPaused'), 'error');
       setIsLoading(false);
       setRefreshedForKey(refreshIdentityKey);
     }
