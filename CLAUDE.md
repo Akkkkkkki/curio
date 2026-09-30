@@ -143,12 +143,12 @@ GEMINI_IMAGE_MODEL=gemini-2.5-flash-image
 
 ### Key Files
 
-**Root-level:**
+**App core (`src/`):**
 
-- `App.tsx` - Main app container with routing, state management, and all screens
-- `types.ts` - Core TypeScript types (CollectionItem, UserCollection, FieldDefinition, etc.)
-- `constants.ts` - Collection templates with predefined field schemas
-- `i18n.ts` - English/Chinese translations and LanguageProvider
+- `src/App.tsx` - Main app container with routing, state management, and all screens
+- `src/types.ts` - Core TypeScript types (CollectionItem, UserCollection, FieldDefinition, etc.)
+- `src/constants.ts` - Collection templates with predefined field schemas
+- `src/i18n.ts` - English/Chinese translations and LanguageProvider
 
 **Services:**
 
@@ -161,8 +161,8 @@ GEMINI_IMAGE_MODEL=gemini-2.5-flash-image
 
 **Hooks:**
 
-- `hooks/useCollections.ts` - Collection fetch, merge, and seed population
-- `hooks/useAuthState.ts` - Supabase auth state management
+- `src/hooks/useCollections.ts` - Collection fetch, merge, and seed population
+- `src/hooks/useAuthState.ts` - Supabase auth state management
 
 **Server:**
 
@@ -172,12 +172,12 @@ GEMINI_IMAGE_MODEL=gemini-2.5-flash-image
 
 **Components:**
 
-- `components/Layout.tsx` - Header with sync status, auth menu, theme/language toggles
-- `components/AddItemModal.tsx` - Multi-step item creation with AI analysis
-- `components/ExhibitionView.tsx` - Fullscreen slideshow mode
-- `components/ui/Button.tsx` - Reusable button component
-- `components/ui/Divider.tsx` - Theme-aware horizontal/vertical dividers
-- `components/ui/Rating.tsx` - Theme-aware star rating component
+- `src/components/Layout.tsx` - Header with sync status, auth menu, theme/language toggles
+- `src/components/AddItemModal.tsx` - Multi-step item creation with AI analysis
+- `src/components/ExhibitionView.tsx` - Fullscreen slideshow mode
+- `src/components/ui/Button.tsx` - Reusable button component
+- `src/components/ui/Divider.tsx` - Theme-aware horizontal/vertical dividers
+- `src/components/ui/Rating.tsx` - Theme-aware star rating component
 
 ### Routing Structure
 
@@ -194,13 +194,13 @@ GEMINI_IMAGE_MODEL=gemini-2.5-flash-image
 
 ### State Management
 
-**ThemeContext** (App.tsx:23):
+**ThemeContext** (`src/theme.tsx`):
 
 - Three themes: 'gallery' (light), 'vault' (dark), 'atelier' (cream)
 - Persisted to IndexedDB settings store
 - Applied via Tailwind conditionals throughout components
 
-**LanguageProvider** (i18n.ts):
+**LanguageProvider** (`src/i18n.ts`):
 
 - Supports 'en' and 'zh' with `useTranslation()` hook
 - 100+ translation keys for UI text
@@ -301,7 +301,7 @@ Six predefined templates in `constants.ts`:
 
 ### Styling System
 
-**Theme Architecture** (`theme.tsx`):
+**Theme Architecture** (`src/theme.tsx`):
 
 Curio uses a comprehensive theme system with three themes:
 
