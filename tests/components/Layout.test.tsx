@@ -1275,6 +1275,9 @@ describe('Layout Component', () => {
 
       const header = screen.getByRole('banner');
       const homeLink = within(header).getByRole('link', { name: /home/i });
+      expect(homeLink).toHaveAttribute('title', 'Home');
+      expect(homeLink.querySelector('button')).toBeNull();
+      expect(homeLink.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
       expect(homeLink.className).toContain('[@media(any-pointer:coarse)]:min-h-[44px]');
       expect(homeLink.className).toContain('[@media(any-pointer:coarse)]:min-w-[44px]');
       expect(homeLink.className).toContain('justify-center');
