@@ -83,6 +83,10 @@ import { CollectionScreen } from './components/CollectionScreen';
 import { ItemDetailScreen, type ItemSaveState } from './components/ItemDetailScreen';
 import { useAndroidBackButton } from './hooks/useAndroidBackButton';
 
+// Stable identifier for the "Sync paused" load-error toast, used to clear it
+// without comparing its localized message (which changes with the language).
+const SYNC_PAUSED_STATUS_KIND = 'sync-paused';
+
 export const AppContent: React.FC = () => {
   const { t, language } = useTranslation();
   const { theme, setTheme } = useTheme();
@@ -119,9 +123,18 @@ export const AppContent: React.FC = () => {
     tone: StatusTone;
     actionLabel?: string;
     onAction?: () => void;
+    // A stable, language-independent identifier for the current toast, so it can
+    // be matched/cleared without comparing its localized message text (#499).
+    kind?: string;
   } | null>(null);
   const tRef = useRef(t);
-  const showStatusRef = useRef<(message: string, tone?: StatusTone) => void>(() => undefined);
+  const showStatusRef = useRef<
+    (
+      message: string,
+      tone?: StatusTone,
+      options?: { actionLabel?: string; onAction?: () => void; durationMs?: number; kind?: string },
+    ) => void
+  >(() => undefined);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
   const [syncError, setSyncError] = useState<string | null>(null);
   const [itemSaveStates, setItemSaveStates] = useState<Record<string, ItemSaveState>>({});
@@ -172,7 +185,7 @@ export const AppContent: React.FC = () => {
     (
       message: string,
       tone: StatusTone = 'info',
-      options?: { actionLabel?: string; onAction?: () => void; durationMs?: number },
+      options?: { actionLabel?: string; onAction?: () => void; durationMs?: number; kind?: string },
     ) => {
       if (statusTimeoutRef.current) {
         clearTimeout(statusTimeoutRef.current);
@@ -182,6 +195,7 @@ export const AppContent: React.FC = () => {
         tone,
         actionLabel: options?.actionLabel,
         onAction: options?.onAction,
+        kind: options?.kind,
       });
       const durationMs = getStatusToastDurationMs(tone, options);
       statusTimeoutRef.current = window.setTimeout(() => setStatus(null), durationMs);
@@ -630,14 +644,24 @@ export const AppContent: React.FC = () => {
       if (localCollections.length > 0) {
         setCollections(localCollections);
         setLoadError(null);
+        // No full-screen card in this path, so the toast is the sole signal.
+        // Tag it so a later hard-failure card can reliably clear it (#499).
+        showStatusRef.current(tRef.current('statusSyncPaused'), 'error', {
+          kind: SYNC_PAUSED_STATUS_KIND,
+        });
       } else if (!user) {
         setCollections(fallbackSampleCollections);
         setLoadError(null);
+        showStatusRef.current(tRef.current('statusSyncPaused'), 'error', {
+          kind: SYNC_PAUSED_STATUS_KIND,
+        });
       } else {
         setCollections([]);
         setLoadError(tRef.current('loadErrorCloudFetch'));
+        // The load-error effect reconciles the visible surface: the full-screen
+        // card on Home, or a "Sync paused" toast on any other route. Don't fire
+        // the toast here, or it would double the card on Home (#499).
       }
-      showStatusRef.current(tRef.current('statusSyncPaused'), 'error');
       setIsLoading(false);
       setRefreshedForKey(refreshIdentityKey);
       return;
@@ -700,6 +724,15 @@ export const AppContent: React.FC = () => {
       setRefreshedForKey(refreshIdentityKey);
       if (showSyncedStatus) {
         showStatusRef.current(tRef.current('statusSynced'), 'success');
+      } else {
+        // A successful load supersedes any earlier "Sync paused" surface, even
+        // when there's nothing new to confirm (e.g. an anonymous samples load
+        // after signing out). Without this, a toast raised during the identity
+        // transition would linger for its full timeout though loading recovered
+        // (#499).
+        setStatus((current) =>
+          current && current.kind === SYNC_PAUSED_STATUS_KIND ? null : current,
+        );
       }
 
       void (async () => {
@@ -731,11 +764,17 @@ export const AppContent: React.FC = () => {
       if (localCollections.length > 0) {
         setCollections(localCollections);
         setLoadError(null);
+        // No full-screen card in this path, so the toast is the sole signal.
+        // Tag it so a later hard-failure card can reliably clear it (#499).
+        showStatusRef.current(tRef.current('statusSyncPaused'), 'error', {
+          kind: SYNC_PAUSED_STATUS_KIND,
+        });
       } else {
         setCollections([]);
         setLoadError(tRef.current('loadErrorGeneric'));
+        // The load-error effect reconciles the visible surface (card on Home,
+        // toast elsewhere); firing the toast here would double the card (#499).
       }
-      showStatusRef.current(tRef.current('statusSyncPaused'), 'error');
       setIsLoading(false);
       setRefreshedForKey(refreshIdentityKey);
     }
@@ -1286,6 +1325,30 @@ export const AppContent: React.FC = () => {
   const isCollectionRoute = location.pathname.startsWith('/collection/');
   const shouldShowAccessGate =
     showAccessGate && !isExploreRoute && !isLegalRoute && !isCollectionRoute;
+
+  // A collections load failure has exactly one visible surface: the full-screen
+  // "Sync paused" card, or a "Sync paused" toast. The card renders only inside
+  // HomeScreen — the "/" route AND only when the access gate is not standing in
+  // for it — so that exact condition decides which surface is shown. Deriving it
+  // reactively (rather than at failure time) reconciles the surface across
+  // navigation and gate changes: whenever the card isn't on screen the toast
+  // takes over, and whenever it is, the now-duplicate toast is cleared (#499).
+  const isHomeErrorCardVisible = location.pathname === '/' && !shouldShowAccessGate;
+  useEffect(() => {
+    if (!loadError) return;
+    if (isHomeErrorCardVisible) {
+      // Match by the stable kind, not the localized text: a language switch
+      // between showing the toast and arriving Home would otherwise leave the
+      // stale-language toast stacked on the card (#499).
+      setStatus((current) =>
+        current && current.kind === SYNC_PAUSED_STATUS_KIND ? null : current,
+      );
+    } else {
+      showStatusRef.current(tRef.current('statusSyncPaused'), 'error', {
+        kind: SYNC_PAUSED_STATUS_KIND,
+      });
+    }
+  }, [loadError, isHomeErrorCardVisible]);
   // A signed-out visitor who arrives on a collection deep link is already
   // exploring, so latch public browsing — the same contract as the Explore
   // CTAs (handleExploreSamples / handleExploreFromNav). Navigating Home from
