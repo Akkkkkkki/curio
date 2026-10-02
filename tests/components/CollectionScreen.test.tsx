@@ -123,6 +123,15 @@ describe('CollectionScreen action bar (CUR-160)', () => {
     expect(screen.getByPlaceholderText(/search this collection/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /delete collection/i })).toBeInTheDocument();
   });
+
+  it('gives the icon-only Back link an accessible name and hides the decorative icon', () => {
+    renderScreen(makeCollection({ items: [makeItem('a')] }));
+
+    const backLink = screen.getByRole('link', { name: /^back$/i });
+    expect(backLink).toHaveAttribute('href', '/');
+    expect(backLink).toHaveAttribute('title', 'Back');
+    expect(backLink.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+  });
 });
 
 describe('CollectionScreen large collections (CUR-19)', () => {
