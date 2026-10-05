@@ -234,3 +234,34 @@ describe('CollectionScreen read-only banner theming (CUR-94)', () => {
     expect(tile.classList.contains('text-amber-700')).toBe(true);
   });
 });
+
+describe('CollectionScreen SAMPLE badge theming', () => {
+  afterEach(() => setMockTheme('gallery'));
+
+  const sampleBadge = () => screen.getByTestId('sample-badge');
+
+  it('gives the Vault SAMPLE chip a readable light-on-dark treatment, not hardcoded Gallery colors', () => {
+    setMockTheme('vault');
+    renderScreen(makeCollection({ isPublic: true, items: [makeItem('a')] }), {
+      isAuthenticated: false,
+    });
+
+    const badge = sampleBadge();
+    // The chip used to hardcode bg-white/40 + text-stone-500, which vanishes on
+    // the near-black Vault surface. In Vault it must use readable light text.
+    expect(badge.classList.contains('text-stone-500')).toBe(false);
+    expect(badge.classList.contains('text-white/80')).toBe(true);
+    expect(badge.classList.contains('bg-white/10')).toBe(true);
+  });
+
+  it('leaves the Gallery SAMPLE chip styling unchanged', () => {
+    setMockTheme('gallery');
+    renderScreen(makeCollection({ isPublic: true, items: [makeItem('a')] }), {
+      isAuthenticated: false,
+    });
+
+    const badge = sampleBadge();
+    expect(badge.classList.contains('bg-white/40')).toBe(true);
+    expect(badge.classList.contains('text-stone-500')).toBe(true);
+  });
+});
