@@ -156,7 +156,10 @@ describe('App IndexedDB recovery notices (#504)', () => {
     });
   });
 
-  it('surfaces a confirmation toast when the cache is restored', async () => {
+  it('surfaces a cache-rebuilt toast (not a premature cloud-restore claim) when recovery completes', async () => {
+    // recovery_complete fires once the local store has been reset and reopened —
+    // the cloud reload has not run yet — so the copy must promise a pending
+    // reload, never assert data was already restored from the cloud (#511 review).
     await renderApp();
     const handleRecovery = await getRecoveryHandler();
 
@@ -164,7 +167,7 @@ describe('App IndexedDB recovery notices (#504)', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('status-toast-message')).toHaveTextContent(
-        'Local cache restored from cloud.',
+        'Local cache rebuilt. Reloading from the cloud.',
       );
     });
   });
