@@ -107,6 +107,7 @@ vi.mock('@/services/db', async () => {
     setSeedVersion: vi.fn(),
     initDB: vi.fn(),
     setAssetSyncStatusCallback: vi.fn(),
+    setRecoveryCallback: vi.fn(),
     setSyncStatusCallback: vi.fn(),
     syncPendingChanges: vi.fn(),
     syncPendingAssetUploads: vi.fn(),

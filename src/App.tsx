@@ -46,11 +46,13 @@ import {
   setSeedVersion,
   initDB,
   setAssetSyncStatusCallback,
+  setRecoveryCallback,
   setSyncStatusCallback,
   syncPendingChanges,
   syncPendingAssetUploads,
   syncPendingDeletes,
   type PendingAssetUploadSummary,
+  type RecoveryEvent,
   type SyncStatus,
 } from './services/db';
 import { processImage } from './services/imageProcessor';
@@ -340,6 +342,28 @@ export const AppContent: React.FC = () => {
     setSyncStatusCallback(handleSyncStatus);
     return () => setSyncStatusCallback(null);
   }, [setItemSaveState]);
+
+  // IndexedDB recovery notices are the user's only signal that their local
+  // cache was corrupted (and possibly reset) or restored from the cloud. db.ts
+  // emits these events; this listener surfaces them as toasts so a silent reset
+  // never masquerades as healthy ("never hide failure"). Before the collection
+  // loader was consolidated onto App.tsx this wiring lived only in the unused
+  // useCollections hook, so in production the notices never fired (#504).
+  useEffect(() => {
+    const handleRecovery = (event: RecoveryEvent) => {
+      const t = tRef.current;
+      const showStatus = showStatusRef.current;
+      if (event.type === 'corruption_detected') {
+        showStatus(t('localCacheCorrupted'), 'warning');
+      } else if (event.type === 'recovery_complete') {
+        showStatus(t('localCacheRecovered'), 'info');
+      } else if (event.type === 'recovery_failed') {
+        showStatus(t('localCacheRecoveryFailed'), 'error');
+      }
+    };
+    setRecoveryCallback(handleRecovery);
+    return () => setRecoveryCallback(null);
+  }, []);
 
   useEffect(() => {
     if (conflicts.length === 0) {
