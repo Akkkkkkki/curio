@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderWithProviders, screen, fireEvent, act, waitFor } from '../utils/test-utils';
 import { setMockTheme } from '../utils/test-utils';
 import { ItemImage } from '@/components/ItemImage';
-import { getAsset } from '@/services/db';
+import { extractCurioAssetPath, getAsset } from '@/services/db';
 import { translations } from '@/i18n';
 
 const LANGUAGE_STORAGE_KEY = 'curio_language';
@@ -23,6 +23,7 @@ vi.mock('@/theme', async () => {
 describe('ItemImage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(extractCurioAssetPath).mockReturnValue(null);
     setMockTheme('gallery');
     // Reset the persisted language so each case starts from the English default
     // (the language toggle stores its choice here, mirrored below for ZH cases).
@@ -180,6 +181,62 @@ describe('ItemImage', () => {
       } finally {
         global.IntersectionObserver = originalIO;
       }
+    });
+
+    it('uses an extracted Supabase Storage path for signed object URLs', async () => {
+      let trigger: ((isIntersecting: boolean) => void) | null = null;
+      const observe = vi.fn();
+      const originalIO = global.IntersectionObserver;
+      global.IntersectionObserver = class {
+        constructor(cb: (entries: { isIntersecting: boolean }[]) => void) {
+          trigger = (isIntersecting) => cb([{ isIntersecting }]);
+        }
+        observe = observe;
+        disconnect() {}
+        unobserve() {}
+        takeRecords() {
+          return [];
+        }
+      } as unknown as typeof IntersectionObserver;
+
+      try {
+        const storagePath = 'user-1/collections/vinyl/item-1/display.jpg';
+        vi.mocked(extractCurioAssetPath).mockReturnValue(storagePath);
+        vi.mocked(getAsset).mockResolvedValue(new Blob(['x'], { type: 'image/jpeg' }));
+
+        renderWithProviders(
+          <ItemImage
+            itemId="item-1"
+            collectionId="vinyl"
+            photoUrl="https://abc123.supabase.co/storage/v1/object/sign/curio-assets/user-1%2Fcollections%2Fvinyl%2Fitem-1%2Fdisplay.jpg?token=secret"
+            alt="Signed asset"
+          />,
+        );
+
+        expect(observe).toHaveBeenCalled();
+        expect(getAsset).not.toHaveBeenCalled();
+
+        await act(async () => {
+          trigger?.(true);
+        });
+
+        await waitFor(() =>
+          expect(getAsset).toHaveBeenCalledWith('item-1', 'display', storagePath, 'vinyl'),
+        );
+      } finally {
+        global.IntersectionObserver = originalIO;
+      }
+    });
+
+    it('renders public sample asset URLs directly without hitting IndexedDB', () => {
+      renderWithProviders(
+        <ItemImage itemId="sample-1" photoUrl="/assets/sample-vinyl.jpg" alt="Sample sleeve" />,
+      );
+
+      const img = screen.getByAltText('Sample sleeve') as HTMLImageElement;
+      expect(img.src).toContain('/assets/sample-vinyl.jpg');
+      expect(extractCurioAssetPath).toHaveBeenCalledWith('/assets/sample-vinyl.jpg');
+      expect(getAsset).not.toHaveBeenCalled();
     });
   });
 
