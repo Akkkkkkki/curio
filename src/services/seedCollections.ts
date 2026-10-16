@@ -1,13 +1,18 @@
 import { CollectionItem, UserCollection } from '../types';
 import { TEMPLATES } from '../constants';
 
-export const CURRENT_SEED_VERSION = 5;
+export const CURRENT_SEED_VERSION = 6;
 const sampleAsset = (file: string) => `${import.meta.env.BASE_URL}assets/${file}`;
 // Each Vinyl Vault item has its own still-life so the pre-login gallery reads as
 // a curated collection rather than five copies of one placeholder (GitHub #373).
 // Re-render the artwork with `node scripts/generate-sample-vinyl.mjs`.
 export const SEED_IMAGE_PATH = sampleAsset('sample-vinyl.jpg');
-const SEED_TIMESTAMP = new Date().toISOString();
+// Fixed curation date for the public sample gallery. A dynamic `new Date()`
+// here stamped every seeded sample with the moment the visitor's browser
+// loaded the app, so the offline/local-seed fallback showed curated classics
+// (e.g. a 1959 pressing) as "Added today" — a different date for every visitor
+// and every day. A constant keeps the "Added on" line stable and deterministic.
+const SEED_TIMESTAMP = '2026-05-13T12:00:00.000Z';
 
 export const INITIAL_COLLECTIONS: UserCollection[] = [
   {
