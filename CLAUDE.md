@@ -161,8 +161,9 @@ GEMINI_IMAGE_MODEL=gemini-2.5-flash-image
 
 **Hooks:**
 
-- `src/hooks/useCollections.ts` - Collection fetch, merge, and seed population
 - `src/hooks/useAuthState.ts` - Supabase auth state management
+
+Collection fetch/merge/seed/sync orchestration lives in `AppContent.refreshCollections` (`src/App.tsx`), which is the single source of truth for that flow.
 
 **Server:**
 

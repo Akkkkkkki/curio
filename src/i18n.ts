@@ -293,7 +293,7 @@ export const translations = {
     // IndexedDB Recovery Messages
     localCacheCorrupted:
       'Local cache was corrupted and has been reset. Your cloud data will reload.',
-    localCacheRecovered: 'Local cache restored from cloud.',
+    localCacheRecovered: 'Local cache rebuilt. Reloading from the cloud.',
     localCacheRecoveryFailed: 'Local cache recovery failed. Some data may be unavailable.',
     // Sync Status Messages
     statusSyncing: 'Syncing...',
@@ -866,7 +866,7 @@ export const translations = {
     allItemsLoaded: '已加载全部',
     // IndexedDB Recovery Messages
     localCacheCorrupted: '本地缓存已损坏并已重置。云端数据将重新加载。',
-    localCacheRecovered: '本地缓存已从云端恢复。',
+    localCacheRecovered: '本地缓存已重建，正在从云端重新加载。',
     localCacheRecoveryFailed: '本地缓存恢复失败。部分数据可能不可用。',
     // Sync Status Messages
     statusSyncing: '同步中...',

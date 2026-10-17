@@ -27,8 +27,8 @@ _structural_ drift, not content edits — see "Seed versioning" below.)
   Storage — that is what lets a signed-out visitor see it.
 - **Admins publish by loading the app.** On every load by an admin, the app
   reconciles the cloud copy against the code-defined seed
-  (`buildSeedRepairs` → `saveCollection`, in `src/hooks/useCollections.ts` and the
-  matching path in `src/App.tsx`). It upserts the seed rows as `is_public: true`.
+  (`buildSeedRepairs` → `saveCollection`, in `AppContent.refreshCollections`,
+  `src/App.tsx`). It upserts the seed rows as `is_public: true`.
   Two kinds of change behave differently: **structural** drift (a missing
   collection or item, a null or superseded photo path) is self-healed on _any_
   admin load; **content** edits to an existing item (title, notes, rating,
@@ -186,8 +186,8 @@ differ.
 
 ## Related
 
-- Code: `src/services/seedCollections.ts`, `src/hooks/useCollections.ts`,
-  `src/App.tsx`, `src/hooks/useAuthState.ts`
+- Code: `src/services/seedCollections.ts`, `src/App.tsx`,
+  `src/hooks/useAuthState.ts`
 - Schema/RLS: `supabase/1_schema.sql` (public read + owner/admin edit),
   `supabase/3_profiles.sql` (`is_admin`)
 - Adding a new template that a sample uses: see "Adding a New Collection Template"
