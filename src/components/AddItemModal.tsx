@@ -1282,6 +1282,20 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
           {t('uploadPhoto')}
         </h3>
         <p className={`text-sm sm:text-base ${mutedText} max-w-xs mx-auto`}>{t('aiWillExtract')}</p>
+        {/*
+          CUR-79: disclose the third-party transfer before the user picks a
+          photo — selecting one on this step hands it straight to analysis, so
+          the notice has to live here to precede the request. Kept as a calm
+          caption (not a warning banner) and naming the real provider, Gemini,
+          even though the rest of the AI copy is provider-neutral. Manual entry
+          stays one tap away via "Skip and add manually" below.
+        */}
+        <p
+          data-testid="add-item-ai-disclosure"
+          className={`mt-2 text-[11px] sm:text-xs ${mutedText} max-w-xs mx-auto`}
+        >
+          {t('aiPhotoDisclosure')}
+        </p>
       </div>
       <div className="flex flex-col gap-2 sm:gap-3">
         {cameraCaptureAvailable && (

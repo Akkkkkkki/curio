@@ -202,6 +202,53 @@ describe('AddItemModal', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('discloses the third-party photo transfer on the upload step, before any photo is sent (CUR-79)', () => {
+    const c1 = createMockCollection({ id: 'c1', name: 'Vinyl Vault' });
+
+    renderWithProviders(
+      <AddItemModal
+        isOpen
+        onClose={mockOnClose}
+        collections={[c1]}
+        defaultCollectionId="c1"
+        onSave={mockOnSave}
+      />,
+    );
+
+    // The disclosure must be visible on the idle upload step — i.e. before the
+    // user selects a photo, which is what hands it to analysis. It names the
+    // real provider and promises the manual alternative.
+    const disclosure = screen.getByTestId('add-item-ai-disclosure');
+    expect(disclosure).toHaveTextContent(
+      'Your photo may be sent to Google Gemini to suggest details. Suggestions are always editable, and you can add items manually instead.',
+    );
+    // Manual entry stays available alongside the disclosure (Recoverable-AI).
+    expect(screen.getByRole('button', { name: 'Skip and add manually' })).toBeInTheDocument();
+  });
+
+  it('localizes the third-party photo-transfer disclosure to ZH (CUR-79)', () => {
+    window.localStorage.setItem('curio_language', 'zh');
+    try {
+      const c1 = createMockCollection({ id: 'c1', name: 'Vinyl Vault' });
+
+      renderWithProviders(
+        <AddItemModal
+          isOpen
+          onClose={mockOnClose}
+          collections={[c1]}
+          defaultCollectionId="c1"
+          onSave={mockOnSave}
+        />,
+      );
+
+      expect(screen.getByTestId('add-item-ai-disclosure')).toHaveTextContent(
+        '您的照片可能会发送给 Google Gemini 以推荐细节。建议始终可编辑，您也可以改为手动添加藏品。',
+      );
+    } finally {
+      window.localStorage.removeItem('curio_language');
+    }
+  });
+
   it('describes the Rapid-Fire batch option on the upload step (#412)', () => {
     const c1 = createMockCollection({ id: 'c1', name: 'Vinyl Vault' });
 
