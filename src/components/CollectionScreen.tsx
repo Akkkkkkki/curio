@@ -350,7 +350,14 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({
               </span>
               {isSample && (
                 <span
-                  className={`${typographyClasses.labelSmall} bg-white/40 text-stone-500 px-1.5 py-0.5 rounded border border-black/5`}
+                  data-testid="sample-badge"
+                  className={`${typographyClasses.labelSmall} px-1.5 py-0.5 rounded border ${
+                    theme === 'vault'
+                      ? 'bg-white/10 text-white/80 border-white/15'
+                      : theme === 'atelier'
+                        ? 'bg-[#efe6d6] text-[#6F6257] border-[#D4C9B8]'
+                        : 'bg-white/40 text-stone-500 border-black/5'
+                  }`}
                 >
                   {t('sampleBadge')}
                 </span>
