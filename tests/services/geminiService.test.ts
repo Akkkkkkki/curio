@@ -704,4 +704,36 @@ describe('services/aiService.ts - per-feature capability gating (CUR-166)', () =
 
     warnSpy.mockRestore();
   });
+
+  it('treats a stale `true` client build flag as a kill-switch, deferring to the server (CUR-183)', async () => {
+    // Production ships VITE_AI_IMAGE_EDIT_ENABLED=true in the bundle, but photo
+    // enhancement is off server-side (it transmits a private photo to a
+    // third-party model). The build flag must only be able to force the feature
+    // OFF, never force it on past a server that reports it unavailable — so the
+    // Enhance control stays hidden without a client rebuild.
+    vi.resetModules();
+    vi.unstubAllEnvs();
+    vi.stubEnv('VITE_AI_ENABLED', undefined as unknown as string);
+    vi.stubEnv('VITE_AI_IMAGE_EDIT_ENABLED', 'true');
+    vi.stubEnv('VITE_API_BASE_URL', 'http://localhost:8787');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(async (url: string) => {
+        if (url.includes('/health')) {
+          return createOkJsonResponse({
+            metadataAnalysisAvailable: true,
+            storyPromptsAvailable: true,
+            fieldSuggestionsAvailable: true,
+            imageEditingAvailable: false,
+          });
+        }
+        throw new Error(`Unexpected request: ${url}`);
+      }),
+    );
+
+    const mod = await import('@/services/aiService');
+
+    await expect(mod.refreshAiImageEditEnabled()).resolves.toBe(false);
+    expect(mod.isAiImageEditEnabled()).toBe(false);
+  });
 });

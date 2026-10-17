@@ -96,16 +96,24 @@ VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY=your_publishable_key
 VITE_SUPABASE_SYNC_TIMESTAMPS=true
 VITE_API_BASE_URL=http://localhost:8787
 
-# AI features (all enabled by default)
+# AI features (metadata analysis enabled by default)
 VITE_AI_ENABLED=true
 VITE_AI_METADATA_ENABLED=true
-VITE_AI_IMAGE_EDIT_ENABLED=true
+# Client kill-switch for the deferred photo-enhancement UI. `false` hides it
+# outright; `true`/unset defer to the server's imageEditingAvailable signal,
+# which is off unless the server flag below is set (CUR-183).
+VITE_AI_IMAGE_EDIT_ENABLED=false
 ```
 
 The Gemini proxy expects:
 
 ```
 GEMINI_API_KEY=your_api_key_here
+
+# AI photo enhancement is OFF by default (CUR-183): it sends a private photo to
+# a third-party model, so /api/gemini/enhance refuses and /api/health reports
+# imageEditingAvailable:false unless this server flag is explicitly set.
+AI_IMAGE_EDIT_ENABLED=false
 
 # Optional: Override default Gemini models
 GEMINI_ANALYZE_MODEL=gemini-2.5-flash
@@ -225,10 +233,11 @@ GEMINI_IMAGE_MODEL=gemini-2.5-flash-image
 
 - Not built. The component, its UI entry points, and runtime state were removed; the deferred status is tracked in `docs/PRODUCT_STRATEGY.md`.
 
-**AI Image Enhancement (deferred):**
+**AI Image Enhancement (deferred, off by default):**
 
 - AI image-to-image editing and poster generation are deferred per `docs/PRODUCT_STRATEGY.md`
-- Feature flag `VITE_AI_IMAGE_EDIT_ENABLED` exists but the capability is not a current priority
+- Disabled unless explicitly enabled on the server (CUR-183): `/api/gemini/enhance` refuses and `/api/health` reports `imageEditingAvailable: false` unless `AI_IMAGE_EDIT_ENABLED=true` is set on the proxy. The client flag `VITE_AI_IMAGE_EDIT_ENABLED` only acts as a kill-switch — `true`/unset defer to that server signal, so the Enhance control stays hidden until the server opts in.
+- Because enhancement transmits a private photo to a third-party model, re-enabling it must land alongside the pre-send disclosure (CUR-79).
 
 ### Supabase Integration
 
