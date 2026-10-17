@@ -69,6 +69,20 @@ describe('ItemDetailScreen accessibility (CURIO-372)', () => {
     vi.clearAllMocks();
   });
 
+  it('exposes the item title as the page h1 for heading navigation', () => {
+    renderItemDetail();
+    const heading = screen.getByRole('heading', { level: 1, name: 'Test Vinyl Record' });
+    expect(heading).toHaveClass('sr-only');
+  });
+
+  it('falls back to Untitled when the item title is blank', () => {
+    renderItemDetail({
+      ...mockCollectionWithItems,
+      items: [{ ...mockItem, title: '   ' }],
+    });
+    expect(screen.getByRole('heading', { level: 1, name: 'Untitled' })).toBeInTheDocument();
+  });
+
   it('exposes an accessible name for the story field', () => {
     renderItemDetail();
     expect(screen.getByRole('textbox', { name: 'Story' })).toBeInTheDocument();
