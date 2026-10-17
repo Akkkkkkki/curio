@@ -1259,6 +1259,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
             type="button"
             onClick={pickFromGallery}
             aria-label={imagePreview ? t('changePhoto') : undefined}
+            aria-describedby="add-item-ai-disclosure"
             data-testid="add-item-upload-empty"
             className={`w-32 h-32 sm:w-40 sm:h-40 rounded-full border-2 border-dashed flex flex-col items-center justify-center group focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40 focus-visible:ring-offset-2 transition-all cursor-pointer overflow-hidden ${uploadEmptyTileClass}`}
           >
@@ -1291,6 +1292,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
           stays one tap away via "Skip and add manually" below.
         */}
         <p
+          id="add-item-ai-disclosure"
           data-testid="add-item-ai-disclosure"
           className={`mt-2 text-[11px] sm:text-xs ${mutedText} max-w-xs mx-auto`}
         >
@@ -1304,11 +1306,17 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
             onClick={takePicture}
             size="lg"
             icon={<CameraIcon size={18} />}
+            aria-describedby="add-item-ai-disclosure"
           >
             {t('takePhoto')}
           </Button>
         )}
-        <Button onClick={pickFromGallery} size="lg" icon={<Upload size={18} />}>
+        <Button
+          onClick={pickFromGallery}
+          size="lg"
+          icon={<Upload size={18} />}
+          aria-describedby="add-item-ai-disclosure"
+        >
           {imagePreview ? t('changePhoto') : t('uploadPhoto')}
         </Button>
         {imagePreview && (
@@ -1326,7 +1334,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
             variant="secondary"
             onClick={() => batchInputRef.current?.click()}
             icon={<Zap size={18} />}
-            aria-describedby="add-item-batch-hint"
+            aria-describedby="add-item-batch-hint add-item-ai-disclosure"
           >
             {t('batchMode')}
           </Button>

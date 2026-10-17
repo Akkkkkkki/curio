@@ -222,6 +222,21 @@ describe('AddItemModal', () => {
     expect(disclosure).toHaveTextContent(
       'Your photo may be sent to Google Gemini to suggest details. Suggestions are always editable, and you can add items manually instead.',
     );
+
+    // The leading upload tile precedes the disclosure in DOM order, so a
+    // keyboard/screen-reader user could trigger capture before hearing it.
+    // aria-describedby ties the notice to every capture control so AT announces
+    // the third-party transfer before the photo is sent (CUR-79 review).
+    expect(disclosure).toHaveAttribute('id', 'add-item-ai-disclosure');
+    // Both the leading circular tile and the explicit CTA are named "Upload
+    // Photo"; every capture control must reference the disclosure.
+    for (const control of [
+      ...screen.getAllByRole('button', { name: /Upload Photo/i }),
+      screen.getByRole('button', { name: /Rapid-Fire Mode/ }),
+    ]) {
+      expect(control.getAttribute('aria-describedby')).toContain('add-item-ai-disclosure');
+    }
+
     // Manual entry stays available alongside the disclosure (Recoverable-AI).
     expect(screen.getByRole('button', { name: 'Skip and add manually' })).toBeInTheDocument();
   });
@@ -270,7 +285,7 @@ describe('AddItemModal', () => {
     // The hint must be programmatically tied to the button so screen-reader
     // users tabbing to it hear the explanation, not just "Rapid-Fire Mode".
     const batchButton = screen.getByRole('button', { name: /Rapid-Fire Mode/ });
-    expect(batchButton).toHaveAttribute('aria-describedby', hint.id);
+    expect(batchButton.getAttribute('aria-describedby')).toContain(hint.id);
     expect(hint.id).toBeTruthy();
   });
 
