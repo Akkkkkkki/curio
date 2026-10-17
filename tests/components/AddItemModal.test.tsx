@@ -202,6 +202,68 @@ describe('AddItemModal', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('discloses the third-party photo transfer on the upload step, before any photo is sent (CUR-79)', () => {
+    const c1 = createMockCollection({ id: 'c1', name: 'Vinyl Vault' });
+
+    renderWithProviders(
+      <AddItemModal
+        isOpen
+        onClose={mockOnClose}
+        collections={[c1]}
+        defaultCollectionId="c1"
+        onSave={mockOnSave}
+      />,
+    );
+
+    // The disclosure must be visible on the idle upload step — i.e. before the
+    // user selects a photo, which is what hands it to analysis. It names the
+    // real provider and promises the manual alternative.
+    const disclosure = screen.getByTestId('add-item-ai-disclosure');
+    expect(disclosure).toHaveTextContent(
+      'Your photo may be sent to Google Gemini to suggest details. Suggestions are always editable, and you can add items manually instead.',
+    );
+
+    // The leading upload tile precedes the disclosure in DOM order, so a
+    // keyboard/screen-reader user could trigger capture before hearing it.
+    // aria-describedby ties the notice to every capture control so AT announces
+    // the third-party transfer before the photo is sent (CUR-79 review).
+    expect(disclosure).toHaveAttribute('id', 'add-item-ai-disclosure');
+    // Both the leading circular tile and the explicit CTA are named "Upload
+    // Photo"; every capture control must reference the disclosure.
+    for (const control of [
+      ...screen.getAllByRole('button', { name: /Upload Photo/i }),
+      screen.getByRole('button', { name: /Rapid-Fire Mode/ }),
+    ]) {
+      expect(control.getAttribute('aria-describedby')).toContain('add-item-ai-disclosure');
+    }
+
+    // Manual entry stays available alongside the disclosure (Recoverable-AI).
+    expect(screen.getByRole('button', { name: 'Skip and add manually' })).toBeInTheDocument();
+  });
+
+  it('localizes the third-party photo-transfer disclosure to ZH (CUR-79)', () => {
+    window.localStorage.setItem('curio_language', 'zh');
+    try {
+      const c1 = createMockCollection({ id: 'c1', name: 'Vinyl Vault' });
+
+      renderWithProviders(
+        <AddItemModal
+          isOpen
+          onClose={mockOnClose}
+          collections={[c1]}
+          defaultCollectionId="c1"
+          onSave={mockOnSave}
+        />,
+      );
+
+      expect(screen.getByTestId('add-item-ai-disclosure')).toHaveTextContent(
+        '您的照片可能会发送给 Google Gemini 以推荐细节。建议始终可编辑，您也可以改为手动添加藏品。',
+      );
+    } finally {
+      window.localStorage.removeItem('curio_language');
+    }
+  });
+
   it('describes the Rapid-Fire batch option on the upload step (#412)', () => {
     const c1 = createMockCollection({ id: 'c1', name: 'Vinyl Vault' });
 
@@ -223,7 +285,7 @@ describe('AddItemModal', () => {
     // The hint must be programmatically tied to the button so screen-reader
     // users tabbing to it hear the explanation, not just "Rapid-Fire Mode".
     const batchButton = screen.getByRole('button', { name: /Rapid-Fire Mode/ });
-    expect(batchButton).toHaveAttribute('aria-describedby', hint.id);
+    expect(batchButton.getAttribute('aria-describedby')).toContain(hint.id);
     expect(hint.id).toBeTruthy();
   });
 
