@@ -10,7 +10,12 @@ const AI_IMAGE_EDIT_ENABLED =
 const REQUEST_TIMEOUT_MS = 30000;
 const ENHANCEMENT_TIMEOUT_MS = 60000;
 let aiEnabledCache: boolean | null = AI_ENABLED;
-let aiImageEditEnabledCache: boolean | null = AI_IMAGE_EDIT_ENABLED;
+// The client build flag is a kill-switch only (CUR-183): an explicit `false`
+// disables enhancement outright, but `true`/unset defer to the server's live
+// `imageEditingAvailable` signal. This keeps a stale build-time `true` from
+// showing the Enhance control when the feature is turned off server-side (it is
+// off by default), without requiring a client rebuild to hide it.
+let aiImageEditEnabledCache: boolean | null = AI_IMAGE_EDIT_ENABLED === false ? false : null;
 let storyPromptsEnabledCache: boolean | null = AI_ENABLED;
 let fieldSuggestionsEnabledCache: boolean | null = AI_ENABLED;
 let aiEnabledPromise: Promise<boolean> | null = null;
@@ -194,11 +199,9 @@ export const refreshFieldSuggestionsEnabled = async (): Promise<boolean> => {
 };
 
 export const refreshAiImageEditEnabled = async (): Promise<boolean> => {
+  // A `false` build flag is already settled in the cache above; `true`/unset
+  // fall through to confirm availability with the server (CUR-183).
   if (aiImageEditEnabledCache !== null) return aiImageEditEnabledCache;
-  if (AI_IMAGE_EDIT_ENABLED === false) {
-    aiImageEditEnabledCache = false;
-    return false;
-  }
   if (aiImageEditEnabledPromise) return aiImageEditEnabledPromise;
   aiImageEditEnabledPromise = loadAiCapabilities()
     .then((capabilities) => {

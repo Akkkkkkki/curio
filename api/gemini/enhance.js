@@ -45,6 +45,15 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
+  // AI photo enhancement is disabled by default (CUR-183): it transmits a
+  // private photo to a third-party model, so the endpoint refuses unless it is
+  // explicitly enabled server-side. This also fails safe for a stale client
+  // build that still has the feature flagged on.
+  if (process.env.AI_IMAGE_EDIT_ENABLED !== 'true') {
+    recordApiError(res, { name: 'ImageEditingDisabled', message: 'Image enhancement is disabled' });
+    return res.status(503).json({ error: 'Image enhancement is disabled' });
+  }
+
   const denied = await requireAiAccess(req, res, '/api/gemini/enhance');
   if (denied) return denied;
 

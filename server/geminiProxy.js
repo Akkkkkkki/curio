@@ -187,12 +187,14 @@ const operationHandler = (operation, errorLabel) => async (req, res) => {
 
 app.get('/api/health', (_req, res) => {
   const available = Boolean(apiKey);
+  // Enhancement is off by default (CUR-183) — see the enhance handler below.
+  const imageEditingAvailable = available && process.env.AI_IMAGE_EDIT_ENABLED === 'true';
   res.json({
     ok: true,
     metadataAnalysisAvailable: available,
     fieldSuggestionsAvailable: available,
     storyPromptsAvailable: available,
-    imageEditingAvailable: available,
+    imageEditingAvailable,
     geminiConfigured: available,
     provider: 'gemini',
     analyzeModel: getGeminiAnalyzeModel(),
@@ -229,6 +231,12 @@ const ENHANCEMENT_PROMPTS = {
 };
 
 app.post('/api/gemini/enhance', ipLimiter, requireAuth, userLimiter, async (req, res) => {
+  // AI photo enhancement is disabled by default (CUR-183): it transmits a
+  // private photo to a third-party model, so the endpoint refuses unless it is
+  // explicitly enabled server-side.
+  if (process.env.AI_IMAGE_EDIT_ENABLED !== 'true') {
+    return res.status(503).json({ error: 'Image enhancement is disabled' });
+  }
   if (requireApiKey(res)) return;
   const { imageBase64, strength = 'subtle' } = req.body || {};
   if (typeof imageBase64 !== 'string' || !imageBase64.length) {
