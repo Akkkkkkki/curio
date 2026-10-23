@@ -124,8 +124,9 @@ test.describe('First-Time User Experience', () => {
 
     // CUR-127: theme is a dedicated header quick toggle — no account menu needed.
     await page.getByTestId('theme-picker').click();
-    // Avoid matching the "The Vinyl Vault" collection card button.
-    await page.getByRole('button', { name: 'The Vault (Moody)' }).click();
+    // The stacked theme options expose role="menuitemradio" (single-select menu
+    // semantics); this also avoids matching the "The Vinyl Vault" collection card.
+    await page.getByRole('menuitemradio', { name: 'The Vault (Moody)' }).click();
     await expect(page.locator('[data-theme="vault"]')).toBeVisible();
 
     // Dismiss the theme popover so subsequent clicks on the header aren't intercepted.
