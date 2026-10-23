@@ -1414,13 +1414,16 @@ export const AppContent: React.FC = () => {
   }, [isCollectionRoute, authReady, isAuthenticated, allowPublicBrowse]);
   // Mirror the latch to sessionStorage so the "already exploring" decision
   // survives an in-session reload (CUR-193), not just SPA navigation. Guarded on
-  // signed-out so a purely signed-in session never writes the flag — that keeps
-  // the welcome gate intact after a later sign-out (Codex review on #340).
+  // settled-and-signed-out so a session that only looked signed-out while
+  // getSession() was still pending never writes the durable flag — the Explore
+  // CTA is live before auth resolves, so without authReady a returning signed-in
+  // visitor could latch it and skip the welcome gate after a later sign-out
+  // (same guard as the latch effect above; Codex review on #340).
   useEffect(() => {
-    if (allowPublicBrowse && !isAuthenticated) {
+    if (allowPublicBrowse && authReady && !isAuthenticated) {
       persistPublicBrowseLatch();
     }
-  }, [allowPublicBrowse, isAuthenticated]);
+  }, [allowPublicBrowse, authReady, isAuthenticated]);
   const fallbackSampleCollectionId = fallbackSampleCollections[0]?.id ?? null;
   // Only expose a sample collection id that is actually present in `collections`.
   // The fallback sample is not part of merged cloud state for an authenticated

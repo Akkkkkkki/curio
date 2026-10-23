@@ -1687,6 +1687,47 @@ describe('App Integration Tests', () => {
       });
       expect(window.sessionStorage.getItem('curio_public_browse')).toBeNull();
     });
+
+    // Codex review on #518: the Explore CTA is live while getSession() is still
+    // pending, so a returning signed-in visitor who taps it during that window
+    // looks signed-out (user is null) for a tick. The durable latch must not be
+    // written then — otherwise a later sign-out would skip the welcome gate.
+    it('does not persist the latch when Explore is tapped before a signed-in session resolves', async () => {
+      const { ThemeProvider } = await import('@/theme');
+      // Hold getSession() unresolved so authReady stays false past the click.
+      let resolveSession!: (value: { data: { session: { user: { id: string } } } }) => void;
+      vi.mocked(supabaseService.supabase!.auth.getSession).mockReturnValue(
+        new Promise((resolve) => {
+          resolveSession = resolve;
+        }) as never,
+      );
+
+      render(
+        <MemoryRouter initialEntries={['/']}>
+          <ThemeProvider>
+            <LanguageProvider>
+              <AppContent />
+            </LanguageProvider>
+          </ThemeProvider>
+        </MemoryRouter>,
+      );
+
+      // The gate renders (with its live Explore CTA) while auth is still pending.
+      const exploreCta = await screen.findByTestId('cta-secondary-explore-sample');
+      fireEvent.click(exploreCta);
+
+      // The session now resolves as signed-in.
+      await act(async () => {
+        resolveSession({ data: { session: { user: { id: 'user1' } } } });
+      });
+
+      // The unresolved-auth tap must not have written the durable flag, so a
+      // later sign-out/reload still meets the welcome gate.
+      await waitFor(() => {
+        expect(screen.queryByTestId('access-gate')).not.toBeInTheDocument();
+      });
+      expect(window.sessionStorage.getItem('curio_public_browse')).toBeNull();
+    });
   });
 
   // CUR-118 follow-up (Codex review on #299): when the parent collection
