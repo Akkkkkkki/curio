@@ -89,6 +89,33 @@ import { useAndroidBackButton } from './hooks/useAndroidBackButton';
 // without comparing its localized message (which changes with the language).
 const SYNC_PAUSED_STATUS_KIND = 'sync-paused';
 
+// CUR-193: a signed-out visitor who has chosen to browse the public sample
+// gallery must not be re-walled by the first-run access gate mid-session. The
+// "has explored publicly" decision is latched in React state (so SPA navigation
+// already holds it) and mirrored to sessionStorage so it also survives an
+// in-session reload within the same tab. sessionStorage clears when the tab
+// closes, so a truly fresh visitor still meets the gate.
+const PUBLIC_BROWSE_LATCH_KEY = 'curio_public_browse';
+
+const readPublicBrowseLatch = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.sessionStorage?.getItem(PUBLIC_BROWSE_LATCH_KEY) === '1';
+  } catch {
+    return false;
+  }
+};
+
+const persistPublicBrowseLatch = (): void => {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage?.setItem(PUBLIC_BROWSE_LATCH_KEY, '1');
+  } catch {
+    // sessionStorage can be unavailable (private mode, blocked storage). The
+    // in-memory latch still holds for this session; only reload survival is lost.
+  }
+};
+
 export const AppContent: React.FC = () => {
   const { t, language } = useTranslation();
   const { theme, setTheme } = useTheme();
@@ -111,7 +138,7 @@ export const AppContent: React.FC = () => {
   // brand-new user with sign-up; header/profile entry points keep sign-in.
   const [authModalMode, setAuthModalMode] = useState<'signin' | 'signup'>('signin');
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
-  const [allowPublicBrowse, setAllowPublicBrowse] = useState(false);
+  const [allowPublicBrowse, setAllowPublicBrowse] = useState(() => readPublicBrowseLatch());
   const [hasLocalImport, setHasLocalImport] = useState(false);
   const [importState, setImportState] = useState<'idle' | 'running' | 'done' | 'error'>('idle');
   const [importMessage, setImportMessage] = useState<string | null>(null);
@@ -1385,6 +1412,15 @@ export const AppContent: React.FC = () => {
       setAllowPublicBrowse(true);
     }
   }, [isCollectionRoute, authReady, isAuthenticated, allowPublicBrowse]);
+  // Mirror the latch to sessionStorage so the "already exploring" decision
+  // survives an in-session reload (CUR-193), not just SPA navigation. Guarded on
+  // signed-out so a purely signed-in session never writes the flag — that keeps
+  // the welcome gate intact after a later sign-out (Codex review on #340).
+  useEffect(() => {
+    if (allowPublicBrowse && !isAuthenticated) {
+      persistPublicBrowseLatch();
+    }
+  }, [allowPublicBrowse, isAuthenticated]);
   const fallbackSampleCollectionId = fallbackSampleCollections[0]?.id ?? null;
   // Only expose a sample collection id that is actually present in `collections`.
   // The fallback sample is not part of merged cloud state for an authenticated
