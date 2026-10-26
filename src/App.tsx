@@ -1765,6 +1765,7 @@ export const AppContent: React.FC = () => {
                     <ItemDetailScreen
                       collections={collections}
                       isAdmin={isAdmin}
+                      isAuthenticated={isAuthenticated}
                       isLoading={isLoading}
                       itemSaveStates={itemSaveStates}
                       updateItem={updateItem}
@@ -1772,6 +1773,7 @@ export const AppContent: React.FC = () => {
                       retryItemSave={retryItemSave}
                       checkStorageQuota={checkStorageQuota}
                       showStatus={showStatus}
+                      openAuthModal={openAuthModal}
                     />
                   </ErrorBoundary>
                 }

@@ -97,6 +97,7 @@ const isLegacyAiNoteItem = (item: CollectionItem): boolean => {
 interface ItemDetailScreenProps {
   collections: UserCollection[];
   isAdmin: boolean;
+  isAuthenticated: boolean;
   isLoading: boolean;
   itemSaveStates: Record<string, ItemSaveState>;
   updateItem: (collectionId: string, itemId: string, updates: Partial<CollectionItem>) => void;
@@ -104,6 +105,7 @@ interface ItemDetailScreenProps {
   retryItemSave: (collection: UserCollection, itemId: string) => void;
   checkStorageQuota: () => Promise<void>;
   showStatus: (message: string, tone?: StatusTone) => void;
+  openAuthModal: (mode: 'signin' | 'signup') => void;
 }
 
 // CUR-149: this screen must be a top-level component (not declared inside
@@ -113,6 +115,7 @@ interface ItemDetailScreenProps {
 export const ItemDetailScreen: React.FC<ItemDetailScreenProps> = ({
   collections,
   isAdmin,
+  isAuthenticated,
   isLoading,
   itemSaveStates,
   updateItem,
@@ -120,6 +123,7 @@ export const ItemDetailScreen: React.FC<ItemDetailScreenProps> = ({
   retryItemSave,
   checkStorageQuota,
   showStatus,
+  openAuthModal,
 }) => {
   const { t, language } = useTranslation();
   const { theme } = useTheme();
@@ -603,6 +607,17 @@ export const ItemDetailScreen: React.FC<ItemDetailScreenProps> = ({
                   {t('readOnlyMode')}
                 </p>
                 <p className={`text-xs ${mutedTextClasses[theme]}`}>{t('readOnlyItemDesc')}</p>
+                {!isAuthenticated && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="mt-2"
+                    onClick={() => openAuthModal('signup')}
+                    data-testid="read-only-start-museum"
+                  >
+                    {t('readOnlyStartMuseum')}
+                  </Button>
+                )}
               </div>
             </div>
           )}
