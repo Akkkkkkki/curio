@@ -318,9 +318,15 @@ export const CollectionScreen: React.FC<CollectionScreenProps> = ({
             </p>
             <p className={`text-xs ${mutedTextClasses[theme]}`}>{t('readOnlyCollectionDesc')}</p>
             {!isAuthenticated && (
-              <p className="text-xs font-semibold text-amber-600 mt-1">
-                {t('readOnlyCollectionEditHint')}
-              </p>
+              <Button
+                variant="secondary"
+                size="sm"
+                className="mt-2"
+                onClick={() => openAuthModal('signup')}
+                data-testid="read-only-start-museum"
+              >
+                {t('readOnlyStartMuseum')}
+              </Button>
             )}
           </div>
         </div>

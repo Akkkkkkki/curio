@@ -167,39 +167,49 @@ describe('CollectionScreen large collections (CUR-19)', () => {
 });
 
 describe('CollectionScreen read-only notice consolidation (#411)', () => {
-  it('shows a single read-only notice with a sign-in next step when signed out', () => {
+  it('shows a single read-only notice with an inviting sign-up next step when signed out', () => {
+    const openAuthModal = vi.fn();
     renderScreen(makeCollection({ isPublic: true, items: [makeItem('a')] }), {
       isAuthenticated: false,
+      openAuthModal,
     });
 
-    // One consolidated notice: the boxed banner, carrying both the read-only
-    // explanation and the actionable sign-in hint.
+    // One consolidated notice: the boxed banner, carrying the read-only
+    // explanation and an inline, clickable "start your own museum" control.
     const banner = screen.getByTestId('read-only-banner');
     expect(banner).toHaveTextContent(/can be viewed but not edited/i);
-    expect(banner).toHaveTextContent(/sign in to duplicate or edit/i);
+
+    const cta = screen.getByTestId('read-only-start-museum');
+    expect(banner).toContainElement(cta);
+    expect(cta).toHaveTextContent(/start your own museum/i);
+
+    // The CTA opens the existing auth modal in sign-up mode (#520).
+    fireEvent.click(cta);
+    expect(openAuthModal).toHaveBeenCalledWith('signup');
 
     // The old redundant amber line must be gone (no second notice).
     expect(screen.queryByText(/public samples are read-only/i)).not.toBeInTheDocument();
     expect(screen.getAllByTestId('read-only-banner')).toHaveLength(1);
   });
 
-  it('omits the sign-in hint for an already signed-in non-admin viewer', () => {
+  it('omits the sign-up CTA for an already signed-in non-admin viewer', () => {
     renderScreen(makeCollection({ isPublic: true, items: [makeItem('a')] }), {
       isAuthenticated: true,
     });
 
     const banner = screen.getByTestId('read-only-banner');
     expect(banner).toHaveTextContent(/can be viewed but not edited/i);
-    // Telling a signed-in user to "sign in" would be inaccurate, so the hint
-    // is withheld — but the collection is still clearly labelled read-only.
-    expect(banner).not.toHaveTextContent(/sign in to duplicate or edit/i);
+    // Inviting an already-signed-in user to "start your own museum" by signing
+    // up would be inaccurate, so the CTA is withheld — the collection is still
+    // clearly labelled read-only.
+    expect(screen.queryByTestId('read-only-start-museum')).not.toBeInTheDocument();
   });
 
   it('shows no read-only notice on an editable own collection', () => {
     renderScreen(makeCollection({ isPublic: false, items: [makeItem('a')] }));
 
     expect(screen.queryByTestId('read-only-banner')).not.toBeInTheDocument();
-    expect(screen.queryByText(/sign in to duplicate or edit/i)).not.toBeInTheDocument();
+    expect(screen.queryByTestId('read-only-start-museum')).not.toBeInTheDocument();
   });
 });
 

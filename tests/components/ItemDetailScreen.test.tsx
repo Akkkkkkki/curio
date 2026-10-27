@@ -1,5 +1,6 @@
+import type { ComponentProps } from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { LanguageProvider } from '@/i18n';
 import { ItemDetailScreen } from '@/components/ItemDetailScreen';
@@ -31,29 +32,31 @@ vi.mock('@/theme', async () => {
   return createThemeMock();
 });
 
-function renderItemDetail(collection = mockCollectionWithItems) {
+function renderItemDetail(
+  collection = mockCollectionWithItems,
+  overrides: Partial<ComponentProps<typeof ItemDetailScreen>> = {},
+) {
   const noop = vi.fn();
   const path = `/collection/${collection.id}/item/${mockItem.id}`;
+  const props = {
+    collections: [collection],
+    isAdmin: false,
+    isAuthenticated: true,
+    isLoading: false,
+    itemSaveStates: {},
+    updateItem: noop,
+    deleteItem: vi.fn(() => true),
+    retryItemSave: noop,
+    checkStorageQuota: vi.fn(async () => undefined),
+    showStatus: noop,
+    openAuthModal: vi.fn(),
+    ...overrides,
+  };
   return render(
     <MemoryRouter initialEntries={[path]}>
       <LanguageProvider>
         <Routes>
-          <Route
-            path="/collection/:id/item/:itemId"
-            element={
-              <ItemDetailScreen
-                collections={[collection]}
-                isAdmin={false}
-                isLoading={false}
-                itemSaveStates={{}}
-                updateItem={noop}
-                deleteItem={vi.fn(() => true)}
-                retryItemSave={noop}
-                checkStorageQuota={vi.fn(async () => undefined)}
-                showStatus={noop}
-              />
-            }
-          />
+          <Route path="/collection/:id/item/:itemId" element={<ItemDetailScreen {...props} />} />
         </Routes>
       </LanguageProvider>
     </MemoryRouter>,
@@ -123,6 +126,38 @@ describe('read-only Story field (#492)', () => {
     const story = screen.getByRole('textbox', { name: 'Story' });
     expect(story).not.toBeDisabled();
     expect(story).not.toHaveClass('resize-none');
+  });
+});
+
+describe('read-only item banner invites prospective collectors (#520)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('labels the sample piece read-only without gatekeeping admin/owner copy', () => {
+    renderItemDetail(readOnlyCollection, { isAuthenticated: false });
+    expect(screen.getByText(/can be viewed but not edited/i)).toBeInTheDocument();
+    // The old copy told ordinary visitors to "sign in as an admin or owner",
+    // which read as if the whole product were gated to admins.
+    expect(screen.queryByText(/admin or owner/i)).not.toBeInTheDocument();
+  });
+
+  it('offers a sign-up CTA that opens the auth modal when signed out', () => {
+    const openAuthModal = vi.fn();
+    renderItemDetail(readOnlyCollection, { isAuthenticated: false, openAuthModal });
+
+    const cta = screen.getByTestId('read-only-start-museum');
+    expect(cta).toHaveTextContent(/start your own museum/i);
+
+    fireEvent.click(cta);
+    expect(openAuthModal).toHaveBeenCalledWith('signup');
+  });
+
+  it('withholds the sign-up CTA from an already signed-in non-admin viewer', () => {
+    renderItemDetail(readOnlyCollection, { isAuthenticated: true });
+    // Still clearly read-only, but telling a signed-in user to sign up is wrong.
+    expect(screen.getByText(/can be viewed but not edited/i)).toBeInTheDocument();
+    expect(screen.queryByTestId('read-only-start-museum')).not.toBeInTheDocument();
   });
 });
 
