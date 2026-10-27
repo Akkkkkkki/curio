@@ -56,6 +56,22 @@ describe('ThemePicker', () => {
   });
 
   describe('stacked layout', () => {
+    // The stacked variant renders inside ThemeQuickToggle's role="menu", so its
+    // options expose role="menuitemradio" (not plain buttons) with aria-checked.
+    it('exposes menuitemradio semantics with aria-checked on the active theme', () => {
+      setMockTheme('vault');
+      renderWithProviders(<ThemePicker layout="stacked" />);
+
+      const options = screen.getAllByRole('menuitemradio');
+      expect(options).toHaveLength(3);
+
+      const vaultOption = screen.getByRole('menuitemradio', { name: /vault/i });
+      expect(vaultOption).toHaveAttribute('aria-checked', 'true');
+
+      const galleryOption = screen.getByRole('menuitemradio', { name: /gallery/i });
+      expect(galleryOption).toHaveAttribute('aria-checked', 'false');
+    });
+
     // CUR-109: the stacked variant (used in the profile menu) must not
     // hardcode Gallery's amber-50 active row on Vault/Atelier, and the
     // paintbrush icon must stay legible on every theme.
@@ -63,7 +79,7 @@ describe('ThemePicker', () => {
       setMockTheme('vault');
       renderWithProviders(<ThemePicker layout="stacked" />);
 
-      const vaultButton = screen.getByRole('button', { name: /vault/i });
+      const vaultButton = screen.getByRole('menuitemradio', { name: /vault/i });
       expect(vaultButton.className).toMatch(/bg-white\/10/);
       expect(vaultButton.className).not.toMatch(/bg-amber-50/);
     });
@@ -72,7 +88,7 @@ describe('ThemePicker', () => {
       setMockTheme('atelier');
       renderWithProviders(<ThemePicker layout="stacked" />);
 
-      const atelierButton = screen.getByRole('button', { name: /atelier/i });
+      const atelierButton = screen.getByRole('menuitemradio', { name: /atelier/i });
       expect(atelierButton.className).toContain('bg-[#EDE4D3]');
       expect(atelierButton.className).not.toMatch(/bg-amber-50/);
     });

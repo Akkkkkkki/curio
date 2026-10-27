@@ -51,6 +51,14 @@ export const ThemePicker: React.FC<ThemePickerProps> = ({ layout = 'inline' }) =
           <button
             key={opt}
             onClick={() => setTheme(opt)}
+            // The stacked variant renders inside the header ThemeQuickToggle's
+            // role="menu", so expose single-select menu semantics: without
+            // menuitemradio + aria-checked, a screen reader hears three plain
+            // buttons and can't tell which theme is active (the Check icon and
+            // tint are visual-only). The inline variant below is not in a menu,
+            // so it keeps plain button semantics.
+            role="menuitemradio"
+            aria-checked={theme === opt}
             className={`flex items-center justify-between w-full px-3 py-2 rounded-lg border transition-all text-sm font-semibold ${
               theme === opt ? stackedActiveByTheme[theme] : stackedSurfaceByTheme[theme]
             }`}
