@@ -134,6 +134,10 @@ describe('App Integration Tests', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    // The public-browse latch (CUR-193) mirrors to sessionStorage, so clear it
+    // between tests to stop an anonymous collection visit in one test from
+    // suppressing the access gate in a later one.
+    window.sessionStorage.clear();
     vi.mocked(supabaseService.isSupabaseConfigured).mockReturnValue(true);
     vi.mocked(supabaseService.supabase!.auth.getSession).mockResolvedValue({
       data: { session: { user: { id: 'user1' } } },
@@ -1582,6 +1586,147 @@ describe('App Integration Tests', () => {
         ).toBeInTheDocument();
       });
       expect(screen.queryByTestId('access-gate')).not.toBeInTheDocument();
+    });
+  });
+
+  // CUR-193: the latch above holds across SPA navigation, but a signed-out
+  // visitor who explored and then reloaded used to be re-walled, because the
+  // flag lived only in React state. It now mirrors to sessionStorage so the
+  // decision survives an in-session reload (a fresh AppContent mount).
+  describe('public-browse latch survives an in-session reload (CUR-193)', () => {
+    const publicSample = {
+      id: 'sample-vinyl',
+      name: 'The Vinyl Vault',
+      templateId: 'vinyl',
+      icon: '🎵',
+      customFields: [],
+      items: [
+        {
+          id: 'sample-item-1',
+          collectionId: 'sample-vinyl',
+          title: 'Kind of Blue',
+          rating: 5,
+          data: {},
+          photoUrl: '',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          notes: '',
+        },
+      ],
+      isPublic: true,
+      updatedAt: new Date().toISOString(),
+    };
+
+    beforeEach(() => {
+      vi.mocked(supabaseService.isSupabaseConfigured).mockReturnValue(true);
+      vi.mocked(supabaseService.supabase!.auth.getSession).mockResolvedValue({
+        data: { session: null },
+      } as never);
+      vi.mocked(db.getLocalCollections).mockResolvedValue([]);
+      vi.mocked(db.fetchCloudCollections).mockResolvedValue([publicSample]);
+    });
+
+    it('seeds the latch from the prior load so a reload lands on sample-aware Home, not the gate', async () => {
+      const { ThemeProvider } = await import('@/theme');
+
+      // First "page load": the anonymous visitor opens the sample collection,
+      // which latches public browsing and mirrors it to sessionStorage.
+      const firstLoad = render(
+        <MemoryRouter initialEntries={['/collection/sample-vinyl']}>
+          <ThemeProvider>
+            <LanguageProvider>
+              <AppContent />
+            </LanguageProvider>
+          </ThemeProvider>
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByRole('heading', { name: 'The Vinyl Vault' })).toBeInTheDocument();
+      });
+      expect(window.sessionStorage.getItem('curio_public_browse')).toBe('1');
+
+      // A reload drops all React state. Simulate it by unmounting and mounting
+      // a fresh AppContent on Home — seeding from sessionStorage must hold.
+      firstLoad.unmount();
+
+      render(
+        <MemoryRouter initialEntries={['/']}>
+          <ThemeProvider>
+            <LanguageProvider>
+              <AppContent />
+            </LanguageProvider>
+          </ThemeProvider>
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(
+          screen.getByRole('heading', { name: /start your museum with one thing you love/i }),
+        ).toBeInTheDocument();
+      });
+      expect(screen.queryByTestId('access-gate')).not.toBeInTheDocument();
+    });
+
+    it('still greets a visitor who has never explored with the gate (empty sessionStorage)', async () => {
+      const { ThemeProvider } = await import('@/theme');
+      // beforeEach cleared sessionStorage: no prior exploration this session.
+
+      render(
+        <MemoryRouter initialEntries={['/']}>
+          <ThemeProvider>
+            <LanguageProvider>
+              <AppContent />
+            </LanguageProvider>
+          </ThemeProvider>
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId('access-gate')).toBeInTheDocument();
+      });
+      expect(window.sessionStorage.getItem('curio_public_browse')).toBeNull();
+    });
+
+    // Codex review on #518: the Explore CTA is live while getSession() is still
+    // pending, so a returning signed-in visitor who taps it during that window
+    // looks signed-out (user is null) for a tick. The durable latch must not be
+    // written then — otherwise a later sign-out would skip the welcome gate.
+    it('does not persist the latch when Explore is tapped before a signed-in session resolves', async () => {
+      const { ThemeProvider } = await import('@/theme');
+      // Hold getSession() unresolved so authReady stays false past the click.
+      let resolveSession!: (value: { data: { session: { user: { id: string } } } }) => void;
+      vi.mocked(supabaseService.supabase!.auth.getSession).mockReturnValue(
+        new Promise((resolve) => {
+          resolveSession = resolve;
+        }) as never,
+      );
+
+      render(
+        <MemoryRouter initialEntries={['/']}>
+          <ThemeProvider>
+            <LanguageProvider>
+              <AppContent />
+            </LanguageProvider>
+          </ThemeProvider>
+        </MemoryRouter>,
+      );
+
+      // The gate renders (with its live Explore CTA) while auth is still pending.
+      const exploreCta = await screen.findByTestId('cta-secondary-explore-sample');
+      fireEvent.click(exploreCta);
+
+      // The session now resolves as signed-in.
+      await act(async () => {
+        resolveSession({ data: { session: { user: { id: 'user1' } } } });
+      });
+
+      // The unresolved-auth tap must not have written the durable flag, so a
+      // later sign-out/reload still meets the welcome gate.
+      await waitFor(() => {
+        expect(screen.queryByTestId('access-gate')).not.toBeInTheDocument();
+      });
+      expect(window.sessionStorage.getItem('curio_public_browse')).toBeNull();
     });
   });
 
