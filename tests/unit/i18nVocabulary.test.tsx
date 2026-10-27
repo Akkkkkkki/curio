@@ -59,11 +59,13 @@ describe('CUR-122 — warm product vocabulary', () => {
 
   // CUR-166 made the AI layer provider-neutral. Flow microcopy must not name a
   // specific vendor, or it re-introduces the coupling the refactor removed and
-  // reads as wrong the moment the deployed provider changes. The privacy
-  // disclosure is the one intentional exception: it names "Google Gemini" for
-  // data-transparency about where uploaded photos go. (Issue #452)
+  // reads as wrong the moment the deployed provider changes. Privacy
+  // disclosures are the intentional exceptions: they name "Google Gemini" for
+  // data-transparency about where uploaded photos go — the privacy-page body
+  // (issue #452) and the pre-capture notice on the Add Item upload step
+  // (CUR-79).
   const VENDOR = /gemini/i;
-  const PRIVACY_DISCLOSURE_KEYS = ['legalPrivacyAiBody'];
+  const PRIVACY_DISCLOSURE_KEYS = ['legalPrivacyAiBody', 'aiPhotoDisclosure'];
 
   for (const locale of ['en', 'zh'] as const) {
     it(`${locale} i18n values name no AI vendor outside the privacy disclosure`, () => {

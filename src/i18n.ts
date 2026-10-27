@@ -115,6 +115,8 @@ export const translations = {
     keepEditing: 'Keep editing',
     analyzingPhoto: 'Analyzing photo...',
     aiWillExtract: 'Add a photo and AI will suggest the details.',
+    aiPhotoDisclosure:
+      'Your photo may be sent to Google Gemini to suggest details. Suggestions are always editable, and you can add items manually instead.',
     aiExtracting: 'AI is extracting details for your collection.',
     analysisTakingLong:
       'Taking longer than usual. You can skip the wait and enter the details yourself.',
@@ -693,6 +695,8 @@ export const translations = {
     keepEditing: '继续编辑',
     analyzingPhoto: '正在分析照片...',
     aiWillExtract: '添加照片，AI 会为您推荐馆藏细节。',
+    aiPhotoDisclosure:
+      '您的照片可能会发送给 Google Gemini 以推荐细节。建议始终可编辑，您也可以改为手动添加藏品。',
     aiExtracting: 'AI 正在为您提取馆藏细节。',
     analysisTakingLong: '比平时慢一些。您可以跳过等待，改为手动填写。',
     batchManualPending: '正在完成当前照片，其余的交给您手动填写。',
