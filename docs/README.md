@@ -23,6 +23,10 @@ or `docs/plan/`.
   sync logs.
 - `plan/DESIGN_flexible_collection_creation.md`: active forward-looking spec for Phase 1 flexible
   collection work. Delete once shipped and move enduring behavior into the canonical docs above.
+- `plan/DESIGN_flexible_template_builder_CUR-9.md`: active forward-looking spec — an addendum to
+  `DESIGN_flexible_collection_creation.md` recording the product and technical boundaries for the
+  Phase 1 flexible template builder. Delete once shipped and move enduring behavior into the
+  canonical docs above.
 - `plan/DESIGN_public_privacy_model.md`: active forward-looking spec for Phase 1 public profile,
   collection, item, and share-surface privacy. Delete once shipped and move enduring behavior into
   the canonical docs above.
