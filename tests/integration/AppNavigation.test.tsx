@@ -142,6 +142,9 @@ describe('App Integration Tests', () => {
     vi.mocked(supabaseService.supabase!.auth.getSession).mockResolvedValue({
       data: { session: { user: { id: 'user1' } } },
     } as never);
+    vi.mocked(supabaseService.supabase!.auth.onAuthStateChange).mockReturnValue({
+      data: { subscription: { unsubscribe: vi.fn() } },
+    } as never);
     // Re-assert the default profiles-lookup shape every test so a test that
     // overrides `from` (e.g. to defer the admin lookup) cannot leak into the
     // next one — clearAllMocks does not restore implementations.
@@ -1686,6 +1689,66 @@ describe('App Integration Tests', () => {
         expect(screen.getByTestId('access-gate')).toBeInTheDocument();
       });
       expect(window.sessionStorage.getItem('curio_public_browse')).toBeNull();
+    });
+
+    it('keeps the in-memory browse latch working when sessionStorage is blocked', async () => {
+      const { ThemeProvider } = await import('@/theme');
+      const originalSessionStorage = Object.getOwnPropertyDescriptor(window, 'sessionStorage');
+      const getItem = vi.fn((key: string) => {
+        if (key === 'curio_public_browse') {
+          throw new Error('sessionStorage blocked');
+        }
+        return null;
+      });
+      const setItem = vi.fn((key: string) => {
+        if (key === 'curio_public_browse') {
+          throw new Error('sessionStorage blocked');
+        }
+      });
+      const blockedSessionStorage = {
+        getItem,
+        setItem,
+        removeItem: vi.fn(),
+        clear: vi.fn(),
+        key: vi.fn(),
+        length: 0,
+      } as unknown as Storage;
+
+      Object.defineProperty(window, 'sessionStorage', {
+        configurable: true,
+        value: blockedSessionStorage,
+      });
+
+      try {
+        render(
+          <MemoryRouter initialEntries={['/']}>
+            <ThemeProvider>
+              <LanguageProvider>
+                <AppContent />
+              </LanguageProvider>
+            </ThemeProvider>
+          </MemoryRouter>,
+        );
+
+        await waitFor(() => {
+          expect(db.fetchCloudCollections).toHaveBeenCalled();
+        });
+        await screen.findByText(/capture, remember, and share/i);
+        const exploreCta = await screen.findByTestId('cta-secondary-explore-sample');
+        fireEvent.click(exploreCta);
+
+        await waitFor(() => {
+          expect(screen.getByRole('heading', { name: 'The Vinyl Vault' })).toBeInTheDocument();
+        });
+        expect(screen.queryByTestId('access-gate')).not.toBeInTheDocument();
+        await waitFor(() => {
+          expect(setItem).toHaveBeenCalledWith('curio_public_browse', '1');
+        });
+      } finally {
+        if (originalSessionStorage) {
+          Object.defineProperty(window, 'sessionStorage', originalSessionStorage);
+        }
+      }
     });
 
     // Codex review on #518: the Explore CTA is live while getSession() is still
