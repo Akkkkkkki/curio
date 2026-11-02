@@ -2,7 +2,7 @@ import React from 'react';
 import { UserCollection } from '../types';
 import { ChevronRight, Search } from 'lucide-react';
 import { TEMPLATES } from '../constants';
-import { useTranslation, getFieldTranslation, getTemplateDescription } from '../i18n';
+import { useTranslation, getFieldPreviewLabels, getTemplateDescription } from '../i18n';
 import {
   useTheme,
   cardSurfaceClasses,
@@ -56,20 +56,17 @@ export const CollectionCard: React.FC<CollectionCardProps> = React.memo(function
       ? 'shadow-[0_12px_30px_rgba(0,0,0,0.35)] hover:shadow-[0_18px_40px_rgba(0,0,0,0.45)]'
       : 'shadow-[0_6px_18px_rgba(15,23,42,0.08)] hover:shadow-[0_12px_26px_rgba(15,23,42,0.14)]';
 
-  const getFieldLabel = (fieldId: string, fallback: string) => {
-    return getFieldTranslation(t, fieldId, fallback);
-  };
   const displayIcon = collection.icon || template.icon;
   const templateFieldIds = new Set(template.fields.map((field) => field.id));
   const isCustomTags =
     collection.customFields.length > 0 &&
     (collection.customFields.length !== template.fields.length ||
       collection.customFields.some((field) => !templateFieldIds.has(field.id)));
+  // Keep the field preview in a single language (CUR #521): a custom collection
+  // mixing canonical ids (type → 类型) with user-authored ones (Maker) must not
+  // render a half-translated "类型 • Maker • 年份" list on the card.
   const tagPreview = isCustomTags
-    ? collection.customFields
-        .slice(0, 3)
-        .map((field) => getFieldLabel(field.id, field.label))
-        .join(' • ')
+    ? getFieldPreviewLabels(t, collection.customFields.slice(0, 3)).join(' • ')
     : '';
   const trimmedDescription = collection.collectionDescription?.trim();
   // The create flow can persist the collection name as its description; showing

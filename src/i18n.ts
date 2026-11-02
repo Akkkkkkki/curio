@@ -1198,6 +1198,31 @@ export const getFieldTranslation = (
 };
 
 /**
+ * Build a single-language field-label list for the collection-card preview
+ * (CUR #521). The card concatenates a few labels into one line, so a
+ * half-translated list ("类型 • Maker • 年份") reads as broken. Per-field,
+ * {@link getFieldTranslation} only localizes fields whose id matches a built-in
+ * `label_*` key — correct in isolation, but it mixes languages when a custom
+ * collection pairs canonical ids (type → 类型) with user-authored ones (Maker).
+ * Keep the preview in one language: localize every label only when all of them
+ * have a translation; otherwise show the labels exactly as the user authored
+ * them. In EN the two branches produce the same text, so this changes nothing
+ * for English readers.
+ */
+export const getFieldPreviewLabels = (
+  t: (key: TranslationKey | (string & {}), params?: Record<string, string | number>) => string,
+  fields: Array<{ id: string; label: string }>,
+): string[] => {
+  const allLocalized = fields.every((field) => {
+    const key = `label_${field.id}`;
+    return t(key) !== key;
+  });
+  return fields.map((field) =>
+    allLocalized ? getFieldTranslation(t, field.id, field.label) : field.label,
+  );
+};
+
+/**
  * Look up an optional one-line field hint like `hint_cocoa_percent`.
  * Mirrors {@link getFieldTranslation}: returns the localized hint when one
  * exists, otherwise the field's own `hint` (for custom fields), otherwise ''.
