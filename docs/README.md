@@ -21,6 +21,14 @@ or `docs/plan/`.
 
 - `ops/AI_GATEWAY_MONITORING.md`: operational monitoring reference for the Gemini gateway and
   sync logs.
+- `ops/ROLLBACK_RUNBOOK.md`: rollback procedures for AI gateway and Supabase schema changes,
+  including ownership and required access.
+- `ops/PRODUCT_ANALYTICS.md`: product-analytics reference for the Vercel Web Analytics event sink
+  and the `src/services/analytics.ts` transport boundary.
+- `ops/PUBLIC_SAMPLE_GALLERY.md`: admin guide for adding or updating the pre-login Public Sample
+  Gallery seed collections.
+- `PRODUCTION_AI_SECURITY.md`: how production AI security is enforced for the Vercel serverless
+  handlers (`api/_aiSecurity.js`), independently of the local Express proxy.
 - `plan/DESIGN_flexible_collection_creation.md`: active forward-looking spec for Phase 1 flexible
   collection work. Delete once shipped and move enduring behavior into the canonical docs above.
 - `plan/DESIGN_flexible_template_builder_CUR-9.md`: active forward-looking spec — an addendum to
@@ -41,6 +49,8 @@ or `docs/plan/`.
 - `plan/DESIGN_explore_feed_pipeline.md`: active forward-looking spec for the Phase 2 Explore feed
   content pipeline and curation model. Delete once shipped and move enduring behavior into the
   canonical docs above.
+- `reviews/`: point-in-time UX/design reviews kept for reference between product iterations (e.g.
+  `2026-06-23-ux-review.md` and its original `.html` artefact).
 - `archive/CODE_REVIEW_REPORT.md`: historical point-in-time report. Keep archived, do not update.
 
 ## Documentation rules
