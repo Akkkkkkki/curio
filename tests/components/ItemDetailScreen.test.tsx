@@ -159,6 +159,14 @@ describe('read-only item banner invites prospective collectors (#520)', () => {
     expect(screen.getByText(/can be viewed but not edited/i)).toBeInTheDocument();
     expect(screen.queryByTestId('read-only-start-museum')).not.toBeInTheDocument();
   });
+
+  it('keeps a public item editable for admins', () => {
+    renderItemDetail(readOnlyCollection, { isAdmin: true, isAuthenticated: true });
+
+    expect(screen.queryByText(/can be viewed but not edited/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Story' })).not.toBeDisabled();
+    expect(screen.getByRole('textbox', { name: 'Artist' })).not.toBeDisabled();
+  });
 });
 
 describe('ItemDetailScreen metadata field focus tint stays legible per theme', () => {
