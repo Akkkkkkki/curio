@@ -211,6 +211,17 @@ describe('CollectionScreen read-only notice consolidation (#411)', () => {
     expect(screen.queryByTestId('read-only-banner')).not.toBeInTheDocument();
     expect(screen.queryByTestId('read-only-start-museum')).not.toBeInTheDocument();
   });
+
+  it('keeps a public collection editable for admins', () => {
+    renderScreen(makeCollection({ isPublic: true, items: [makeItem('a')] }), {
+      isAdmin: true,
+      isAuthenticated: true,
+    });
+
+    expect(screen.queryByTestId('read-only-banner')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /add item/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /delete collection/i })).toBeInTheDocument();
+  });
 });
 
 describe('CollectionScreen read-only banner theming (CUR-94)', () => {
