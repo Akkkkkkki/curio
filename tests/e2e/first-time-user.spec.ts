@@ -140,6 +140,46 @@ test.describe('First-Time User Experience', () => {
     // After switching, the button label should change from ZH to EN.
     await expect(page.locator('button', { has: page.locator('text=EN') })).toBeVisible();
   });
+
+  // #527: the signed-out first-run card used `min-h-[calc(100vh-9rem)]` with
+  // vertical centering, so on short phones its secondary CTA ("Wander a sample
+  // museum") drifted down and sat behind the fixed mobile bottom nav at load.
+  // The card is now top-anchored on mobile and sized against the real space
+  // above the nav (via the `--bottom-nav-height` token), so its CTAs no longer
+  // sink into the nav.
+  test('keeps the first-run secondary CTA clear of the fixed mobile bottom nav (#527)', async ({
+    page,
+  }) => {
+    const secondary = page.getByRole('link', { name: /wander a sample museum/i });
+
+    // Load the first-run screen at a given phone height (scrolled to the very
+    // top) and report where the secondary CTA sits. The card now hugs the top of
+    // the available space, so this position is independent of viewport height.
+    // The old centered layout drifted it by ~90px as the viewport grew — the
+    // same drift that sank it behind the bottom nav on short phones. Comparing
+    // two heights cancels out font-metric differences between environments.
+    const secondaryTopAt = async (height: number) => {
+      await page.setViewportSize({ width: 390, height });
+      await page.goto('/');
+      await waitForAppReady(page);
+      await expect(secondary).toBeVisible();
+      const box = await secondary.boundingBox();
+      if (!box) throw new Error('first-run secondary CTA has no layout box');
+      return box.y;
+    };
+    const topShort = await secondaryTopAt(720);
+    const topTall = await secondaryTopAt(1000);
+    expect(Math.abs(topTall - topShort)).toBeLessThan(24);
+
+    // And on a standard mobile viewport the secondary CTA clears the nav outright.
+    await page.setViewportSize({ width: 390, height: 915 });
+    await page.goto('/');
+    await waitForAppReady(page);
+    const navBox = await page.locator('nav[aria-label="Primary"]').boundingBox();
+    const secBox = await secondary.boundingBox();
+    if (!navBox || !secBox) throw new Error('missing first-run layout boxes');
+    expect(secBox.y + secBox.height).toBeLessThanOrEqual(navBox.y);
+  });
 });
 
 test.describe('Navigation and Routing', () => {

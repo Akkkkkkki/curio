@@ -293,12 +293,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
   if (!hasOwnedContent) {
     return (
-      <div className="min-h-[calc(100vh-9rem)] flex items-center justify-center px-4 py-10 sm:py-16 animate-in fade-in duration-700">
+      <div className="flex flex-col items-center justify-start sm:justify-center min-h-[calc(100svh-var(--bottom-nav-height,5.5rem)-7rem)] sm:min-h-[calc(100vh-9rem)] px-4 py-6 sm:py-16 animate-in fade-in duration-700">
         <section
           className={`w-full max-w-3xl text-center rounded-[2rem] sm:rounded-[2.5rem] border px-5 py-10 sm:px-10 sm:py-14 shadow-xl ${theme === 'vault' ? 'bg-white/5 border-white/10' : theme === 'atelier' ? 'bg-[#EDE4D3]/70 border-[#D4C9B8]' : 'bg-white/85 border-stone-100'}`}
           aria-labelledby="first-run-heading"
         >
-          <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-full bg-amber-500 text-white shadow-lg shadow-amber-500/20">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-amber-500 text-white shadow-lg shadow-amber-500/20 sm:mb-6 sm:h-14 sm:w-14">
             <Sparkles size={24} />
           </div>
           <p className={`${typographyClasses.label} ${accentLabelColorClasses[theme]} mb-3`}>
@@ -315,7 +315,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           >
             {t('firstRunSubtitle')}
           </p>
-          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:mt-8 sm:flex-row">
             <Button onClick={handleAddAction} size="lg" className="w-full sm:w-auto shadow-sm">
               {t('firstRunPrimary')}
             </Button>
