@@ -5,7 +5,7 @@
 ## 1. System Architecture
 
 - **Storage**: Supabase (PostgreSQL + Auth + Storage) as source of truth, IndexedDB as cache.
-- **AI Inference**: Gemini-3-flash-preview via a server-side proxy (local dev: `server/geminiProxy.js`; deploy: same-origin `/api/*` via Vercel rewrites and/or `api/*` handlers) to keep API keys off the client.
+- **AI Inference**: Google Gemini (default `gemini-2.5-flash`, overridable via `GEMINI_ANALYZE_MODEL`) via a server-side proxy (local dev: `server/geminiProxy.js`; deploy: same-origin `/api/*` via Vercel rewrites and/or `api/*` handlers) to keep API keys off the client.
 - **Billing (planned)**: Stripe-hosted Checkout Sessions for web/PWA subscriptions, Stripe Customer Portal for self-service billing, and Stripe webhooks into Supabase for entitlement state.
 
 ### See also
