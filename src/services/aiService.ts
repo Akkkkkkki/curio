@@ -141,7 +141,10 @@ const fetchAiCapabilities = async (): Promise<AiCapabilities> => {
       metadataAnalysisAvailable: payload?.metadataAnalysisAvailable ?? fallback,
       fieldSuggestionsAvailable: payload?.fieldSuggestionsAvailable ?? fallback,
       storyPromptsAvailable: payload?.storyPromptsAvailable ?? fallback,
-      imageEditingAvailable: payload?.imageEditingAvailable ?? fallback,
+      // Photo enhancement sends private images to a third-party model, so only
+      // an explicit server opt-in may enable it. Legacy health responses that
+      // only expose `geminiConfigured` must fail closed for image editing.
+      imageEditingAvailable: payload?.imageEditingAvailable === true,
     };
   } catch {
     // Rethrow so loadAiCapabilities can tell "health says unavailable" from
