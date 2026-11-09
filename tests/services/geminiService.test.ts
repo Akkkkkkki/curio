@@ -439,7 +439,7 @@ describe('services/geminiService.ts - enhanceImage', () => {
         });
       }
       // Health check
-      return createOkJsonResponse({ geminiConfigured: true });
+      return createOkJsonResponse({ geminiConfigured: true, imageEditingAvailable: true });
     });
     vi.stubGlobal('fetch', fetchSpy);
 
@@ -472,7 +472,7 @@ describe('services/geminiService.ts - enhanceImage', () => {
           },
         });
       }
-      return createOkJsonResponse({ geminiConfigured: true });
+      return createOkJsonResponse({ geminiConfigured: true, imageEditingAvailable: true });
     });
     vi.stubGlobal('fetch', fetchSpy);
 
@@ -487,7 +487,7 @@ describe('services/geminiService.ts - enhanceImage', () => {
       'fetch',
       vi.fn().mockImplementation(async (url: string) => {
         if (url.includes('/health')) {
-          return createOkJsonResponse({ geminiConfigured: true });
+          return createOkJsonResponse({ geminiConfigured: true, imageEditingAvailable: true });
         }
         return new Response(
           JSON.stringify({
@@ -511,7 +511,7 @@ describe('services/geminiService.ts - enhanceImage', () => {
       'fetch',
       vi.fn().mockImplementation(async (url: string) => {
         if (url.includes('/health')) {
-          return createOkJsonResponse({ geminiConfigured: true });
+          return createOkJsonResponse({ geminiConfigured: true, imageEditingAvailable: true });
         }
         throw new Error('Network down');
       }),
@@ -766,5 +766,29 @@ describe('services/aiService.ts - per-feature capability gating (CUR-166)', () =
 
     await expect(mod.refreshAiImageEditEnabled()).resolves.toBe(false);
     expect(mod.isAiImageEditEnabled()).toBe(false);
+  });
+
+  it('fails closed for image editing when legacy health omits the explicit image flag', async () => {
+    vi.resetModules();
+    vi.unstubAllEnvs();
+    vi.stubEnv('VITE_AI_ENABLED', undefined as unknown as string);
+    vi.stubEnv('VITE_AI_IMAGE_EDIT_ENABLED', 'true');
+    vi.stubEnv('VITE_API_BASE_URL', 'http://localhost:8787');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(async (url: string) => {
+        if (url.includes('/health')) {
+          return createOkJsonResponse({ geminiConfigured: true });
+        }
+        throw new Error(`Unexpected request: ${url}`);
+      }),
+    );
+
+    const mod = await import('@/services/aiService');
+
+    // Legacy health responses still enable metadata/story/field AI through the
+    // geminiConfigured fallback, but private-photo editing needs explicit opt-in.
+    await expect(mod.refreshAiEnabled()).resolves.toBe(true);
+    await expect(mod.refreshAiImageEditEnabled()).resolves.toBe(false);
   });
 });
