@@ -579,6 +579,59 @@ describe('App Integration Tests', () => {
     expect(within(modal).getByRole('heading', { name: /welcome back/i })).toBeInTheDocument();
   });
 
+  it.each([
+    { route: '/collection/sample-vinyl', surface: 'collection' },
+    { route: '/collection/sample-vinyl/item/sample-item-1', surface: 'item detail' },
+  ])('opens sign-up mode from the read-only sample $surface banner (#520)', async ({ route }) => {
+    const { ThemeProvider } = await import('@/theme');
+    const now = new Date().toISOString();
+    const publicSample = {
+      id: 'sample-vinyl',
+      name: 'The Vinyl Vault',
+      templateId: 'vinyl',
+      icon: '🎵',
+      customFields: [],
+      items: [
+        {
+          id: 'sample-item-1',
+          collectionId: 'sample-vinyl',
+          title: 'Kind of Blue',
+          rating: 5,
+          data: {},
+          photoUrl: '',
+          notes: 'A modal jazz landmark.',
+          createdAt: now,
+          updatedAt: now,
+        },
+      ],
+      isPublic: true,
+      ownerId: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    vi.mocked(supabaseService.supabase!.auth.getSession).mockResolvedValue({
+      data: { session: null },
+    } as never);
+    vi.mocked(db.getLocalCollections).mockResolvedValue([]);
+    vi.mocked(db.fetchCloudCollections).mockResolvedValue([publicSample]);
+
+    render(
+      <MemoryRouter initialEntries={[route]}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent />
+          </LanguageProvider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByTestId('read-only-start-museum'));
+
+    const modal = await screen.findByTestId('auth-modal');
+    expect(within(modal).getByRole('heading', { name: /join the museum/i })).toBeInTheDocument();
+    expect(within(modal).getByRole('button', { name: /create account/i })).toBeInTheDocument();
+  });
+
   // #436: a returning user who taps the landing "Add your first item" CTA and
   // signs in must resume into Add Item — not "Start a collection". Their
   // collections load asynchronously after auth, so the queued intent must wait
