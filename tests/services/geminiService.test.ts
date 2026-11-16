@@ -439,7 +439,7 @@ describe('services/geminiService.ts - enhanceImage', () => {
         });
       }
       // Health check
-      return createOkJsonResponse({ geminiConfigured: true });
+      return createOkJsonResponse({ geminiConfigured: true, imageEditingAvailable: true });
     });
     vi.stubGlobal('fetch', fetchSpy);
 
@@ -472,7 +472,7 @@ describe('services/geminiService.ts - enhanceImage', () => {
           },
         });
       }
-      return createOkJsonResponse({ geminiConfigured: true });
+      return createOkJsonResponse({ geminiConfigured: true, imageEditingAvailable: true });
     });
     vi.stubGlobal('fetch', fetchSpy);
 
@@ -487,7 +487,7 @@ describe('services/geminiService.ts - enhanceImage', () => {
       'fetch',
       vi.fn().mockImplementation(async (url: string) => {
         if (url.includes('/health')) {
-          return createOkJsonResponse({ geminiConfigured: true });
+          return createOkJsonResponse({ geminiConfigured: true, imageEditingAvailable: true });
         }
         return new Response(
           JSON.stringify({
@@ -511,7 +511,7 @@ describe('services/geminiService.ts - enhanceImage', () => {
       'fetch',
       vi.fn().mockImplementation(async (url: string) => {
         if (url.includes('/health')) {
-          return createOkJsonResponse({ geminiConfigured: true });
+          return createOkJsonResponse({ geminiConfigured: true, imageEditingAvailable: true });
         }
         throw new Error('Network down');
       }),
@@ -563,6 +563,32 @@ describe('services/geminiService.ts - enhanceImage', () => {
           fieldSuggestionsAvailable: true,
           imageEditingAvailable: false,
         });
+      }
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    vi.stubGlobal('fetch', fetchSpy);
+
+    const mod = await import('@/services/geminiService');
+
+    await expect(mod.enhanceImage('BASE64_IMAGE')).resolves.toBeNull();
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(fetchSpy.mock.calls[0][0]).toBe('http://localhost:8787/api/health');
+    expect(warnSpy).toHaveBeenCalledWith('AI image editing is disabled');
+
+    warnSpy.mockRestore();
+  });
+
+  it('requires explicit imageEditingAvailable true instead of legacy geminiConfigured fallback', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    vi.resetModules();
+    vi.stubEnv('VITE_API_BASE_URL', 'http://localhost:8787');
+    vi.stubEnv('VITE_AI_ENABLED', undefined as unknown as string);
+    vi.stubEnv('VITE_AI_IMAGE_EDIT_ENABLED', 'true');
+
+    const fetchSpy = vi.fn().mockImplementation(async (url: string) => {
+      if (url.includes('/health')) {
+        return createOkJsonResponse({ geminiConfigured: true });
       }
       throw new Error(`Unexpected request: ${url}`);
     });
