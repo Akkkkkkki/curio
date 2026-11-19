@@ -1,9 +1,10 @@
 import type { ComponentProps } from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { LanguageProvider } from '@/i18n';
 import { ItemDetailScreen } from '@/components/ItemDetailScreen';
+import { refreshAiImageEditEnabled } from '@/services/geminiService';
 import { mockCollectionWithItems, mockItem } from '../utils/fixtures/collections';
 import { setMockTheme } from '../utils/test-utils';
 
@@ -158,6 +159,35 @@ describe('read-only item banner invites prospective collectors (#520)', () => {
     // Still clearly read-only, but telling a signed-in user to sign up is wrong.
     expect(screen.getByText(/can be viewed but not edited/i)).toBeInTheDocument();
     expect(screen.queryByTestId('read-only-start-museum')).not.toBeInTheDocument();
+  });
+});
+
+describe('ItemDetailScreen AI image edit gate (CUR-183)', () => {
+  const collectionWithAssetPhoto = {
+    ...mockCollectionWithItems,
+    items: [{ ...mockItem, photoUrl: 'asset' }],
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(refreshAiImageEditEnabled).mockResolvedValue(false);
+  });
+
+  it('hides the Enhance action when image editing is disabled', async () => {
+    renderItemDetail(collectionWithAssetPhoto);
+
+    await waitFor(() => {
+      expect(refreshAiImageEditEnabled).toHaveBeenCalled();
+    });
+    expect(screen.queryByRole('button', { name: 'Enhance Image' })).not.toBeInTheDocument();
+  });
+
+  it('shows the Enhance action when image editing is enabled for an editable asset photo', async () => {
+    vi.mocked(refreshAiImageEditEnabled).mockResolvedValueOnce(true);
+
+    renderItemDetail(collectionWithAssetPhoto);
+
+    expect(await screen.findByRole('button', { name: 'Enhance Image' })).toBeInTheDocument();
   });
 });
 
