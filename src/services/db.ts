@@ -71,9 +71,23 @@ export type RecoveryEvent = {
 
 type RecoveryCallback = (event: RecoveryEvent) => void;
 let onRecoveryCallback: RecoveryCallback | null = null;
+let pendingRecoveryEvents: RecoveryEvent[] = [];
 
 export const setRecoveryCallback = (cb: RecoveryCallback | null) => {
   onRecoveryCallback = cb;
+  if (!cb || pendingRecoveryEvents.length === 0) return;
+
+  const eventsToReplay = pendingRecoveryEvents;
+  pendingRecoveryEvents = [];
+  eventsToReplay.forEach((event) => cb(event));
+};
+
+const notifyRecovery = (event: RecoveryEvent) => {
+  if (onRecoveryCallback) {
+    onRecoveryCallback(event);
+    return;
+  }
+  pendingRecoveryEvents.push(event);
 };
 
 // ============================================================================
@@ -421,11 +435,11 @@ export const initDB = (): Promise<IDBDatabase> => {
 
   dbInitPromise = openDatabase().catch(async (error) => {
     console.warn('IndexedDB open failed, attempting recovery:', error);
-    onRecoveryCallback?.({ type: 'corruption_detected', lostData: true });
+    notifyRecovery({ type: 'corruption_detected', lostData: true });
     await deleteDatabase();
     dbInitPromise = null;
     const db = await openDatabase();
-    onRecoveryCallback?.({ type: 'recovery_complete', lostData: true });
+    notifyRecovery({ type: 'recovery_complete', lostData: true });
     return db;
   });
 
@@ -1381,7 +1395,7 @@ const loadLocalCollections = async (isRetry = false): Promise<UserCollection[]> 
       console.warn('IndexedDB read failed, attempting recovery:', error);
 
       // Notify app about corruption BEFORE deleting
-      onRecoveryCallback?.({ type: 'corruption_detected', lostData: true });
+      notifyRecovery({ type: 'corruption_detected', lostData: true });
 
       await deleteDatabase();
       dbInstance = null;
@@ -1390,7 +1404,7 @@ const loadLocalCollections = async (isRetry = false): Promise<UserCollection[]> 
       try {
         const result = await loadLocalCollections(true);
         // Only emit recovery_complete if retry succeeded
-        onRecoveryCallback?.({ type: 'recovery_complete', lostData: true });
+        notifyRecovery({ type: 'recovery_complete', lostData: true });
         return result;
       } catch {
         // Retry failed - recovery_failed already emitted by inner call
@@ -1400,7 +1414,7 @@ const loadLocalCollections = async (isRetry = false): Promise<UserCollection[]> 
 
     // If retry also fails, notify and return empty
     console.error('IndexedDB recovery failed, returning empty collections');
-    onRecoveryCallback?.({ type: 'recovery_failed', lostData: true });
+    notifyRecovery({ type: 'recovery_failed', lostData: true });
     throw error; // Re-throw so outer catch knows retry failed
   }
 };
