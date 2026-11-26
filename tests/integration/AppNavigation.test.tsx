@@ -1688,6 +1688,42 @@ describe('App Integration Tests', () => {
       expect(window.sessionStorage.getItem('curio_public_browse')).toBeNull();
     });
 
+    it('keeps sample browsing usable when sessionStorage writes are blocked', async () => {
+      const { ThemeProvider } = await import('@/theme');
+      const originalSetItem = window.sessionStorage.setItem;
+      const blockedSetItem = vi.fn(() => {
+        throw new Error('sessionStorage blocked');
+      });
+      Object.defineProperty(window.sessionStorage, 'setItem', {
+        configurable: true,
+        value: blockedSetItem,
+      });
+
+      try {
+        render(
+          <MemoryRouter initialEntries={['/collection/sample-vinyl']}>
+            <ThemeProvider>
+              <LanguageProvider>
+                <AppContent />
+              </LanguageProvider>
+            </ThemeProvider>
+          </MemoryRouter>,
+        );
+
+        await waitFor(() => {
+          expect(screen.getByRole('heading', { name: 'The Vinyl Vault' })).toBeInTheDocument();
+        });
+        expect(screen.queryByTestId('access-gate')).not.toBeInTheDocument();
+        expect(blockedSetItem).toHaveBeenCalledWith('curio_public_browse', '1');
+        expect(window.sessionStorage.getItem('curio_public_browse')).toBeNull();
+      } finally {
+        Object.defineProperty(window.sessionStorage, 'setItem', {
+          configurable: true,
+          value: originalSetItem,
+        });
+      }
+    });
+
     // Codex review on #518: the Explore CTA is live while getSession() is still
     // pending, so a returning signed-in visitor who taps it during that window
     // looks signed-out (user is null) for a tick. The durable latch must not be
